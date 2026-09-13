@@ -2,6 +2,7 @@ import { getScoreMultiplier, getStartLivesScale, getStartMoneyScale, getSuperCha
 import type { HeroId } from './heroes';
 import { modeRules } from './modes';
 import { MAX_LIVES } from './world';
+import { getTowerXpState, grantTowerXp } from './towerProgression';
 
 export interface GameState {
   score: number;
@@ -11,6 +12,9 @@ export interface GameState {
   wave: number;
   elapsed: number;
   towerLevel: number;
+  towerXp: number;
+  towerXpToNext: number | null;
+  towerXpProgress: number;
   running: boolean;
   toast: string;
   toastTimer: number;
@@ -28,6 +32,7 @@ export interface GameState {
 }
 
 export function createState(): GameState {
+  const tower = getTowerXpState();
   return {
     score: 0,
     currency: 140,
@@ -36,6 +41,9 @@ export function createState(): GameState {
     wave: 1,
     elapsed: 0,
     towerLevel: 1,
+    towerXp: tower.xp,
+    towerXpToNext: tower.nextLevelXp,
+    towerXpProgress: tower.progress,
     running: true,
     toast: '',
     toastTimer: 0,
@@ -57,11 +65,16 @@ export function resetState(state: GameState): void {
   const hero = state.hero;
   const heroLevel = state.heroLevel;
   const heroXp = state.heroXp;
+  const tower = getTowerXpState();
   const mode = state.mode;
   Object.assign(state, createState());
   state.hero = hero;
   state.heroLevel = heroLevel;
   state.heroXp = heroXp;
+  state.towerLevel = 1;
+  state.towerXp = tower.xp;
+  state.towerXpToNext = tower.nextLevelXp;
+  state.towerXpProgress = tower.progress;
   state.mode = mode;
   const rules = modeRules(mode);
   state.lives = Math.max(1, Math.round(rules.lives * getStartLivesScale()));
@@ -81,6 +94,14 @@ export function addScore(state: GameState, base: number): void {
   const scoreMul = getScoreMultiplier();
   state.score += Math.round(base * scoreMul);
   state.currency += Math.max(2, Math.round(base * 0.6 * rules.currencyMul));
+
+  // Every scored fruit/event now contributes to persistent Main Tower XP.
+  // The XP is deliberately independent from hero XP and in-match tower level.
+  const xpGain = Math.max(1, Math.round(base / 6));
+  const tower = grantTowerXp(xpGain);
+  state.towerXp = tower.xp;
+  state.towerXpToNext = tower.nextLevelXp;
+  state.towerXpProgress = tower.progress;
 }
 
 export function chargeSuper(state: GameState, amount: number): void {
