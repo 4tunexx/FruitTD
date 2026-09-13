@@ -155,12 +155,12 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
     const user = await resolveSession(bearer(req));
     if (!user) return res.status(401).json({ success: false, error: 'Not signed in' });
 
-    const code = String(req.body?.code || '').trim();
+    const code = String(req.body?.code || '').replace(/\D/g, '');
     if (!/^\d{6}$/.test(code)) {
       return res.status(400).json({ success: false, error: 'Enter the 6-digit code from your email.' });
     }
     if (!user.emailVerifyCodeHash || !user.emailVerifyExpires) {
-      return res.status(400).json({ success: false, error: 'No verification pending. Request a new code.' });
+      return res.status(400).json({ success: false, error: 'No verification pending. Press Send code for a new one.' });
     }
     if (user.emailVerifyExpires.getTime() < Date.now()) {
       return res.status(400).json({ success: false, error: 'Code expired. Request a new one.' });

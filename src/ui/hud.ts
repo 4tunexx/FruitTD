@@ -1200,7 +1200,8 @@ export class Hud {
       }
     });
     document.getElementById('btn-submit-confirm-code')?.addEventListener('click', async () => {
-      const code = (document.getElementById('confirm-code-input') as HTMLInputElement | null)?.value.trim() || '';
+      const code =
+        (document.getElementById('confirm-code-input') as HTMLInputElement | null)?.value.replace(/\D/g, '') || '';
       const errEl = document.getElementById('confirm-email-error');
       const res = await verifyEmailCode(code);
       if (!res.success || !res.user) {
