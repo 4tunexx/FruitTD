@@ -36,8 +36,14 @@ function mix(wave: number, count: number): SpawnItem[] {
     else fruit = 'lemon';
 
     const enemy = specialEnemyForWave(wave, Math.random());
-    // Bombs keep their classic danger. Volatile is a separate enemy modifier
-    // and can appear on normal fruit, making the decision to slice meaningful.
+    // Until the renderer gets dedicated enemy meshes, use existing fruit
+    // silhouettes that already communicate the danger in gameplay:
+    // volatile = bomb, armored = watermelon, swift = strawberry.
+    if (enemy === 'explosive') fruit = 'bomb';
+    else if (enemy === 'armored') fruit = 'watermelon';
+    else if (enemy === 'swift') fruit = 'strawberry';
+    else if (enemy === 'splitter') fruit = 'pineapple';
+
     out.push({ kind: fruit, boss: false, enemy });
   }
   return out;
@@ -71,13 +77,14 @@ export function planWave(wave: number, mode: GameMode): WavePlan {
     items.push(...mix(w, count));
   }
 
-  // Special enemies are introduced gradually so early gameplay teaches the
-  // normal loop before adding tower-risk targets.
   if (w >= 4) {
     const special = enemyRule('explosive');
     if (!items.some((item) => item.enemy === 'explosive')) {
       const index = Math.min(items.length - 1, Math.floor(w * 0.7));
-      if (items[index]) items[index].enemy = special.kind;
+      if (items[index]) {
+        items[index].enemy = special.kind;
+        items[index].kind = 'bomb';
+      }
     }
   }
 
