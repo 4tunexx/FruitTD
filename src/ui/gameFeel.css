@@ -1,0 +1,12 @@
+#combo-layer .hit-pop,#combo-layer .streak-pop,#combo-layer .reslice-pop{ text-shadow:0 3px 0 rgba(0,0,0,.55),0 0 18px currentColor; font-weight:1000; font-style:italic; filter:drop-shadow(0 8px 18px rgba(0,0,0,.35)); }
+#combo-layer .hit-pop{font-size:clamp(2rem,5vw,4.4rem)}
+#combo-layer .streak-pop{font-size:clamp(1.7rem,4.2vw,3.8rem);text-transform:uppercase}
+#combo-layer .reslice-pop{font-size:clamp(1rem,2.4vw,2rem)}
+#combo-layer .is-live{animation:fruitTdComboIn .34s cubic-bezier(.16,1.2,.3,1) both}
+#combo-layer .is-swap{animation:fruitTdComboSwap .22s ease-out both}
+@keyframes fruitTdComboIn{0%{opacity:0;transform:translate(-50%,18px) scale(.55) rotate(-4deg)}55%{opacity:1;transform:translate(-50%,-4px) scale(1.12) rotate(1deg)}100%{opacity:1;transform:translate(-50%,0) scale(1) rotate(0)}}
+@keyframes fruitTdComboSwap{0%{opacity:.35;transform:translate(-50%,0) scale(.8)}100%{opacity:1;transform:translate(-50%,0) scale(1)}}
+.menu-page button,#hud-start button,.modal button{min-height:42px;transition:transform .12s ease,filter .12s ease,border-color .12s ease}
+.menu-page button:active,#hud-start button:active,.modal button:active{transform:translateY(1px) scale(.98)}
+@media(max-width:860px){.menu-page button,#hud-start button,.modal button{min-height:46px}#combo-layer .hit-pop{font-size:clamp(2rem,12vw,3.6rem)}#combo-layer .streak-pop{font-size:clamp(1.45rem,9vw,2.8rem)}}
+@media(prefers-reduced-motion:reduce){#combo-layer .is-live,#combo-layer .is-swap{animation:none}}
