@@ -368,12 +368,7 @@ export class FruitField {
       fruit.bob += dt * 3;
       const dx = -fruit.group.position.x * 0.12;
       const dz = LEAK_Z - fruit.group.position.z;
-      const dist = Math.hypot(dx, dz);
-      if (fruit.group.position.z <= LEAK_Z) {
-        this.kill(fruit);
-        onLeak(fruit);
-        continue;
-      }
+      const dist = Math.hypot(dx, dz) || 0.0001;
       fruit.brittle = Math.max(0, fruit.brittle - dt);
       fruit.impulseX *= 0.88;
       fruit.impulseZ *= 0.88;
@@ -388,7 +383,15 @@ export class FruitField {
       fruit.group.position.x += (dx / dist) * speed * dt + fruit.dodgeX * dt + fruit.impulseX * dt;
       fruit.group.position.z += (dz / dist) * speed * dt + fruit.dodgeZ * dt + fruit.impulseZ * dt;
       fruit.group.position.x = Math.max(-hw, Math.min(hw, fruit.group.position.x));
-      fruit.group.position.z = Math.max(LEAK_Z + 0.05, Math.min(top, fruit.group.position.z));
+      fruit.group.position.z = Math.min(top, fruit.group.position.z);
+
+      // Must check AFTER move — clamping to LEAK_Z+epsilon previously made leaks impossible.
+      if (fruit.group.position.z <= LEAK_Z) {
+        this.kill(fruit);
+        onLeak(fruit);
+        continue;
+      }
+
       fruit.squash = Math.max(0, fruit.squash - dt);
       const squash = fruit.squash > 0 ? 1 - fruit.squash * 1.4 : 1;
       fruit.group.scale.set(fruit.radius * (2 - squash), fruit.radius * squash, fruit.radius * (2 - squash));

@@ -143,6 +143,7 @@ export class Hud {
     };
     this.adminController = new AdminController(refreshDailyFromAdmin, refreshDailyFromAdmin);
 
+    this.initSidebarMobile();
     this.initModals();
     this.initTitleScreen();
     this.initLeaderboardFilters();
@@ -150,6 +151,25 @@ export class Hud {
     this.initSteamIntegration();
     this.checkDailyBonus();
     void loadLiveConfig().then(() => this.refreshMonthlyRank());
+  }
+
+  private setSidebarOpen(open: boolean): void {
+    const app = document.getElementById('app');
+    const toggle = document.getElementById('btn-sidebar-toggle');
+    const backdrop = document.getElementById('btn-sidebar-close');
+    app?.classList.toggle('sidebar-open', open);
+    toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    backdrop?.classList.toggle('hidden', !open);
+  }
+
+  private initSidebarMobile(): void {
+    document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => this.setSidebarOpen(true));
+    document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
+    document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
+    // Auto-close after placing / upgrading on phones so slicing stays free
+    this.shop.addEventListener('click', () => {
+      if (window.matchMedia('(max-width: 860px)').matches) this.setSidebarOpen(false);
+    });
   }
 
   showMenu(open: boolean): void {
@@ -390,11 +410,12 @@ export class Hud {
     this.heroPick.innerHTML = '';
     for (const hero of HEROES) {
       const lv = heroLevelFromSave(save, hero.id);
+      const xp = save.xp[hero.id] ?? 0;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.hero = hero.id;
       btn.className = 'hero-btn';
-      btn.innerHTML = `<p class="text-sm font-black">${hero.name}</p><p class="text-[11px] text-zinc-400">${hero.title} · Lv ${lv}</p>`;
+      btn.innerHTML = `<p class="text-sm font-black">${hero.name}</p><p class="text-[11px] text-zinc-400">${hero.title} · Lv ${lv}/5 · ${xp} XP</p>`;
       btn.addEventListener('click', () => this.onHero?.(hero.id));
       this.heroPick.appendChild(btn);
     }

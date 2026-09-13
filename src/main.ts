@@ -8,7 +8,7 @@ import { Field } from './game/field';
 import { FRUIT_DEFS, FruitField, fruitFamily, type Fruit } from './game/fruits';
 import { HEROES, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
 import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
-import { SHOP_SKINS, defaultAvatar, loadSave, writeSave, type GameMode, type SaveData } from './game/save';
+import { SHOP_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
 import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
 import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
@@ -23,7 +23,7 @@ import { MAIN_INDEX, PADS, slotIndexAt, upgradeCost } from './game/world';
 import { BladeInput, type Slash } from './input/blade';
 import { ComboFx } from './ui/combos';
 import { Hud } from './ui/hud';
-import { submitScore, syncCloudSave } from './services/api';
+import { submitScore, syncCloudSave, fetchCloudSave } from './services/api';
 import { initAchievementsCache } from './services/achievements';
 import { reportGameEvent } from './services/progress';
 import { getCachedSteamState } from './services/steam';
@@ -107,6 +107,16 @@ hud.onRename = (name) => {
 };
 hud.onSuper = () => trySuper();
 
+void fetchCloudSave().then((remote) => {
+  if (!remote) return;
+  const merged = mergeSaves(save, remote as Partial<SaveData>);
+  Object.assign(save, merged);
+  writeSave(save);
+  state.hero = save.hero;
+  state.heroXp = save.xp[save.hero] ?? 0;
+  state.heroLevel = heroXpToLevel(state.heroXp);
+  hud.mountMeta(save);
+});
 function equippedBladeColor(): number {
   return SHOP_SKINS.find((s) => s.id === save.bladeSkin)?.color ?? heroDef(state.hero).trail;
 }
@@ -497,10 +507,12 @@ function setPaused(on: boolean): void {
 }
 
 function quitToMenu(): void {
+  persist();
   started = false;
   paused = false;
   menuOpen = true;
   state.running = false;
+  document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
@@ -512,6 +524,7 @@ function restartMatch(): void {
   paused = false;
   menuOpen = false;
   started = true;
+  document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showMenu(false);
   restart();
 }

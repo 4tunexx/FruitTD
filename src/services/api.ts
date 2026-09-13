@@ -303,6 +303,15 @@ export async function getSteamStatus(): Promise<{
 }
 
 // ----------------- CLOUD SAVE -----------------
+export async function fetchCloudSave(): Promise<Record<string, any> | null> {
+  const userId = getUserId();
+  const res = await apiRequest<{
+    success: boolean;
+    saveData: Record<string, any> | null;
+  }>(`/api/profile?userId=${encodeURIComponent(userId)}`);
+  return res && res.success ? res.saveData : null;
+}
+
 export async function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
   const userId = getUserId();
   const res = await apiRequest<{ success: boolean }>('/api/profile/sync', {

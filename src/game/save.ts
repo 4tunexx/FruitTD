@@ -83,6 +83,38 @@ export function writeSave(data: SaveData): void {
   }
 }
 
+export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | undefined): SaveData {
+  if (!remote) return local;
+  const xp = emptyXp();
+  for (const hero of HEROES) {
+    xp[hero.id] = Math.max(local.xp[hero.id] ?? 0, remote.xp?.[hero.id] ?? 0);
+  }
+  const skills = emptySkills();
+  for (const skill of SKILLS) {
+    skills[skill.id] = Math.max(local.skills[skill.id] ?? 0, remote.skills?.[skill.id] ?? 0);
+  }
+  const owned = new Set([...(local.ownedSkins || []), ...(remote.ownedSkins || [])]);
+  return {
+    ...local,
+    ...remote,
+    xp,
+    skills,
+    ownedSkins: owned.size ? [...owned] : local.ownedSkins,
+    highScore: Math.max(local.highScore, remote.highScore ?? 0),
+    rankedScore: Math.max(local.rankedScore, remote.rankedScore ?? 0),
+    bestWave: Math.max(local.bestWave, remote.bestWave ?? 0),
+    games: Math.max(local.games, remote.games ?? 0),
+    coins: Math.max(local.coins, remote.coins ?? 0),
+    skillPoints: Math.max(local.skillPoints, remote.skillPoints ?? 0),
+    hero: HEROES.some((h) => h.id === remote.hero) ? (remote.hero as HeroId) : local.hero,
+    nickname: remote.nickname || local.nickname,
+    avatar: remote.avatar || local.avatar,
+    bladeSkin: remote.bladeSkin || local.bladeSkin,
+    wallSkin: remote.wallSkin || local.wallSkin,
+    mode: remote.mode || local.mode,
+  };
+}
+
 export function heroLevelFromSave(data: SaveData, id: HeroId): number {
   return heroXpToLevel(data.xp[id] ?? 0);
 }

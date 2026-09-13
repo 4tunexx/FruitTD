@@ -128,8 +128,15 @@
         <!-- Combo pop layer -->
         <div id="combo-layer"></div>
 
+        <button type="button" id="btn-sidebar-toggle" class="sidebar-toggle" aria-label="Open build menu" aria-expanded="false">
+          <span class="sidebar-toggle-icon" aria-hidden="true">⚔</span>
+          <span class="sidebar-toggle-text">Build</span>
+        </button>
+        <button type="button" id="btn-sidebar-close" class="sidebar-backdrop hidden" aria-label="Close build menu"></button>
+
         <!-- ════ Right sidebar ════ -->
         <aside id="sidebar">
+          <button type="button" id="btn-sidebar-hide" class="sidebar-hide-btn" aria-label="Hide build menu">✕</button>
           <!-- Header -->
           <div id="sidebar-header">
             <div>
