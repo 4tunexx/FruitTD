@@ -82,7 +82,6 @@ export class BladeInput {
     };
     this.lastSlash = slash;
     this.slashQueue.push(slash);
-    // Keep the queue bounded if a device sends an unusually large pointer burst.
     if (this.slashQueue.length > 48) this.slashQueue.splice(0, this.slashQueue.length - 48);
   }
 
@@ -148,11 +147,22 @@ export class BladeInput {
     this.samples.length = 0;
   }
 
-  /** Returns one queued hit-scan segment per simulation tick. */
   consumeSlash(): Slash | null {
     const slash = this.slashQueue.shift() ?? null;
     if (!this.slashQueue.length) this.lastSlash = null;
     return slash;
+  }
+
+  /** Drain all queued hit-scan segments generated since the previous tick. */
+  consumeSlashes(max = 16): Slash[] {
+    const out: Slash[] = [];
+    const count = Math.min(max, this.slashQueue.length);
+    for (let i = 0; i < count; i++) {
+      const slash = this.slashQueue.shift();
+      if (slash) out.push(slash);
+    }
+    if (!this.slashQueue.length) this.lastSlash = null;
+    return out;
   }
 
   consumeClick(): Vector3 | null {
