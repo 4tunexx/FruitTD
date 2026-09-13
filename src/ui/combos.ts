@@ -1,5 +1,6 @@
 import './gameFeel.css';
 import './slicerPreview';
+import './progressionUi';
 
 const STREAKS: { n: number; title: string; color: string }[] = [
   { n: 2, title: 'DOUBLE SLICE!', color: '#60a5fa' },
