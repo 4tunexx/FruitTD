@@ -1,10 +1,12 @@
 import type { FruitKind } from './fruits';
+import { enemyRule, specialEnemyForWave, type EnemyKind } from './enemies';
 import { modeRules } from './modes';
 import type { GameMode } from './save';
 
 export interface SpawnItem {
   kind: FruitKind;
   boss: boolean;
+  enemy?: EnemyKind;
 }
 
 export interface WavePlan {
@@ -15,22 +17,34 @@ export interface WavePlan {
   title: string;
 }
 
-function add(items: SpawnItem[], kind: FruitKind, n: number, boss = false): void {
-  for (let i = 0; i < n; i++) items.push({ kind, boss });
+function add(items: SpawnItem[], kind: FruitKind, n: number, boss = false, enemy?: EnemyKind): void {
+  for (let i = 0; i < n; i++) items.push({ kind, boss, enemy });
 }
 
-function mix(wave: number, count: number): FruitKind[] {
-  const out: FruitKind[] = [];
+function mix(wave: number, count: number): SpawnItem[] {
+  const out: SpawnItem[] = [];
   for (let i = 0; i < count; i++) {
     const roll = Math.random();
-    if (wave >= 3 && roll < 0.07 + wave * 0.012) out.push('bomb');
-    else if (wave >= 2 && roll < 0.2) out.push('watermelon');
-    else if (roll < 0.36) out.push('strawberry');
-    else if (roll < 0.5) out.push('orange');
-    else if (roll < 0.64) out.push('banana');
-    else if (roll < 0.78) out.push('pineapple');
-    else if (roll < 0.9) out.push('kiwi');
-    else out.push('lemon');
+    let fruit: FruitKind;
+    if (wave >= 3 && roll < 0.07 + wave * 0.012) fruit = 'bomb';
+    else if (wave >= 2 && roll < 0.2) fruit = 'watermelon';
+    else if (roll < 0.36) fruit = 'strawberry';
+    else if (roll < 0.5) fruit = 'orange';
+    else if (roll < 0.64) fruit = 'banana';
+    else if (roll < 0.78) fruit = 'pineapple';
+    else if (roll < 0.9) fruit = 'kiwi';
+    else fruit = 'lemon';
+
+    const enemy = specialEnemyForWave(wave, Math.random());
+    // Until the renderer gets dedicated enemy meshes, use existing fruit
+    // silhouettes that already communicate the danger in gameplay:
+    // volatile = bomb, armored = watermelon, swift = strawberry.
+    if (enemy === 'explosive') fruit = 'bomb';
+    else if (enemy === 'armored') fruit = 'watermelon';
+    else if (enemy === 'swift') fruit = 'strawberry';
+    else if (enemy === 'splitter') fruit = 'pineapple';
+
+    out.push({ kind: fruit, boss: false, enemy });
   }
   return out;
 }
@@ -60,12 +74,23 @@ export function planWave(wave: number, mode: GameMode): WavePlan {
     add(items, 'bomb', 1);
   } else {
     const count = Math.min(28, 8 + w * 2);
-    for (const kind of mix(w, count)) add(items, kind, 1);
+    items.push(...mix(w, count));
+  }
+
+  if (w >= 4) {
+    const special = enemyRule('explosive');
+    if (!items.some((item) => item.enemy === 'explosive')) {
+      const index = Math.min(items.length - 1, Math.floor(w * 0.7));
+      if (items[index]) {
+        items[index].enemy = special.kind;
+        items[index].kind = 'bomb';
+      }
+    }
   }
 
   const bossWave = w > 0 && w % 5 === 0;
   if (bossWave) {
-    add(items, 'watermelon', 1, true);
+    add(items, 'watermelon', 1, true, w >= 10 ? 'armored' : 'normal');
     title = `WAVE ${wave}  ·  BOSS`;
   }
 
