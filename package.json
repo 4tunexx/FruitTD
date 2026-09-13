@@ -1,0 +1,31 @@
+{
+  "name": "juice-press-coop-crunch",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "tsx server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "tsx --test server/admin.routes.test.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongodb": "^7.6.0",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.2",
+    "@types/three": "^0.170.0",
+    "tailwindcss": "^4.1.13",
+    "tsx": "^4.23.13",
+    "typescript": "^5.7.3",
+    "vite": "^6.3.5"
+  }
+}
