@@ -129,12 +129,3 @@ export const WALL_SKINS = [
   { id: 'wall-stone', name: 'Stone wall', kind: 'wall' as const, cost: 200, sellValue: 70, color: 0x8b8f99, blurb: 'Cool grey stone.' },
   { id: 'wall-night', name: 'Night wall', kind: 'wall' as const, cost: 280, sellValue: 95, color: 0x2b3350, blurb: 'Dark midnight fort.' },
 ];
-
-/** @deprecated Prefer admin slicers + WALL_SKINS — kept for color lookups during migration */
-export const SHOP_SKINS = [
-  { id: 'blade-default', name: 'Steel blade', kind: 'blade' as const, cost: 0, color: 0x1d4ed8 },
-  { id: 'blade-gold', name: 'Gold blade', kind: 'blade' as const, cost: 180, color: 0xf4c430 },
-  { id: 'blade-ink', name: 'Ink blade', kind: 'blade' as const, cost: 240, color: 0x111827 },
-  { id: 'blade-cherry', name: 'Cherry blade', kind: 'blade' as const, cost: 320, color: 0xf472b6 },
-  ...WALL_SKINS,
-];
