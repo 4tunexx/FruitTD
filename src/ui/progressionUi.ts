@@ -1,3 +1,4 @@
+import '../game/enemyRuntime';
 import { getTowerXpState } from '../game/towerProgression';
 import { towerMilestone } from '../game/towerMilestones';
 
