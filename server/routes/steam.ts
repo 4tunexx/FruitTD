@@ -13,10 +13,11 @@ function frontendOrigin(): string {
 }
 
 function apiCallbackOrigin(req: Request): string {
+  // Prefer public site URL so Steam return_to matches fruit-td.vercel.app
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
   if (process.env.API_URL) return process.env.API_URL.replace(/\/$/, '');
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`.replace(/\/$/, '');
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '');
-  // Same-origin deploy (Vercel): use request host
   if (host && !host.includes('localhost:3001') && !host.startsWith('127.0.0.1:3001')) {
     const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
     return `${proto}://${host}`;
