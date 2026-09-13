@@ -392,12 +392,21 @@
 
             <!-- ── Shop page ── -->
             <section id="page-shop" class="menu-page hidden">
-              <p class="section-desc">Spend coins on blades and wall skins. Cloud-synced across sessions.</p>
+              <p class="section-desc">Buy slicers &amp; walls, then manage what you own. Only one blade can be equipped at a time.</p>
               <div class="shop-top-row">
                 <p id="shop-coins">0 coins</p>
                 <button id="btn-open-steam-shop" class="steam-link-btn">🎮 Link Steam (+500 Coins)</button>
               </div>
+              <div class="shop-section-head">
+                <h3>Shop</h3>
+                <p class="section-desc">Purchase items with coins.</p>
+              </div>
               <div id="skin-shop"></div>
+              <div class="shop-section-head">
+                <h3>Inventory</h3>
+                <p class="section-desc">Equip one blade · sell for coins · or delete forever.</p>
+              </div>
+              <div id="skin-inventory"></div>
               <label class="name-label">
                 Nickname
                 <input id="name-input" maxlength="16" placeholder="Slicer" />
@@ -606,6 +615,7 @@
               <button class="admin-tab-btn" data-tab="achievements">Achievements</button>
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
               <button class="admin-tab-btn" data-tab="ranks">Monthly Ranks</button>
+              <button class="admin-tab-btn" data-tab="slicers">Slicers</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
               <button class="admin-tab-btn" data-tab="economy">Game Economy</button>
               <button class="admin-tab-btn" data-tab="leaderboard">Leaderboards</button>
@@ -652,6 +662,14 @@
                 <button type="button" id="btn-admin-add-rank" class="admin-btn-action">+ Add Rank</button>
               </div>
               <div id="admin-ranks-list" class="admin-catalog-list"></div>
+            </div>
+
+            <div id="admin-tab-slicers" class="admin-panel-tab hidden">
+              <div class="admin-catalog-toolbar">
+                <p class="text-xs text-slate-400">Create shop blades with color pickers, trail/glow/glint sliders, and fruit effects (damage, juice, brittle). Enabled slicers appear in Shop; equipped blades show glint while swiping in-game.</p>
+                <button type="button" id="btn-admin-add-slicer" class="admin-btn-action">+ Add Slicer</button>
+              </div>
+              <div id="admin-slicers-list" class="admin-catalog-list"></div>
             </div>
 
             <!-- Tab 2: Branding & Menus -->

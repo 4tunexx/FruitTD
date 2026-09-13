@@ -8,13 +8,14 @@ import { Field } from './game/field';
 import { FRUIT_DEFS, FruitField, fruitFamily, type Fruit } from './game/fruits';
 import { HEROES, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
 import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
-import { SHOP_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
+import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
+import { findSlicer, hexToNumber } from './game/slicers';
 import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
 import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
 import { addScore, chargeSuper, createState, leakCost, resetState, toast } from './game/state';
-import { loadLiveConfig } from './services/liveConfig';
+import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave } from './game/waves';
 import { BladeTrail } from './game/trail';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
@@ -61,11 +62,11 @@ const blade = new BladeInput(canvas, renderer.camera, renderer);
 const trail = new BladeTrail();
 const slashFx = new SlashFx();
 const combos = new ComboFx();
-trail.setColor(equippedBladeColor());
+applyEquippedBlade();
 state.mode = save.mode;
 combos.setPlayer(save.nickname, save.avatar);
 
-renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, slashFx.group);
+renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks, slashFx.group);
 
 let started = false;
 let paused = false;
@@ -87,13 +88,19 @@ function emit(event: GameEvent): void {
 }
 
 initAchievementsCache();
-void loadLiveConfig();
+void loadLiveConfig().then(() => {
+  applyEquippedBlade();
+  hud.mountShop(save);
+});
 
 fruits.onSpawn = () => undefined;
 hud.mountMeta(save);
 hud.onHero = (id) => selectHero(id);
 hud.onMode = (id) => setMode(id);
 hud.onBuySkin = (id) => buySkin(id);
+hud.onEquipItem = (id) => equipItem(id);
+hud.onSellItem = (id) => sellItem(id);
+hud.onDeleteItem = (id) => deleteItem(id);
 hud.onBuySkill = (id) => buySkill(id);
 hud.onSaveUpdate = (newSave) => {
   Object.assign(save, newSave);
@@ -116,9 +123,15 @@ void fetchCloudSave().then((remote) => {
   state.heroXp = save.xp[save.hero] ?? 0;
   state.heroLevel = heroXpToLevel(state.heroXp);
   hud.mountMeta(save);
+  applyEquippedBlade();
 });
-function equippedBladeColor(): number {
-  return SHOP_SKINS.find((s) => s.id === save.bladeSkin)?.color ?? heroDef(state.hero).trail;
+function equippedSlicer() {
+  return findSlicer(getSlicers(), save.bladeSkin) || findSlicer(getEnabledSlicers(), save.bladeSkin);
+}
+
+function applyEquippedBlade(): void {
+  const slicer = equippedSlicer();
+  trail.applySlicer(slicer, hexToNumber(slicer?.color || '', heroDef(state.hero).trail));
 }
 
 function persist(): void {
@@ -144,23 +157,89 @@ function setMode(id: GameMode): void {
 }
 
 function buySkin(id: string): void {
-  const skin = SHOP_SKINS.find((s) => s.id === id);
-  if (!skin) return;
+  const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
+  const wall = WALL_SKINS.find((w) => w.id === id);
+  if (!slicer && !wall) return;
+
   if (!save.ownedSkins.includes(id)) {
-    if (save.coins < skin.cost) {
+    const cost = slicer?.cost ?? wall!.cost;
+    if (save.coins < cost) {
       sfx.denied();
       return;
     }
-    save.coins -= skin.cost;
+    save.coins -= cost;
     save.ownedSkins.push(id);
     emit({ type: 'skin_buy' });
   }
-  if (skin.kind === 'blade') save.bladeSkin = id;
-  else save.wallSkin = id;
-  trail.setColor(equippedBladeColor());
-  wall.applyWallSkin(SHOP_SKINS.find((s) => s.id === save.wallSkin)?.color ?? 0x9a4034);
+
+  if (slicer) {
+    save.bladeSkin = id;
+  } else if (wall) {
+    save.wallSkin = id;
+  }
+  applyEquippedBlade();
+  wallSkinApply();
   persist();
   sfx.place();
+}
+
+function equipItem(id: string): void {
+  if (!save.ownedSkins.includes(id)) return;
+  const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
+  const wall = WALL_SKINS.find((w) => w.id === id);
+  if (slicer) save.bladeSkin = id;
+  else if (wall) save.wallSkin = id;
+  else return;
+  applyEquippedBlade();
+  wallSkinApply();
+  persist();
+  sfx.select();
+}
+
+function sellItem(id: string): void {
+  if (id === 'blade-default' || id === 'wall-brick') {
+    sfx.denied();
+    return;
+  }
+  if (!save.ownedSkins.includes(id)) return;
+  const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
+  const wall = WALL_SKINS.find((w) => w.id === id);
+  const sell = slicer?.sellValue ?? wall?.sellValue ?? 0;
+  if (sell <= 0) {
+    sfx.denied();
+    return;
+  }
+  save.ownedSkins = save.ownedSkins.filter((x) => x !== id);
+  save.coins += sell;
+  if (save.bladeSkin === id) save.bladeSkin = 'blade-default';
+  if (save.wallSkin === id) save.wallSkin = 'wall-brick';
+  if (!save.ownedSkins.includes('blade-default')) save.ownedSkins.push('blade-default');
+  if (!save.ownedSkins.includes('wall-brick')) save.ownedSkins.push('wall-brick');
+  applyEquippedBlade();
+  wallSkinApply();
+  persist();
+  sfx.place();
+}
+
+function deleteItem(id: string): void {
+  if (id === 'blade-default' || id === 'wall-brick') {
+    sfx.denied();
+    return;
+  }
+  if (!save.ownedSkins.includes(id)) return;
+  save.ownedSkins = save.ownedSkins.filter((x) => x !== id);
+  if (save.bladeSkin === id) save.bladeSkin = 'blade-default';
+  if (save.wallSkin === id) save.wallSkin = 'wall-brick';
+  if (!save.ownedSkins.includes('blade-default')) save.ownedSkins.push('blade-default');
+  if (!save.ownedSkins.includes('wall-brick')) save.ownedSkins.push('wall-brick');
+  applyEquippedBlade();
+  wallSkinApply();
+  persist();
+  sfx.select();
+}
+
+function wallSkinApply(): void {
+  wall.applyWallSkin(WALL_SKINS.find((s) => s.id === save.wallSkin)?.color ?? 0x9a4034);
 }
 
 function buySkill(id: SkillId): void {
@@ -182,7 +261,7 @@ function selectHero(id: HeroId): void {
   state.heroXp = save.xp[id] ?? 0;
   state.heroLevel = heroXpToLevel(state.heroXp);
   save.hero = id;
-  trail.setColor(equippedBladeColor());
+  applyEquippedBlade();
   writeSave(save);
   hud.refreshHeroPick(id, save);
   sfx.select();
@@ -209,8 +288,10 @@ function grantHeroXp(n: number): void {
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   debris.spawnPair(fruit, swipe, new Vector3(0, 0, 1));
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
+  const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
-  bank.add(juiceHueFromKind(fruit.kind), fruit.brittle > 0 ? 3 : 2);
+  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul));
+  bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   addScore(state, FRUIT_DEFS[fruit.kind].score * (fruit.boss ? 4 : 1));
   grantHeroXp(fruit.boss ? 4 : 1);
   const rules = modeRules(state.mode);
@@ -234,7 +315,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
     emit({ type: 'boss_kill', fruitKind: fruit.kind, fruitFamily: family, boss: true });
   }
   emit({ type: 'slash_damage', damage: Math.max(1, FRUIT_DEFS[fruit.kind].hp), score: gained });
-  emit({ type: 'juice', amount: fruit.brittle > 0 ? 3 : 2 });
+  emit({ type: 'juice', amount: juiceAmt });
 }
 
 function maybeOver(): void {
@@ -404,7 +485,11 @@ function resolveSlash(slash: Slash): void {
   const hero = heroDef(state.hero);
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
-  const dmg = heroSlashDamage(state.hero, state.heroLevel, state.combo, slash.charge, pointer) + save.skills.edge * 4;
+  const slicerFx = equippedSlicer();
+  const dmg =
+    (heroSlashDamage(state.hero, state.heroLevel, state.combo, slash.charge, pointer) + save.skills.edge * 4) *
+    (slicerFx?.damageMul ?? 1);
+  const brittleBonus = slicerFx?.brittleBonus ?? 0;
   let hits = 0;
   const swipe = new Vector3().subVectors(slash.to, slash.from);
   if (swipe.lengthSq() < 0.0001) swipe.set(1, 0, 0);
@@ -417,7 +502,7 @@ function resolveSlash(slash: Slash): void {
       if (!fruit.alive) continue;
       if (!segmentHitsFruit(line.from, line.to, fruit, radius).hit) continue;
       hits += 1;
-      slashFx.spawn(fruit.group.position.x, fruit.group.position.z, hero.trail);
+      slashFx.spawn(fruit.group.position.x, fruit.group.position.z, hexToNumber(slicerFx?.color || '', hero.trail));
       if (fruit.kind === 'bomb') {
         if (line.speed > 8 || state.hero === 'ki') {
           sfx.bombParry();
@@ -433,10 +518,13 @@ function resolveSlash(slash: Slash): void {
         fruits.kill(fruit);
         continue;
       }
-      if (state.hero === 'topfu') {
-        fruit.brittle = Math.max(fruit.brittle, pointer === 'touch' ? 2.8 : 2.1);
-        fruit.impulseX += swipe.x * 2.2;
-        fruit.impulseZ += swipe.z * 2.2;
+      if (state.hero === 'topfu' || brittleBonus > 0) {
+        const base = state.hero === 'topfu' ? (pointer === 'touch' ? 2.8 : 2.1) : 0;
+        fruit.brittle = Math.max(fruit.brittle, base + brittleBonus);
+        if (state.hero === 'topfu') {
+          fruit.impulseX += swipe.x * 2.2;
+          fruit.impulseZ += swipe.z * 2.2;
+        }
       }
       if (fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level)) killFruit(fruit, swipe);
     }
@@ -704,6 +792,7 @@ function simulate(dt: number): void {
   renderer.update(dt);
   blade.fadeTrail();
   trail.sync(blade.trail);
+  trail.update(dt);
 }
 
 function draw(): void {
@@ -791,7 +880,8 @@ startBtn.addEventListener('click', async () => {
   persist();
   await Promise.all([sfx.unlock(), fruitAtlas.load()]);
   wall.applySkins();
-  wall.applyWallSkin(SHOP_SKINS.find((s) => s.id === save.wallSkin)?.color ?? 0x9a4034);
+  wallSkinApply();
+  applyEquippedBlade();
   restartMatch();
   startBtn.textContent = 'Play';
 });

@@ -8,6 +8,7 @@ import {
   type CatalogMission,
   type RankTier,
 } from '../game/requirements';
+import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { getCachedSteamState } from './steam';
 
 export const ADMIN_STEAM_ID = '76561198001993310';
@@ -44,6 +45,7 @@ export interface AdminConfig {
   achievements: CatalogAchievement[];
   badges: CatalogBadge[];
   ranks: RankTier[];
+  slicers: CatalogSlicer[];
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -74,6 +76,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
+  slicers: DEFAULT_SLICERS,
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -88,6 +91,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     achievements: structuredClone(Array.isArray(src.achievements) && src.achievements.length ? src.achievements : DEFAULT_ADMIN_CONFIG.achievements),
     badges: structuredClone(Array.isArray(src.badges) && src.badges.length ? src.badges : DEFAULT_ADMIN_CONFIG.badges),
     ranks: structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks),
+    slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
   };
 }
 

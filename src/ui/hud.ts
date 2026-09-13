@@ -1,7 +1,8 @@
 import type { JuiceBank } from '../game/juice';
 import { HEROES, heroDef, xpForNext, type HeroId } from '../game/heroes';
 import { MODE_INFO, modeRules } from '../game/modes';
-import { SHOP_SKINS, heroLevelFromSave, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
+import { WALL_SKINS, heroLevelFromSave, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
+import { findSlicer } from '../game/slicers';
 import { SKILLS, type SkillId } from '../game/skills';
 import type { GameState } from '../game/state';
 import { TURRETS, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
@@ -46,7 +47,7 @@ import {
 } from '../services/auth';
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
-import { loadLiveConfig, getLiveConfig } from '../services/liveConfig';
+import { loadLiveConfig, getLiveConfig, getEnabledSlicers, getSlicers } from '../services/liveConfig';
 import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
 import { getRewardSvg } from './icons';
@@ -100,6 +101,9 @@ export class Hud {
   onHero: ((id: HeroId) => void) | null = null;
   onMode: ((id: GameMode) => void) | null = null;
   onBuySkin: ((id: string) => void) | null = null;
+  onEquipItem: ((id: string) => void) | null = null;
+  onSellItem: ((id: string) => void) | null = null;
+  onDeleteItem: ((id: string) => void) | null = null;
   onBuySkill: ((id: SkillId) => void) | null = null;
   onRename: ((name: string) => void) | null = null;
   onSuper: (() => void) | null = null;
@@ -136,6 +140,7 @@ export class Hud {
     const refreshDailyFromAdmin = () => {
       this.checkDailyBonus();
       void this.refreshMonthlyRank();
+      if (this.currentSave) this.mountShop(this.currentSave);
       const modal = document.getElementById('modal-daily');
       if (modal && !modal.classList.contains('hidden')) {
         void this.openDailyModal();
@@ -439,19 +444,108 @@ export class Hud {
   mountShop(save: SaveData): void {
     const coinEl = document.getElementById('shop-coins');
     if (coinEl) coinEl.textContent = `${save.coins} coins`;
-    const box = document.getElementById('skin-shop')!;
+    const box = document.getElementById('skin-shop');
+    if (!box) return;
     box.innerHTML = '';
-    for (const skin of SHOP_SKINS) {
-      const owned = save.ownedSkins.includes(skin.id);
-      const eq = save.bladeSkin === skin.id || save.wallSkin === skin.id;
+
+    const slicers = getEnabledSlicers();
+    for (const slicer of slicers) {
+      const owned = save.ownedSkins.includes(slicer.id);
+      if (owned) continue;
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `skin-btn${eq ? ' is-on' : ''}`;
-      btn.innerHTML = `<p class="font-black">${skin.name}</p><p class="text-[11px] text-zinc-400">${
-        owned ? (eq ? 'Equipped' : 'Owned — click to use') : `Buy  ${skin.cost} coins`
-      }</p>`;
-      btn.addEventListener('click', () => this.onBuySkin?.(skin.id));
+      btn.className = 'skin-btn';
+      btn.innerHTML = `
+        <div class="skin-btn-row">
+          <span class="skin-swatch" style="background:linear-gradient(135deg,${slicer.color},${slicer.glowColor})"></span>
+          <div>
+            <p class="font-black">${slicer.name}</p>
+            <p class="text-[11px] text-zinc-400">${slicer.blurb}</p>
+            <p class="text-[10px] text-zinc-500 mt-1">${slicer.rarity} · dmg ×${slicer.damageMul} · juice ×${slicer.juiceMul}${slicer.brittleBonus > 0 ? ` · brittle +${slicer.brittleBonus}s` : ''}</p>
+          </div>
+        </div>
+        <p class="skin-price">Buy ${slicer.cost} coins</p>`;
+      btn.addEventListener('click', () => this.onBuySkin?.(slicer.id));
       box.appendChild(btn);
+    }
+
+    for (const wall of WALL_SKINS) {
+      const owned = save.ownedSkins.includes(wall.id);
+      if (owned) continue;
+      const hex = `#${wall.color.toString(16).padStart(6, '0')}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'skin-btn';
+      btn.innerHTML = `
+        <div class="skin-btn-row">
+          <span class="skin-swatch" style="background:${hex}"></span>
+          <div>
+            <p class="font-black">${wall.name}</p>
+            <p class="text-[11px] text-zinc-400">${wall.blurb}</p>
+          </div>
+        </div>
+        <p class="skin-price">Buy ${wall.cost} coins</p>`;
+      btn.addEventListener('click', () => this.onBuySkin?.(wall.id));
+      box.appendChild(btn);
+    }
+
+    if (!box.children.length) {
+      box.innerHTML = '<p class="text-[12px] text-zinc-500">You own everything currently for sale.</p>';
+    }
+
+    this.mountInventory(save);
+  }
+
+  mountInventory(save: SaveData): void {
+    const box = document.getElementById('skin-inventory');
+    if (!box) return;
+    box.innerHTML = '';
+    const allSlicers = getSlicers();
+    const lockedDefaults = new Set(['blade-default', 'wall-brick']);
+
+    for (const id of save.ownedSkins) {
+      const slicer = findSlicer(allSlicers, id) || findSlicer(getLiveConfig().slicers, id);
+      const wall = WALL_SKINS.find((w) => w.id === id);
+      if (!slicer && !wall) continue;
+
+      const isBlade = !!slicer;
+      const eq = isBlade ? save.bladeSkin === id : save.wallSkin === id;
+      const name = slicer?.name || wall!.name;
+      const color = slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`;
+      const glow = slicer?.glowColor || color;
+      const sell = slicer?.sellValue ?? wall!.sellValue;
+      const canRemove = !lockedDefaults.has(id);
+
+      const card = document.createElement('div');
+      card.className = `inv-card${eq ? ' is-on' : ''}`;
+      card.innerHTML = `
+        <div class="skin-btn-row">
+          <span class="skin-swatch" style="background:linear-gradient(135deg,${color},${glow})"></span>
+          <div class="flex-1">
+            <p class="font-black">${name}</p>
+            <p class="text-[11px] text-zinc-400">${isBlade ? 'Blade' : 'Wall'} · ${eq ? 'Equipped' : 'Owned'}${slicer ? ` · ${slicer.fxStyle}` : ''}</p>
+          </div>
+        </div>
+        <div class="inv-actions">
+          <button type="button" class="inv-btn inv-equip" ${eq ? 'disabled' : ''}>${eq ? 'Equipped' : 'Equip'}</button>
+          <button type="button" class="inv-btn inv-sell" ${!canRemove || sell <= 0 ? 'disabled' : ''}>Sell ${sell}</button>
+          <button type="button" class="inv-btn inv-del" ${!canRemove ? 'disabled' : ''}>Delete</button>
+        </div>`;
+
+      card.querySelector('.inv-equip')?.addEventListener('click', () => this.onEquipItem?.(id));
+      card.querySelector('.inv-sell')?.addEventListener('click', () => {
+        if (!canRemove || sell <= 0) return;
+        if (confirm(`Sell ${name} for ${sell} coins?`)) this.onSellItem?.(id);
+      });
+      card.querySelector('.inv-del')?.addEventListener('click', () => {
+        if (!canRemove) return;
+        if (confirm(`Delete ${name} permanently? No coins refunded.`)) this.onDeleteItem?.(id);
+      });
+      box.appendChild(card);
+    }
+
+    if (!box.children.length) {
+      box.innerHTML = '<p class="text-[12px] text-zinc-500">Inventory is empty.</p>';
     }
   }
 

@@ -70,3 +70,11 @@ export function getStartLivesScale(): number {
   if (!Number.isFinite(value) || value <= 0) return 1;
   return value / BASE_START_LIVES;
 }
+
+export function getSlicers() {
+  return cached.slicers;
+}
+
+export function getEnabledSlicers() {
+  return cached.slicers.filter((s) => s.enabled !== false);
+}

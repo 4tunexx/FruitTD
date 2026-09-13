@@ -111,6 +111,82 @@ var DEFAULT_BADGES = [
   { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "DR", rarity: "rare", enabled: true, requirement: req("claim_daily", 7) }
 ];
 
+// src/game/slicers.ts
+var DEFAULT_SLICERS = [
+  {
+    id: "blade-default",
+    name: "Steel Blade",
+    blurb: "Reliable starter edge.",
+    enabled: true,
+    cost: 0,
+    sellValue: 0,
+    rarity: "common",
+    color: "#1d4ed8",
+    glowColor: "#38bdf8",
+    fxStyle: "solid",
+    trailWidth: 1,
+    glow: 0.35,
+    glint: 0.2,
+    damageMul: 1,
+    juiceMul: 1,
+    brittleBonus: 0
+  },
+  {
+    id: "blade-gold",
+    name: "Gold Blade",
+    blurb: "Bright trail, richer juice.",
+    enabled: true,
+    cost: 180,
+    sellValue: 60,
+    rarity: "rare",
+    color: "#f4c430",
+    glowColor: "#fde68a",
+    fxStyle: "spark",
+    trailWidth: 1.25,
+    glow: 0.55,
+    glint: 0.55,
+    damageMul: 1.08,
+    juiceMul: 1.15,
+    brittleBonus: 0
+  },
+  {
+    id: "blade-ink",
+    name: "Ink Blade",
+    blurb: "Dark slash with heavy hits.",
+    enabled: true,
+    cost: 240,
+    sellValue: 80,
+    rarity: "epic",
+    color: "#111827",
+    glowColor: "#a78bfa",
+    fxStyle: "plasma",
+    trailWidth: 1.4,
+    glow: 0.65,
+    glint: 0.4,
+    damageMul: 1.16,
+    juiceMul: 1,
+    brittleBonus: 0.4
+  },
+  {
+    id: "blade-cherry",
+    name: "Cherry Blade",
+    blurb: "Pink glints and brittle fruit.",
+    enabled: true,
+    cost: 320,
+    sellValue: 110,
+    rarity: "legendary",
+    color: "#f472b6",
+    glowColor: "#fecdd3",
+    fxStyle: "ember",
+    trailWidth: 1.55,
+    glow: 0.7,
+    glint: 0.75,
+    damageMul: 1.12,
+    juiceMul: 1.2,
+    brittleBonus: 0.8
+  }
+];
+
 // server/catalog.ts
 var cache = null;
 function invalidateCatalogCache() {
@@ -126,7 +202,8 @@ async function loadQuestCatalog() {
       missions: Array.isArray(doc?.missions) && doc.missions.length ? doc.missions : DEFAULT_MISSIONS,
       achievements: Array.isArray(doc?.achievements) && doc.achievements.length ? doc.achievements : DEFAULT_ACHIEVEMENTS,
       badges: Array.isArray(doc?.badges) && doc.badges.length ? doc.badges : DEFAULT_BADGES,
-      ranks: Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS
+      ranks: Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS,
+      slicers: Array.isArray(doc?.slicers) && doc.slicers.length ? doc.slicers : DEFAULT_SLICERS
     };
     return cache;
   } catch {
@@ -134,7 +211,8 @@ async function loadQuestCatalog() {
       missions: DEFAULT_MISSIONS,
       achievements: DEFAULT_ACHIEVEMENTS,
       badges: DEFAULT_BADGES,
-      ranks: DEFAULT_RANK_TIERS
+      ranks: DEFAULT_RANK_TIERS,
+      slicers: DEFAULT_SLICERS
     };
   }
 }
@@ -651,7 +729,8 @@ var DEFAULT_ADMIN_CONFIG = {
   missions: DEFAULT_MISSIONS,
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
-  ranks: DEFAULT_RANK_TIERS
+  ranks: DEFAULT_RANK_TIERS,
+  slicers: DEFAULT_SLICERS
 };
 function isAuthorized(req2) {
   const steamId = req2.headers["x-admin-steamid"];
@@ -679,7 +758,8 @@ adminRouter.get("/config", async (_req, res) => {
         missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
         achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
         badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
-        ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS
+        ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
+        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS
       }
     });
   } catch (err) {
@@ -705,7 +785,7 @@ adminRouter.post("/config", async (req2, res) => {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
-    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks } = req2.body;
+    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers } = req2.body;
     const col = await getCollection("admin_config");
     const existing = await col.findOne({ configKey: "game_config" });
     const updated = {
@@ -717,6 +797,7 @@ adminRouter.post("/config", async (req2, res) => {
       achievements: Array.isArray(achievements) ? achievements : existing?.achievements || DEFAULT_ACHIEVEMENTS,
       badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
       ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
+      slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });

@@ -9,6 +9,7 @@ import {
   type CatalogMission,
   type RankTier,
 } from '../src/game/requirements';
+import { DEFAULT_SLICERS, type CatalogSlicer } from '../src/game/slicers';
 import { getCollection } from './db';
 
 export interface StoredAdminConfig {
@@ -17,9 +18,17 @@ export interface StoredAdminConfig {
   achievements?: CatalogAchievement[];
   badges?: CatalogBadge[];
   ranks?: RankTier[];
+  slicers?: CatalogSlicer[];
 }
 
-let cache: { at: number; missions: CatalogMission[]; achievements: CatalogAchievement[]; badges: CatalogBadge[]; ranks: RankTier[] } | null = null;
+let cache: {
+  at: number;
+  missions: CatalogMission[];
+  achievements: CatalogAchievement[];
+  badges: CatalogBadge[];
+  ranks: RankTier[];
+  slicers: CatalogSlicer[];
+} | null = null;
 
 export function invalidateCatalogCache(): void {
   cache = null;
@@ -30,6 +39,7 @@ export async function loadQuestCatalog(): Promise<{
   achievements: CatalogAchievement[];
   badges: CatalogBadge[];
   ranks: RankTier[];
+  slicers: CatalogSlicer[];
 }> {
   if (cache && Date.now() - cache.at < 4000) return cache;
   try {
@@ -41,6 +51,7 @@ export async function loadQuestCatalog(): Promise<{
       achievements: Array.isArray(doc?.achievements) && doc!.achievements!.length ? doc!.achievements! : DEFAULT_ACHIEVEMENTS,
       badges: Array.isArray(doc?.badges) && doc!.badges!.length ? doc!.badges! : DEFAULT_BADGES,
       ranks: Array.isArray(doc?.ranks) && doc!.ranks!.length ? doc!.ranks! : DEFAULT_RANK_TIERS,
+      slicers: Array.isArray(doc?.slicers) && doc!.slicers!.length ? doc!.slicers! : DEFAULT_SLICERS,
     };
     return cache;
   } catch {
@@ -49,6 +60,7 @@ export async function loadQuestCatalog(): Promise<{
       achievements: DEFAULT_ACHIEVEMENTS,
       badges: DEFAULT_BADGES,
       ranks: DEFAULT_RANK_TIERS,
+      slicers: DEFAULT_SLICERS,
     };
   }
 }

@@ -124,12 +124,17 @@ export function canBuySkill(data: SaveData, id: SkillId): boolean {
   return data.skillPoints > 0 && (data.skills[id] ?? 0) < (def?.max ?? 3);
 }
 
+export const WALL_SKINS = [
+  { id: 'wall-brick', name: 'Brick wall', kind: 'wall' as const, cost: 0, sellValue: 0, color: 0xa33d32, blurb: 'Default clay bricks.' },
+  { id: 'wall-stone', name: 'Stone wall', kind: 'wall' as const, cost: 200, sellValue: 70, color: 0x8b8f99, blurb: 'Cool grey stone.' },
+  { id: 'wall-night', name: 'Night wall', kind: 'wall' as const, cost: 280, sellValue: 95, color: 0x2b3350, blurb: 'Dark midnight fort.' },
+];
+
+/** @deprecated Prefer admin slicers + WALL_SKINS — kept for color lookups during migration */
 export const SHOP_SKINS = [
-  { id: 'blade-default', name: 'Steel blade', kind: 'blade', cost: 0, color: 0x1d4ed8 },
-  { id: 'blade-gold', name: 'Gold blade', kind: 'blade', cost: 180, color: 0xf4c430 },
-  { id: 'blade-ink', name: 'Ink blade', kind: 'blade', cost: 240, color: 0x111827 },
-  { id: 'blade-cherry', name: 'Cherry blade', kind: 'blade', cost: 320, color: 0xf472b6 },
-  { id: 'wall-brick', name: 'Brick wall', kind: 'wall', cost: 0, color: 0xa33d32 },
-  { id: 'wall-stone', name: 'Stone wall', kind: 'wall', cost: 200, color: 0x8b8f99 },
-  { id: 'wall-night', name: 'Night wall', kind: 'wall', cost: 280, color: 0x2b3350 },
-] as const;
+  { id: 'blade-default', name: 'Steel blade', kind: 'blade' as const, cost: 0, color: 0x1d4ed8 },
+  { id: 'blade-gold', name: 'Gold blade', kind: 'blade' as const, cost: 180, color: 0xf4c430 },
+  { id: 'blade-ink', name: 'Ink blade', kind: 'blade' as const, cost: 240, color: 0x111827 },
+  { id: 'blade-cherry', name: 'Cherry blade', kind: 'blade' as const, cost: 320, color: 0xf472b6 },
+  ...WALL_SKINS,
+];

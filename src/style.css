@@ -847,14 +847,131 @@ canvas {
 }
 
 /* Skin shop */
-#skin-shop {
+#skin-shop,
+#skin-inventory {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.6rem;
   margin-top: 0.8rem;
 }
 @media (min-width: 560px) {
-  #skin-shop { grid-template-columns: repeat(2, 1fr); }
+  #skin-shop,
+  #skin-inventory { grid-template-columns: repeat(2, 1fr); }
+}
+
+.shop-section-head {
+  margin-top: 1.25rem;
+  margin-bottom: 0.15rem;
+}
+.shop-section-head h3 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.shop-section-head .section-desc {
+  margin: 0.15rem 0 0;
+}
+
+.skin-btn-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+.skin-swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(255,255,255,0.18);
+  flex-shrink: 0;
+}
+.skin-price {
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  color: var(--lime, #a3e635);
+  font-weight: 700;
+}
+
+.inv-card {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.85rem 0.9rem;
+  color: var(--text);
+}
+.inv-card.is-on {
+  border-color: color-mix(in srgb, var(--lime, #a3e635) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--lime, #a3e635) 25%, transparent);
+}
+.inv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+.inv-btn {
+  border-radius: 0.4rem;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.inv-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.inv-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.inv-btn.inv-del:hover:not(:disabled) {
+  border-color: #f87171;
+  color: #fecaca;
+}
+
+.admin-slicer-sliders {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+@media (min-width: 720px) {
+  .admin-slicer-sliders { grid-template-columns: 1fr 1fr; }
+}
+.admin-slider-field span {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-bottom: 0.2rem;
+}
+.admin-slider-field em {
+  font-style: normal;
+  color: #e2e8f0;
+  font-weight: 700;
+}
+.admin-slider-field small {
+  display: block;
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+.admin-slider-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--lime, #a3e635);
+}
+.admin-slicer-swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.admin-slicer-fx-note {
+  margin-top: 0.65rem;
+  font-size: 0.7rem;
+  color: #94a3b8;
 }
 
 /* Skill tree */

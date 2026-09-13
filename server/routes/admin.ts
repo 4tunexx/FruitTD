@@ -9,6 +9,7 @@ import {
   DEFAULT_RANK_TIERS,
   monthlyLeaderboardMode,
 } from '../../src/game/requirements';
+import { DEFAULT_SLICERS } from '../../src/game/slicers';
 
 export const adminRouter = Router();
 
@@ -42,6 +43,7 @@ export interface AdminConfigDoc {
   achievements?: any[];
   badges?: any[];
   ranks?: any[];
+  slicers?: any[];
   updatedAt: Date;
 }
 
@@ -127,6 +129,7 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
+  slicers: DEFAULT_SLICERS,
 };
 
 // Check if request is authenticated as admin
@@ -159,6 +162,7 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
         badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
         ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
+        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
       },
     });
   } catch (err: any) {
@@ -189,7 +193,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
   }
 
   try {
-    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks } = req.body;
+    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers } = req.body;
     const col = await getCollection<AdminConfigDoc>('admin_config');
     const existing = await col.findOne({ configKey: 'game_config' });
 
@@ -202,6 +206,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       achievements: Array.isArray(achievements) ? achievements : existing?.achievements || DEFAULT_ACHIEVEMENTS,
       badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
       ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
+      slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       updatedAt: new Date(),
     };
 

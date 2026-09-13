@@ -9,6 +9,7 @@ import {
   type RankTier,
   type Requirement,
 } from '../game/requirements';
+import { createEmptySlicer, type CatalogSlicer, type SlicerFxStyle, type SlicerRarity } from '../game/slicers';
 
 function escapeAttr(value: string): string {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -351,4 +352,160 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
 
 export function addRank(items: RankTier[]): void {
   items.push({ id: newCatalogId('rank'), title: 'New Rank', minScore: 1000, color: '#a3e635', icon: 'R' });
+}
+
+function sliderField(
+  cls: string,
+  label: string,
+  value: number,
+  min: number,
+  max: number,
+  step: number,
+  hint: string
+): string {
+  return `<label class="admin-slider-field">
+    <span>${label} <em class="s-val">${value}</em></span>
+    <input type="range" class="admin-input ${cls}" min="${min}" max="${max}" step="${step}" value="${value}" />
+    <small>${hint}</small>
+  </label>`;
+}
+
+export function renderSlicerEditor(container: HTMLElement, items: CatalogSlicer[]): void {
+  container.innerHTML = '';
+  items.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'admin-catalog-card admin-slicer-card';
+    const preview = `linear-gradient(90deg, ${escapeAttr(item.color)}, ${escapeAttr(item.glowColor)})`;
+    card.innerHTML = `
+      <div class="admin-catalog-head">
+        <strong>${escapeAttr(item.name) || 'Untitled slicer'}</strong>
+        <span class="admin-slicer-swatch" style="background:${preview}"></span>
+        <label class="admin-toggle"><input type="checkbox" class="sl-on" ${item.enabled ? 'checked' : ''}/> In shop</label>
+        <button type="button" class="admin-del-btn sl-del">Remove</button>
+      </div>
+      <div class="admin-reward-inputs">
+        <label><span>ID</span><input class="admin-input sl-id" value="${escapeAttr(item.id)}" /></label>
+        <label><span>Name</span><input class="admin-input sl-name" value="${escapeAttr(item.name)}" /></label>
+        <label class="flex-1"><span>Shop blurb</span><input class="admin-input sl-blurb" value="${escapeAttr(item.blurb)}" /></label>
+        <label><span>Rarity</span>
+          <select class="admin-input sl-rarity">
+            ${(['common', 'rare', 'epic', 'legendary'] as SlicerRarity[])
+              .map((r) => `<option value="${r}" ${item.rarity === r ? 'selected' : ''}>${r}</option>`)
+              .join('')}
+          </select>
+        </label>
+        <label><span>Cost</span><input type="number" class="admin-input sl-cost" value="${item.cost}" min="0" /></label>
+        <label><span>Sell value</span><input type="number" class="admin-input sl-sell" value="${item.sellValue}" min="0" /></label>
+        <label><span>Trail color</span><input type="color" class="admin-input admin-color sl-color" value="${escapeAttr(item.color)}" /></label>
+        <label><span>Glow color</span><input type="color" class="admin-input admin-color sl-glowc" value="${escapeAttr(item.glowColor)}" /></label>
+        <label><span>FX style</span>
+          <select class="admin-input sl-fx">
+            ${(['solid', 'spark', 'plasma', 'ember', 'frost'] as SlicerFxStyle[])
+              .map((f) => `<option value="${f}" ${item.fxStyle === f ? 'selected' : ''}>${f}</option>`)
+              .join('')}
+          </select>
+        </label>
+      </div>
+      <div class="admin-slicer-sliders">
+        ${sliderField('sl-width', 'Trail width', item.trailWidth, 0.5, 3, 0.05, 'How thick the slash line looks')}
+        ${sliderField('sl-glow', 'Glow', item.glow, 0, 1, 0.05, 'Soft halo behind the trail')}
+        ${sliderField('sl-glint', 'Glint / sparks', item.glint, 0, 1, 0.05, 'Sparkles while swiping mouse or finger')}
+        ${sliderField('sl-dmg', 'Damage ×', item.damageMul, 0.5, 2, 0.01, 'Slash damage multiplier vs fruits')}
+        ${sliderField('sl-juice', 'Juice ×', item.juiceMul, 0.5, 2, 0.01, 'Juice bank gain on kills')}
+        ${sliderField('sl-brittle', 'Brittle bonus (s)', item.brittleBonus, 0, 3, 0.1, 'Extra brittle time applied on hit')}
+      </div>
+      <p class="admin-slicer-fx-note">Effects on fruit: damage ×${item.damageMul.toFixed(2)}, juice ×${item.juiceMul.toFixed(2)}, brittle +${item.brittleBonus.toFixed(1)}s · look: ${escapeAttr(item.fxStyle)}</p>
+    `;
+
+    const bindText = (sel: string, apply: (v: string) => void) => {
+      card.querySelector(sel)?.addEventListener('change', (e) => apply((e.target as HTMLInputElement).value));
+    };
+    const bindNum = (sel: string, apply: (v: number) => void) => {
+      card.querySelector(sel)?.addEventListener('change', (e) => apply(Number((e.target as HTMLInputElement).value) || 0));
+    };
+    const bindRange = (sel: string, apply: (v: number) => void) => {
+      const input = card.querySelector(sel) as HTMLInputElement | null;
+      const valEl = input?.closest('label')?.querySelector('.s-val');
+      const sync = () => {
+        if (!input) return;
+        const v = Number(input.value);
+        if (valEl) valEl.textContent = String(v);
+        apply(v);
+        const note = card.querySelector('.admin-slicer-fx-note');
+        if (note) {
+          note.textContent = `Effects on fruit: damage ×${item.damageMul.toFixed(2)}, juice ×${item.juiceMul.toFixed(2)}, brittle +${item.brittleBonus.toFixed(1)}s · look: ${item.fxStyle}`;
+        }
+        const swatch = card.querySelector('.admin-slicer-swatch') as HTMLElement | null;
+        if (swatch) swatch.style.background = `linear-gradient(90deg, ${item.color}, ${item.glowColor})`;
+      };
+      input?.addEventListener('input', sync);
+      input?.addEventListener('change', sync);
+    };
+
+    bindText('.sl-id', (v) => {
+      item.id = v.trim() || item.id;
+    });
+    bindText('.sl-name', (v) => {
+      item.name = v;
+    });
+    bindText('.sl-blurb', (v) => {
+      item.blurb = v;
+    });
+    card.querySelector('.sl-rarity')?.addEventListener('change', (e) => {
+      item.rarity = (e.target as HTMLSelectElement).value as SlicerRarity;
+    });
+    bindNum('.sl-cost', (v) => {
+      item.cost = Math.max(0, v);
+    });
+    bindNum('.sl-sell', (v) => {
+      item.sellValue = Math.max(0, v);
+    });
+    bindText('.sl-color', (v) => {
+      item.color = v;
+      const swatch = card.querySelector('.admin-slicer-swatch') as HTMLElement | null;
+      if (swatch) swatch.style.background = `linear-gradient(90deg, ${item.color}, ${item.glowColor})`;
+    });
+    bindText('.sl-glowc', (v) => {
+      item.glowColor = v;
+      const swatch = card.querySelector('.admin-slicer-swatch') as HTMLElement | null;
+      if (swatch) swatch.style.background = `linear-gradient(90deg, ${item.color}, ${item.glowColor})`;
+    });
+    card.querySelector('.sl-fx')?.addEventListener('change', (e) => {
+      item.fxStyle = (e.target as HTMLSelectElement).value as SlicerFxStyle;
+      const note = card.querySelector('.admin-slicer-fx-note');
+      if (note) {
+        note.textContent = `Effects on fruit: damage ×${item.damageMul.toFixed(2)}, juice ×${item.juiceMul.toFixed(2)}, brittle +${item.brittleBonus.toFixed(1)}s · look: ${item.fxStyle}`;
+      }
+    });
+    bindRange('.sl-width', (v) => {
+      item.trailWidth = v;
+    });
+    bindRange('.sl-glow', (v) => {
+      item.glow = v;
+    });
+    bindRange('.sl-glint', (v) => {
+      item.glint = v;
+    });
+    bindRange('.sl-dmg', (v) => {
+      item.damageMul = v;
+    });
+    bindRange('.sl-juice', (v) => {
+      item.juiceMul = v;
+    });
+    bindRange('.sl-brittle', (v) => {
+      item.brittleBonus = v;
+    });
+    card.querySelector('.sl-on')?.addEventListener('change', (e) => {
+      item.enabled = (e.target as HTMLInputElement).checked;
+    });
+    card.querySelector('.sl-del')?.addEventListener('click', () => {
+      items.splice(idx, 1);
+      renderSlicerEditor(container, items);
+    });
+    container.appendChild(card);
+  });
+}
+
+export function addSlicer(items: CatalogSlicer[]): void {
+  items.push(createEmptySlicer());
 }

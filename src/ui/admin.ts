@@ -18,13 +18,15 @@ import {
   addBadge,
   addMission,
   addRank,
+  addSlicer,
   renderAchievementEditor,
   renderBadgeEditor,
   renderMissionEditor,
   renderRankEditor,
+  renderSlicerEditor,
 } from './adminCatalog';
 
-type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'branding' | 'economy' | 'leaderboard';
+type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'branding' | 'economy' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -147,6 +149,11 @@ export class AdminController {
       addRank(this.config.ranks);
       this.renderCatalogEditors();
     });
+    document.getElementById('btn-admin-add-slicer')?.addEventListener('click', () => {
+      if (!this.config) return;
+      addSlicer(this.config.slicers);
+      this.renderCatalogEditors();
+    });
   }
 
   private submitAdminPin(): void {
@@ -188,10 +195,12 @@ export class AdminController {
     const achievements = document.getElementById('admin-achievements-list');
     const badges = document.getElementById('admin-badges-list');
     const ranks = document.getElementById('admin-ranks-list');
+    const slicers = document.getElementById('admin-slicers-list');
     if (missions) renderMissionEditor(missions, this.config.missions);
     if (achievements) renderAchievementEditor(achievements, this.config.achievements);
     if (badges) renderBadgeEditor(badges, this.config.badges);
     if (ranks) renderRankEditor(ranks, this.config.ranks);
+    if (slicers) renderSlicerEditor(slicers, this.config.slicers);
   }
 
   private renderActiveTab(): void {
@@ -199,7 +208,13 @@ export class AdminController {
 
     if (this.activeTab === 'daily') {
       this.renderDailyEditor();
-    } else if (this.activeTab === 'missions' || this.activeTab === 'achievements' || this.activeTab === 'badges' || this.activeTab === 'ranks') {
+    } else if (
+      this.activeTab === 'missions' ||
+      this.activeTab === 'achievements' ||
+      this.activeTab === 'badges' ||
+      this.activeTab === 'ranks' ||
+      this.activeTab === 'slicers'
+    ) {
       this.renderCatalogEditors();
     } else if (this.activeTab === 'branding') {
       this.renderBrandingEditor();
