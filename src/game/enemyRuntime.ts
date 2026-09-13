@@ -1,12 +1,11 @@
-import { Vector3 } from 'three';
 import { FruitField, type Fruit } from './fruits';
 
-/**
- * Adds behaviours that sit on top of the generic fruit damage system without
- * making FruitField responsible for every special-enemy rule.
- */
+/** Adds special-enemy behaviours without bloating the core fruit damage system. */
 export function installEnemyRuntime(): void {
-  const proto = FruitField.prototype as FruitField & { __enemyRuntimeInstalled?: boolean; hurt: (fruit: Fruit, amount: number) => boolean };
+  const proto = FruitField.prototype as FruitField & {
+    __enemyRuntimeInstalled?: boolean;
+    hurt: (fruit: Fruit, amount: number) => boolean;
+  };
   if (proto.__enemyRuntimeInstalled) return;
   proto.__enemyRuntimeInstalled = true;
 
@@ -19,11 +18,8 @@ export function installEnemyRuntime(): void {
     const killed = originalHurt.call(this, fruit, amount);
     if (!killed || !wasSplitter) return killed;
 
-    // A splitter releases two quick normal targets. They are deliberately
-    // smaller and worth less than the parent, but keeping them alive preserves
-    // the pressure of the special enemy instead of creating a free kill.
-    const offsets = [-0.7, 0.7];
-    for (const offset of offsets) {
+    // Splitters release two smaller normal targets, preserving wave pressure.
+    for (const offset of [-0.7, 0.7]) {
       const child = this.spawn('strawberry', false, 'normal');
       if (!child) continue;
       child.group.position.set(x + offset, y + 0.15, z - 0.15);
@@ -38,7 +34,4 @@ export function installEnemyRuntime(): void {
   };
 }
 
-// Imported for its side effect by the UI bootstrap, so the runtime is active
-// in the existing application without requiring a second game bootstrap.
-void Vector3;
 installEnemyRuntime();
