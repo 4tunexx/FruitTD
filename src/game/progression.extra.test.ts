@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HERO_PERKS, heroPerkMultiplier, heroPerkRank } from './heroProgression';
 import { TOWER_MILESTONES } from './towerMilestones';
+import { createState } from './state';
+import { MAX_HERO_LEVEL, heroXpForLevel } from './heroes';
 
 test('hero perks unlock and gain ranks through mastery', () => {
   const combo = HERO_PERKS.find((p) => p.id === 'combo')!;
@@ -15,4 +17,13 @@ test('Main Tower has progression milestones through level 10', () => {
   assert.equal(TOWER_MILESTONES.length, 9);
   assert.equal(TOWER_MILESTONES.at(-1)?.level, 10);
   assert.match(TOWER_MILESTONES.at(-1)?.reward ?? '', /Master Tower/);
+});
+
+test('hero runtime state derives level from XP and caps at level 100', () => {
+  const state = createState();
+  state.heroXp = heroXpForLevel(10);
+  assert.equal(state.heroLevel, 10);
+  state.heroXp += 999999999;
+  assert.equal(state.heroLevel, MAX_HERO_LEVEL);
+  assert.equal(state.heroXp, heroXpForLevel(MAX_HERO_LEVEL));
 });
