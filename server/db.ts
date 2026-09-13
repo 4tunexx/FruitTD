@@ -14,10 +14,19 @@ let db: Db | null = null;
 export interface UserDoc {
   userId: string;
   nickname: string;
+  username?: string;
   avatar: string;
+  email?: string;
+  emailVerified?: boolean;
+  emailVerifyCodeHash?: string;
+  emailVerifyExpires?: Date;
+  passwordHash?: string;
+  authProvider?: 'steam' | 'email' | 'steam+email';
+  profileComplete?: boolean;
   steamId?: string;
   steamPersona?: string;
   steamAvatar?: string;
+  steamBonusGranted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +107,11 @@ export async function getDb(): Promise<Db> {
     await db.collection('leaderboards').createIndex({ mode: 1, score: -1 });
     await db.collection('leaderboards').createIndex({ userId: 1, mode: 1 });
     await db.collection('users').createIndex({ userId: 1 }, { unique: true });
+    await db.collection('users').createIndex({ email: 1 }, { unique: true, sparse: true });
+    await db.collection('users').createIndex({ username: 1 }, { unique: true, sparse: true });
+    await db.collection('users').createIndex({ steamId: 1 }, { unique: true, sparse: true });
+    await db.collection('sessions').createIndex({ tokenHash: 1 }, { unique: true });
+    await db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection('achievements').createIndex({ userId: 1, achievementId: 1 }, { unique: true });
     await db.collection('missions').createIndex({ userId: 1, missionId: 1, dayKey: 1 }, { unique: true });
     await db.collection('daily_bonus').createIndex({ userId: 1 }, { unique: true });

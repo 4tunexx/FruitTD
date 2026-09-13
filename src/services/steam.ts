@@ -1,5 +1,14 @@
-import { linkSteam, getSteamStatus, type SteamProfile } from './api';
+import { getSteamStatus } from './api';
 import { loadSave, writeSave } from '../game/save';
+import {
+  fetchMe,
+  getAuthToken,
+  getCachedAuthUser,
+  setAuthToken,
+  setCachedAuthUser,
+  setSessionAuthed,
+  type AuthUser,
+} from './auth';
 
 export interface LocalSteamState {
   linked: boolean;
@@ -10,11 +19,49 @@ export interface LocalSteamState {
 
 let cachedSteam: LocalSteamState = { linked: false };
 
+export { isSessionAuthed, setSessionAuthed } from './auth';
+
 export function getCachedSteamState(): LocalSteamState {
+  const user = getCachedAuthUser();
+  if (user?.steamId) {
+    return {
+      linked: true,
+      steamId: user.steamId,
+      personaName: user.steamPersona || user.nickname,
+      avatar: user.steamAvatar || user.avatar,
+    };
+  }
   return cachedSteam;
 }
 
+function syncSaveFromUser(user: AuthUser): void {
+  const save = loadSave();
+  if (user.nickname) save.nickname = user.nickname;
+  if (user.avatar) save.avatar = user.avatar;
+  writeSave(save);
+}
+
 export async function syncSteamState(): Promise<LocalSteamState> {
+  const user = (await fetchMe()) || getCachedAuthUser();
+  if (user) {
+    setCachedAuthUser(user);
+    if (user.steamId) {
+      cachedSteam = {
+        linked: true,
+        steamId: user.steamId,
+        personaName: user.steamPersona || user.nickname,
+        avatar: user.steamAvatar || user.avatar,
+      };
+      syncSaveFromUser(user);
+      return cachedSteam;
+    }
+  }
+
+  if (!getAuthToken()) {
+    cachedSteam = { linked: false };
+    return cachedSteam;
+  }
+
   const status = await getSteamStatus();
   if (status && status.linked) {
     cachedSteam = {
@@ -23,45 +70,63 @@ export async function syncSteamState(): Promise<LocalSteamState> {
       personaName: status.personaName,
       avatar: status.avatar,
     };
-    // Sync to local save
     const save = loadSave();
-    if (status.personaName && save.nickname !== status.personaName) {
-      save.nickname = status.personaName;
-    }
-    if (status.avatar && save.avatar !== status.avatar) {
-      save.avatar = status.avatar;
-    }
+    if (status.personaName) save.nickname = status.personaName;
+    if (status.avatar) save.avatar = status.avatar;
     writeSave(save);
+  } else {
+    cachedSteam = { linked: false };
   }
   return cachedSteam;
 }
 
+/** Legacy helper — OpenID is preferred. */
 export async function linkSteamAccount(
-  query: string
-): Promise<{ success: boolean; profile?: SteamProfile; error?: string }> {
-  try {
-    const res = await linkSteam(query);
-    if (!res) {
-      return { success: false, error: 'Could not connect to Steam service' };
-    }
+  _query: string
+): Promise<{ success: boolean; profile?: never; error?: string }> {
+  return {
+    success: false,
+    error: 'Use Sign in through Steam — the Steam login popup opens the official Steam page.',
+  };
+}
 
-    cachedSteam = {
-      linked: true,
-      steamId: res.profile.steamId,
-      personaName: res.profile.personaName,
-      avatar: res.profile.avatarFull,
-    };
+export function applySteamBonusIfNeeded(bonus: boolean): void {
+  if (!bonus) return;
+  const save = loadSave();
+  save.coins += 500;
+  save.skillPoints += 1;
+  writeSave(save);
+}
 
-    // Reward player coins and SP
-    const save = loadSave();
-    save.coins += res.bonusReward.coins;
-    save.skillPoints += res.bonusReward.sp;
-    save.nickname = res.profile.personaName;
-    save.avatar = res.profile.avatarFull;
-    writeSave(save);
+export function consumeAuthCallbackParams(): {
+  token?: string;
+  needsEmail?: boolean;
+  bonus?: boolean;
+  error?: string;
+  steam?: boolean;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('auth_token') || undefined;
+  const error = params.get('auth_error') || undefined;
+  const needsEmail = params.get('needs_email') === '1';
+  const bonus = params.get('bonus') === '1';
+  const steam = params.get('steam') === '1';
 
-    return { success: true, profile: res.profile };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  if (token || error || steam) {
+    params.delete('auth_token');
+    params.delete('auth_error');
+    params.delete('needs_email');
+    params.delete('bonus');
+    params.delete('steam');
+    params.delete('mode');
+    const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+    window.history.replaceState({}, '', clean);
   }
+
+  if (token) {
+    setAuthToken(token);
+    setSessionAuthed(false); // gate until email/profile complete
+  }
+
+  return { token, needsEmail, bonus, error, steam };
 }

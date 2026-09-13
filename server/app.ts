@@ -8,6 +8,7 @@ import { steamRouter } from './routes/steam';
 import { profileRouter } from './routes/profile';
 import { adminRouter } from './routes/admin';
 import { badgesRouter } from './routes/badges';
+import { authRouter } from './routes/auth';
 import { getDb } from './db';
 
 export function createApp() {
@@ -15,6 +16,7 @@ export function createApp() {
 
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ extended: true }));
 
   app.use((req, _res, next) => {
     if (req.path.startsWith('/api')) {
@@ -33,6 +35,7 @@ export function createApp() {
     }
   });
 
+  app.use('/api/auth', authRouter);
   app.use('/api/leaderboard', leaderboardRouter);
   app.use('/api/achievements', achievementsRouter);
   app.use('/api/missions', missionsRouter);

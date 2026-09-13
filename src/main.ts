@@ -707,8 +707,13 @@ hud.onPlace = (kind) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
+    if (hud.isTitleOpen()) {
+      document.getElementById('title-settings')?.classList.add('hidden');
+      document.getElementById('title-quit')?.classList.add('hidden');
+      return;
+    }
     if (menuOpen) {
-      hud.showPage('play');
+      hud.returnToTitle();
       return;
     }
     if (!started) {
@@ -741,7 +746,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR' && started && !state.running && !menuOpen) restartMatch();
   if (e.code.startsWith('Digit')) {
     const n = Number(e.code.slice(5));
-    if (n >= 1 && n <= 5 && menuOpen) selectHero(HEROES[n - 1].id);
+    if (n >= 1 && n <= 5 && menuOpen && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
   }
 });
 
@@ -769,7 +774,7 @@ if (muteBtn) {
 }
 
 startBtn.addEventListener('click', async () => {
-  startBtn.textContent = 'Loading…';
+  startBtn.textContent = 'Slicing…';
   persist();
   await Promise.all([sfx.unlock(), fruitAtlas.load()]);
   wall.applySkins();
@@ -779,3 +784,12 @@ startBtn.addEventListener('click', async () => {
 });
 
 loop.start();
+
+function hideBootLoader(): void {
+  const boot = document.getElementById('boot-loader');
+  if (!boot || boot.classList.contains('is-done')) return;
+  boot.classList.add('is-done');
+  window.setTimeout(() => boot.remove(), 500);
+}
+
+requestAnimationFrame(() => hideBootLoader());

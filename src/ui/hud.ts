@@ -1,7 +1,7 @@
 import type { JuiceBank } from '../game/juice';
 import { HEROES, heroDef, xpForNext, type HeroId } from '../game/heroes';
 import { MODE_INFO, modeRules } from '../game/modes';
-import { SHOP_SKINS, heroLevelFromSave, type GameMode, type SaveData } from '../game/save';
+import { SHOP_SKINS, heroLevelFromSave, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
 import { SKILLS, type SkillId } from '../game/skills';
 import type { GameState } from '../game/state';
 import { TURRETS, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
@@ -21,7 +21,29 @@ import {
   type AchievementItem,
   type DailyStatus,
 } from '../services/api';
-import { getCachedSteamState, syncSteamState, linkSteamAccount } from '../services/steam';
+import {
+  getCachedSteamState,
+  syncSteamState,
+  isSessionAuthed,
+  setSessionAuthed,
+  consumeAuthCallbackParams,
+  applySteamBonusIfNeeded,
+} from '../services/steam';
+import {
+  loginWithEmail,
+  registerWithEmail,
+  verifyEmailCode,
+  setEmailForConfirm,
+  resendVerifyCode,
+  completeProfile,
+  logoutAuth,
+  fetchMe,
+  getCachedAuthUser,
+  startSteamLogin,
+  applyAuthUserToLocalIds,
+  getAuthToken,
+  type AuthUser,
+} from '../services/auth';
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig } from '../services/liveConfig';
@@ -122,6 +144,7 @@ export class Hud {
     this.adminController = new AdminController(refreshDailyFromAdmin, refreshDailyFromAdmin);
 
     this.initModals();
+    this.initTitleScreen();
     this.initLeaderboardFilters();
     this.initQuestsSubtabs();
     this.initSteamIntegration();
@@ -130,10 +153,193 @@ export class Hud {
   }
 
   showMenu(open: boolean): void {
+    if (open && !isSessionAuthed()) {
+      this.returnToTitle();
+      return;
+    }
+    this.setTitleVisible(false);
     this.startGate.classList.toggle('hidden', !open);
     if (open) {
       this.showPause(false);
       this.checkDailyBonus();
+    }
+  }
+
+  enterDashboard(): void {
+    if (!this.canEnterDashboard()) {
+      this.returnToTitle();
+      void this.gateAfterAuth(getCachedAuthUser());
+      return;
+    }
+    this.setTitleVisible(false);
+    document.getElementById('title-settings')?.classList.add('hidden');
+    document.getElementById('title-quit')?.classList.add('hidden');
+    this.startGate.classList.remove('hidden');
+    this.showPage('play');
+    this.checkDailyBonus();
+    void this.refreshMonthlyRank();
+  }
+
+  private canEnterDashboard(): boolean {
+    if (!isSessionAuthed() || !getAuthToken()) return false;
+    const user = getCachedAuthUser();
+    if (!user) return false;
+    if (!user.emailVerified) return false;
+    if (!user.profileComplete && !user.steamId) return false;
+    return true;
+  }
+
+  private applyUserToHud(user: AuthUser): void {
+    applyAuthUserToLocalIds(user);
+    const save = this.currentSave || loadSave();
+    save.nickname = user.nickname || user.username;
+    if (user.avatar) save.avatar = user.avatar;
+    writeSave(save);
+    this.currentSave = save;
+    this.onSaveUpdate?.(save);
+    this.mountMeta(save);
+    if (user.steamId && this.steamBadge) this.steamBadge.classList.remove('hidden');
+  }
+
+  private async gateAfterAuth(user: AuthUser | null): Promise<void> {
+    if (!user) {
+      setSessionAuthed(false);
+      this.returnToTitle();
+      return;
+    }
+    this.applyUserToHud(user);
+    if (!user.emailVerified) {
+      this.openConfirmEmailModal(user);
+      return;
+    }
+    if (!user.profileComplete && !user.steamId) {
+      this.openProfileSetupModal();
+      return;
+    }
+    setSessionAuthed(true);
+    this.adminController.checkAdminPrivileges();
+    this.enterDashboard();
+  }
+
+  returnToTitle(): void {
+    this.startGate.classList.add('hidden');
+    this.setTitleVisible(true);
+    this.refreshTitleButtons();
+  }
+
+  isTitleOpen(): boolean {
+    const title = document.getElementById('title-screen');
+    return !!title && !title.classList.contains('hidden');
+  }
+
+  private setTitleVisible(open: boolean): void {
+    document.getElementById('title-screen')?.classList.toggle('hidden', !open);
+  }
+
+  private refreshTitleButtons(): void {
+    const user = getCachedAuthUser();
+    const ready = this.canEnterDashboard();
+    const continueBtn = document.getElementById('btn-title-continue');
+    const loginBtn = document.getElementById('btn-title-login');
+    const registerBtn = document.getElementById('btn-title-register');
+    const account = document.getElementById('title-account-line');
+    continueBtn?.classList.toggle('hidden', !ready);
+    loginBtn?.classList.toggle('hidden', ready);
+    registerBtn?.classList.toggle('hidden', ready);
+    if (account) {
+      if (user?.nickname || user?.username) {
+        account.textContent = `Signed in as ${user.steamPersona || user.nickname || user.username}`;
+      } else {
+        account.textContent = 'Not signed in';
+      }
+    }
+  }
+
+  private initTitleScreen(): void {
+    document.getElementById('btn-title-continue')?.addEventListener('click', () => {
+      if (this.canEnterDashboard()) this.enterDashboard();
+      else void this.gateAfterAuth(getCachedAuthUser());
+    });
+    document.getElementById('btn-title-login')?.addEventListener('click', () => this.openAuthModal('login'));
+    document.getElementById('btn-title-register')?.addEventListener('click', () => this.openAuthModal('register'));
+    document.getElementById('btn-title-settings')?.addEventListener('click', () => {
+      document.getElementById('title-settings')?.classList.remove('hidden');
+    });
+    document.getElementById('btn-close-settings')?.addEventListener('click', () => {
+      document.getElementById('title-settings')?.classList.add('hidden');
+    });
+    document.getElementById('btn-settings-mute')?.addEventListener('click', () => {
+      document.getElementById('btn-mute')?.click();
+      this.syncSettingsMuteLabel();
+    });
+    document.getElementById('btn-settings-logout')?.addEventListener('click', async () => {
+      await logoutAuth();
+      document.getElementById('title-settings')?.classList.add('hidden');
+      this.returnToTitle();
+    });
+    document.getElementById('btn-title-quit')?.addEventListener('click', () => {
+      document.getElementById('title-quit')?.classList.remove('hidden');
+      window.close();
+    });
+    document.getElementById('btn-quit-back')?.addEventListener('click', () => {
+      document.getElementById('title-quit')?.classList.add('hidden');
+    });
+    document.getElementById('btn-dash-main-menu')?.addEventListener('click', () => {
+      this.returnToTitle();
+    });
+    this.syncSettingsMuteLabel();
+  }
+
+  private authMode: 'login' | 'register' = 'login';
+  private steamModalMode: 'login' | 'register' | 'link' = 'login';
+
+  private openAuthModal(mode: 'login' | 'register'): void {
+    this.authMode = mode;
+    const title = document.getElementById('auth-modal-title');
+    const sub = document.getElementById('auth-modal-sub');
+    const submit = document.getElementById('btn-auth-email-submit');
+    const err = document.getElementById('auth-email-error');
+    const steamBtn = document.getElementById('btn-auth-open-steam');
+    if (title) title.textContent = mode === 'login' ? 'Login' : 'Register';
+    if (sub) {
+      sub.textContent =
+        mode === 'login'
+          ? 'Sign in with Steam or your email.'
+          : 'Create an account with Steam or email.';
+    }
+    if (submit) submit.textContent = mode === 'login' ? 'Login with email' : 'Register with email';
+    if (steamBtn) {
+      steamBtn.textContent = mode === 'login' ? 'Sign in through Steam' : 'Register through Steam';
+    }
+    err?.classList.add('hidden');
+    document.getElementById('modal-auth')?.classList.remove('hidden');
+  }
+
+  private openConfirmEmailModal(user: AuthUser): void {
+    const emailInput = document.getElementById('confirm-email-input') as HTMLInputElement | null;
+    const wrap = document.getElementById('confirm-email-field-wrap');
+    const preview = document.getElementById('confirm-email-preview');
+    const err = document.getElementById('confirm-email-error');
+    if (emailInput) emailInput.value = user.email || '';
+    wrap?.classList.toggle('hidden', !!user.email);
+    preview?.classList.add('hidden');
+    err?.classList.add('hidden');
+    document.getElementById('modal-confirm-email')?.classList.remove('hidden');
+  }
+
+  private openProfileSetupModal(): void {
+    const err = document.getElementById('profile-setup-error');
+    err?.classList.add('hidden');
+    const preview = document.getElementById('profile-avatar-preview') as HTMLImageElement | null;
+    if (preview) preview.src = '';
+    document.getElementById('modal-profile-setup')?.classList.remove('hidden');
+  }
+
+  private syncSettingsMuteLabel(): void {
+    const mute = document.getElementById('btn-mute');
+    const settingsMute = document.getElementById('btn-settings-mute');
+    if (settingsMute) {
+      settingsMute.textContent = mute?.textContent === '🔇' ? 'Unmute sound' : 'Mute sound';
     }
   }
 
@@ -806,28 +1012,69 @@ export class Hud {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // STEAM LINK MODAL
+  // AUTH + STEAM
   // ══════════════════════════════════════════════════════════════════════════
   private async initSteamIntegration(): Promise<void> {
-    const state = await syncSteamState();
-    if (state.linked) {
-      if (this.steamBadge) this.steamBadge.classList.remove('hidden');
-      if (this.playerName && state.personaName) this.playerName.textContent = state.personaName;
-      if (this.playerAvatar && state.avatar) this.playerAvatar.src = state.avatar;
+    const cb = consumeAuthCallbackParams();
+    if (cb.error) {
+      showAchievementToast('Steam login failed', cb.error, '⚠️');
     }
+    if (cb.bonus) {
+      applySteamBonusIfNeeded(true);
+      showAchievementToast('Steam Connected!', 'Welcome bonus', '🎮', '500 Coins + 1 SP');
+      void reportGameEvent({ type: 'steam_link' });
+    }
+
+    const user = await fetchMe();
+    if (user) {
+      this.applyUserToHud(user);
+      if (cb.token || cb.steam) {
+        await this.gateAfterAuth(user);
+      } else if (this.canEnterDashboard()) {
+        setSessionAuthed(true);
+      } else {
+        setSessionAuthed(false);
+      }
+    } else {
+      setSessionAuthed(false);
+      await syncSteamState();
+    }
+
+    if (getCachedSteamState().linked && this.steamBadge) {
+      this.steamBadge.classList.remove('hidden');
+    }
+    this.returnToTitle();
+    this.refreshTitleButtons();
   }
 
-  private openSteamModal(): void {
+  private openSteamModal(mode: 'login' | 'register' | 'link' = 'link'): void {
+    this.steamModalMode = mode;
+    this.authMode = mode === 'register' ? 'register' : 'login';
     const modal = document.getElementById('modal-steam');
     const steamState = getCachedSteamState();
     const profileCard = document.getElementById('steam-profile-card');
     const form = document.getElementById('steam-link-form');
     const errEl = document.getElementById('steam-link-error');
+    const title = document.getElementById('steam-modal-title');
+    const sub = document.getElementById('steam-modal-sub');
+    const submit = document.getElementById('btn-submit-steam');
 
-    if (errEl) errEl.classList.add('hidden');
+    if (title) {
+      title.textContent =
+        mode === 'login' ? 'Steam Login' : mode === 'register' ? 'Register with Steam' : 'Link Steam Account';
+    }
+    if (sub) {
+      sub.textContent =
+        'Press the button to open Steam. After you approve, we load your Steam name and avatar into Fruit TD.';
+    }
+    if (submit) {
+      submit.textContent = mode === 'link' ? 'Link with Steam' : 'Login with Steam';
+    }
+
+    errEl?.classList.add('hidden');
     modal?.classList.remove('hidden');
 
-    if (steamState.linked) {
+    if (steamState.linked && mode === 'link') {
       form?.classList.add('hidden');
       profileCard?.classList.remove('hidden');
       const nameEl = document.getElementById('steam-card-name');
@@ -841,6 +1088,8 @@ export class Hud {
       profileCard?.classList.add('hidden');
     }
   }
+
+  private profileAvatarData = '';
 
   // ══════════════════════════════════════════════════════════════════════════
   // MODAL EVENT LISTENERS
@@ -881,58 +1130,143 @@ export class Hud {
       }
     });
 
-    // Steam Modal Triggers
-    document.getElementById('btn-steam-chip')?.addEventListener('click', () => this.openSteamModal());
-    document.getElementById('btn-open-steam-shop')?.addEventListener('click', () => this.openSteamModal());
-    document.getElementById('btn-close-steam')?.addEventListener('click', () => {
-      document.getElementById('modal-steam')?.classList.add('hidden');
+    document.getElementById('btn-close-auth')?.addEventListener('click', () => {
+      document.getElementById('modal-auth')?.classList.add('hidden');
     });
-
-    // Submit Steam Link
-    document.getElementById('btn-submit-steam')?.addEventListener('click', async () => {
-      const input = document.getElementById('steam-input') as HTMLInputElement | null;
-      const errEl = document.getElementById('steam-link-error');
-      const submitBtn = document.getElementById('btn-submit-steam') as HTMLButtonElement | null;
-      const val = input?.value.trim();
-
-      if (!val) {
+    document.getElementById('btn-auth-open-steam')?.addEventListener('click', () => {
+      document.getElementById('modal-auth')?.classList.add('hidden');
+      this.openSteamModal(this.authMode);
+    });
+    document.getElementById('auth-email-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = (document.getElementById('auth-email') as HTMLInputElement | null)?.value.trim() || '';
+      const password = (document.getElementById('auth-password') as HTMLInputElement | null)?.value || '';
+      const errEl = document.getElementById('auth-email-error');
+      const btn = document.getElementById('btn-auth-email-submit') as HTMLButtonElement | null;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Please wait…';
+      }
+      const res =
+        this.authMode === 'register'
+          ? await registerWithEmail(email, password)
+          : await loginWithEmail(email, password);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = this.authMode === 'login' ? 'Login with email' : 'Register with email';
+      }
+      if (!res.success || !res.user) {
         if (errEl) {
-          errEl.textContent = 'Please enter a SteamID64, profile link, or custom URL.';
+          errEl.textContent = res.error || 'Could not sign in.';
           errEl.classList.remove('hidden');
         }
         return;
       }
-
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Connecting Steam...';
-      }
-
-      const res = await linkSteamAccount(val);
-      if (res.success && res.profile) {
-        if (this.steamBadge) this.steamBadge.classList.remove('hidden');
-        if (this.playerName) this.playerName.textContent = res.profile.personaName;
-        if (this.playerAvatar) this.playerAvatar.src = res.profile.avatarFull;
-        if (this.currentSave) {
-          this.currentSave.nickname = res.profile.personaName;
-          this.currentSave.avatar = res.profile.avatarFull;
-          this.onSaveUpdate?.(this.currentSave);
-          this.mountMeta(this.currentSave);
+      document.getElementById('modal-auth')?.classList.add('hidden');
+      if (res.previewCode) {
+        const preview = document.getElementById('confirm-email-preview');
+        if (preview) {
+          preview.textContent = `Dev code (email preview): ${res.previewCode}`;
+          preview.classList.remove('hidden');
         }
-        showAchievementToast('Steam Connected!', res.profile.personaName, '🎮', '500 Coins + 1 SP');
-        void reportGameEvent({ type: 'steam_link' });
-        this.adminController.checkAdminPrivileges();
-        this.openSteamModal();
-      } else {
+      }
+      await this.gateAfterAuth(res.user);
+    });
+
+    document.getElementById('btn-close-confirm-email')?.addEventListener('click', () => {
+      document.getElementById('modal-confirm-email')?.classList.add('hidden');
+    });
+    document.getElementById('btn-send-confirm-code')?.addEventListener('click', async () => {
+      const email = (document.getElementById('confirm-email-input') as HTMLInputElement | null)?.value.trim();
+      const errEl = document.getElementById('confirm-email-error');
+      const preview = document.getElementById('confirm-email-preview');
+      const user = getCachedAuthUser();
+      const res = user?.email
+        ? await resendVerifyCode(email || user.email)
+        : await setEmailForConfirm(email || '');
+      if (!res.success) {
         if (errEl) {
-          errEl.textContent = res.error || 'Failed to resolve Steam account. Check your input and try again.';
+          errEl.textContent = res.error || 'Could not send code.';
           errEl.classList.remove('hidden');
         }
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Link Profile';
-        }
+        return;
       }
+      errEl?.classList.add('hidden');
+      if (preview) {
+        preview.textContent = res.previewCode
+          ? `Code sent (preview): ${res.previewCode}`
+          : `Code sent to ${email || user?.email || 'your inbox'}.`;
+        preview.classList.remove('hidden');
+      }
+    });
+    document.getElementById('btn-submit-confirm-code')?.addEventListener('click', async () => {
+      const code = (document.getElementById('confirm-code-input') as HTMLInputElement | null)?.value.trim() || '';
+      const errEl = document.getElementById('confirm-email-error');
+      const res = await verifyEmailCode(code);
+      if (!res.success || !res.user) {
+        if (errEl) {
+          errEl.textContent = res.error || 'Invalid code.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+      document.getElementById('modal-confirm-email')?.classList.add('hidden');
+      await this.gateAfterAuth(res.user);
+    });
+
+    document.getElementById('btn-close-profile-setup')?.addEventListener('click', () => {
+      document.getElementById('modal-profile-setup')?.classList.add('hidden');
+    });
+    document.getElementById('profile-avatar-file')?.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > 600_000) {
+        const errEl = document.getElementById('profile-setup-error');
+        if (errEl) {
+          errEl.textContent = 'Image too large. Use one under ~600KB.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.profileAvatarData = String(reader.result || '');
+        const preview = document.getElementById('profile-avatar-preview') as HTMLImageElement | null;
+        if (preview) preview.src = this.profileAvatarData;
+      };
+      reader.readAsDataURL(file);
+    });
+    document.getElementById('btn-submit-profile-setup')?.addEventListener('click', async () => {
+      const username = (document.getElementById('profile-username-input') as HTMLInputElement | null)?.value || '';
+      const errEl = document.getElementById('profile-setup-error');
+      if (!this.profileAvatarData) {
+        if (errEl) {
+          errEl.textContent = 'Upload an avatar first.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+      const res = await completeProfile(username, this.profileAvatarData);
+      if (!res.success || !res.user) {
+        if (errEl) {
+          errEl.textContent = res.error || 'Could not save profile.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+      document.getElementById('modal-profile-setup')?.classList.add('hidden');
+      await this.gateAfterAuth(res.user);
+    });
+
+    // Steam Modal Triggers
+    document.getElementById('btn-steam-chip')?.addEventListener('click', () => this.openSteamModal('link'));
+    document.getElementById('btn-open-steam-shop')?.addEventListener('click', () => this.openSteamModal('link'));
+    document.getElementById('btn-close-steam')?.addEventListener('click', () => {
+      document.getElementById('modal-steam')?.classList.add('hidden');
+    });
+
+    document.getElementById('btn-submit-steam')?.addEventListener('click', () => {
+      startSteamLogin(this.steamModalMode);
     });
   }
 }

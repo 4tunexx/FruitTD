@@ -8,8 +8,72 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+      #boot-loader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#163014 0%,#050a0f 70%);font-family:Outfit,system-ui,sans-serif;color:#f1f5f9;transition:opacity .45s ease}
+      #boot-loader.is-done{opacity:0;pointer-events:none}
+      .boot-stage{position:relative;width:220px;height:180px}
+      .boot-fruit{position:absolute;inset:18px 28px;transform-origin:center}
+      .boot-half{position:absolute;top:0;width:50%;height:100%;overflow:hidden}
+      .boot-half--left{left:0}
+      .boot-half--right{right:0}
+      .boot-melon{width:164px;height:164px}
+      .boot-half--right .boot-melon{margin-left:-82px}
+      .boot-slash{position:absolute;left:8%;top:46%;width:84%;height:4px;border-radius:99px;background:linear-gradient(90deg,transparent,#f8fafc 20%,#a3e635 50%,#f8fafc 80%,transparent);box-shadow:0 0 16px #a3e635;transform:scaleX(0);transform-origin:left center}
+      .boot-drip{position:absolute;border-radius:50%;opacity:0}
+      .boot-drip--1{width:10px;height:14px;left:46%;top:58%;background:#ff3355}
+      .boot-drip--2{width:8px;height:11px;left:58%;top:52%;background:#ff4d6d}
+      .boot-drip--3{width:7px;height:10px;left:38%;top:62%;background:#3ad15c}
+      .boot-copy{margin-top:1.1rem;letter-spacing:.28em;text-transform:uppercase;font-weight:800;font-size:.72rem;color:#a3e635}
+      .boot-sub{margin-top:.4rem;font-weight:700;color:#94a3b8;font-size:.85rem}
+      .boot-bar{width:180px;height:5px;margin-top:1rem;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+      .boot-bar>i{display:block;height:100%;width:40%;border-radius:99px;background:#a3e635;animation:bootLoad 1.1s ease-in-out infinite}
+      @keyframes bootSlash{0%,18%{transform:scaleX(0);opacity:0}28%{transform:scaleX(1);opacity:1}55%,100%{transform:scaleX(1);opacity:0}}
+      @keyframes bootSplitL{0%,28%{transform:translate(0,0) rotate(0)}100%{transform:translate(-26px,-8px) rotate(-18deg)}}
+      @keyframes bootSplitR{0%,28%{transform:translate(0,0) rotate(0)}100%{transform:translate(26px,10px) rotate(16deg)}}
+      @keyframes bootDrip{0%,30%{opacity:0;transform:translateY(0)}45%{opacity:1}100%{opacity:0;transform:translateY(28px)}}
+      @keyframes bootLoad{0%{transform:translateX(-120%)}100%{transform:translateX(280%)}}
+      .boot-slash{animation:bootSlash 1.8s ease-in-out infinite}
+      .boot-half--left{animation:bootSplitL 1.8s ease-in-out infinite}
+      .boot-half--right{animation:bootSplitR 1.8s ease-in-out infinite}
+      .boot-drip{animation:bootDrip 1.8s ease-in-out infinite}
+      .boot-drip--2{animation-delay:.06s}
+      .boot-drip--3{animation-delay:.12s}
+    </style>
   </head>
   <body>
+    <div id="boot-loader" aria-live="polite">
+      <div class="boot-stage" aria-hidden="true">
+        <div class="boot-fruit">
+          <div class="boot-half boot-half--left">
+            <svg class="boot-melon" viewBox="0 0 164 164">
+              <circle cx="82" cy="82" r="78" fill="#146628"/>
+              <circle cx="82" cy="82" r="64" fill="#3dff7a"/>
+              <circle cx="82" cy="82" r="54" fill="#ff3355"/>
+              <circle cx="58" cy="70" r="4" fill="#2a1c14"/>
+              <circle cx="78" cy="92" r="3.5" fill="#2a1c14"/>
+              <circle cx="64" cy="104" r="3" fill="#2a1c14"/>
+            </svg>
+          </div>
+          <div class="boot-half boot-half--right">
+            <svg class="boot-melon" viewBox="0 0 164 164">
+              <circle cx="82" cy="82" r="78" fill="#146628"/>
+              <circle cx="82" cy="82" r="64" fill="#3dff7a"/>
+              <circle cx="82" cy="82" r="54" fill="#ff3355"/>
+              <circle cx="104" cy="68" r="4" fill="#2a1c14"/>
+              <circle cx="96" cy="96" r="3.5" fill="#2a1c14"/>
+              <circle cx="112" cy="88" r="3" fill="#2a1c14"/>
+            </svg>
+          </div>
+        </div>
+        <div class="boot-slash"></div>
+        <div class="boot-drip boot-drip--1"></div>
+        <div class="boot-drip boot-drip--2"></div>
+        <div class="boot-drip boot-drip--3"></div>
+      </div>
+      <p class="boot-copy">Fruit TD</p>
+      <p class="boot-sub">Slicing fruit…</p>
+      <div class="boot-bar"><i></i></div>
+    </div>
     <div id="app">
       <canvas id="game-canvas"></canvas>
 
@@ -142,8 +206,50 @@
         <div id="hud-toast"></div>
         <div id="achievement-toasts"></div>
 
-        <!-- ════════════════════════ MENU (full-screen gate) ════════════════════════ -->
-        <div id="hud-start">
+        <!-- ════════════════════════ TITLE SCREEN ════════════════════════ -->
+        <div id="title-screen">
+          <div class="menu-blob menu-blob--1"></div>
+          <div class="menu-blob menu-blob--2"></div>
+          <div class="menu-blob menu-blob--3"></div>
+          <div id="title-inner">
+            <p class="title-eyebrow">Fruit TD</p>
+            <h1 class="title-logo">Slice.<br>Hold the Wall.</h1>
+            <p class="title-tagline">Login or register with Steam or email to enter the slicer dashboard.</p>
+            <div id="title-menu" class="title-menu">
+              <button type="button" id="btn-title-continue" class="title-btn title-btn--primary hidden">Continue</button>
+              <button type="button" id="btn-title-login" class="title-btn title-btn--primary">Login</button>
+              <button type="button" id="btn-title-register" class="title-btn">Register</button>
+              <button type="button" id="btn-title-settings" class="title-btn">Settings</button>
+              <button type="button" id="btn-title-quit" class="title-btn title-btn--ghost">Quit</button>
+            </div>
+            <p id="title-account-line" class="title-account">Not signed in</p>
+          </div>
+        </div>
+
+        <div id="title-settings" class="hud-modal-backdrop hidden">
+          <div class="modal-card">
+            <button type="button" id="btn-close-settings" class="modal-close-btn">&times;</button>
+            <h2 class="modal-title">Settings</h2>
+            <p class="modal-sub">Audio and session options.</p>
+            <div class="settings-list">
+              <button type="button" id="btn-settings-mute" class="title-btn">Mute sound</button>
+              <button type="button" id="btn-settings-logout" class="title-btn title-btn--ghost">Log out</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="title-quit" class="hud-modal-backdrop hidden">
+          <div class="modal-card">
+            <h2 class="modal-title">Thanks for slicing</h2>
+            <p class="modal-sub">You can close this tab, or return to the main menu.</p>
+            <div class="modal-btns">
+              <button type="button" id="btn-quit-back" class="modal-btn modal-btn--primary">Back to menu</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════ DASHBOARD (after login) ════════════════════════ -->
+        <div id="hud-start" class="hidden">
           <!-- Animated background blobs -->
           <div class="menu-blob menu-blob--1"></div>
           <div class="menu-blob menu-blob--2"></div>
@@ -167,6 +273,7 @@
 
             <!-- Tabs -->
             <div id="menu-tabs">
+              <button type="button" id="btn-dash-main-menu" class="menu-tab menu-tab--back">← Main Menu</button>
               <button data-page="play" class="menu-tab is-on">Play</button>
               <button data-page="leaderboard" class="menu-tab">🏆 Leaderboard</button>
               <button data-page="quests" class="menu-tab">📜 Quests <span id="quests-alert" class="tab-badge hidden">!</span></button>
@@ -333,38 +440,125 @@
           </div>
         </div>
 
-        <!-- Steam Link Modal -->
+        <!-- Auth: Login / Register -->
+        <div id="modal-auth" class="hud-modal-backdrop hidden">
+          <div class="modal-card modal-card--auth">
+            <button type="button" id="btn-close-auth" class="modal-close-btn">&times;</button>
+            <div class="auth-hero">
+              <div class="auth-fruit" aria-hidden="true">🍉</div>
+              <p class="auth-eyebrow">Fruit TD</p>
+              <h2 id="auth-modal-title" class="modal-title">Login</h2>
+              <p id="auth-modal-sub" class="modal-sub">Sign in with Steam or your email.</p>
+            </div>
+
+            <button type="button" id="btn-auth-open-steam" class="steam-openid-btn">
+              <span class="steam-openid-icon" aria-hidden="true">🎮</span>
+              Sign in through Steam
+            </button>
+            <p class="auth-divider"><span>or email</span></p>
+
+            <form id="auth-email-form" class="auth-form" autocomplete="on">
+              <label class="auth-field">
+                <span>Email</span>
+                <input id="auth-email" type="email" required placeholder="you@email.com" autocomplete="email" />
+              </label>
+              <label class="auth-field">
+                <span>Password</span>
+                <input id="auth-password" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="current-password" />
+              </label>
+              <div id="auth-email-error" class="steam-error hidden"></div>
+              <button type="submit" id="btn-auth-email-submit" class="auth-primary-btn">Continue</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Steam popup card (before redirect) -->
         <div id="modal-steam" class="hud-modal-backdrop hidden">
           <div class="modal-card modal-card--steam">
-            <button id="btn-close-steam" class="modal-close-btn">&times;</button>
-            <div class="modal-icon text-sky-400">🎮</div>
-            <h2 class="modal-title">Link Steam Account</h2>
-            <p class="modal-sub">Connect your Steam profile to sync your avatar, display on Global Leaderboards, and get instant bonus loot!</p>
+            <button type="button" id="btn-close-steam" class="modal-close-btn">&times;</button>
+            <div class="auth-hero">
+              <div class="auth-fruit auth-fruit--steam" aria-hidden="true">🎮</div>
+              <p class="auth-eyebrow">Steam OpenID</p>
+              <h2 id="steam-modal-title" class="modal-title">Steam Login</h2>
+              <p id="steam-modal-sub" class="modal-sub">You will be redirected to Steam. After you approve, we bring back your Steam name and avatar.</p>
+            </div>
 
             <div class="steam-reward-pill">
-              🎁 Bonus on link: <strong>+500 Coins</strong> and <strong>+1 Skill Point</strong>
+              🎁 First Steam link: <strong>+500 Coins</strong> and <strong>+1 Skill Point</strong>
             </div>
 
             <div id="steam-link-form" class="steam-form">
-              <label class="steam-input-label">
-                Steam ID64 or Custom URL
-                <input id="steam-input" placeholder="e.g. 76561198001993310 or custom vanity URL" />
-              </label>
               <div id="steam-link-error" class="steam-error hidden"></div>
-              <div class="modal-btns">
-                <button id="btn-submit-steam" class="modal-btn modal-btn--primary">Link Profile</button>
-              </div>
+              <button type="button" id="btn-submit-steam" class="steam-openid-btn">
+                Login with Steam
+              </button>
+              <p class="auth-hint">Steam replaces any custom username and avatar on this account.</p>
             </div>
 
-            <!-- Connected Profile Info -->
             <div id="steam-profile-card" class="steam-connected-card hidden">
               <img id="steam-card-avatar" class="steam-card-avatar" alt="" />
               <div class="steam-card-info">
                 <p id="steam-card-name" class="steam-card-name"></p>
                 <p id="steam-card-id" class="steam-card-id"></p>
-                <span class="status-badge-green">✔ Connected to Steam Web API</span>
+                <span class="status-badge-green">✔ Connected to Steam</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Confirm email -->
+        <div id="modal-confirm-email" class="hud-modal-backdrop hidden">
+          <div class="modal-card modal-card--auth">
+            <button type="button" id="btn-close-confirm-email" class="modal-close-btn">&times;</button>
+            <div class="auth-hero">
+              <div class="auth-fruit" aria-hidden="true">✉️</div>
+              <p class="auth-eyebrow">Almost there</p>
+              <h2 class="modal-title">Confirm email</h2>
+              <p class="modal-sub">Enter the 6-digit code we sent. Steam players must confirm an email before playing.</p>
+            </div>
+            <div class="auth-form">
+              <label id="confirm-email-field-wrap" class="auth-field">
+                <span>Email address</span>
+                <input id="confirm-email-input" type="email" placeholder="you@email.com" />
+              </label>
+              <label class="auth-field">
+                <span>Verification code</span>
+                <input id="confirm-code-input" class="auth-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code" />
+              </label>
+              <p id="confirm-email-preview" class="auth-hint hidden"></p>
+              <div id="confirm-email-error" class="steam-error hidden"></div>
+              <div class="auth-btn-row">
+                <button type="button" id="btn-send-confirm-code" class="auth-secondary-btn">Send code</button>
+                <button type="button" id="btn-submit-confirm-code" class="auth-primary-btn">Verify</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Email profile setup: username + avatar -->
+        <div id="modal-profile-setup" class="hud-modal-backdrop hidden">
+          <div class="modal-card modal-card--auth">
+            <button type="button" id="btn-close-profile-setup" class="modal-close-btn">&times;</button>
+            <div class="auth-hero">
+              <div class="auth-fruit" aria-hidden="true">🗡️</div>
+              <p class="auth-eyebrow">New slicer</p>
+              <h2 class="modal-title">Create your slicer</h2>
+              <p class="modal-sub">Pick a username (letters &amp; numbers only, no spaces) and upload an avatar.</p>
+            </div>
+            <div class="profile-setup-avatar-row">
+              <img id="profile-avatar-preview" class="profile-avatar-preview" alt="" />
+              <label class="auth-secondary-btn profile-upload-btn">
+                Upload avatar
+                <input id="profile-avatar-file" type="file" accept="image/*" hidden />
+              </label>
+            </div>
+            <label class="auth-field">
+              <span>Username</span>
+              <input id="profile-username-input" type="text" maxlength="16" placeholder="e.g. JuiceBlade" autocomplete="username" />
+            </label>
+            <p class="auth-hint">3–16 characters · no symbols · no spaces · no swear words</p>
+            <div id="profile-setup-error" class="steam-error hidden"></div>
+            <button type="button" id="btn-submit-profile-setup" class="auth-primary-btn" style="margin-top:1rem">Save &amp; play</button>
           </div>
         </div>
 

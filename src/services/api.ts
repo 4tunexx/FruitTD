@@ -289,14 +289,16 @@ export async function getSteamStatus(): Promise<{
   personaName?: string;
   avatar?: string;
 } | null> {
-  const userId = getUserId();
+  const token = localStorage.getItem('fruit_td_token');
   const res = await apiRequest<{
     success: boolean;
     linked: boolean;
     steamId?: string;
     personaName?: string;
     avatar?: string;
-  }>(`/api/steam/status?userId=${encodeURIComponent(userId)}`);
+  }>('/api/steam/status', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   return res && res.success ? res : null;
 }
 

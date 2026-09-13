@@ -465,6 +465,97 @@ canvas {
 }
 
 /* ═══════════════════════════════════════════
+   TITLE SCREEN
+══════════════════════════════════════════════ */
+#title-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 60% 30%, rgba(16,50,10,0.7) 0%, transparent 65%),
+              radial-gradient(ellipse at 20% 80%, rgba(50,10,70,0.5) 0%, transparent 60%),
+              rgba(5, 10, 15, 0.98);
+  pointer-events: auto;
+}
+#title-inner {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+.title-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--lime);
+  margin-bottom: 0.7rem;
+}
+.title-logo {
+  font-size: clamp(2.6rem, 8vw, 4.4rem);
+  font-weight: 900;
+  line-height: 1.02;
+  background: linear-gradient(135deg, #f1f5f9 30%, var(--lime) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.title-tagline {
+  margin: 0.85rem 0 1.8rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  max-width: 26rem;
+}
+.title-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 22rem;
+}
+.title-btn {
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 0.85rem 1.15rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.title-btn:hover { background: var(--surface-hover); border-color: rgba(255,255,255,0.2); }
+.title-btn--primary {
+  background: color-mix(in srgb, var(--lime) 18%, rgba(5, 10, 15, 0.8));
+  border-color: var(--border-glow);
+  color: #ecfccb;
+}
+.title-btn--ghost { color: var(--text-dim); }
+.title-account {
+  margin-top: 1.4rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.menu-tab--back {
+  margin-right: 0.35rem;
+}
+
+/* ═══════════════════════════════════════════
    MENU (full-screen)
 ══════════════════════════════════════════════ */
 #hud-start {
@@ -2183,3 +2274,177 @@ canvas {
   font-size: 0.68rem;
   color: var(--text-muted);
 }
+
+.modal-card--auth {
+  max-width: 440px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(163, 230, 53, 0.14) 0%, transparent 55%),
+    rgba(12, 18, 26, 0.97);
+  border-color: rgba(163, 230, 53, 0.22);
+}
+.auth-hero {
+  text-align: center;
+  margin-bottom: 1.15rem;
+}
+.auth-fruit {
+  width: 3.4rem;
+  height: 3.4rem;
+  margin: 0 auto 0.75rem;
+  border-radius: 1rem;
+  display: grid;
+  place-items: center;
+  font-size: 1.55rem;
+  background: radial-gradient(circle at 35% 30%, #3dff7a, #146628);
+  border: 1px solid rgba(163, 230, 53, 0.55);
+  box-shadow: 0 0 24px rgba(163, 230, 53, 0.18);
+}
+.auth-fruit--steam {
+  background: radial-gradient(circle at 35% 30%, #38bdf8, #0c4a6e);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.18);
+}
+.auth-eyebrow {
+  margin: 0;
+  color: var(--lime);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+.modal-card--auth .modal-title {
+  text-align: center;
+  margin-top: 0.35rem;
+}
+.modal-card--auth .modal-sub {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+.steam-openid-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.45), rgba(8, 47, 73, 0.85));
+  color: #e0f2fe;
+  cursor: pointer;
+}
+.steam-openid-btn:hover { border-color: #38bdf8; color: #fff; }
+.steam-openid-icon { font-size: 1.15rem; }
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.auth-field input {
+  background: rgba(5, 10, 15, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  padding: 0.8rem 0.95rem;
+  color: #f8fafc;
+  font-family: var(--font);
+  font-size: 0.92rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.auth-field input:focus {
+  border-color: rgba(163, 230, 53, 0.55);
+  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.12);
+}
+.auth-code-input {
+  text-align: center;
+  font-size: 1.55rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.45em;
+  padding-left: 0.9rem !important;
+}
+.auth-primary-btn,
+.auth-secondary-btn {
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 0.92rem;
+  border-radius: 0.85rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.auth-primary-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #a3e635, #65a30d);
+  color: #052e16;
+  border-color: #bef264;
+}
+.auth-primary-btn:hover { filter: brightness(1.06); }
+.auth-secondary-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+.auth-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.auth-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+.auth-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.profile-setup-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+}
+.profile-avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 1rem;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(163, 230, 53, 0.35);
+  box-shadow: 0 0 18px rgba(163, 230, 53, 0.12);
+}
+.profile-upload-btn { cursor: pointer; margin: 0; display: inline-block; }
