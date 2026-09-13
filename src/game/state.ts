@@ -1,5 +1,5 @@
 import { getScoreMultiplier, getStartLivesScale, getStartMoneyScale, getSuperChargeMultiplier } from '../services/liveConfig';
-import type { HeroId } from './heroes';
+import { heroXpToLevel, type HeroId } from './heroes';
 import { modeRules } from './modes';
 import { MAX_LIVES } from './world';
 import { getTowerXpState, grantTowerXp } from './towerProgression';
@@ -31,9 +31,18 @@ export interface GameState {
   mode: 'casual' | 'ranked' | 'coop' | 'arena';
 }
 
+/**
+ * Hero level is derived from hero XP instead of being an independent value.
+ * This prevents the old Lv5 ceiling (or any future desync) from leaving the
+ * combat state, HUD and saved progression on different levels.
+ */
+function createHeroProgressionState(): Pick<GameState, 'heroLevel' | 'heroXp'> {
+  return { heroLevel: 1, heroXp: 0 };
+}
+
 export function createState(): GameState {
   const tower = getTowerXpState();
-  return {
+  const base: GameState = {
     score: 0,
     currency: 140,
     lives: MAX_LIVES,
@@ -52,24 +61,37 @@ export function createState(): GameState {
     waveTotal: 0,
     waveKilled: 0,
     hero: 'jiju',
-    heroLevel: 1,
-    heroXp: 0,
+    ...createHeroProgressionState(),
     combo: 0,
     comboTimer: 0,
     superJuice: 0,
     mode: 'casual',
   };
+
+  return new Proxy(base, {
+    get(target, property, receiver) {
+      if (property === 'heroLevel') return heroXpToLevel(target.heroXp);
+      return Reflect.get(target, property, receiver);
+    },
+    set(target, property, value, receiver) {
+      // heroLevel remains assignable for backwards compatibility with older
+      // gameplay code, but XP is the authoritative source of truth.
+      if (property === 'heroLevel') {
+        target.heroLevel = Number(value) || 1;
+        return true;
+      }
+      return Reflect.set(target, property, value, receiver);
+    },
+  });
 }
 
 export function resetState(state: GameState): void {
   const hero = state.hero;
-  const heroLevel = state.heroLevel;
   const heroXp = state.heroXp;
   const tower = getTowerXpState();
   const mode = state.mode;
   Object.assign(state, createState());
   state.hero = hero;
-  state.heroLevel = heroLevel;
   state.heroXp = heroXp;
   state.towerLevel = 1;
   state.towerXp = tower.xp;
