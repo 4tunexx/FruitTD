@@ -16,6 +16,17 @@ function fixHeroLevelLabels(root: ParentNode = document): void {
       if (next !== button.innerHTML) button.innerHTML = next;
     });
   }
+
+  const toast = root.querySelector<HTMLElement>('#hud-toast');
+  if (toast && /^Main is now Lv \d+\/5\b/.test(toast.textContent)) {
+    toast.textContent = toast.textContent.replace(/Lv (\d+)\/5\b/, 'Lv $1/10');
+  }
+
+  const pick = root.querySelector<HTMLElement>('#hud-pick');
+  const upgrade = root.querySelector<HTMLElement>('#btn-upgrade');
+  if (pick?.textContent.startsWith('Main tower') && upgrade?.textContent.includes('maxed')) {
+    upgrade.textContent = upgrade.textContent.replace(/Lv 5\b/, 'Lv 10');
+  }
 }
 
 function ensureTowerChip(): HTMLElement | null {
