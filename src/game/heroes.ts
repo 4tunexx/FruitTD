@@ -1,3 +1,5 @@
+import './phase1Runtime';
+
 export type HeroId = 'jiju' | 'topfu' | 'lagen' | 'tripos' | 'ki';
 export type PointerKind = 'mouse' | 'touch';
 

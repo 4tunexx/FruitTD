@@ -1,4 +1,4 @@
-import { HEROES, heroXpToLevel, type HeroId } from './heroes';
+import { HEROES, heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } from './heroes';
 import { SKILLS, emptySkills, type SkillId, type SkillMap } from './skills';
 import { getTowerProgression, syncTowerProgression } from './towerProgression';
 
@@ -27,6 +27,14 @@ export interface SaveData {
 }
 
 function emptyXp(): Record<HeroId, number> { return { jiju:0, topfu:0, lagen:0, tripos:0, ki:0 }; }
+function safeInt(value: unknown, fallback = 0, min = 0, max = Number.MAX_SAFE_INTEGER): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.floor(n))) : fallback;
+}
+function uniqueStrings(values: unknown, fallback: string[] = []): string[] {
+  if (!Array.isArray(values)) return [...fallback];
+  return [...new Set(values.filter((v): v is string => typeof v === 'string' && v.length > 0))];
+}
 
 export function defaultAvatar(name: string): string {
   const letter = (name[0] || 'S').toUpperCase();
@@ -42,8 +50,35 @@ export function defaultSave(): SaveData {
   };
 }
 
+/** Keep old/local/cloud saves valid even when a field is missing, duplicated or malformed. */
+function sanitiseSave(data: SaveData): SaveData {
+  const base = defaultSave();
+  for (const hero of HEROES) data.xp[hero.id] = safeInt(data.xp[hero.id], 0, 0, heroXpForLevel(MAX_HERO_LEVEL));
+  data.ownedHeroes = [...new Set(data.ownedHeroes.filter((id) => HEROES.some((h) => h.id === id)))];
+  data.ownedSkins = uniqueStrings(data.ownedSkins, base.ownedSkins);
+  for (const skill of SKILLS) data.skills[skill.id] = safeInt(data.skills[skill.id], 0, 0, skill.max);
+  data.towerXp = safeInt(data.towerXp, 0);
+  data.towerLifetimeXp = safeInt(data.towerLifetimeXp, 0);
+  data.highScore = safeInt(data.highScore, 0);
+  data.rankedScore = safeInt(data.rankedScore, 0);
+  data.bestWave = safeInt(data.bestWave, 1, 1);
+  data.games = safeInt(data.games, 0);
+  data.coins = safeInt(data.coins, 0);
+  data.skillPoints = safeInt(data.skillPoints, 0);
+  data.nickname = typeof data.nickname === 'string' ? data.nickname.trim().slice(0, 16) || 'Slicer' : 'Slicer';
+  data.avatar = typeof data.avatar === 'string' && data.avatar ? data.avatar : defaultAvatar(data.nickname);
+  if (!HEROES.some((h) => h.id === data.hero)) data.hero = 'jiju';
+  if (!['casual','ranked','coop','arena'].includes(data.mode)) data.mode = 'casual';
+  if (!data.ownedSkins.includes('blade-default')) data.ownedSkins.push('blade-default');
+  if (!data.ownedSkins.includes('wall-brick')) data.ownedSkins.push('wall-brick');
+  if (!data.ownedSkins.includes(data.bladeSkin)) data.bladeSkin = 'blade-default';
+  if (!data.ownedSkins.includes(data.wallSkin)) data.wallSkin = 'wall-brick';
+  return data;
+}
+
 /** Unlocks are driven by the first hero's level. Premium heroes never auto-unlock. */
 export function syncHeroUnlocks(data: SaveData): SaveData {
+  sanitiseSave(data);
   const firstHeroLevel = heroXpToLevel(data.xp.jiju ?? 0);
   const owned = new Set<HeroId>(data.ownedHeroes?.length ? data.ownedHeroes : ['jiju']);
   owned.add('jiju');
@@ -77,16 +112,16 @@ export function loadSave(): SaveData {
     const parsed = JSON.parse(raw) as Partial<SaveData>; const base = defaultSave();
     const hero = HEROES.some((h) => h.id === parsed.hero) ? parsed.hero as HeroId : 'jiju';
     const towerLocal = getTowerProgression();
-    const towerXp = Math.max(towerLocal.xp, Number(parsed.towerXp) || 0);
-    const towerLifetimeXp = Math.max(towerLocal.lifetimeXp, Number(parsed.towerLifetimeXp) || 0);
+    const towerXp = Math.max(towerLocal.xp, safeInt(parsed.towerXp));
+    const towerLifetimeXp = Math.max(towerLocal.lifetimeXp, safeInt(parsed.towerLifetimeXp));
     syncTowerProgression(towerXp, towerLifetimeXp);
     const data: SaveData = {
       ...base, ...parsed, hero,
       xp:{...base.xp,...(parsed.xp ?? {})},
-      ownedHeroes:(parsed.ownedHeroes ?? ['jiju']).filter((id): id is HeroId => HEROES.some((h)=>h.id===id)),
+      ownedHeroes:uniqueStrings(parsed.ownedHeroes, ['jiju']).filter((id): id is HeroId => HEROES.some((h)=>h.id===id)),
       towerXp, towerLifetimeXp,
       skills:{...base.skills,...(parsed.skills ?? {})},
-      ownedSkins:parsed.ownedSkins?.length ? parsed.ownedSkins : base.ownedSkins,
+      ownedSkins:uniqueStrings(parsed.ownedSkins, base.ownedSkins),
       avatar:parsed.avatar || defaultAvatar(parsed.nickname || 'Slicer'), nickname:parsed.nickname || 'Slicer',
     };
     return syncHeroUnlocks(data);
