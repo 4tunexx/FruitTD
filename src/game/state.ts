@@ -89,6 +89,29 @@ export function leakCost(state: GameState, fruitKind: string, boss: boolean): nu
   return Math.max(1, Math.round(n * rules.leakMul));
 }
 
+/** Apply damage to the Main Tower. Returns the actual damage dealt. */
+export function damageTower(state: GameState, amount: number): number {
+  const damage = Math.max(0, Math.round(amount));
+  if (damage <= 0 || state.lives <= 0) return 0;
+  const actual = Math.min(state.lives, damage);
+  state.lives -= actual;
+  state.combo = 0;
+  state.comboTimer = 0;
+  return actual;
+}
+
+/** Extra tower defence reward for surviving a wave without leaks. */
+export function awardPerfectWave(state: GameState): number {
+  if (state.waveKilled <= 0 || state.waveTotal <= 0 || state.waveKilled < state.waveTotal) return 0;
+  const reward = Math.max(4, Math.round(3 + state.wave * 0.75));
+  state.currency += reward;
+  const tower = grantTowerXp(reward);
+  state.towerXp = tower.xp;
+  state.towerXpToNext = tower.nextLevelXp;
+  state.towerXpProgress = tower.progress;
+  return reward;
+}
+
 export function addScore(state: GameState, base: number): void {
   const rules = modeRules(state.mode);
   const scoreMul = getScoreMultiplier();
@@ -96,7 +119,6 @@ export function addScore(state: GameState, base: number): void {
   state.currency += Math.max(2, Math.round(base * 0.6 * rules.currencyMul));
 
   // Every scored fruit/event now contributes to persistent Main Tower XP.
-  // The XP is deliberately independent from hero XP and in-match tower level.
   const xpGain = Math.max(1, Math.round(base / 6));
   const tower = grantTowerXp(xpGain);
   state.towerXp = tower.xp;
