@@ -12,11 +12,6 @@ export interface GameState {
   combo: number; comboTimer: number; superJuice: number; mode: 'casual' | 'ranked' | 'coop' | 'arena';
 }
 
-/**
- * Hero level and XP are authoritative progression values. Level is derived from
- * XP, and XP is capped at the exact XP required for level 100. This removes the
- * old Lv5 ceiling and prevents post-max XP from growing forever.
- */
 function createHeroProgressionState(): Pick<GameState, 'heroLevel' | 'heroXp'> {
   return { heroLevel: 1, heroXp: 0 };
 }
@@ -81,12 +76,22 @@ export function awardPerfectWave(state: GameState): number {
   return reward;
 }
 
+/**
+ * Central reward path. Keeping the combo multiplier here means every normal
+ * kill, boss kill, reslice and turret reward can benefit without duplicating
+ * multiplier math throughout the game loop.
+ */
 export function addScore(state: GameState, base: number): void {
-  const rules = modeRules(state.mode); const scoreMul = getScoreMultiplier();
-  state.score += Math.round(base * scoreMul); state.currency += Math.max(2, Math.round(base * 0.6 * rules.currencyMul));
-  const xpGain = Math.max(1, Math.round(base / 6)); const tower = grantTowerXp(xpGain);
+  const rules = modeRules(state.mode);
+  const scoreMul = getScoreMultiplier();
+  const comboMul = 1 + Math.min(2.5, Math.max(0, state.combo) * 0.08);
+  const rewarded = Math.max(0, Math.round(base * comboMul));
+  state.score += Math.round(rewarded * scoreMul);
+  state.currency += Math.max(2, Math.round(rewarded * 0.6 * rules.currencyMul));
+  const xpGain = Math.max(1, Math.round(rewarded / 6));
+  const tower = grantTowerXp(xpGain);
   state.towerXp = tower.xp; state.towerXpToNext = tower.nextLevelXp; state.towerXpProgress = tower.progress;
 }
 
 export function chargeSuper(state: GameState, amount: number): void { state.superJuice = Math.min(100, state.superJuice + amount * getSuperChargeMultiplier()); }
-export function toast(state: GameState, message: string, seconds = 1.5): void { state.toast = message; state.toastTimer = seconds; }
+export function toast(state: GameState, message: string, seconds = 1.5): void { state.toast = message; state.toastTimer = seconds; state.toastTimer = seconds; }
