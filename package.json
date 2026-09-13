@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx server/index.ts",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/bundle-api.mjs",
+    "build:api": "node scripts/bundle-api.mjs",
     "preview": "vite preview",
     "test": "tsx --test server/admin.routes.test.ts"
   },
@@ -23,6 +24,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.2",
     "@types/three": "^0.170.0",
+    "esbuild": "^0.25.9",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.23.13",
     "typescript": "^5.7.3",

@@ -3,10 +3,6 @@ import { createApp } from '../server/app';
 
 const app = createApp();
 
-/**
- * Vercel catch-all may pass `/steam/login` (without `/api`) or the full `/api/...` path.
- * Normalize so Express routes under `/api/*` always match.
- */
 function normalizeApiUrl(req: IncomingMessage): void {
   const raw = req.url || '/';
   const qIndex = raw.indexOf('?');
@@ -15,7 +11,6 @@ function normalizeApiUrl(req: IncomingMessage): void {
 
   if (pathOnly === '/api' || pathOnly.startsWith('/api/')) return;
 
-  // `/steam/login` → `/api/steam/login`
   const nextPath = pathOnly.startsWith('/') ? `/api${pathOnly}` : `/api/${pathOnly}`;
   req.url = `${nextPath}${query}`;
 }
