@@ -1,4 +1,5 @@
 import type { FruitKind } from './fruits';
+import './enemyRuntime';
 import { enemyRule, specialEnemyForWave, type EnemyKind } from './enemies';
 import { modeRules } from './modes';
 import type { GameMode } from './save';
@@ -36,9 +37,6 @@ function mix(wave: number, count: number): SpawnItem[] {
     else fruit = 'lemon';
 
     const enemy = specialEnemyForWave(wave, Math.random());
-    // Until the renderer gets dedicated enemy meshes, use existing fruit
-    // silhouettes that already communicate the danger in gameplay:
-    // volatile = bomb, armored = watermelon, swift = strawberry.
     if (enemy === 'explosive') fruit = 'bomb';
     else if (enemy === 'armored') fruit = 'watermelon';
     else if (enemy === 'swift') fruit = 'strawberry';
@@ -65,26 +63,24 @@ export function planWave(wave: number, mode: GameMode): WavePlan {
   } else if (w === 3) {
     add(items, 'orange', 3);
     add(items, 'kiwi', 3);
-    add(items, 'bomb', 2);
+    add(items, 'bomb', 2, false, 'explosive');
     add(items, 'pineapple', 2);
   } else if (w === 4) {
     add(items, 'watermelon', 2);
     add(items, 'strawberry', 4);
     add(items, 'banana', 3);
-    add(items, 'bomb', 1);
+    add(items, 'bomb', 1, false, 'explosive');
   } else {
     const count = Math.min(28, 8 + w * 2);
     items.push(...mix(w, count));
   }
 
-  if (w >= 4) {
+  if (w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
     const special = enemyRule('explosive');
-    if (!items.some((item) => item.enemy === 'explosive')) {
-      const index = Math.min(items.length - 1, Math.floor(w * 0.7));
-      if (items[index]) {
-        items[index].enemy = special.kind;
-        items[index].kind = 'bomb';
-      }
+    const index = Math.min(items.length - 1, Math.floor(w * 0.7));
+    if (items[index]) {
+      items[index].enemy = special.kind;
+      items[index].kind = 'bomb';
     }
   }
 
