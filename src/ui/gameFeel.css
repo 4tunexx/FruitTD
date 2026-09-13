@@ -8,17 +8,20 @@
 @keyframes fruitTdComboSwap{0%{opacity:.35;transform:translate(-50%,0) scale(.8)}100%{opacity:1;transform:translate(-50%,0) scale(1)}}
 .menu-page button,#hud-start button,.modal button{min-height:42px;transition:transform .12s ease,filter .12s ease,border-color .12s ease}
 .menu-page button:active,#hud-start button:active,.modal button:active{transform:translateY(1px) scale(.98)}
-
-/* Arcade danger language: used by special-target previews and future live combat callouts. */
 .fruit-td-danger{font-weight:1000;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 2px 0 rgba(0,0,0,.65),0 0 16px currentColor;animation:fruitTdDangerPulse .45s ease-in-out infinite alternate}
 .fruit-td-volatile{border:2px solid rgba(255,85,51,.8);box-shadow:0 0 0 2px rgba(255,85,51,.12),0 0 24px rgba(255,85,51,.32);animation:fruitTdDangerPulse .5s ease-in-out infinite alternate}
 .slicer-live-preview{position:relative;min-height:180px;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:radial-gradient(circle at 50% 48%,rgba(255,255,255,.09),transparent 38%),linear-gradient(145deg,#111827,#090b10 70%);isolation:isolate}
 .slicer-live-preview::before{content:"";position:absolute;inset:12%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.05),transparent 66%);pointer-events:none}
 .slicer-live-blade{position:absolute;left:12%;right:12%;top:50%;height:var(--slicer-width,8px);transform:rotate(-16deg);transform-origin:center;filter:drop-shadow(0 0 8px var(--slicer-glow,#60a5fa));background:linear-gradient(90deg,transparent,var(--slicer-color,#60a5fa) 16%,#fff 50%,var(--slicer-glow,#60a5fa) 84%,transparent);border-radius:999px;animation:slicerPreviewSlash 1.05s cubic-bezier(.2,.85,.25,1) infinite}
 .slicer-live-sparks{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 28% 64%,var(--slicer-color,#60a5fa) 0 2px,transparent 3px),radial-gradient(circle at 51% 42%,var(--slicer-glow,#93c5fd) 0 2px,transparent 3px),radial-gradient(circle at 72% 34%,var(--slicer-color,#60a5fa) 0 1px,transparent 3px);opacity:.75;animation:slicerPreviewSparks .7s linear infinite}
+.tower-progress-chip{margin-top:8px;padding:8px 10px;border:1px solid rgba(163,230,53,.2);border-radius:12px;background:linear-gradient(135deg,rgba(163,230,53,.1),rgba(255,255,255,.035));box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.tower-progress-chip__top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.58)}
+.tower-progress-chip__level{color:#d9f99d;font-size:12px}
+.tower-progress-chip__track{height:4px;margin-top:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.tower-progress-chip__fill{height:100%;border-radius:99px;background:#a3e635;transition:width .25s ease}
+.tower-progress-chip__reward{margin-top:5px;font-size:9px;color:rgba(255,255,255,.42);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @keyframes slicerPreviewSlash{0%,12%{opacity:0;transform:translateX(-12%) rotate(-16deg) scaleX(.55)}25%{opacity:1}62%{opacity:1;transform:translateX(12%) rotate(-16deg) scaleX(1)}100%{opacity:0;transform:translateX(30%) rotate(-16deg) scaleX(.8)}}
 @keyframes slicerPreviewSparks{0%{transform:scale(.75);opacity:.25}50%{transform:scale(1.08);opacity:.9}100%{transform:scale(1.25);opacity:.1}}
 @keyframes fruitTdDangerPulse{from{transform:scale(.99);filter:brightness(1)}to{transform:scale(1.015);filter:brightness(1.18)}}
-
-@media(max-width:860px){.menu-page button,#hud-start button,.modal button{min-height:46px}#combo-layer .hit-pop{font-size:clamp(2rem,12vw,3.6rem)}#combo-layer .streak-pop{font-size:clamp(1.45rem,9vw,2.8rem)}.slicer-live-preview{min-height:150px}}
-@media(prefers-reduced-motion:reduce){#combo-layer .is-live,#combo-layer .is-swap,.fruit-td-danger,.fruit-td-volatile,.slicer-live-blade,.slicer-live-sparks{animation:none}}
+@media(max-width:860px){.menu-page button,#hud-start button,.modal button{min-height:46px}#combo-layer .hit-pop{font-size:clamp(2rem,12vw,3.6rem)}#combo-layer .streak-pop{font-size:clamp(1.45rem,9vw,2.8rem)}.slicer-live-preview{min-height:150px}.tower-progress-chip{padding:7px 8px}}
+@media(prefers-reduced-motion:reduce){#combo-layer .is-live,#combo-layer .is-swap,.fruit-td-danger,.fruit-td-volatile,.slicer-live-blade,.slicer-live-sparks,.tower-progress-chip__fill{animation:none}}
