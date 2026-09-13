@@ -16,12 +16,7 @@ const ndc = new Vector2();
 const hit = new Vector3();
 const raycaster = new Raycaster();
 
-/**
- * Pointer sampling is deliberately kept separate from the combat resolver.
- * Every meaningful pointer segment becomes a hit-scan segment instead of
- * overwriting the previous segment. This prevents fast swipes from skipping
- * targets between render frames and makes multi-target slicing reliable.
- */
+/** Pointer sampling is kept separate from combat. Fast pointer movement is queued so no meaningful swipe segment is silently lost. */
 export class BladeInput {
   private readonly samples: Vector3[] = [];
   private readonly slashQueue: Slash[] = [];
@@ -45,14 +40,10 @@ export class BladeInput {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('pointerdown', (e) => this.onDown(e));
     canvas.addEventListener('pointermove', (e) => this.onMove(e));
-    canvas.addEventListener(
-      'wheel',
-      (e) => {
-        e.preventDefault();
-        this.view.zoom(e.deltaY > 0 ? 1.1 : -1.1);
-      },
-      { passive: false },
-    );
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.view.zoom(e.deltaY > 0 ? 1.1 : -1.1);
+    }, { passive: false });
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('pointercancel', (e) => this.onUp(e));
   }
@@ -147,13 +138,34 @@ export class BladeInput {
     this.samples.length = 0;
   }
 
+  /**
+   * The main loop consumes one slash per tick. Batch all segments currently
+   * waiting into one hit-scan stroke so a 120Hz mouse/touch stream cannot be
+   * throttled down to 60Hz combat. The combined stroke spans the sampled path
+   * and uses the fastest segment's speed/charge for responsive damage scaling.
+   */
   consumeSlash(): Slash | null {
-    const slash = this.slashQueue.shift() ?? null;
-    if (!this.slashQueue.length) this.lastSlash = null;
-    return slash;
+    if (!this.slashQueue.length) return null;
+    const first = this.slashQueue[0];
+    const last = this.slashQueue[this.slashQueue.length - 1];
+    let speed = first.speed;
+    let charge = first.charge;
+    for (let i = 1; i < this.slashQueue.length; i++) {
+      speed = Math.max(speed, this.slashQueue[i].speed);
+      charge = Math.max(charge, this.slashQueue[i].charge);
+    }
+    this.slashQueue.length = 0;
+    this.lastSlash = null;
+    return {
+      from: first.from.clone(),
+      to: last.to.clone(),
+      speed,
+      charge,
+      pointer: last.pointer,
+    };
   }
 
-  /** Drain all queued hit-scan segments generated since the previous tick. */
+  /** Drain raw segments when a future resolver wants exact curved-path processing. */
   consumeSlashes(max = 16): Slash[] {
     const out: Slash[] = [];
     const count = Math.min(max, this.slashQueue.length);
