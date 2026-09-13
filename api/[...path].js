@@ -663,21 +663,23 @@ adminRouter.get("/config", async (_req, res) => {
     const col = await getCollection("admin_config");
     let doc = await col.findOne({ configKey: "game_config" });
     if (!doc) {
-      doc = {
+      const seed = {
         ...DEFAULT_ADMIN_CONFIG,
         updatedAt: /* @__PURE__ */ new Date()
       };
-      await col.insertOne(doc);
+      await col.insertOne(seed);
+      doc = seed;
     }
+    const cfg = doc;
     res.json({
       success: true,
       config: {
         ...DEFAULT_ADMIN_CONFIG,
-        ...doc,
-        missions: Array.isArray(doc.missions) && doc.missions.length ? doc.missions : DEFAULT_MISSIONS,
-        achievements: Array.isArray(doc.achievements) && doc.achievements.length ? doc.achievements : DEFAULT_ACHIEVEMENTS,
-        badges: Array.isArray(doc.badges) && doc.badges.length ? doc.badges : DEFAULT_BADGES,
-        ranks: Array.isArray(doc.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS
+        ...cfg,
+        missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
+        achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
+        badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
+        ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS
       }
     });
   } catch (err) {

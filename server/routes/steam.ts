@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { getCollection, type UserDoc } from '../db';
 import { fetchSteamPlayerSummary } from '../steam';
-import { createSession, publicUser, resolveSession } from '../auth';
+import { createSession, resolveSession } from '../auth';
 import { sanitizeSteamUsername } from '../username';
 import { unlockSteamAchievement, bearer } from './auth';
 
