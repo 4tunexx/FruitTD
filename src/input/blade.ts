@@ -16,8 +16,15 @@ const ndc = new Vector2();
 const hit = new Vector3();
 const raycaster = new Raycaster();
 
+/**
+ * Pointer sampling is deliberately kept separate from the combat resolver.
+ * Every meaningful pointer segment becomes a hit-scan segment instead of
+ * overwriting the previous segment. This prevents fast swipes from skipping
+ * targets between render frames and makes multi-target slicing reliable.
+ */
 export class BladeInput {
   private readonly samples: Vector3[] = [];
+  private readonly slashQueue: Slash[] = [];
   private down = false;
   private panning = false;
   private downAt = 0;
@@ -62,13 +69,28 @@ export class BladeInput {
     return raycaster.ray.intersectPlane(plane, hit) ? hit.clone() : null;
   }
 
+  private queueSegment(a: Vector3, b: Vector3): void {
+    const dist = a.distanceTo(b);
+    if (dist <= 0.2) return;
+    const now = performance.now();
+    const slash: Slash = {
+      from: a.clone(),
+      to: b.clone(),
+      speed: dist * 60,
+      charge: Math.max(0, (now - this.downAt) / 1000),
+      pointer: this.lastPointer,
+    };
+    this.lastSlash = slash;
+    this.slashQueue.push(slash);
+    // Keep the queue bounded if a device sends an unusually large pointer burst.
+    if (this.slashQueue.length > 48) this.slashQueue.splice(0, this.slashQueue.length - 48);
+  }
+
   private onDown(e: PointerEvent): void {
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.lastPointer = this.kind(e);
     this.panning = e.button === 1 || e.button === 2 || e.shiftKey || this.pointers.size >= 2;
     if (this.panning) {
-      // Seed lastX/lastY from the average of all active pointers so that the
-      // first pan delta from onMove is computed correctly.
       let ax = 0, ay = 0, count = 0;
       for (const p of this.pointers.values()) { ax += p.x; ay += p.y; count++; }
       this.lastX = count ? ax / count : e.clientX;
@@ -82,6 +104,8 @@ export class BladeInput {
     this.down = true;
     this.downAt = performance.now();
     this.samples.length = 0;
+    this.slashQueue.length = 0;
+    this.lastSlash = null;
     this.trail.length = 0;
     const p = this.project(e.clientX, e.clientY);
     if (p) {
@@ -103,29 +127,17 @@ export class BladeInput {
     const p = this.project(e.clientX, e.clientY);
     if (!p) return;
     this.trail.push(p.clone());
-    if (this.trail.length > 16) this.trail.shift();
+    if (this.trail.length > 24) this.trail.shift();
     if (!this.down) return;
+    const previous = this.samples[this.samples.length - 1];
+    if (previous) this.queueSegment(previous, p);
     this.samples.push(p);
-    if (this.samples.length > 8) this.samples.shift();
-    if (this.samples.length >= 2) {
-      const a = this.samples[this.samples.length - 2];
-      const b = this.samples[this.samples.length - 1];
-      const dist = a.distanceTo(b);
-      if (dist > 0.2) {
-        this.lastSlash = {
-          from: a.clone(),
-          to: b.clone(),
-          speed: dist * 60,
-          charge: (performance.now() - this.downAt) / 1000,
-          pointer: this.lastPointer,
-        };
-      }
-    }
+    if (this.samples.length > 12) this.samples.shift();
   }
 
   private onUp(e: PointerEvent): void {
     this.pointers.delete(e.pointerId);
-    this.lastCharge = (performance.now() - this.downAt) / 1000;
+    if (this.down) this.lastCharge = (performance.now() - this.downAt) / 1000;
     if (this.down && this.samples.length) {
       const a = this.samples[0];
       const b = this.samples[this.samples.length - 1];
@@ -136,9 +148,10 @@ export class BladeInput {
     this.samples.length = 0;
   }
 
+  /** Returns one queued hit-scan segment per simulation tick. */
   consumeSlash(): Slash | null {
-    const slash = this.lastSlash;
-    this.lastSlash = null;
+    const slash = this.slashQueue.shift() ?? null;
+    if (!this.slashQueue.length) this.lastSlash = null;
     return slash;
   }
 
