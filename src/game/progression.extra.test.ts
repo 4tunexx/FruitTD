@@ -4,6 +4,7 @@ import { HERO_PERKS, heroPerkMultiplier, heroPerkRank } from './heroProgression'
 import { TOWER_MILESTONES } from './towerMilestones';
 import { createState } from './state';
 import { MAX_HERO_LEVEL, heroXpForLevel } from './heroes';
+import { enemyReward, enemyXpReward, specialEnemyForWave } from './enemies';
 
 test('hero perks unlock and gain ranks through mastery', () => {
   const combo = HERO_PERKS.find((p) => p.id === 'combo')!;
@@ -26,4 +27,14 @@ test('hero runtime state derives level from XP and caps at level 100', () => {
   state.heroXp += 999999999;
   assert.equal(state.heroLevel, MAX_HERO_LEVEL);
   assert.equal(state.heroXp, heroXpForLevel(MAX_HERO_LEVEL));
+});
+
+test('special enemies scale into the wave and pay meaningful rewards', () => {
+  assert.equal(specialEnemyForWave(2, 0), 'normal');
+  assert.equal(specialEnemyForWave(4, 0.2), 'explosive');
+  assert.equal(specialEnemyForWave(5, 0.1), 'swift');
+  assert.equal(specialEnemyForWave(8, 0.1), 'armored');
+  assert.equal(specialEnemyForWave(12, 0.01), 'splitter');
+  assert.ok(enemyReward('armored', 100) > 100);
+  assert.ok(enemyXpReward('splitter', 10) > 10);
 });

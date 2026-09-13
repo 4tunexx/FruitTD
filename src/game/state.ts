@@ -12,11 +12,6 @@ export interface GameState {
   combo: number; comboTimer: number; superJuice: number; mode: 'casual' | 'ranked' | 'coop' | 'arena';
 }
 
-/**
- * Hero level and XP are authoritative progression values. Level is derived from
- * XP, and XP is capped at the exact XP required for level 100. This removes the
- * old Lv5 ceiling and prevents post-max XP from growing forever.
- */
 function createHeroProgressionState(): Pick<GameState, 'heroLevel' | 'heroXp'> {
   return { heroLevel: 1, heroXp: 0 };
 }
@@ -67,13 +62,11 @@ export function leakCost(state: GameState, fruitKind: string, boss: boolean): nu
   return Math.max(1, Math.round(n * rules.leakMul));
 }
 
-/** Apply damage to the Main Tower. Returns the actual damage dealt. */
 export function damageTower(state: GameState, amount: number): number {
   const damage = Math.max(0, Math.round(amount)); if (damage <= 0 || state.lives <= 0) return 0;
   const actual = Math.min(state.lives, damage); state.lives -= actual; state.combo = 0; state.comboTimer = 0; return actual;
 }
 
-/** Extra tower defence reward for surviving a wave without leaks. */
 export function awardPerfectWave(state: GameState): number {
   if (state.waveKilled <= 0 || state.waveTotal <= 0 || state.waveKilled < state.waveTotal) return 0;
   const reward = Math.max(4, Math.round(3 + state.wave * 0.75)); state.currency += reward;
@@ -81,10 +74,16 @@ export function awardPerfectWave(state: GameState): number {
   return reward;
 }
 
+/** Central reward path: combo streaks now increase score, coins and tower XP. */
 export function addScore(state: GameState, base: number): void {
-  const rules = modeRules(state.mode); const scoreMul = getScoreMultiplier();
-  state.score += Math.round(base * scoreMul); state.currency += Math.max(2, Math.round(base * 0.6 * rules.currencyMul));
-  const xpGain = Math.max(1, Math.round(base / 6)); const tower = grantTowerXp(xpGain);
+  const rules = modeRules(state.mode);
+  const scoreMul = getScoreMultiplier();
+  const comboMul = 1 + Math.min(2.5, Math.max(0, state.combo) * 0.08);
+  const rewarded = Math.max(0, Math.round(base * comboMul));
+  state.score += Math.round(rewarded * scoreMul);
+  state.currency += Math.max(2, Math.round(rewarded * 0.6 * rules.currencyMul));
+  const xpGain = Math.max(1, Math.round(rewarded / 6));
+  const tower = grantTowerXp(xpGain);
   state.towerXp = tower.xp; state.towerXpToNext = tower.nextLevelXp; state.towerXpProgress = tower.progress;
 }
 

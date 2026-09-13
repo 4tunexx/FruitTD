@@ -1,7 +1,12 @@
-#combo-layer .hit-pop,#combo-layer .streak-pop,#combo-layer .reslice-pop{ text-shadow:0 3px 0 rgba(0,0,0,.55),0 0 18px currentColor; font-weight:1000; font-style:italic; filter:drop-shadow(0 8px 18px rgba(0,0,0,.35)); }
+#combo-layer .hit-pop,#combo-layer .streak-pop,#combo-layer .reslice-pop{position:absolute;left:50%;top:28%;width:max-content;max-width:90vw;text-align:center;white-space:pre-line;text-shadow:0 3px 0 rgba(0,0,0,.65),0 0 18px currentColor;font-weight:1000;font-style:italic;line-height:.95;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));pointer-events:none}
 #combo-layer .hit-pop{font-size:clamp(2rem,5vw,4.4rem)}
-#combo-layer .streak-pop{font-size:clamp(1.7rem,4.2vw,3.8rem);text-transform:uppercase}
+#combo-layer .streak-pop{top:40%;font-size:clamp(1.7rem,4.2vw,3.8rem);text-transform:uppercase}
 #combo-layer .reslice-pop{font-size:clamp(1rem,2.4vw,2rem)}
+.combo-meter{position:absolute;left:50%;top:8%;transform:translateX(-50%);display:flex;align-items:baseline;gap:.45rem;padding:.3rem .8rem;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(5,10,15,.58);backdrop-filter:blur(8px);box-shadow:0 5px 22px rgba(0,0,0,.25);opacity:.7;transition:transform .14s ease,opacity .14s ease,box-shadow .14s ease}
+.combo-meter__label{font-size:.62rem;font-weight:900;letter-spacing:.18em;color:rgba(255,255,255,.65)}
+.combo-meter__value{font-size:clamp(1rem,2.5vw,1.65rem);font-weight:1000;color:#f8fafc;font-style:italic}
+.combo-meter.is-hot{opacity:1;transform:translateX(-50%) scale(1.06);box-shadow:0 0 28px rgba(251,191,36,.25)}
+.combo-meter.is-super-hot{transform:translateX(-50%) scale(1.12);box-shadow:0 0 34px rgba(239,68,68,.35)}
 #combo-layer .is-live{animation:fruitTdComboIn .34s cubic-bezier(.16,1.2,.3,1) both}
 #combo-layer .is-swap{animation:fruitTdComboSwap .22s ease-out both}
 @keyframes fruitTdComboIn{0%{opacity:0;transform:translate(-50%,18px) scale(.55) rotate(-4deg)}55%{opacity:1;transform:translate(-50%,-4px) scale(1.12) rotate(1deg)}100%{opacity:1;transform:translate(-50%,0) scale(1) rotate(0)}}
@@ -23,5 +28,5 @@
 @keyframes slicerPreviewSlash{0%,12%{opacity:0;transform:translateX(-12%) rotate(-16deg) scaleX(.55)}25%{opacity:1}62%{opacity:1;transform:translateX(12%) rotate(-16deg) scaleX(1)}100%{opacity:0;transform:translateX(30%) rotate(-16deg) scaleX(.8)}}
 @keyframes slicerPreviewSparks{0%{transform:scale(.75);opacity:.25}50%{transform:scale(1.08);opacity:.9}100%{transform:scale(1.25);opacity:.1}}
 @keyframes fruitTdDangerPulse{from{transform:scale(.99);filter:brightness(1)}to{transform:scale(1.015);filter:brightness(1.18)}}
-@media(max-width:860px){.menu-page button,#hud-start button,.modal button{min-height:46px}#combo-layer .hit-pop{font-size:clamp(2rem,12vw,3.6rem)}#combo-layer .streak-pop{font-size:clamp(1.45rem,9vw,2.8rem)}.slicer-live-preview{min-height:150px}.tower-progress-chip{padding:7px 8px}}
+@media(max-width:860px){.menu-page button,#hud-start button,.modal button{min-height:46px}#combo-layer .hit-pop{font-size:clamp(2rem,12vw,3.6rem)}#combo-layer .streak-pop{font-size:clamp(1.45rem,9vw,2.8rem)}.combo-meter{top:11%}.slicer-live-preview{min-height:150px}.tower-progress-chip{padding:7px 8px}}
 @media(prefers-reduced-motion:reduce){#combo-layer .is-live,#combo-layer .is-swap,.fruit-td-danger,.fruit-td-volatile,.slicer-live-blade,.slicer-live-sparks,.tower-progress-chip__fill{animation:none}}
