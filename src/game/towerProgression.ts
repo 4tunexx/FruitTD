@@ -2,11 +2,7 @@ import { MAX_TOWER_LEVEL } from './world';
 
 const KEY = 'fruit-td-main-tower-progression-v1';
 
-export interface TowerProgression {
-  xp: number;
-  lifetimeXp: number;
-}
-
+export interface TowerProgression { xp: number; lifetimeXp: number; }
 export interface TowerXpState extends TowerProgression {
   level: number;
   currentLevelXp: number;
@@ -16,29 +12,32 @@ export interface TowerXpState extends TowerProgression {
 }
 
 // Account progression. Combat tower upgrades remain separate from this XP.
-// Ten levels with increasingly meaningful XP gaps so the later levels take work.
 const LEVEL_XP = [0, 100, 300, 650, 1100, 1700, 2500, 3500, 4800, 6400];
 
-export function defaultTowerProgression(): TowerProgression {
-  return { xp: 0, lifetimeXp: 0 };
-}
+export function defaultTowerProgression(): TowerProgression { return { xp: 0, lifetimeXp: 0 }; }
 
 function read(): TowerProgression {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaultTowerProgression();
     const parsed = JSON.parse(raw) as Partial<TowerProgression>;
-    return {
-      xp: Math.max(0, Number(parsed.xp) || 0),
-      lifetimeXp: Math.max(0, Number(parsed.lifetimeXp) || 0),
-    };
-  } catch {
-    return defaultTowerProgression();
-  }
+    return { xp: Math.max(0, Number(parsed.xp) || 0), lifetimeXp: Math.max(0, Number(parsed.lifetimeXp) || 0) };
+  } catch { return defaultTowerProgression(); }
 }
 
 function write(value: TowerProgression): void {
   try { localStorage.setItem(KEY, JSON.stringify(value)); } catch { /* best effort */ }
+}
+
+/** Merge cloud/account data into the local tower progression without lowering progress. */
+export function syncTowerProgression(xp: number, lifetimeXp = xp): TowerProgression {
+  const local = read();
+  const next = {
+    xp: Math.min(LEVEL_XP[LEVEL_XP.length - 1], Math.max(local.xp, Number(xp) || 0)),
+    lifetimeXp: Math.max(local.lifetimeXp, Number(lifetimeXp) || 0),
+  };
+  write(next);
+  return next;
 }
 
 export function towerLevelFromXp(xp: number): number {
