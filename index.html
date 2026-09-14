@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="description" content="Fruit TD — slice fruit, hold the wall. High-speed tower defense with satisfying fruit-slashing action, global leaderboards, and Steam integration." />
     <title>Fruit TD — Slice. Hold the Wall.</title>
+    <link id="app-favicon" rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23163414'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' fill='%23a3e635' font-family='Arial' font-weight='700'%3EFT%3C/text%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
@@ -126,10 +127,12 @@
           <p id="super-label">JUICE</p>
         </div>
 
-        <!-- In-match glass ambience -->
-        <div class="match-blob match-blob--1" aria-hidden="true"></div>
-        <div class="match-blob match-blob--2" aria-hidden="true"></div>
-        <div class="match-blob match-blob--3" aria-hidden="true"></div>
+        <!-- In-match glass ambience + soft parallax -->
+        <div class="match-parallax" aria-hidden="true" data-parallax-root data-parallax-soft>
+          <div class="match-blob match-blob--1" data-parallax-layer="blob"></div>
+          <div class="match-blob match-blob--2" data-parallax-layer="blob"></div>
+          <div class="match-blob match-blob--3" data-parallax-layer="blob"></div>
+        </div>
         <div id="combo-focus-vignette" aria-hidden="true"></div>
 
         <!-- Combo pop layer -->
@@ -241,10 +244,15 @@
         </div>
 
         <!-- ════════════════════════ TITLE SCREEN ════════════════════════ -->
-        <div id="title-screen">
-          <div class="menu-blob menu-blob--1"></div>
-          <div class="menu-blob menu-blob--2"></div>
-          <div class="menu-blob menu-blob--3"></div>
+        <div id="title-screen" data-menu-surface="title" data-branding="menu">
+          <div class="menu-parallax" aria-hidden="true" data-parallax-root>
+            <div class="menu-parallax__bg" data-parallax-layer="bg"></div>
+            <div class="menu-parallax__mid" data-parallax-layer="mid"></div>
+            <div class="menu-parallax__logo" data-parallax-layer="logo" data-branding-logo></div>
+          </div>
+          <div class="menu-blob menu-blob--1" data-parallax-layer="blob"></div>
+          <div class="menu-blob menu-blob--2" data-parallax-layer="blob"></div>
+          <div class="menu-blob menu-blob--3" data-parallax-layer="blob"></div>
           <div class="bl-scanlines" aria-hidden="true"></div>
           <div class="bl-noise" aria-hidden="true"></div>
           <div id="title-inner" class="bl-panel bl-panel--title">
@@ -290,13 +298,18 @@
         </div>
 
         <!-- ════════════════════════ DASHBOARD (after login) ════════════════════════ -->
-        <div id="hud-start" class="hidden">
+        <div id="hud-start" class="hidden" data-menu-surface="dashboard" data-branding="menu">
+          <div class="menu-parallax" aria-hidden="true" data-parallax-root>
+            <div class="menu-parallax__bg" data-parallax-layer="bg"></div>
+            <div class="menu-parallax__mid" data-parallax-layer="mid"></div>
+            <div class="menu-parallax__logo" data-parallax-layer="logo" data-branding-logo></div>
+          </div>
           <!-- Animated background blobs -->
-          <div class="menu-blob menu-blob--1"></div>
-          <div class="menu-blob menu-blob--2"></div>
-          <div class="menu-blob menu-blob--3"></div>
-          <div class="menu-blob menu-blob--4"></div>
-          <div class="menu-blob menu-blob--5"></div>
+          <div class="menu-blob menu-blob--1" data-parallax-layer="blob"></div>
+          <div class="menu-blob menu-blob--2" data-parallax-layer="blob"></div>
+          <div class="menu-blob menu-blob--3" data-parallax-layer="blob"></div>
+          <div class="menu-blob menu-blob--4" data-parallax-layer="blob"></div>
+          <div class="menu-blob menu-blob--5" data-parallax-layer="blob"></div>
           <div class="bl-scanlines" aria-hidden="true"></div>
           <div class="bl-noise" aria-hidden="true"></div>
 
@@ -414,7 +427,7 @@
 
               <div class="profile-section">
                 <h3 class="profile-section-title">Inventory</h3>
-                <p class="section-desc">Owned blades &amp; walls. Full manage controls live under <strong>Shop → Inventory</strong> (<code>#skin-inventory</code>).</p>
+                <p class="section-desc">Owned blades &amp; walls. Manage loadout under <strong>Shop → Inventory</strong> (<code>#skin-inventory</code> + <code>#hero-loadout</code>).</p>
                 <div id="profile-inventory" class="profile-inventory"></div>
               </div>
             </section>
@@ -536,9 +549,12 @@
               <div id="skin-shop"></div>
               <div class="shop-section-head">
                 <h3>Inventory</h3>
-                <p class="section-desc">Equip one blade · sell for coins · or delete forever.</p>
+                <p class="section-desc">Grid of owned items · drag onto Blade / Wall slots · Equip / Unequip / Sell / Delete.</p>
               </div>
-              <div id="skin-inventory"></div>
+              <div id="inventory-layout" class="inventory-layout" data-branding-slot="inventory">
+                <div id="skin-inventory" class="inv-grid" aria-label="Owned items"></div>
+                <aside id="hero-loadout" class="hero-loadout" aria-label="Hero loadout slots"></aside>
+              </div>
               <label class="name-label">
                 Nickname
                 <input id="name-input" maxlength="16" placeholder="Slicer" />
@@ -1213,6 +1229,36 @@
                   <span>Theme Accent Color</span>
                   <input id="admin-in-theme" type="color" class="admin-input admin-color" value="#a3e635" />
                 </label>
+                <hr class="admin-divider" style="border-color:rgba(148,163,184,0.2);margin:0.75rem 0;" />
+                <p class="text-xs text-slate-400 mb-2">Favicon, landing logo &amp; menu background (CSS vars <code>--menu-bg-image</code> / <code>--menu-logo-image</code>). URL or upload → menuConfig + localStorage. Favicon updates <code>#app-favicon</code> live.</p>
+                <label>
+                  <span>Favicon URL</span>
+                  <input id="admin-in-favicon" type="url" class="admin-input" placeholder="https://… or leave blank" data-branding-field="faviconImage" />
+                </label>
+                <label>
+                  <span>Upload Favicon</span>
+                  <input id="admin-upload-favicon" type="file" accept="image/*,.ico" class="admin-input" data-branding-upload="faviconImage" />
+                </label>
+                <label>
+                  <span>Menu Background Image URL</span>
+                  <input id="admin-in-bg-image" type="url" class="admin-input" placeholder="https://… or leave blank" data-branding-field="backgroundImage" />
+                </label>
+                <label>
+                  <span>Upload Background</span>
+                  <input id="admin-upload-bg-image" type="file" accept="image/*" class="admin-input" data-branding-upload="backgroundImage" />
+                </label>
+                <label>
+                  <span>Landing Logo Image URL</span>
+                  <input id="admin-in-logo-image" type="url" class="admin-input" placeholder="https://… or leave blank" data-branding-field="logoImage" />
+                </label>
+                <label>
+                  <span>Upload Logo</span>
+                  <input id="admin-upload-logo-image" type="file" accept="image/*" class="admin-input" data-branding-upload="logoImage" />
+                </label>
+                <div class="admin-branding-preview" data-branding-preview style="margin-top:0.5rem;padding:0.75rem;border-radius:0.5rem;border:1px dashed rgba(148,163,184,0.35);min-height:4rem;background-size:cover;background-position:center;display:flex;gap:0.75rem;align-items:center;">
+                  <img id="admin-favicon-preview" alt="Favicon preview" style="width:32px;height:32px;object-fit:contain;display:none;border-radius:6px;background:rgba(0,0,0,0.35);" />
+                  <img id="admin-logo-preview" alt="Logo preview" style="max-height:48px;display:none;" />
+                </div>
               </div>
             </div>
 

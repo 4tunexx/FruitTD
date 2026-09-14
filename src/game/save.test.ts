@@ -112,3 +112,35 @@ test('cloud save merge takes maximum of economy values', () => {
   assert.equal(merged.highScore, 6000, 'Should take higher score from remote');
   assert.equal(merged.skillPoints, 5, 'Should take higher skill points from remote');
 });
+
+test('sanitiseSave keeps unequipped blade/wall empty (does not force starters)', () => {
+  const save = defaultSave();
+  save.bladeSkin = '';
+  save.wallSkin = 'none';
+  save.ownedSkins = ['blade-default', 'wall-brick', 'blade-gold'];
+  const clean = sanitiseSave(save);
+  assert.equal(clean.bladeSkin, '', 'Empty bladeSkin should remain unequipped');
+  assert.equal(clean.wallSkin, '', 'none wallSkin should normalise to empty unequipped');
+  assert.ok(clean.ownedSkins.includes('blade-default'), 'Starters stay owned');
+  assert.ok(clean.ownedSkins.includes('wall-brick'), 'Wall starter stays owned');
+});
+
+test('sanitiseSave clears invalid equipped skin ids but keeps valid ones', () => {
+  const save = defaultSave();
+  save.ownedSkins = ['blade-default', 'wall-brick', 'blade-gold'];
+  save.bladeSkin = 'blade-gold';
+  save.wallSkin = 'not-owned-wall';
+  const clean = sanitiseSave(save);
+  assert.equal(clean.bladeSkin, 'blade-gold', 'Valid owned blade stays equipped');
+  assert.equal(clean.wallSkin, '', 'Invalid wall skin clears to unequipped (not forced brick)');
+});
+
+test('sanitiseSave does not re-equip default when user unequipped starter blade', () => {
+  const save = defaultSave();
+  save.ownedSkins = ['blade-default', 'wall-brick'];
+  save.bladeSkin = '';
+  save.wallSkin = '';
+  const clean = sanitiseSave(save);
+  assert.equal(clean.bladeSkin, '');
+  assert.equal(clean.wallSkin, '');
+});

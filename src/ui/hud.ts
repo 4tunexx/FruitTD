@@ -50,6 +50,7 @@ import {
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getEnabledSlicers, getSlicers } from '../services/liveConfig';
+import { bootMenuParallax } from './menuParallax';
 import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
 import { getRewardSvg } from './icons';
@@ -105,6 +106,7 @@ export class Hud {
   onMode: ((id: GameMode) => void) | null = null;
   onBuySkin: ((id: string) => void) | null = null;
   onEquipItem: ((id: string) => void) | null = null;
+  onUnequipItem: ((id: string) => void) | null = null;
   onSellItem: ((id: string) => void) | null = null;
   onDeleteItem: ((id: string) => void) | null = null;
   onBuySkill: ((id: SkillId) => void) | null = null;
@@ -160,6 +162,7 @@ export class Hud {
     void this.initSteamIntegration(); // P1-2: async Steam auth check
     this.checkDailyBonus();
     this.bootSuperLiquidCanvas();
+    bootMenuParallax();
     void loadLiveConfig().then(() => this.refreshMonthlyRank());
   }
 
@@ -594,9 +597,12 @@ export class Hud {
   }
 
   mountInventory(save: SaveData): void {
+    const layout = document.getElementById('inventory-layout');
     const box = document.getElementById('skin-inventory');
+    const loadout = document.getElementById('hero-loadout');
     if (!box) return;
     box.innerHTML = '';
+    if (loadout) loadout.innerHTML = '';
     const allSlicers = getSlicers();
     const lockedDefaults = new Set(['blade-default', 'wall-brick']);
 
@@ -632,32 +638,94 @@ export class Hud {
       });
     }
 
-    // Purchased / non-defaults first, then locked starters
     items.sort((a, b) => {
-      if (a.isDefault !== b.isDefault) return a.isDefault ? 1 : -1;
       if (a.eq !== b.eq) return a.eq ? -1 : 1;
+      if (a.isDefault !== b.isDefault) return a.isDefault ? 1 : -1;
       return a.name.localeCompare(b.name);
     });
 
-    const nonDefaults = items.filter((i) => !i.isDefault);
-    if (nonDefaults.length === 0) {
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const bladeEq = !save.bladeSkin || save.bladeSkin === 'none' ? null : byId.get(save.bladeSkin) || null;
+    const wallEq = !save.wallSkin || save.wallSkin === 'none' ? null : byId.get(save.wallSkin) || null;
+
+    const renderSlot = (slot: 'blade' | 'wall', equipped: InvItem | null): HTMLElement => {
+      const el = document.createElement('div');
+      el.className = `loadout-slot loadout-slot--${slot}${equipped ? ' is-filled' : ' is-empty'}`;
+      el.dataset.slot = slot;
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      if (equipped) {
+        el.innerHTML = `
+          <p class="loadout-slot__label">${slot === 'blade' ? 'Blade' : 'Wall'}</p>
+          <div class="loadout-slot__card">
+            <span class="skin-swatch inv-swatch" style="background:linear-gradient(135deg,${equipped.color},${equipped.glow})"></span>
+            <div>
+              <p class="font-black inv-card__name">${equipped.name}</p>
+              <p class="inv-card__meta">${equipped.isDefault ? 'Starter' : 'Equipped'}</p>
+            </div>
+          </div>
+          <button type="button" class="inv-btn inv-unequip loadout-unequip">Unequip</button>`;
+        el.querySelector('.loadout-unequip')?.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this.onUnequipItem?.(equipped.id);
+        });
+      } else {
+        el.innerHTML = `
+          <p class="loadout-slot__label">${slot === 'blade' ? 'Blade' : 'Wall'}</p>
+          <div class="loadout-slot__empty">Empty</div>
+          <p class="loadout-slot__hint">Drop an item or Equip from grid</p>`;
+      }
+
+      const acceptDrop = (id: string) => {
+        const item = byId.get(id);
+        if (!item) return;
+        if (slot === 'blade' && !item.isBlade) return;
+        if (slot === 'wall' && item.isBlade) return;
+        this.onEquipItem?.(id);
+      };
+
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        el.classList.add('is-drop-target');
+      });
+      el.addEventListener('dragleave', () => el.classList.remove('is-drop-target'));
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('is-drop-target');
+        const id = e.dataTransfer?.getData('text/plain') || '';
+        if (id) acceptDrop(id);
+      });
+      return el;
+    };
+
+    if (loadout) {
+      const head = document.createElement('div');
+      head.className = 'hero-loadout__head';
+      head.innerHTML = `<h4>Hero Loadout</h4><p>Blade + Wall · drag or Equip</p>`;
+      loadout.appendChild(head);
+      loadout.appendChild(renderSlot('blade', bladeEq || null));
+      loadout.appendChild(renderSlot('wall', wallEq || null));
+    }
+
+    if (items.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'inv-empty-state';
-      empty.textContent =
-        'Buy blades & walls in Shop — starters stay equipped until you own more.';
+      empty.textContent = 'No owned items yet — buy blades & walls in Shop.';
       box.appendChild(empty);
     }
 
     for (const item of items) {
       const canRemove = !item.isDefault;
-      const status = item.isDefault
-        ? 'Starter · locked'
-        : `${item.isBlade ? 'Blade' : 'Wall'} · ${item.eq ? 'Equipped' : 'Owned'}${item.fx ? ` · ${item.fx}` : ''}`;
+      const status = `${item.isBlade ? 'Blade' : 'Wall'} · ${item.eq ? 'Equipped' : 'Owned'}${item.isDefault ? ' · Starter' : ''}${item.fx ? ` · ${item.fx}` : ''}`;
 
       const card = document.createElement('div');
       const kind = item.isBlade ? 'blade' : 'wall';
-      card.className = `inv-card inv-card--glass${item.eq ? ' is-on' : ''}${item.isDefault ? ' is-starter' : ' is-owned'}`;
+      card.className = `inv-card inv-card--glass inv-card--draggable${item.eq ? ' is-on' : ''}${item.isDefault ? ' is-starter' : ' is-owned'}`;
+      card.draggable = true;
+      card.dataset.itemId = item.id;
+      card.dataset.kind = kind;
       card.style.setProperty('--inv-i', String(box.querySelectorAll('.inv-card').length));
+      card.style.setProperty('--inv-c', item.color);
       card.innerHTML = `
         <div class="inv-card__glow" style="--inv-c:${item.color};--inv-g:${item.glow}"></div>
         <div class="skin-btn-row">
@@ -669,12 +737,26 @@ export class Hud {
           </div>
         </div>
         <div class="inv-actions">
-          <button type="button" class="inv-btn inv-equip" ${item.eq ? 'disabled' : ''}>${item.eq ? 'Equipped' : 'Equip'}</button>
+          <button type="button" class="inv-btn inv-equip">${item.eq ? 'Unequip' : 'Equip'}</button>
           <button type="button" class="inv-btn inv-sell" ${!canRemove || item.sell <= 0 ? 'disabled' : ''}>Sell ${item.sell}</button>
           <button type="button" class="inv-btn inv-del" ${!canRemove ? 'disabled' : ''}>Delete</button>
         </div>`;
 
-      card.querySelector('.inv-equip')?.addEventListener('click', () => this.onEquipItem?.(item.id));
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer?.setData('text/plain', item.id);
+        e.dataTransfer!.effectAllowed = 'move';
+        card.classList.add('is-dragging');
+        layout?.classList.add('is-dragging-item');
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('is-dragging');
+        layout?.classList.remove('is-dragging-item');
+      });
+
+      card.querySelector('.inv-equip')?.addEventListener('click', () => {
+        if (item.eq) this.onUnequipItem?.(item.id);
+        else this.onEquipItem?.(item.id);
+      });
       card.querySelector('.inv-sell')?.addEventListener('click', () => {
         if (!canRemove || item.sell <= 0) return;
         if (confirm(`Sell ${item.name} for ${item.sell} coins?`)) this.onSellItem?.(item.id);
@@ -728,22 +810,21 @@ export class Hud {
       list.sort((a, b) => Number(a.isDefault) - Number(b.isDefault) || a.name.localeCompare(b.name));
     }
 
-    const owned = list.filter((i) => !i.isDefault);
-    if (!owned.length) {
+    if (!list.length) {
       box.innerHTML =
-        '<p class="text-[12px] text-zinc-500">No purchased skins yet — open Shop to expand your loadout. Starters stay equipped until you own more.</p>';
+        '<p class="text-[12px] text-zinc-500">Inventory empty — open Shop to expand your loadout.</p>';
       return;
     }
-    for (const item of owned.slice(0, 8)) {
+    for (const item of list.slice(0, 8)) {
       const row = document.createElement('div');
       row.className = `profile-inv-chip${item.eq ? ' is-on' : ''}`;
       row.innerHTML = `<span class="skin-swatch" style="background:linear-gradient(135deg,${item.color},${item.glow})"></span><span>${item.name}</span>`;
       box.appendChild(row);
     }
-    if (owned.length > 8) {
+    if (list.length > 8) {
       const more = document.createElement('p');
       more.className = 'text-[11px] text-zinc-500';
-      more.textContent = `+${owned.length - 8} more in Shop → Inventory`;
+      more.textContent = `+${list.length - 8} more in Shop → Inventory`;
       box.appendChild(more);
     }
   }

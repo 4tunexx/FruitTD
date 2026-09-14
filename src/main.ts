@@ -165,6 +165,7 @@ hud.onHero = (id) => selectHero(id);
 hud.onMode = (id) => setMode(id);
 hud.onBuySkin = (id) => buySkin(id);
 hud.onEquipItem = (id) => equipItem(id);
+hud.onUnequipItem = (id) => unequipItem(id);
 hud.onSellItem = (id) => sellItem(id);
 hud.onDeleteItem = (id) => deleteItem(id);
 hud.onBuyVIP = (tier) => buyVIP(tier); // P1-2
@@ -245,13 +246,47 @@ function buySkin(id: string): void {
   }
 }
 
+function isUnequippedSkin(id: string): boolean {
+  return !id || id === 'none';
+}
+
 function equipItem(id: string): void {
   if (!save.ownedSkins.includes(id)) return;
   const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
   const wall = WALL_SKINS.find((w) => w.id === id);
-  if (slicer) save.bladeSkin = id;
-  else if (wall) save.wallSkin = id;
-  else return;
+  if (slicer) {
+    save.bladeSkin = id;
+  } else if (wall) {
+    save.wallSkin = id;
+  } else return;
+  applyEquippedBlade();
+  wallSkinApply();
+  persist();
+  sfx.select();
+}
+
+/** Clear a loadout slot (Blade or Wall). Starters stay owned but are not forced-equipped. */
+function unequipItem(id: string): void {
+  if (!id) return;
+  let changed = false;
+  if (save.bladeSkin === id) {
+    save.bladeSkin = '';
+    changed = true;
+  }
+  if (save.wallSkin === id) {
+    save.wallSkin = '';
+    changed = true;
+  }
+  // Also allow clearing by slot kind aliases from loadout UI
+  if (id === 'blade' || id === 'bladeSkin') {
+    save.bladeSkin = '';
+    changed = true;
+  }
+  if (id === 'wall' || id === 'wallSkin') {
+    save.wallSkin = '';
+    changed = true;
+  }
+  if (!changed) return;
   applyEquippedBlade();
   wallSkinApply();
   persist();
@@ -273,8 +308,8 @@ function sellItem(id: string): void {
   }
   save.ownedSkins = save.ownedSkins.filter((x) => x !== id);
   save.coins += sell;
-  if (save.bladeSkin === id) save.bladeSkin = 'blade-default';
-  if (save.wallSkin === id) save.wallSkin = 'wall-brick';
+  if (save.bladeSkin === id) save.bladeSkin = '';
+  if (save.wallSkin === id) save.wallSkin = '';
   if (!save.ownedSkins.includes('blade-default')) save.ownedSkins.push('blade-default');
   if (!save.ownedSkins.includes('wall-brick')) save.ownedSkins.push('wall-brick');
   applyEquippedBlade();
@@ -326,8 +361,8 @@ function deleteItem(id: string): void {
   }
   if (!save.ownedSkins.includes(id)) return;
   save.ownedSkins = save.ownedSkins.filter((x) => x !== id);
-  if (save.bladeSkin === id) save.bladeSkin = 'blade-default';
-  if (save.wallSkin === id) save.wallSkin = 'wall-brick';
+  if (save.bladeSkin === id) save.bladeSkin = '';
+  if (save.wallSkin === id) save.wallSkin = '';
   if (!save.ownedSkins.includes('blade-default')) save.ownedSkins.push('blade-default');
   if (!save.ownedSkins.includes('wall-brick')) save.ownedSkins.push('wall-brick');
   applyEquippedBlade();
@@ -337,7 +372,8 @@ function deleteItem(id: string): void {
 }
 
 function wallSkinApply(): void {
-  wall.applyWallSkin(WALL_SKINS.find((s) => s.id === save.wallSkin)?.color ?? 0x9a4034);
+  const skinId = isUnequippedSkin(save.wallSkin) ? '' : save.wallSkin;
+  wall.applyWallSkin(WALL_SKINS.find((s) => s.id === skinId)?.color ?? 0x9a4034);
 }
 
 function buySkill(id: SkillId): void {

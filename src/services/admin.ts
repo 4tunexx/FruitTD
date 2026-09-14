@@ -47,6 +47,12 @@ export interface AdminConfig {
     subtitle: string;
     announcement: string;
     themeColor: string;
+    /** Optional CSS background-image URL for menus (title + dashboard). */
+    backgroundImage?: string;
+    /** Optional landing / menu logo image URL. */
+    logoImage?: string;
+    /** Optional favicon / app icon URL (wired to #app-favicon). */
+    faviconImage?: string;
   };
   gameplayConfig: {
     startMoney: number;
@@ -86,6 +92,9 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     subtitle: 'Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.',
     announcement: 'WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.',
     themeColor: '#a3e635',
+    backgroundImage: '',
+    logoImage: '',
+    faviconImage: '',
   },
   gameplayConfig: {
     startMoney: 140,
