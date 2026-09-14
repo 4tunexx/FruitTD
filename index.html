@@ -622,6 +622,7 @@
               <button class="admin-tab-btn" data-tab="achievements">Achievements</button>
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
               <button class="admin-tab-btn" data-tab="ranks">Monthly Ranks</button>
+              <button class="admin-tab-btn" data-tab="enemies">Enemies & Boss</button>
               <button class="admin-tab-btn" data-tab="slicers">Slicers</button>
               <button class="admin-tab-btn" data-tab="sprites">Sprites</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
@@ -676,6 +677,23 @@
                 <button type="button" id="btn-admin-add-rank" class="admin-btn-action">+ Add Rank</button>
               </div>
               <div id="admin-ranks-list" class="admin-catalog-list"></div>
+            </div>
+
+            <div id="admin-tab-enemies" class="admin-panel-tab hidden">
+              <p class="text-xs text-slate-400 mb-3">Boss configuration and enemy behavior. Hardcoded enemy types (normal, explosive, armored, splitter, swift) are in code. Use sprites tab to upload visuals.</p>
+              <div id="admin-enemies-info" class="p-4 bg-slate-800/40 rounded-lg border border-white/10 text-xs text-slate-300">
+                <h3 class="font-semibold text-lime-400 mb-2">Enemy Types (Hardcoded)</h3>
+                <ul class="space-y-1">
+                  <li><strong>Normal:</strong> Standard target, 1x HP/speed/rewards</li>
+                  <li><strong>Explosive:</strong> Volatile bomb, damages tower if hit wrong (0.85x HP, 1.12x speed, 1.7x score, 2x XP)</li>
+                  <li><strong>Armored:</strong> Heavy tanky target (2.2x HP, 0.78x speed, 2.2x score, 2.4x XP)</li>
+                  <li><strong>Splitter:</strong> Breaks into smaller targets (1.35x HP, 0.96x speed, 2x score, 2.2x XP)</li>
+                  <li><strong>Swift:</strong> Fast reaction test (0.75x HP, 1.65x speed, 1.8x score, 1.7x XP)</li>
+                </ul>
+                <h3 class="font-semibold text-lime-400 mt-4 mb-2">Boss Waves</h3>
+                <p>Currently: Every 5th wave spawns 1 boss watermelon. Wave 10+ bosses are armored type.</p>
+                <p class="mt-2 italic text-slate-400">🚧 Full boss editor (custom HP, rewards, sprites) is a larger feature for future builds.</p>
+              </div>
             </div>
 
             <div id="admin-tab-slicers" class="admin-panel-tab hidden">

@@ -26,7 +26,7 @@ import {
 } from './adminCatalog';
 import { installSpriteUploads } from './adminSprites';
 
-type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'leaderboard';
+type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;

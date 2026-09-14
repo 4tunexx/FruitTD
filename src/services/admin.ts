@@ -58,6 +58,7 @@ export interface AdminConfig {
   badges: CatalogBadge[];
   ranks: RankTier[];
   slicers: CatalogSlicer[];
+  enemies: any[];
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -94,6 +95,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
+  enemies: [],
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -110,6 +112,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     badges: structuredClone(Array.isArray(src.badges) && src.badges.length ? src.badges : DEFAULT_ADMIN_CONFIG.badges),
     ranks: structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
+    enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
   };
 }
 
