@@ -20,6 +20,14 @@ export class FruitAtlas {
 
   tile(col: number, row: number): CanvasTexture | null {
     if (!this.img) return null;
+    
+    // Safe bounds checking - prevent invalid cell access
+    if (!Number.isFinite(col) || !Number.isFinite(row)) return null;
+    if (col < 0 || col >= COLS || row < 0 || row >= ROWS) {
+      console.warn(`Atlas: invalid cell [${col}, ${row}], expected [0-${COLS-1}, 0-${ROWS-1}]`);
+      return null;
+    }
+    
     const key = `${col},${row}`;
     const hit = this.cache.get(key);
     if (hit) return hit;
@@ -38,6 +46,17 @@ export class FruitAtlas {
     tex.needsUpdate = true;
     this.cache.set(key, tex);
     return tex;
+  }
+  
+  /** Admin/debug: check if a tile coordinate is valid */
+  isValidTile(col: number, row: number): boolean {
+    return Number.isFinite(col) && Number.isFinite(row) && 
+           col >= 0 && col < COLS && row >= 0 && row < ROWS;
+  }
+  
+  /** Admin inspector: get atlas dimensions */
+  getDimensions(): { cols: number; rows: number } {
+    return { cols: COLS, rows: ROWS };
   }
 }
 
