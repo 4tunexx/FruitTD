@@ -12,6 +12,7 @@ import {
   resetStudioAnimState,
   triggerStudioDeath,
   triggerStudioHit,
+  triggerStudioSpawn,
   updateStudioAnim,
   type StudioAnimState,
 } from './studioRuntime';
@@ -115,16 +116,25 @@ function paint(fruit: Fruit, def: FruitDef): void {
 }
 
 function applyStudioTexture(fruit: Fruit, dt: number, vx: number, vz: number): void {
-  if (!fruit.studio.active) return;
-  const tex = updateStudioAnim(fruit.studio, dt, vx, vz);
-  if (!tex) return;
   const mat = fruit.body.material as MeshLambertMaterial;
-  if (mat.map !== tex) {
-    mat.map = tex;
-    mat.needsUpdate = true;
-  } else {
-    tex.needsUpdate = true;
+  // Always tick flash timer even when studio sheets are inactive.
+  if (!fruit.studio.active) {
+    if (fruit.studio.flashT > 0) {
+      fruit.studio.flashT = Math.max(0, fruit.studio.flashT - dt);
+      mat.color.setHex(fruit.studio.flashT > 0 ? 0xffe08a : 0xffffff);
+    }
+    return;
   }
+  const tex = updateStudioAnim(fruit.studio, dt, vx, vz);
+  if (tex) {
+    if (mat.map !== tex) {
+      mat.map = tex;
+      mat.needsUpdate = true;
+    } else {
+      tex.needsUpdate = true;
+    }
+  }
+  mat.color.setHex(fruit.studio.flashT > 0 ? 0xffe08a : 0xffffff);
 }
 
 export class FruitField {
@@ -183,6 +193,11 @@ export class FruitField {
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.group.position.set(x, boss ? 1.05 : 0.7, z); idle.spin.set(0, 1.4 + Math.random(), 0);
     idle.bob = Math.random() * Math.PI * 2; idle.squash = 0; layoutHp(idle, 1); paint(idle, def);
+    triggerStudioSpawn(idle.studio, {
+      x: idle.group.position.x,
+      y: idle.group.position.y,
+      z: idle.group.position.z,
+    });
     this.onSpawn?.(idle);
     return idle;
   }
@@ -199,14 +214,19 @@ export class FruitField {
       }
     }
     fruit.hp -= amount; fruit.squash = 0.16; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
+    const pos = {
+      x: fruit.group.position.x,
+      y: fruit.group.position.y,
+      z: fruit.group.position.z,
+    };
     if (fruit.hp <= 0) {
       // Death clips are intentionally not deferred: killFruit spawns debris halves
       // immediately, and keeping the body visible would fight that flow.
-      triggerStudioDeath(fruit.studio);
+      triggerStudioDeath(fruit.studio, pos);
       this.kill(fruit);
       return true;
     }
-    triggerStudioHit(fruit.studio);
+    triggerStudioHit(fruit.studio, pos);
     return false;
   }
 

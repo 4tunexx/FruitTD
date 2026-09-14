@@ -4,7 +4,11 @@ import {
   advanceFrameCursor,
   directionFromVelocity,
   enemyKindToStudioKey,
+  fireStudioEvent,
+  resolveStudioHook,
+  setStudioFxCallbacks,
   STUDIO_DEFAULT_FPS,
+  invalidateStudioRuntimeCache,
 } from './studioRuntime';
 
 test('enemyKindToStudioKey maps all enemy kinds', () => {
@@ -38,4 +42,69 @@ test('advanceFrameCursor steps by fps and wraps', () => {
   const d = advanceFrameCursor(0, 0, 8, 6);
   assert.equal(d.frameIndex, 0);
   assert.equal(d.cursor, 0);
+});
+
+test('fireStudioEvent invokes callbacks for hooks in localStorage store', () => {
+  // Minimal localStorage polyfill for node tests.
+  const mem = new Map<string, string>();
+  (globalThis as { localStorage?: Storage }).localStorage = {
+    getItem: (k) => (mem.has(k) ? mem.get(k)! : null),
+    setItem: (k, v) => {
+      mem.set(k, String(v));
+    },
+    removeItem: (k) => {
+      mem.delete(k);
+    },
+    clear: () => mem.clear(),
+    key: () => null,
+    length: 0,
+  } as Storage;
+
+  const store = {
+    version: 2,
+    selectedEntity: 'enemy-normal',
+    entities: {
+      'enemy-normal': {
+        sheetDataUrl: null,
+        cols: 4,
+        rows: 4,
+        frameW: 0,
+        frameH: 0,
+        clips: {},
+        events: {
+          onHit: { sfxSlot: 'lemonImpact', flash: true, shake: 0.4, fx: 'screen-shake' },
+          onSpawn: { flash: false, shake: 0, fx: 'none' },
+          onDeath: { sfxSlot: 'splatterMed', flash: true, shake: 0.8, fx: 'juice-burst' },
+        },
+      },
+    },
+  };
+  mem.set('fruittd-creator-v2', JSON.stringify(store));
+  invalidateStudioRuntimeCache();
+
+  const shakes: number[] = [];
+  const sfx: string[] = [];
+  const bursts: string[] = [];
+  setStudioFxCallbacks({
+    shake: (a) => shakes.push(a),
+    playSfxSlot: (id) => sfx.push(id),
+    juiceBurst: (_x, _y, _z, preset) => bursts.push(preset),
+  });
+
+  const hit = fireStudioEvent('enemy-normal', 'onHit', { x: 0, y: 1, z: 0 });
+  assert.ok(hit);
+  assert.equal(hit!.flash, true);
+  assert.equal(hit!.sfxSlot, 'lemonImpact');
+  assert.ok(shakes.includes(0.4));
+  assert.ok(sfx.includes('lemonImpact'));
+
+  const death = fireStudioEvent('enemy-normal', 'onDeath', { x: 1, y: 1, z: 1 });
+  assert.ok(death);
+  assert.ok(sfx.includes('splatterMed'));
+  assert.ok(bursts.includes('juice-burst'));
+
+  const hook = resolveStudioHook('enemy-normal', 'onHit');
+  assert.equal(hook?.sfxSlot, 'lemonImpact');
+
+  setStudioFxCallbacks({});
 });

@@ -1,16 +1,21 @@
 /**
- * Runtime bridge: Admin Media Studio sheets/clips → live fruit textures.
+ * Runtime bridge: Creator Hub / Media Studio sheets/clips → live fruit textures + event hooks.
  * Pure loaders/helpers come from adminMediaStudio; no DOM install code is invoked here.
  */
 import { CanvasTexture, LinearFilter, SRGBColorSpace } from 'three';
 import {
+  CREATOR_STORAGE_KEY,
   MEDIA_STUDIO_STORAGE_KEY,
   clipKey,
   frameRect,
   loadStudioStore,
+  normalizeEvents,
   type ClipDef,
   type EntityStudioData,
+  type FxPreset,
   type StudioDirection,
+  type StudioEventHook,
+  type StudioHookKind,
   type StudioState,
 } from '../ui/adminMediaStudio';
 import type { EnemyKind } from './enemies';
@@ -18,11 +23,25 @@ import type { EnemyKind } from './enemies';
 export const STUDIO_DEFAULT_FPS = 10;
 export const STUDIO_HIT_SECONDS = 0.22;
 export const STUDIO_DEATH_MAX_SECONDS = 0.45;
+export const STUDIO_FLASH_SECONDS = 0.12;
 
 const sheetImages = new Map<string, HTMLImageElement | null | 'loading'>();
 const frameTextures = new Map<string, CanvasTexture>();
-let cachedStoreRaw: string | null = null;
+let cachedStoreSig: string | null = null;
 let cachedEntities: Record<string, EntityStudioData> = {};
+
+export interface StudioFxCallbacks {
+  shake?: (amount: number) => void;
+  playSfxSlot?: (slotId: string) => void;
+  /** Best-effort particle / juice call. */
+  juiceBurst?: (x: number, y: number, z: number, preset: FxPreset) => void;
+}
+
+let fxCallbacks: StudioFxCallbacks = {};
+
+export function setStudioFxCallbacks(cb: StudioFxCallbacks): void {
+  fxCallbacks = cb || {};
+}
 
 /** Map gameplay enemyKind → Media Studio entity key. */
 export function enemyKindToStudioKey(kind: EnemyKind): string {
@@ -68,30 +87,48 @@ export function advanceFrameCursor(
   return { cursor: next, frameIndex };
 }
 
+function storeSignature(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const v2 = localStorage.getItem(CREATOR_STORAGE_KEY);
+    if (v2 != null) return `v2:${v2.length}:${v2.slice(0, 64)}`;
+    const v1 = localStorage.getItem(MEDIA_STUDIO_STORAGE_KEY);
+    if (v1 != null) return `v1:${v1.length}:${v1.slice(0, 64)}`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function refreshStoreCache(): Record<string, EntityStudioData> {
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(MEDIA_STUDIO_STORAGE_KEY) : null;
-    if (raw === cachedStoreRaw) return cachedEntities;
-    cachedStoreRaw = raw;
+    const sig = storeSignature();
+    if (sig === cachedStoreSig) return cachedEntities;
+    cachedStoreSig = sig;
     const store = loadStudioStore();
     cachedEntities = store.entities || {};
     return cachedEntities;
   } catch {
     cachedEntities = {};
-    cachedStoreRaw = null;
+    cachedStoreSig = null;
     return cachedEntities;
   }
 }
 
 /** Invalidate localStorage cache (e.g. after admin save). */
 export function invalidateStudioRuntimeCache(): void {
-  cachedStoreRaw = null;
+  cachedStoreSig = null;
   cachedEntities = {};
 }
 
-export function getStudioEntity(entityKey: string): EntityStudioData | null {
+/** Entity data even without a sheet (for event hooks). */
+export function getStudioEntityData(entityKey: string): EntityStudioData | null {
   const entities = refreshStoreCache();
-  const ent = entities[entityKey];
+  return entities[entityKey] || null;
+}
+
+export function getStudioEntity(entityKey: string): EntityStudioData | null {
+  const ent = getStudioEntityData(entityKey);
   if (!ent || !ent.sheetDataUrl) return null;
   return ent;
 }
@@ -124,6 +161,10 @@ function resolveClip(
     return { key: state, clip: clips[state] };
   }
   return null;
+}
+
+function clipFps(clip: ClipDef): number {
+  return Math.max(1, clip.fps || STUDIO_DEFAULT_FPS);
 }
 
 function ensureSheet(entityKey: string, dataUrl: string): HTMLImageElement | null {
@@ -193,6 +234,8 @@ export interface StudioAnimState {
   lastClipKey: string;
   lastFrame: number;
   active: boolean;
+  /** Brief body tint after hit/spawn flash hooks. */
+  flashT: number;
 }
 
 export function createStudioAnimState(enemyKind: EnemyKind): StudioAnimState {
@@ -206,6 +249,7 @@ export function createStudioAnimState(enemyKind: EnemyKind): StudioAnimState {
     lastClipKey: '',
     lastFrame: -1,
     active: hasStudioWalkClip(entityKey),
+    flashT: 0,
   };
 }
 
@@ -218,10 +262,59 @@ export function resetStudioAnimState(anim: StudioAnimState, enemyKind: EnemyKind
   anim.lastClipKey = '';
   anim.lastFrame = -1;
   anim.active = hasStudioWalkClip(anim.entityKey);
+  anim.flashT = 0;
 }
 
-/** Begin a short hit flash if a hit clip exists. */
-export function triggerStudioHit(anim: StudioAnimState): void {
+export interface StudioHookFireResult {
+  kind: StudioHookKind;
+  sfxSlot?: string;
+  flash: boolean;
+  shake: number;
+  fx: FxPreset;
+}
+
+export function resolveStudioHook(entityKey: string, kind: StudioHookKind): StudioEventHook | null {
+  const ent = getStudioEntityData(entityKey);
+  if (!ent) return null;
+  const events = normalizeEvents(ent.events);
+  return events[kind] || null;
+}
+
+/**
+ * Fire entity event hooks (SFX / flash / shake / FX presets).
+ * Returns the resolved payload; also invokes registered FX callbacks.
+ */
+export function fireStudioEvent(
+  entityKey: string,
+  kind: StudioHookKind,
+  pos?: { x: number; y: number; z: number },
+): StudioHookFireResult | null {
+  const hook = resolveStudioHook(entityKey, kind);
+  if (!hook) return null;
+  const fx = (hook.fx || 'none') as FxPreset;
+  const result: StudioHookFireResult = {
+    kind,
+    sfxSlot: hook.sfxSlot,
+    flash: Boolean(hook.flash),
+    shake: Math.max(0, Number(hook.shake) || 0),
+    fx,
+  };
+
+  if (result.sfxSlot) fxCallbacks.playSfxSlot?.(result.sfxSlot);
+  if (result.shake > 0) fxCallbacks.shake?.(result.shake);
+  else if (fx === 'screen-shake') fxCallbacks.shake?.(0.55);
+
+  if (pos && (fx === 'juice-burst' || fx === 'spark' || fx === 'dark-pulse')) {
+    fxCallbacks.juiceBurst?.(pos.x, pos.y, pos.z, fx);
+  }
+
+  return result;
+}
+
+/** Begin a short hit flash if a hit clip exists; always tries event hooks. */
+export function triggerStudioHit(anim: StudioAnimState, pos?: { x: number; y: number; z: number }): void {
+  const fired = fireStudioEvent(anim.entityKey, 'onHit', pos);
+  if (fired?.flash) anim.flashT = STUDIO_FLASH_SECONDS;
   if (!anim.active) return;
   const ent = getStudioEntity(anim.entityKey);
   if (!ent) return;
@@ -235,18 +328,31 @@ export function triggerStudioHit(anim: StudioAnimState): void {
  * Begin death clip if defined. Returns duration seconds to keep the mesh visible,
  * or 0 if no death clip (caller should hide immediately).
  */
-export function triggerStudioDeath(anim: StudioAnimState): number {
+export function triggerStudioDeath(
+  anim: StudioAnimState,
+  pos?: { x: number; y: number; z: number },
+): number {
+  const fired = fireStudioEvent(anim.entityKey, 'onDeath', pos);
+  if (fired?.flash) anim.flashT = STUDIO_FLASH_SECONDS;
   if (!anim.active) return 0;
   const ent = getStudioEntity(anim.entityKey);
   if (!ent) return 0;
   const resolved = resolveClip(ent, 'death', anim.dir);
   if (!resolved) return 0;
-  const fps = STUDIO_DEFAULT_FPS;
+  const fps = clipFps(resolved.clip);
   const dur = Math.min(STUDIO_DEATH_MAX_SECONDS, Math.max(0.12, resolved.clip.frameCount / fps));
   anim.phase = 'death';
   anim.phaseT = dur;
   anim.cursor = 0;
   return dur;
+}
+
+export function triggerStudioSpawn(
+  anim: StudioAnimState,
+  pos?: { x: number; y: number; z: number },
+): void {
+  const fired = fireStudioEvent(anim.entityKey, 'onSpawn', pos);
+  if (fired?.flash) anim.flashT = STUDIO_FLASH_SECONDS;
 }
 
 /**
@@ -259,6 +365,7 @@ export function updateStudioAnim(
   vx: number,
   vz: number,
 ): CanvasTexture | null {
+  if (anim.flashT > 0) anim.flashT = Math.max(0, anim.flashT - dt);
   if (!anim.active) return null;
   const ent = getStudioEntity(anim.entityKey);
   if (!ent || !ent.sheetDataUrl) {
@@ -293,7 +400,8 @@ export function updateStudioAnim(
     anim.lastFrame = -1;
   }
 
-  const advanced = advanceFrameCursor(anim.cursor, dt, STUDIO_DEFAULT_FPS, resolved.clip.frameCount);
+  const fps = clipFps(resolved.clip);
+  const advanced = advanceFrameCursor(anim.cursor, dt, fps, resolved.clip.frameCount);
   anim.cursor = advanced.cursor;
   const absolute = resolved.clip.startFrame + advanced.frameIndex;
   if (absolute === anim.lastFrame) {
