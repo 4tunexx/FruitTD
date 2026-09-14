@@ -50,7 +50,8 @@ import {
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getEnabledSlicers, getSlicers } from '../services/liveConfig';
-import { bootMenuParallax } from './menuParallax';
+import { bootMenuParallax, syncMenuParallax } from './menuParallax';
+import { navigation } from '../game/navigation';
 import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
 import { getRewardSvg } from './icons';
@@ -99,6 +100,13 @@ export class Hud {
   private currentLbMode = 'ranked';
   private dailyCountdownTimer: number | null = null;
   private juiceCanvasBooted = false;
+  private juiceCanvas: HTMLCanvasElement | null = null;
+  private juiceCtx: CanvasRenderingContext2D | null = null;
+  private juiceRaf = 0;
+  private juiceAnimating = false;
+  private juiceT = 0;
+  private lastJuicePct = -1;
+  private juiceLastChangeMs = 0;
   private readonly adminController: AdminController;
 
   onPlace: ((kind: TurretKind) => void) | null = null;
@@ -163,6 +171,12 @@ export class Hud {
     this.checkDailyBonus();
     this.bootSuperLiquidCanvas();
     bootMenuParallax();
+    navigation.onChange((s) => {
+      const inMatch = s === 'PLAYING' || s === 'PAUSED' || s === 'GAME_OVER';
+      document.body.classList.toggle('is-playing', inMatch);
+      document.getElementById('app')?.classList.toggle('is-playing', inMatch);
+      syncMenuParallax();
+    });
     void loadLiveConfig().then(() => this.refreshMonthlyRank());
   }
 
@@ -546,56 +560,125 @@ export class Hud {
   }
 
 
+  private isSuperPanelHidden(): boolean {
+    const wrap = document.getElementById('super-wrap');
+    if (!wrap) return true;
+    if (wrap.classList.contains('hidden')) return true;
+    const title = document.getElementById('title-screen');
+    const dash = document.getElementById('hud-start');
+    if (title && !title.classList.contains('hidden')) return true;
+    if (dash && !dash.classList.contains('hidden')) return true;
+    const style = window.getComputedStyle(wrap);
+    if (style.display === 'none' || style.visibility === 'hidden') return true;
+    return false;
+  }
+
+  private sizeSuperLiquidCanvas(): void {
+    const canvas = this.juiceCanvas;
+    if (!canvas) return;
+    // Cap DPR at 1 — liquid shimmer does not need retina cost during match
+    const dpr = Math.min(window.devicePixelRatio || 1, 1);
+    const w = Math.max(1, Math.round(48 * dpr));
+    const h = Math.max(1, Math.round(240 * dpr));
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+  }
+
+  private drawSuperLiquidFrame(): void {
+    const canvas = this.juiceCanvas;
+    const ctx = this.juiceCtx;
+    if (!canvas || !ctx) return;
+    this.juiceT += 0.04;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const juice = Number(document.getElementById('super-fill')?.style.getPropertyValue('--juice') || 0);
+    if (juice <= 0.5) return;
+    const t = this.juiceT;
+    for (let i = 0; i < 3; i++) {
+      const y = h * (0.15 + i * 0.22) + Math.sin(t * 1.4 + i * 1.7) * 6;
+      const grad = ctx.createLinearGradient(0, y - 8, 0, y + 8);
+      grad.addColorStop(0, 'rgba(255,255,255,0)');
+      grad.addColorStop(0.5, `rgba(255,250,220,${0.18 - i * 0.04})`);
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x <= w; x += 2) {
+        const yy = y + Math.sin(x * 0.18 + t * 2.2 + i) * (3.5 - i) + Math.cos(x * 0.09 - t + i) * 1.5;
+        ctx.lineTo(x, yy);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.globalAlpha = 0.55;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    for (let b = 0; b < 7; b++) {
+      const bx = ((Math.sin(t * 0.7 + b * 1.3) * 0.5 + 0.5) * 0.7 + 0.15) * w;
+      const by = h - ((t * 8 + b * 37) % (h * 0.9));
+      const r = 1.2 + (b % 3) * 0.7;
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255,255,255,${0.22 + (b % 3) * 0.06})`;
+      ctx.arc(bx, by, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  private stopSuperLiquidLoop(): void {
+    if (this.juiceRaf) {
+      cancelAnimationFrame(this.juiceRaf);
+      this.juiceRaf = 0;
+    }
+    this.juiceAnimating = false;
+  }
+
+  private startSuperLiquidLoop(): void {
+    if (this.juiceAnimating) return;
+    this.juiceAnimating = true;
+    const step = (now: number) => {
+      if (!this.juiceAnimating) return;
+      const juice = Number(document.getElementById('super-fill')?.style.getPropertyValue('--juice') || 0);
+      const idle = now - this.juiceLastChangeMs > 500;
+      const hidden = this.isSuperPanelHidden();
+      if (idle || hidden || juice <= 0.5) {
+        if (!hidden && juice > 0.5) this.drawSuperLiquidFrame();
+        this.stopSuperLiquidLoop();
+        return;
+      }
+      this.drawSuperLiquidFrame();
+      this.juiceRaf = requestAnimationFrame(step);
+    };
+    this.juiceRaf = requestAnimationFrame(step);
+  }
+
+  /** Resume shimmer when juice changes; idle >0.5s or hidden panel pauses rAF. */
+  private nudgeSuperLiquid(juicePct: number): void {
+    if (juicePct !== this.lastJuicePct) {
+      this.lastJuicePct = juicePct;
+      this.juiceLastChangeMs = performance.now();
+    }
+    if (this.isSuperPanelHidden() || juicePct <= 0.5) {
+      this.stopSuperLiquidLoop();
+      return;
+    }
+    if (performance.now() - this.juiceLastChangeMs > 500) return;
+    this.startSuperLiquidLoop();
+  }
+
   private bootSuperLiquidCanvas(): void {
     if (this.juiceCanvasBooted) return;
     const canvas = document.getElementById('super-liquid-canvas') as HTMLCanvasElement | null;
     if (!canvas) return;
     this.juiceCanvasBooted = true;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    let t = 0;
-    const draw = () => {
-      requestAnimationFrame(draw);
-      t += 0.04;
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-      const juice = Number(document.getElementById('super-fill')?.style.getPropertyValue('--juice') || 0);
-      if (juice <= 0.5) return;
-      for (let i = 0; i < 3; i++) {
-        const y = h * (0.15 + i * 0.22) + Math.sin(t * 1.4 + i * 1.7) * 6;
-        const grad = ctx.createLinearGradient(0, y - 8, 0, y + 8);
-        grad.addColorStop(0, 'rgba(255,255,255,0)');
-        grad.addColorStop(0.5, `rgba(255,250,220,${0.18 - i * 0.04})`);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        for (let x = 0; x <= w; x += 2) {
-          const yy = y + Math.sin(x * 0.18 + t * 2.2 + i) * (3.5 - i) + Math.cos(x * 0.09 - t + i) * 1.5;
-          ctx.lineTo(x, yy);
-        }
-        ctx.lineTo(w, h);
-        ctx.lineTo(0, h);
-        ctx.closePath();
-        ctx.globalAlpha = 0.55;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      // bubbles
-      for (let b = 0; b < 7; b++) {
-        const bx = ((Math.sin(t * 0.7 + b * 1.3) * 0.5 + 0.5) * 0.7 + 0.15) * w;
-        const by = h - ((t * 8 + b * 37) % (h * 0.9));
-        const r = 1.2 + (b % 3) * 0.7;
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${0.22 + (b % 3) * 0.06})`;
-        ctx.arc(bx, by, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    };
-    draw();
+    this.juiceCanvas = canvas;
+    this.juiceCtx = canvas.getContext('2d');
+    if (!this.juiceCtx) return;
+    this.sizeSuperLiquidCanvas();
+    this.juiceLastChangeMs = performance.now();
+    // Do not start a forever rAF — sync()/nudge starts it only while juice is changing
   }
-
   mountInventory(save: SaveData): void {
     const layout = document.getElementById('inventory-layout');
     const box = document.getElementById('skin-inventory');
@@ -936,6 +1019,7 @@ export class Hud {
     const wave = document.getElementById('super-wave');
     if (wave) wave.style.setProperty('--juice', String(juicePct));
     this.superBtn.disabled = state.superJuice < 100;
+    this.nudgeSuperLiquid(juicePct);
     this.modeLabel.textContent = modeRules(state.mode).name;
 
     // Wave progress bar
