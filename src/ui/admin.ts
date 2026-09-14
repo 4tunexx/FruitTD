@@ -27,7 +27,7 @@ import {
 } from './adminCatalog';
 import { installSpriteUploads } from './adminSprites';
 
-type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'leaderboard';
+type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -156,6 +156,12 @@ export class AdminController {
       addSlicer(this.config.slicers);
       this.renderCatalogEditors();
     });
+
+    // P1-5: Content editing handlers
+    document.getElementById('btn-save-boss-names')?.addEventListener('click', () => this.saveBossNames());
+    document.getElementById('btn-save-fruits')?.addEventListener('click', () => this.saveContent('fruits'));
+    document.getElementById('btn-save-enemies')?.addEventListener('click', () => this.saveContent('enemies'));
+    document.getElementById('btn-save-waves')?.addEventListener('click', () => this.saveContent('waves'));
   }
 
   private submitAdminPin(): void {
@@ -222,6 +228,8 @@ export class AdminController {
       this.renderBrandingEditor();
     } else if (this.activeTab === 'economy') {
       this.renderEconomyEditor();
+    } else if (this.activeTab === 'content') {
+      this.renderContentEditor(); // P1-5
     } else if (this.activeTab === 'leaderboard') {
       this.renderLeaderboardManager();
     }
@@ -413,6 +421,78 @@ export class AdminController {
     if (saveBtn) {
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save to MongoDB Atlas';
+    }
+  }
+
+  // P1-5: Content editing methods
+  private saveBossNames(): void {
+    const textarea = document.getElementById('admin-boss-names') as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    
+    const names = textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    if (names.length < 3) {
+      alert('Please enter at least 3 boss names (one per line).');
+      return;
+    }
+    
+    localStorage.setItem('admin-boss-names', JSON.stringify(names));
+    const statusEl = document.getElementById('admin-save-status');
+    if (statusEl) {
+      statusEl.textContent = `Saved ${names.length} boss names to localStorage.`;
+      statusEl.className = 'admin-status-ok';
+    }
+  }
+
+  private saveContent(type: 'fruits' | 'enemies' | 'waves'): void {
+    const textarea = document.getElementById(`admin-${type}-json`) as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    
+    try {
+      const data = JSON.parse(textarea.value);
+      localStorage.setItem(`admin-${type}-config`, JSON.stringify(data));
+      const statusEl = document.getElementById('admin-save-status');
+      if (statusEl) {
+        statusEl.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} config saved to localStorage.`;
+        statusEl.className = 'admin-status-ok';
+      }
+    } catch (e: any) {
+      alert(`Invalid JSON for ${type}: ${e.message}`);
+    }
+  }
+
+  // P1-5: Load and render content editor
+  private renderContentEditor(): void {
+    // Load boss names
+    const bossTextarea = document.getElementById('admin-boss-names') as HTMLTextAreaElement | null;
+    if (bossTextarea) {
+      const stored = localStorage.getItem('admin-boss-names');
+      if (stored) {
+        try {
+          const names = JSON.parse(stored);
+          bossTextarea.value = names.join('\n');
+        } catch {
+          // Default boss names
+          bossTextarea.value = 'SENTINEL\nGUARDIAN\nWATCHER\nTHE CRUSHER\nBERSERKER\nRAVAGER\nTITANFRUIT\nCOLOSSUS\nJUGGERNAUT\nAPEX PREDATOR\nDOMINATOR\nANNIHILATOR\nTHE BEHEMOTH\nLEVIATHAN\nTITAN\nFRUIT OVERLORD\nSUPREME RULER\nEMPEROR\nULTIMATE DESTROYER\nGOD EMPEROR\nOMEGA';
+        }
+      }
+    }
+    
+    // Load JSON configs (placeholder - actual game data would go here)
+    const fruitsTextarea = document.getElementById('admin-fruits-json') as HTMLTextAreaElement | null;
+    const enemiesTextarea = document.getElementById('admin-enemies-json') as HTMLTextAreaElement | null;
+    const wavesTextarea = document.getElementById('admin-waves-json') as HTMLTextAreaElement | null;
+    
+    if (fruitsTextarea) {
+      const stored = localStorage.getItem('admin-fruits-config');
+      if (stored) fruitsTextarea.value = stored;
+    }
+    if (enemiesTextarea) {
+      const stored = localStorage.getItem('admin-enemies-config');
+      if (stored) enemiesTextarea.value = stored;
+    }
+    if (wavesTextarea) {
+      const stored = localStorage.getItem('admin-waves-config');
+      if (stored) wavesTextarea.value = stored;
     }
   }
 }

@@ -16,6 +16,9 @@ export interface WavePlan {
   hpScale: number;
   boss: boolean;
   title: string;
+  level: number; // Current level/stage
+  waveInLevel: number; // Wave within current level (1-based)
+  wavesInLevel: number; // Total waves in this level
 }
 
 function add(items: SpawnItem[], kind: FruitKind, n: number, boss = false, enemy?: EnemyKind): void {
@@ -50,52 +53,71 @@ function mix(wave: number, count: number): SpawnItem[] {
 export function planWave(wave: number, mode: GameMode): WavePlan {
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
-  const items: SpawnItem[] = [];
-  let title = `WAVE ${wave}`;
-
-  if (w === 1) {
-    add(items, 'lemon', 4);
-    add(items, 'orange', 3);
-  } else if (w === 2) {
-    add(items, 'lemon', 3);
-    add(items, 'banana', 3);
-    add(items, 'strawberry', 3);
-  } else if (w === 3) {
-    add(items, 'orange', 3);
-    add(items, 'kiwi', 3);
-    add(items, 'bomb', 2, false, 'explosive');
-    add(items, 'pineapple', 2);
-  } else if (w === 4) {
-    add(items, 'watermelon', 2);
-    add(items, 'strawberry', 4);
-    add(items, 'banana', 3);
-    add(items, 'bomb', 1, false, 'explosive');
-  } else {
-    const count = Math.min(28, 8 + w * 2);
-    items.push(...mix(w, count));
-  }
-
-  if (w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
-    const special = enemyRule('explosive');
-    const index = Math.min(items.length - 1, Math.floor(w * 0.7));
-    if (items[index]) {
-      items[index].enemy = special.kind;
-      items[index].kind = 'bomb';
+  
+  // HOARD MODE: Calculate level and wave-in-level
+  // Level 1-4: 5 waves each, Level 5+: N waves per level
+  let level = 1;
+  let totalWavesSoFar = 0;
+  while (true) {
+    const wavesInThisLevel = Math.max(5, level);
+    if (totalWavesSoFar + wavesInThisLevel >= w) {
+      const waveInLevel = w - totalWavesSoFar;
+      const isBossWave = waveInLevel === wavesInThisLevel;
+      
+      const items: SpawnItem[] = [];
+      let title = `LEVEL ${level}  ·  ${waveInLevel}/${wavesInThisLevel}`;
+      
+      // Generate normal wave content
+      if (w === 1) {
+        add(items, 'lemon', 4);
+        add(items, 'orange', 3);
+      } else if (w === 2) {
+        add(items, 'lemon', 3);
+        add(items, 'banana', 3);
+        add(items, 'strawberry', 3);
+      } else if (w === 3) {
+        add(items, 'orange', 3);
+        add(items, 'kiwi', 3);
+        add(items, 'bomb', 2, false, 'explosive');
+        add(items, 'pineapple', 2);
+      } else if (w === 4) {
+        add(items, 'watermelon', 2);
+        add(items, 'strawberry', 4);
+        add(items, 'banana', 3);
+        add(items, 'bomb', 1, false, 'explosive');
+      } else {
+        const count = Math.min(28, 8 + w * 2);
+        items.push(...mix(w, count));
+      }
+      
+      if (w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
+        const special = enemyRule('explosive');
+        const index = Math.min(items.length - 1, Math.floor(w * 0.7));
+        if (items[index]) {
+          items[index].enemy = special.kind;
+          items[index].kind = 'bomb';
+        }
+      }
+      
+      // Boss only at end of level
+      if (isBossWave) {
+        const enemyType = level >= 3 ? 'armored' : 'normal';
+        add(items, 'watermelon', 1, true, enemyType);
+        title = `LEVEL ${level}  ·  BOSS`;
+      }
+      
+      return {
+        items,
+        gap: Math.max(0.28, (0.82 - w * 0.035) * rules.spawnGapMul),
+        hpScale: (1 + (w - 1) * 0.2) * rules.hpMul,
+        boss: isBossWave,
+        title,
+        level,
+        waveInLevel,
+        wavesInLevel: wavesInThisLevel,
+      };
     }
+    totalWavesSoFar += wavesInThisLevel;
+    level++;
   }
-
-  const bossWave = w > 0; // P1-4 FIX: Boss at end of EVERY wave
-  if (bossWave) {
-    const enemyType = w >= 10 ? 'armored' : 'normal';
-    add(items, 'watermelon', 1, true, enemyType);
-    title = `WAVE ${wave}  ·  BOSS`;
-  }
-
-  return {
-    items,
-    gap: Math.max(0.28, (0.82 - w * 0.035) * rules.spawnGapMul),
-    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul,
-    boss: bossWave,
-    title,
-  };
 }

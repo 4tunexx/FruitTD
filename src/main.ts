@@ -709,35 +709,35 @@ function restartMatch(): void {
   restart();
 }
 
-function showBossIntro(wave: number): void {
+function showBossIntro(level: number): void {
   const letterbox = document.getElementById('boss-letterbox');
   const title = document.getElementById('boss-intro-title');
   const subtitle = document.getElementById('boss-intro-subtitle');
   
   if (!letterbox || !title || !subtitle) return;
   
-  // Boss names scale continuously with wave
+  // Boss names scale with LEVEL (not wave)
   const bossNames = [
-    ['SENTINEL', 'GUARDIAN', 'WATCHER'],           // Waves 1-3
-    ['THE CRUSHER', 'BERSERKER', 'RAVAGER'],       // Waves 4-6
-    ['TITANFRUIT', 'COLOSSUS', 'JUGGERNAUT'],      // Waves 7-9
-    ['APEX PREDATOR', 'DOMINATOR', 'ANNIHILATOR'], // Waves 10-12
-    ['THE BEHEMOTH', 'LEVIATHAN', 'TITAN'],        // Waves 13-15
-    ['FRUIT OVERLORD', 'SUPREME RULER', 'EMPEROR'], // Waves 16-18
-    ['ULTIMATE DESTROYER', 'GOD EMPEROR', 'OMEGA'], // Waves 19+
+    ['SENTINEL', 'GUARDIAN', 'WATCHER'],           // Level 1-3
+    ['THE CRUSHER', 'BERSERKER', 'RAVAGER'],       // Level 4-6
+    ['TITANFRUIT', 'COLOSSUS', 'JUGGERNAUT'],      // Level 7-9
+    ['APEX PREDATOR', 'DOMINATOR', 'ANNIHILATOR'], // Level 10-12
+    ['THE BEHEMOTH', 'LEVIATHAN', 'TITAN'],        // Level 13-15
+    ['FRUIT OVERLORD', 'SUPREME RULER', 'EMPEROR'], // Level 16-18
+    ['ULTIMATE DESTROYER', 'GOD EMPEROR', 'OMEGA'], // Level 19+
   ];
-  const tierIndex = Math.min(bossNames.length - 1, Math.floor(wave / 9));
+  const tierIndex = Math.min(bossNames.length - 1, Math.floor((level - 1) / 3));
   const tier = bossNames[tierIndex];
-  const nameIndex = (wave - 1) % tier.length;
+  const nameIndex = (level - 1) % tier.length;
   const bossName = tier[nameIndex] || tier[0];
   
   title.textContent = bossName;
-  subtitle.textContent = `WAVE ${wave} BOSS`;
+  subtitle.textContent = `LEVEL ${level} BOSS`;
   
   letterbox.classList.remove('hidden');
   setTimeout(() => {
     letterbox.classList.add('hidden');
-    toast(state, `${bossName}  ·  WAVE ${wave}`, 1.8);
+    toast(state, `${bossName}  ·  LEVEL ${level}`, 1.8);
   }, 3000);
 }
 
@@ -873,9 +873,9 @@ function simulate(dt: number): void {
       state.waveKilled = 0;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
       
-      // P1-4: Show boss intro letterbox if this is a boss wave
+      // Boss intro letterbox if this is a boss wave
       if (plan.boss) {
-        showBossIntro(state.wave);
+        showBossIntro(plan.level);
       } else {
         toast(state, plan.title, 1.4);
       }
