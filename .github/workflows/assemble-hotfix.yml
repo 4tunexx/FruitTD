@@ -10,21 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble sources from base64 parts
+      - name: Assemble gzip+base64 hotfix parts
         run: |
           set -euo pipefail
           test -f hotfix-parts/READY
-          cat hotfix-parts/main.b64.* | base64 -d > src/main.ts
-          cat hotfix-parts/hud.b64.* | base64 -d > src/ui/hud.ts
+          cat hotfix-parts/main.gz.b64.* | base64 -d | gzip -d > src/main.ts
+          cat hotfix-parts/hud.gz.b64.* | base64 -d | gzip -d > src/ui/hud.ts
           python3 - <<'PY'
           from pathlib import Path
           import hashlib
-          main=Path('src/main.ts').read_bytes()
-          hud=Path('src/ui/hud.ts').read_bytes()
+          main = Path('src/main.ts').read_bytes()
+          hud = Path('src/ui/hud.ts').read_bytes()
           print('main', len(main), hashlib.sha256(main).hexdigest())
           print('hud', len(hud), hashlib.sha256(hud).hexdigest())
-          assert b"requestAnimationFrame(() => hideBootLoader())" in main
-          assert b"require(" not in hud or b"getAvailableHeroPerkPoints" in hud
+          assert b'requestAnimationFrame(() => hideBootLoader())' in main
+          assert b"window.addEventListener('error'" in main
+          assert b'getAvailableHeroPerkPoints' in hud
+          assert b"require('../game/heroProgression')" not in hud
+          assert b"require('../game/heroPerkSave')" not in hud
           PY
           rm -rf hotfix-parts .github/workflows/assemble-hotfix.yml
           git config user.name "4tunexx"
