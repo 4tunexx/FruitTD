@@ -36,7 +36,11 @@ function emptyXp(): Record<HeroId, number> { return { jiju:0, topfu:0, lagen:0, 
 function emptyPerkRanks(): HeroPerkRanks { return { jiju:{}, topfu:{}, lagen:{}, tripos:{}, ki:{} }; }
 function safeInt(value: unknown, fallback = 0, min = 0, max = Number.MAX_SAFE_INTEGER): number {
   const n = Number(value);
-  return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.floor(n))) : fallback;
+  if (!Number.isFinite(n)) return fallback;
+  const bounded = Math.max(min, Math.min(max, Math.floor(n)));
+  // Additional validation: reject if original value was absurdly large
+  if (typeof value === 'number' && value > 1e15) return fallback;
+  return bounded;
 }
 function uniqueStrings(values: unknown, fallback: string[] = []): string[] {
   if (!Array.isArray(values)) return [...fallback];
@@ -61,7 +65,14 @@ export function defaultSave(): SaveData {
 /** Keep old/local/cloud saves valid even when a field is missing, duplicated or malformed. */
 export function sanitiseSave(data: SaveData): SaveData {
   const base = defaultSave();
-  for (const hero of HEROES) data.xp[hero.id] = safeInt(data.xp[hero.id], 0, 0, heroXpForLevel(MAX_HERO_LEVEL));
+
+  // Reasonable maximums for economy values (PR7 security hardening)
+  const MAX_COINS = 1_000_000;
+  const MAX_SKILL_POINTS = 10_000;
+  const MAX_HERO_XP = 1_000_000;
+  const MAX_GEMS = 1_000_000;
+
+  for (const hero of HEROES) data.xp[hero.id] = safeInt(data.xp[hero.id], 0, 0, Math.min(MAX_HERO_XP, heroXpForLevel(MAX_HERO_LEVEL)));
   data.ownedHeroes = [...new Set(data.ownedHeroes.filter((id) => HEROES.some((h) => h.id === id)))];
   data.ownedSkins = uniqueStrings(data.ownedSkins, base.ownedSkins);
   for (const skill of SKILLS) data.skills[skill.id] = safeInt(data.skills[skill.id], 0, 0, skill.max);
@@ -71,9 +82,9 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.rankedScore = safeInt(data.rankedScore, 0, 0, 100_000_000);
   data.bestWave = safeInt(data.bestWave, 1, 1, 9999);
   data.games = safeInt(data.games, 0, 0, 1_000_000);
-  data.coins = safeInt(data.coins, 0, 0, 10_000_000);
-  data.gems = safeInt(data.gems ?? 0, 0, 0, 10_000_000); // P1-2
-  data.skillPoints = safeInt(data.skillPoints, 0, 0, 1000);
+  data.coins = safeInt(data.coins, 0, 0, MAX_COINS);
+  data.gems = safeInt(data.gems ?? 0, 0, 0, MAX_GEMS);
+  data.skillPoints = safeInt(data.skillPoints, 0, 0, MAX_SKILL_POINTS);
   data.nickname = typeof data.nickname === 'string' ? data.nickname.trim().slice(0, 16) || 'Slicer' : 'Slicer';
   data.avatar = typeof data.avatar === 'string' && data.avatar ? data.avatar : defaultAvatar(data.nickname);
   if (!HEROES.some((h) => h.id === data.hero)) data.hero = 'jiju';
@@ -82,7 +93,7 @@ export function sanitiseSave(data: SaveData): SaveData {
   if (!data.ownedSkins.includes('wall-brick')) data.ownedSkins.push('wall-brick');
   if (!data.ownedSkins.includes(data.bladeSkin)) data.bladeSkin = 'blade-default';
   if (!data.ownedSkins.includes(data.wallSkin)) data.wallSkin = 'wall-brick';
-  if (!data.vipStatus || !['none','bronze','silver','gold'].includes(data.vipStatus)) data.vipStatus = 'none'; // P1-2
+  if (!data.vipStatus || !['none','bronze','silver','gold'].includes(data.vipStatus)) data.vipStatus = 'none';
   
   if (!data.heroPerkRanks || typeof data.heroPerkRanks !== 'object') data.heroPerkRanks = emptyPerkRanks();
   for (const hero of HEROES) {
@@ -184,8 +195,23 @@ export function writeSave(data: SaveData): void {
 
 export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | undefined): SaveData {
   if (!remote) return syncHeroUnlocks(local);
-  const xp = emptyXp(); for (const hero of HEROES) xp[hero.id] = Math.max(local.xp[hero.id] ?? 0, remote.xp?.[hero.id] ?? 0);
-  const skills = emptySkills(); for (const skill of SKILLS) skills[skill.id] = Math.max(local.skills[skill.id] ?? 0, remote.skills?.[skill.id] ?? 0);
+
+  // Reasonable maximums for merge validation (PR7)
+  const MAX_COINS = 1_000_000;
+  const MAX_SKILL_POINTS = 10_000;
+  const MAX_HERO_XP = 1_000_000;
+  const MAX_GEMS = 1_000_000;
+
+  const xp = emptyXp();
+  for (const hero of HEROES) {
+    const localXp = local.xp[hero.id] ?? 0;
+    const remoteXp = remote.xp?.[hero.id] ?? 0;
+    xp[hero.id] = Math.min(Math.max(localXp, remoteXp), MAX_HERO_XP);
+  }
+  const skills = emptySkills();
+  for (const skill of SKILLS) {
+    skills[skill.id] = Math.min(Math.max(local.skills[skill.id] ?? 0, remote.skills?.[skill.id] ?? 0), skill.max);
+  }
   const owned = new Set([...(local.ownedSkins || []), ...(remote.ownedSkins || [])]);
   const heroes = new Set<HeroId>([...(local.ownedHeroes || ['jiju']), ...(remote.ownedHeroes || [])]);
   const towerXp = Math.max(local.towerXp ?? 0, remote.towerXp ?? 0);
@@ -200,13 +226,36 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
       heroPerkRanks[hero.id][perk.id] = Math.max(localRank, remoteRank);
     }
   }
+
+  const mergedCoins = Math.min(Math.max(local.coins, remote.coins ?? 0), MAX_COINS);
+  const mergedSkillPoints = Math.min(Math.max(local.skillPoints, remote.skillPoints ?? 0), MAX_SKILL_POINTS);
+  const mergedGems = Math.min(Math.max(local.gems ?? 0, remote.gems ?? 0), MAX_GEMS);
   
-  return syncHeroUnlocks({ ...local, ...remote, xp, skills, towerXp, towerLifetimeXp, heroPerkRanks,
-    ownedHeroes:[...heroes], ownedSkins:owned.size ? [...owned] : local.ownedSkins,
-    highScore:Math.max(local.highScore,remote.highScore??0), rankedScore:Math.max(local.rankedScore,remote.rankedScore??0), bestWave:Math.max(local.bestWave,remote.bestWave??0),
-    games:Math.max(local.games,remote.games??0), coins:Math.max(local.coins,remote.coins??0), skillPoints:Math.max(local.skillPoints,remote.skillPoints??0),
-    hero:HEROES.some((h)=>h.id===remote.hero) ? remote.hero as HeroId : local.hero, nickname:remote.nickname||local.nickname, avatar:remote.avatar||local.avatar,
-    bladeSkin:remote.bladeSkin||local.bladeSkin, wallSkin:remote.wallSkin||local.wallSkin, mode:remote.mode||local.mode });
+  return syncHeroUnlocks({
+    ...local,
+    ...remote,
+    xp,
+    skills,
+    towerXp,
+    towerLifetimeXp,
+    heroPerkRanks,
+    ownedHeroes:[...heroes],
+    ownedSkins:owned.size ? [...owned] : local.ownedSkins,
+    highScore:Math.max(local.highScore,remote.highScore??0),
+    rankedScore:Math.max(local.rankedScore,remote.rankedScore??0),
+    bestWave:Math.max(local.bestWave,remote.bestWave??0),
+    games:Math.max(local.games,remote.games??0),
+    coins: mergedCoins,
+    gems: mergedGems,
+    skillPoints: mergedSkillPoints,
+    hero:HEROES.some((h)=>h.id===remote.hero) ? remote.hero as HeroId : local.hero,
+    nickname:remote.nickname||local.nickname,
+    avatar:remote.avatar||local.avatar,
+    bladeSkin:remote.bladeSkin||local.bladeSkin,
+    wallSkin:remote.wallSkin||local.wallSkin,
+    mode:remote.mode||local.mode,
+    vipStatus: remote.vipStatus || local.vipStatus,
+  });
 }
 
 export function heroLevelFromSave(data: SaveData, id: HeroId): number { return heroXpToLevel(data.xp[id] ?? 0); }

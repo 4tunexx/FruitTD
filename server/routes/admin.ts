@@ -14,7 +14,6 @@ import { DEFAULT_SLICERS } from '../../src/game/slicers';
 export const adminRouter = Router();
 
 export const ADMIN_STEAM_ID = '76561198001993310';
-export const ADMIN_DEV_PIN = '1337';
 
 export interface AdminConfigDoc {
   configKey: string; // 'game_config'
@@ -22,9 +21,21 @@ export interface AdminConfigDoc {
     day: number;
     coins: number;
     skillPoints: number;
+    gems?: number;
     skinUnlock?: string;
     label: string;
     iconType: 'coin' | 'gem' | 'chest' | 'blade';
+  }>;
+  vipTiers?: Array<{
+    tier: 'bronze' | 'silver' | 'gold';
+    title: string;
+    price: number;
+    coinBonus: number;
+    xpBonus: number;
+    dailyCoins: number;
+    dailySp: number;
+    exclusiveSkins: string[];
+    description: string;
   }>;
   menuConfig: {
     eyebrow: string;
@@ -44,6 +55,7 @@ export interface AdminConfigDoc {
   badges?: any[];
   ranks?: any[];
   slicers?: any[];
+  enemies?: any[];
   updatedAt: Date;
 }
 
@@ -56,6 +68,7 @@ function normalizeDailyRewards(input: unknown): AdminConfigDoc['dailyRewards'] {
     const iconType = ICON_TYPES.has(row.iconType) ? row.iconType : fallback.iconType;
     const coins = Math.max(0, Number(row.coins ?? fallback.coins) || 0);
     const skillPoints = Math.max(0, Number(row.skillPoints ?? fallback.skillPoints) || 0);
+    const gems = Math.max(0, Number(row.gems ?? fallback.gems ?? 0) || 0);
     const skinUnlock = typeof row.skinUnlock === 'string' && row.skinUnlock.trim()
       ? row.skinUnlock.trim()
       : fallback.skinUnlock;
@@ -63,6 +76,7 @@ function normalizeDailyRewards(input: unknown): AdminConfigDoc['dailyRewards'] {
       day: i + 1,
       coins,
       skillPoints,
+      ...(gems ? { gems } : {}),
       ...(skinUnlock ? { skinUnlock } : {}),
       label: String(row.label || fallback.label),
       iconType,
@@ -112,6 +126,11 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
     { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 💎', iconType: 'chest' },
     { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 💎!', iconType: 'blade' },
   ],
+  vipTiers: [
+    { tier: 'bronze', title: 'Bronze VIP', price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: '+10% coins, +5% XP, 25 daily coins' },
+    { tier: 'silver', title: 'Silver VIP', price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ['blade-silver-vip'], description: '+25% coins, +15% XP, 75 daily coins + 1 SP' },
+    { tier: 'gold', title: 'Gold VIP', price: 5000, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ['blade-gold-vip', 'wall-gold-vip'], description: '+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins' },
+  ],
   menuConfig: {
     eyebrow: 'FRUIT TD · LIVE ONLINE',
     title: 'Slice.\nHold the Wall.',
@@ -130,13 +149,13 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
+  enemies: [],
 };
 
-// Check if request is authenticated as admin
+// Check if request is authenticated as admin (Steam ID only)
 function isAuthorized(req: Request): boolean {
   const steamId = req.headers['x-admin-steamid'] as string;
-  const pin = req.headers['x-admin-pin'] as string;
-  return steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  return steamId === ADMIN_STEAM_ID;
 }
 
 // GET /api/admin/config (Public or admin)
@@ -158,11 +177,13 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
       config: {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
+        vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
         missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
         achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
         badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
         ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
+        enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
       },
     });
   } catch (err: any) {
@@ -175,10 +196,10 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
   }
 });
 
-// POST /api/admin/verify (Verify admin status)
+// POST /api/admin/verify (Verify admin status - Steam ID only)
 adminRouter.post('/verify', async (req: Request, res: Response) => {
-  const { steamId, pin } = req.body;
-  const valid = steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  const { steamId } = req.body;
+  const valid = steamId === ADMIN_STEAM_ID;
   res.json({
     success: true,
     isAdmin: valid,
@@ -193,13 +214,14 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
   }
 
   try {
-    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers } = req.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies } = req.body;
     const col = await getCollection<AdminConfigDoc>('admin_config');
     const existing = await col.findOne({ configKey: 'game_config' });
 
     const updated = {
       configKey: 'game_config',
       dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG.dailyRewards,
+      vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
       missions: Array.isArray(missions) ? missions : existing?.missions || DEFAULT_MISSIONS,
@@ -207,6 +229,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
       ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
+      enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       updatedAt: new Date(),
     };
 

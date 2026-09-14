@@ -6,7 +6,6 @@ import {
   adminDeleteScore,
   adminWipeLeaderboardMode,
   isUserAdmin,
-  setAdminPin,
   ADMIN_STEAM_ID,
   DEFAULT_ADMIN_CONFIG,
   type AdminConfig,
@@ -27,7 +26,7 @@ import {
 } from './adminCatalog';
 import { installSpriteUploads } from './adminSprites';
 
-type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'content' | 'leaderboard';
+type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -47,13 +46,12 @@ export class AdminController {
     const adminBtn = document.getElementById('btn-admin');
     if (adminBtn) {
       // Admin button is only in dashboard, visibility managed by dashboard state
-      // No longer forcing visibility here
       if (isUserAdmin()) {
         adminBtn.classList.add('is-active-admin');
         adminBtn.title = `Admin Active (Steam ID: ${ADMIN_STEAM_ID})`;
       } else {
         adminBtn.classList.remove('is-active-admin');
-        adminBtn.title = 'Click to open Admin Control Center';
+        adminBtn.title = 'Admin Control Center (Steam auth required)';
       }
     }
   }
@@ -126,11 +124,6 @@ export class AdminController {
       if (res.success) this.renderLeaderboardManager();
     });
 
-    document.getElementById('btn-admin-login-pin')?.addEventListener('click', () => this.submitAdminPin());
-    document.getElementById('admin-pin-input')?.addEventListener('keydown', (e) => {
-      if ((e as KeyboardEvent).key === 'Enter') this.submitAdminPin();
-    });
-
     document.getElementById('btn-admin-add-mission')?.addEventListener('click', () => {
       if (!this.config) return;
       addMission(this.config.missions);
@@ -157,27 +150,11 @@ export class AdminController {
       this.renderCatalogEditors();
     });
 
-    // P1-5: Content editing handlers
+    // Main (PR#6): Content editing handlers
     document.getElementById('btn-save-boss-names')?.addEventListener('click', () => this.saveBossNames());
     document.getElementById('btn-save-fruits')?.addEventListener('click', () => this.saveContent('fruits'));
     document.getElementById('btn-save-enemies')?.addEventListener('click', () => this.saveContent('enemies'));
     document.getElementById('btn-save-waves')?.addEventListener('click', () => this.saveContent('waves'));
-  }
-
-  private submitAdminPin(): void {
-    const input = document.getElementById('admin-pin-input') as HTMLInputElement | null;
-    const pinMsg = document.getElementById('admin-pin-msg');
-    if (input && input.value.trim() === '1337') {
-      setAdminPin('1337');
-      this.checkAdminPrivileges();
-      if (pinMsg) {
-        pinMsg.textContent = 'Admin privileges unlocked';
-        pinMsg.className = 'admin-status-ok';
-      }
-    } else if (pinMsg) {
-      pinMsg.textContent = 'Invalid Admin PIN';
-      pinMsg.className = 'admin-status-err';
-    }
   }
 
   private renderTabs(): void {
@@ -216,6 +193,8 @@ export class AdminController {
 
     if (this.activeTab === 'daily') {
       this.renderDailyEditor();
+    } else if (this.activeTab === 'vip') {
+      this.renderVipEditor();
     } else if (
       this.activeTab === 'missions' ||
       this.activeTab === 'achievements' ||
@@ -229,13 +208,80 @@ export class AdminController {
     } else if (this.activeTab === 'economy') {
       this.renderEconomyEditor();
     } else if (this.activeTab === 'content') {
-      this.renderContentEditor(); // P1-5
+      this.renderContentEditor();
     } else if (this.activeTab === 'leaderboard') {
       this.renderLeaderboardManager();
     }
   }
 
-  // 1. Daily Rewards Editor
+  // VIP Tiers Editor (PR7)
+  private renderVipEditor(): void {
+    const container = document.getElementById('admin-vip-list');
+    if (!container || !this.config) return;
+    container.innerHTML = '';
+
+    this.config.vipTiers.forEach((vip) => {
+      const card = document.createElement('div');
+      card.className = 'admin-reward-row';
+      const tierColor = vip.tier === 'gold' ? '#f5c542' : vip.tier === 'silver' ? '#c0c0c0' : '#cd7f32';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span style="font-size:1.5rem;color:${tierColor}">◆</span>
+          <strong style="color:${tierColor}">${vip.title}</strong>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;">
+          <label class="admin-label">
+            Price (coins)
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="price" value="${vip.price}" min="0" />
+          </label>
+          <label class="admin-label">
+            Coin Bonus (%)
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="coinBonus" value="${vip.coinBonus}" min="0" max="100" />
+          </label>
+          <label class="admin-label">
+            XP Bonus (%)
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="xpBonus" value="${vip.xpBonus}" min="0" max="100" />
+          </label>
+          <label class="admin-label">
+            Daily Coins
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="dailyCoins" value="${vip.dailyCoins}" min="0" />
+          </label>
+          <label class="admin-label">
+            Daily SP
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="dailySp" value="${vip.dailySp}" min="0" />
+          </label>
+          <label class="admin-label">
+            Exclusive Skins (comma-separated IDs)
+            <input type="text" class="admin-input" data-vip="${vip.tier}" data-field="exclusiveSkins" value="${vip.exclusiveSkins.join(',')}" />
+          </label>
+        </div>
+        <label class="admin-label">
+          Description
+          <input type="text" class="admin-input" data-vip="${vip.tier}" data-field="description" value="${this.escapeAttr(vip.description)}" />
+        </label>
+      `;
+      container.appendChild(card);
+    });
+
+    container.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('input', () => {
+        const tier = (input as HTMLInputElement).dataset.vip as 'bronze' | 'silver' | 'gold';
+        const field = (input as HTMLInputElement).dataset.field;
+        const vipObj = this.config!.vipTiers.find((v) => v.tier === tier);
+        if (!vipObj || !field) return;
+        
+        const value = (input as HTMLInputElement).value;
+        if (field === 'exclusiveSkins') {
+          vipObj.exclusiveSkins = value.split(',').map((s) => s.trim()).filter(Boolean);
+        } else if (field === 'description' || field === 'title') {
+          (vipObj as any)[field] = value;
+        } else {
+          (vipObj as any)[field] = parseFloat(value) || 0;
+        }
+      });
+    });
+  }
+
   private renderDailyEditor(): void {
     const container = document.getElementById('admin-daily-list');
     if (!container || !this.config) return;
@@ -301,7 +347,6 @@ export class AdminController {
     return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   }
 
-  // 2. Branding Editor
   private renderBrandingEditor(): void {
     if (!this.config) return;
     const { menuConfig } = this.config;
@@ -319,7 +364,6 @@ export class AdminController {
     if (inTheme) inTheme.value = menuConfig.themeColor || '#a3e635';
   }
 
-  // 3. Economy Editor
   private renderEconomyEditor(): void {
     if (!this.config) return;
     const { gameplayConfig } = this.config;
@@ -335,7 +379,6 @@ export class AdminController {
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
   }
 
-  // 4. Leaderboard Manager
   private async renderLeaderboardManager(): Promise<void> {
     const listEl = document.getElementById('admin-lb-table');
     if (!listEl) return;
@@ -382,7 +425,6 @@ export class AdminController {
       saveBtn.textContent = 'Saving to Atlas...';
     }
 
-    // Pull branding fields
     const inEyebrow = document.getElementById('admin-in-eyebrow') as HTMLInputElement | null;
     const inTitle = document.getElementById('admin-in-title') as HTMLTextAreaElement | null;
     const inSubtitle = document.getElementById('admin-in-subtitle') as HTMLInputElement | null;
@@ -395,7 +437,6 @@ export class AdminController {
     if (inAnnouncement) this.config.menuConfig.announcement = inAnnouncement.value;
     if (inTheme) this.config.menuConfig.themeColor = inTheme.value;
 
-    // Pull economy fields
     const inMoney = document.getElementById('admin-in-money') as HTMLInputElement | null;
     const inLives = document.getElementById('admin-in-lives') as HTMLInputElement | null;
     const inScoreMul = document.getElementById('admin-in-scoremul') as HTMLInputElement | null;
@@ -424,7 +465,7 @@ export class AdminController {
     }
   }
 
-  // P1-5: Content editing methods
+  // Main content editor (kept from post-PR#6)
   private saveBossNames(): void {
     const textarea = document.getElementById('admin-boss-names') as HTMLTextAreaElement | null;
     if (!textarea) return;
@@ -460,9 +501,7 @@ export class AdminController {
     }
   }
 
-  // P1-5: Load and render content editor
   private renderContentEditor(): void {
-    // Load boss names
     const bossTextarea = document.getElementById('admin-boss-names') as HTMLTextAreaElement | null;
     if (bossTextarea) {
       const stored = localStorage.getItem('admin-boss-names');
@@ -471,13 +510,11 @@ export class AdminController {
           const names = JSON.parse(stored);
           bossTextarea.value = names.join('\n');
         } catch {
-          // Default boss names
           bossTextarea.value = 'SENTINEL\nGUARDIAN\nWATCHER\nTHE CRUSHER\nBERSERKER\nRAVAGER\nTITANFRUIT\nCOLOSSUS\nJUGGERNAUT\nAPEX PREDATOR\nDOMINATOR\nANNIHILATOR\nTHE BEHEMOTH\nLEVIATHAN\nTITAN\nFRUIT OVERLORD\nSUPREME RULER\nEMPEROR\nULTIMATE DESTROYER\nGOD EMPEROR\nOMEGA';
         }
       }
     }
     
-    // Load JSON configs (placeholder - actual game data would go here)
     const fruitsTextarea = document.getElementById('admin-fruits-json') as HTMLTextAreaElement | null;
     const enemiesTextarea = document.getElementById('admin-enemies-json') as HTMLTextAreaElement | null;
     const wavesTextarea = document.getElementById('admin-waves-json') as HTMLTextAreaElement | null;

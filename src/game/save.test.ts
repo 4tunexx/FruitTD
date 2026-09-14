@@ -26,9 +26,9 @@ test('save validation prevents absurd economy values', () => {
   
   const clean = sanitiseSave(save);
   
-  assert.ok(clean.coins <= 10_000_000, 'Coins should be capped at 10M');
+  assert.ok(clean.coins <= 1_000_000, 'Coins should be capped at 1M');
   assert.ok(clean.highScore <= 100_000_000, 'High score should be capped at 100M');
-  assert.ok(clean.skillPoints <= 1000, 'Skill points should be capped at 1000');
+  assert.ok(clean.skillPoints <= 10_000, 'Skill points should be capped at 10K');
   assert.ok(clean.games <= 1_000_000, 'Games should be capped at 1M');
   assert.ok(clean.bestWave <= 9999, 'Best wave should be capped at 9999');
 });
