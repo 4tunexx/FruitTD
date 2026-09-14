@@ -538,6 +538,7 @@ canvas {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.45rem 0.6rem;
+  min-height: 44px;
   font-size: 0.7rem;
   font-weight: 700;
   text-align: left;
@@ -545,6 +546,7 @@ canvas {
   cursor: pointer;
   transition: background 100ms, border-color 100ms, transform 60ms;
   font-family: var(--font);
+  touch-action: manipulation;
 }
 .turret-btn:not(:disabled):hover {
   background: var(--surface-hover);
