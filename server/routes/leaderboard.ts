@@ -123,6 +123,25 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Invalid score submission payload' });
     }
 
+    // SERVER-SIDE VALIDATION: Reject absurd values
+    const MAX_REASONABLE_SCORE = 10_000_000;
+    const MAX_REASONABLE_WAVE = 1000;
+    const MAX_REASONABLE_FRUITS = 100_000;
+    const MAX_REASONABLE_COMBO = 5000;
+
+    if (score > MAX_REASONABLE_SCORE) {
+      return res.status(400).json({ success: false, error: 'Score exceeds reasonable maximum' });
+    }
+    if (wave && wave > MAX_REASONABLE_WAVE) {
+      return res.status(400).json({ success: false, error: 'Wave exceeds reasonable maximum' });
+    }
+    if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
+      return res.status(400).json({ success: false, error: 'Fruits sliced exceeds reasonable maximum' });
+    }
+    if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
+      return res.status(400).json({ success: false, error: 'Combo exceeds reasonable maximum' });
+    }
+
     const col = await getCollection<LeaderboardDoc>('leaderboards');
     const playMode = mode || 'casual';
 
