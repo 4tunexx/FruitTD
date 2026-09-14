@@ -379,6 +379,11 @@ export class Hud {
     document.querySelectorAll('#menu-tabs .menu-tab').forEach((btn) => {
       btn.classList.toggle('is-on', (btn as HTMLElement).dataset.page === page);
     });
+    
+    // P1-1: Load profile data when switching to profile page
+    if (page === 'profile') {
+      this.renderProfilePage();
+    }
   }
 
   mountMeta(save: SaveData): void {
@@ -1080,6 +1085,119 @@ export class Hud {
         monthlyEl.innerHTML = '<div class="lb-loading">No monthly ranked scores yet. Play Ranked to climb Bronze → Diamond.</div>';
       }
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // P1-1: PROFILE PAGE
+  // ══════════════════════════════════════════════════════════════════════════
+  private renderProfilePage(): void {
+    if (!this.currentSave) return;
+    
+    // Hero info
+    const avatar = document.getElementById('profile-hero-avatar') as HTMLImageElement | null;
+    const name = document.getElementById('profile-hero-name');
+    const rankBadge = document.getElementById('profile-hero-rank');
+    const steamBadge = document.getElementById('profile-hero-steam');
+    
+    if (avatar) avatar.src = this.currentSave.avatar;
+    if (name) name.textContent = this.currentSave.nickname;
+    
+    // Set rank color
+    fetchMonthlyRank().then(data => {
+      const fallback = rankFromScore(0, getLiveConfig().ranks);
+      const rank = data?.rank || fallback;
+      if (rankBadge) {
+        rankBadge.textContent = rank.title;
+        rankBadge.style.backgroundColor = `${rank.color}15`;
+        rankBadge.style.borderColor = `${rank.color}35`;
+        rankBadge.style.color = rank.color;
+      }
+    });
+    
+    // Show steam badge if linked
+    const cachedSteam = getCachedSteamState();
+    if (steamBadge && cachedSteam.linked) {
+      steamBadge.classList.remove('hidden');
+    }
+    
+    // Stats
+    const highScore = document.getElementById('profile-high-score');
+    const bestWave = document.getElementById('profile-best-wave');
+    const gamesPlayed = document.getElementById('profile-games-played');
+    const totalCoins = document.getElementById('profile-total-coins');
+    
+    if (highScore) highScore.textContent = this.currentSave.highScore.toLocaleString();
+    if (bestWave) bestWave.textContent = String(this.currentSave.bestWave);
+    if (gamesPlayed) gamesPlayed.textContent = String(this.currentSave.games || 0);
+    if (totalCoins) totalCoins.textContent = this.currentSave.coins.toLocaleString();
+    
+    // Badges summary
+    this.renderProfileBadgesSummary();
+    
+    // Rank progress
+    this.renderProfileRankProgress();
+  }
+  
+  private async renderProfileBadgesSummary(): Promise<void> {
+    const container = document.getElementById('profile-badges-summary');
+    if (!container) return;
+    
+    const [achievementsRes, badgesRes] = await Promise.all([
+      fetchAchievements(),
+      fetchBadges()
+    ]);
+    
+    container.innerHTML = '';
+    
+    if (achievementsRes?.achievements) {
+      const unlocked = achievementsRes.achievements.filter(a => a.unlocked).slice(0, 5);
+      unlocked.forEach(ach => {
+        const badge = document.createElement('div');
+        badge.className = 'profile-badge-mini';
+        badge.innerHTML = `<span>${ach.icon}</span><span>${ach.title}</span>`;
+        container.appendChild(badge);
+      });
+    }
+    
+    if (badgesRes?.badges) {
+      const unlocked = badgesRes.badges.filter(b => b.unlocked).slice(0, 5);
+      unlocked.forEach(badge => {
+        const el = document.createElement('div');
+        el.className = 'profile-badge-mini';
+        el.innerHTML = `<span>${badge.icon}</span><span>${badge.title}</span>`;
+        container.appendChild(el);
+      });
+    }
+    
+    if (!container.children.length) {
+      container.innerHTML = '<p class="text-sm text-slate-400">Play matches to unlock achievements and badges!</p>';
+    }
+  }
+  
+  private async renderProfileRankProgress(): Promise<void> {
+    const container = document.getElementById('profile-rank-progress');
+    if (!container) return;
+    
+    const rank = await fetchMonthlyRank();
+    const tiers = [...(getLiveConfig().ranks || [])].sort((a, b) => a.minScore - b.minScore);
+    const current = rank?.rank || rankFromScore(0, tiers);
+    const next = rank?.next || tiers.find((t) => t.minScore > current.minScore) || null;
+    const score = rank?.score || 0;
+    const span = next ? Math.max(1, next.minScore - current.minScore) : 1;
+    const into = next ? Math.min(span, Math.max(0, score - current.minScore)) : span;
+    const pct = next ? Math.min(100, (into / span) * 100) : 100;
+    
+    container.innerHTML = `
+      <div class="rank-now-icon" style="color:${current.color};border-color:${current.color};font-size:2rem;margin-bottom:0.5rem">${current.icon}</div>
+      <div>
+        <p class="rank-now-title" style="color:${current.color};font-size:1.25rem;font-weight:900;margin:0">${current.title}</p>
+        <p class="text-sm text-slate-400" style="margin:0.25rem 0">${score.toLocaleString()} seasonal points</p>
+        <div class="bar-track" style="margin-top:0.5rem"><div class="bar-fill" style="width:${pct}%;background:${current.color}"></div></div>
+        <p class="text-xs text-slate-400 font-bold mt-1">${
+          next ? `${into.toLocaleString()} / ${span.toLocaleString()} to ${next.title}` : 'Top monthly tier reached!'
+        }</p>
+      </div>
+    `;
   }
 
   // ══════════════════════════════════════════════════════════════════════════

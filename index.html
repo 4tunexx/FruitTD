@@ -294,6 +294,7 @@
             <div id="menu-tabs">
               <button type="button" id="btn-dash-main-menu" class="menu-tab menu-tab--back">← Main Menu</button>
               <button data-page="play" class="menu-tab is-on">Play</button>
+              <button data-page="profile" class="menu-tab">👤 Profile</button>
               <button data-page="leaderboard" class="menu-tab">🏆 Leaderboard</button>
               <button data-page="quests" class="menu-tab">📜 Quests <span id="quests-alert" class="tab-badge hidden">!</span></button>
               <button data-page="shop" class="menu-tab">🛒 Shop</button>
@@ -317,6 +318,61 @@
                   </svg>
                   Daily Bonus <span id="daily-btn-badge" class="badge-pulse">FREE</span>
                 </button>
+              </div>
+            </section>
+
+            <!-- ── Profile page ── -->
+            <section id="page-profile" class="menu-page hidden">
+              <div class="profile-hero-section">
+                <img id="profile-hero-avatar" class="profile-avatar-large" alt="Player Avatar" />
+                <div class="profile-hero-info">
+                  <h2 id="profile-hero-name" class="profile-name">Slicer</h2>
+                  <p id="profile-hero-rank" class="profile-rank-badge">Bronze</p>
+                  <span id="profile-hero-steam" class="steam-pill hidden">🎮 STEAM</span>
+                </div>
+              </div>
+
+              <div class="profile-stats-grid">
+                <div class="profile-stat-card">
+                  <span class="profile-stat-icon">🏆</span>
+                  <div>
+                    <p class="profile-stat-label">High Score</p>
+                    <p id="profile-high-score" class="profile-stat-value">0</p>
+                  </div>
+                </div>
+                <div class="profile-stat-card">
+                  <span class="profile-stat-icon">🌊</span>
+                  <div>
+                    <p class="profile-stat-label">Best Wave</p>
+                    <p id="profile-best-wave" class="profile-stat-value">1</p>
+                  </div>
+                </div>
+                <div class="profile-stat-card">
+                  <span class="profile-stat-icon">🎮</span>
+                  <div>
+                    <p class="profile-stat-label">Games Played</p>
+                    <p id="profile-games-played" class="profile-stat-value">0</p>
+                  </div>
+                </div>
+                <div class="profile-stat-card">
+                  <span class="profile-stat-icon">🪙</span>
+                  <div>
+                    <p class="profile-stat-label">Total Coins</p>
+                    <p id="profile-total-coins" class="profile-stat-value">0</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-section">
+                <h3 class="profile-section-title">Achievements & Badges</h3>
+                <div id="profile-badges-summary" class="profile-badges-row">
+                  <p class="text-sm text-slate-400">Loading achievements...</p>
+                </div>
+              </div>
+
+              <div class="profile-section">
+                <h3 class="profile-section-title">Monthly Rank Progress</h3>
+                <div id="profile-rank-progress"></div>
               </div>
             </section>
 
