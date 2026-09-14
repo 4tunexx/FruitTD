@@ -6,6 +6,7 @@ import { damageTower, toast, type GameState } from './state';
 import type { Slash } from '../input/blade';
 import type { SpawnItem } from './waves';
 import { ENEMY_RULES, type EnemyKind } from './enemies';
+import { getAdminTexture } from './adminTextureLoader';
 
 export type FruitKind = 'watermelon' | 'lemon' | 'orange' | 'banana' | 'strawberry' | 'pineapple' | 'kiwi' | 'bomb';
 export type FruitFamily = 'lemon' | 'berry' | 'melon' | 'bomb';
@@ -67,7 +68,22 @@ function makeFruit(): Fruit {
 
 function paint(fruit: Fruit, def: FruitDef): void {
   const mat = fruit.body.material as MeshLambertMaterial;
-  mat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
+  
+  let adminTexture = null;
+  if (fruit.enemyKind === 'explosive') {
+    adminTexture = getAdminTexture('enemy-explosive');
+  } else if (fruit.enemyKind === 'armored') {
+    adminTexture = getAdminTexture('enemy-armored');
+  } else if (fruit.enemyKind === 'normal') {
+    adminTexture = getAdminTexture('enemy-normal');
+  }
+  
+  if (adminTexture) {
+    mat.map = adminTexture;
+  } else {
+    mat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
+  }
+  
   mat.color.setHex(0xffffff);
   mat.needsUpdate = true;
 }
