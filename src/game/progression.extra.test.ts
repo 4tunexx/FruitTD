@@ -1,3 +1,14 @@
+// Mock localStorage BEFORE any imports to prevent module initialization errors
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map<string, string>();
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => store.get(key) || null,
+    setItem: (key: string, value: string) => store.set(key, value),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+  };
+}
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HERO_PERKS, heroPerkMultiplier, heroPerkRank } from './heroProgression';
@@ -37,4 +48,24 @@ test('special enemies scale into the wave and pay meaningful rewards', () => {
   assert.equal(specialEnemyForWave(12, 0.01), 'splitter');
   assert.ok(enemyReward('armored', 100) > 100);
   assert.ok(enemyXpReward('splitter', 10) > 10);
+});
+
+test('enemy multipliers scale rewards meaningfully above base', () => {
+  const base = 100;
+  const normalReward = enemyReward('normal', base);
+  const explosiveReward = enemyReward('explosive', base);
+  const armoredReward = enemyReward('armored', base);
+  const splitterReward = enemyReward('splitter', base);
+  const swiftReward = enemyReward('swift', base);
+  
+  assert.equal(normalReward, base, 'Normal enemy should have 1x multiplier');
+  assert.ok(explosiveReward > base * 1.5, 'Explosive should give >1.5x reward');
+  assert.ok(armoredReward > base * 2, 'Armored should give >2x reward');
+  assert.ok(splitterReward > base * 1.8, 'Splitter should give >1.8x reward');
+  assert.ok(swiftReward > base * 1.6, 'Swift should give >1.6x reward');
+  
+  const baseXp = 10;
+  assert.equal(enemyXpReward('normal', baseXp), baseXp);
+  assert.ok(enemyXpReward('explosive', baseXp) >= baseXp * 2, 'Explosive XP should be 2x+');
+  assert.ok(enemyXpReward('armored', baseXp) >= baseXp * 2, 'Armored XP should be 2x+');
 });

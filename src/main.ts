@@ -117,6 +117,7 @@ hud.onBuySkin = (id) => buySkin(id);
 hud.onEquipItem = (id) => equipItem(id);
 hud.onSellItem = (id) => sellItem(id);
 hud.onDeleteItem = (id) => deleteItem(id);
+hud.onBuyVIP = (tier) => buyVIP(tier); // P1-2
 hud.onBuySkill = (id) => buySkill(id);
 hud.onSaveUpdate = (newSave) => {
   Object.assign(save, newSave);
@@ -186,17 +187,12 @@ function buySkin(id: string): void {
     save.coins -= cost;
     save.ownedSkins.push(id);
     emit({ type: 'skin_buy' });
+    // P0-3: Don't auto-equip on purchase - let user explicitly equip
+    persist();
+    sfx.place();
+  } else {
+    sfx.denied();
   }
-
-  if (slicer) {
-    save.bladeSkin = id;
-  } else if (wall) {
-    save.wallSkin = id;
-  }
-  applyEquippedBlade();
-  wallSkinApply();
-  persist();
-  sfx.place();
 }
 
 function equipItem(id: string): void {
@@ -235,6 +231,43 @@ function sellItem(id: string): void {
   wallSkinApply();
   persist();
   sfx.place();
+}
+
+// P1-2: VIP Purchase System
+function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
+  const vipCosts = { bronze: 100, silver: 250, gold: 500 };
+  const cost = vipCosts[tier];
+  const currentStatus = save.vipStatus || 'none';
+  
+  // Check if already have this tier or higher
+  const tiers = ['none', 'bronze', 'silver', 'gold'];
+  const currentTier = tiers.indexOf(currentStatus);
+  const targetTier = tiers.indexOf(tier);
+  if (currentTier >= targetTier) {
+    toast(state, 'You already have this VIP tier!', 2);
+    sfx.denied();
+    return;
+  }
+  
+  // Check gems
+  if ((save.gems || 0) < cost) {
+    toast(state, `Not enough gems! Need ${cost} 💎`, 2);
+    sfx.denied();
+    return;
+  }
+  
+  // Purchase!
+  save.gems! -= cost;
+  save.vipStatus = tier;
+  
+  // Apply VIP rewards (coins bonus)
+  const rewards = { bronze: 1000, silver: 2500, gold: 5000 };
+  save.coins += rewards[tier];
+  
+  toast(state, `${tier.toUpperCase()} VIP Unlocked! +${rewards[tier]} coins`, 3);
+  sfx.place();
+  persist();
+  hud.mountShop(save);
 }
 
 function deleteItem(id: string): void {
@@ -643,6 +676,12 @@ function setPaused(on: boolean): void {
 }
 
 function quitToMenu(): void {
+  // P0-2: Confirm before leaving mid-match
+  if (navigation.isInGame() && state.running) {
+    const confirmed = confirm('Leave this match?\n\nYour progress will be lost.');
+    if (!confirmed) return;
+  }
+  
   persist();
   navigation.setState('DASHBOARD');
   state.running = false;
@@ -668,6 +707,38 @@ function restartMatch(): void {
   document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showMenu(false);
   restart();
+}
+
+function showBossIntro(level: number): void {
+  const letterbox = document.getElementById('boss-letterbox');
+  const title = document.getElementById('boss-intro-title');
+  const subtitle = document.getElementById('boss-intro-subtitle');
+  
+  if (!letterbox || !title || !subtitle) return;
+  
+  // Boss names scale with LEVEL (not wave)
+  const bossNames = [
+    ['SENTINEL', 'GUARDIAN', 'WATCHER'],           // Level 1-3
+    ['THE CRUSHER', 'BERSERKER', 'RAVAGER'],       // Level 4-6
+    ['TITANFRUIT', 'COLOSSUS', 'JUGGERNAUT'],      // Level 7-9
+    ['APEX PREDATOR', 'DOMINATOR', 'ANNIHILATOR'], // Level 10-12
+    ['THE BEHEMOTH', 'LEVIATHAN', 'TITAN'],        // Level 13-15
+    ['FRUIT OVERLORD', 'SUPREME RULER', 'EMPEROR'], // Level 16-18
+    ['ULTIMATE DESTROYER', 'GOD EMPEROR', 'OMEGA'], // Level 19+
+  ];
+  const tierIndex = Math.min(bossNames.length - 1, Math.floor((level - 1) / 3));
+  const tier = bossNames[tierIndex];
+  const nameIndex = (level - 1) % tier.length;
+  const bossName = tier[nameIndex] || tier[0];
+  
+  title.textContent = bossName;
+  subtitle.textContent = `LEVEL ${level} BOSS`;
+  
+  letterbox.classList.remove('hidden');
+  setTimeout(() => {
+    letterbox.classList.add('hidden');
+    toast(state, `${bossName}  ·  LEVEL ${level}`, 1.8);
+  }, 3000);
 }
 
 function tickGuest(dt: number): void {
@@ -801,7 +872,13 @@ function simulate(dt: number): void {
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
-      toast(state, plan.title, 1.4);
+      
+      // Boss intro letterbox if this is a boss wave
+      if (plan.boss) {
+        showBossIntro(plan.level);
+      } else {
+        toast(state, plan.title, 1.4);
+      }
       sfx.wave();
     }
   } else if (!fruits.waveBusy) {

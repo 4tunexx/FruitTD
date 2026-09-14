@@ -3,6 +3,12 @@ const SPRITE_KEYS = {
   'enemy-explosive': 'admin-sprite-enemy-explosive',
   'enemy-armored': 'admin-sprite-enemy-armored',
   'tower-main': 'admin-sprite-tower-main',
+  // P1-3: Hero avatars for main tower
+  'hero-jiju': 'admin-sprite-hero-jiju',
+  'hero-topfu': 'admin-sprite-hero-topfu',
+  'hero-lagen': 'admin-sprite-hero-lagen',
+  'hero-tripos': 'admin-sprite-hero-tripos',
+  'hero-ki': 'admin-sprite-hero-ki',
 } as const;
 
 export function installSpriteUploads(): void {
@@ -55,6 +61,6 @@ export function installSpriteUploads(): void {
   });
 }
 
-export function getAdminSprite(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main'): string | null {
+export function getAdminSprite(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main' | 'hero-jiju' | 'hero-topfu' | 'hero-lagen' | 'hero-tripos' | 'hero-ki'): string | null {
   return localStorage.getItem(SPRITE_KEYS[type]);
 }

@@ -1,26 +1,11 @@
 import type { HeroId } from './heroes';
 import { heroXpToLevel } from './heroes';
 import { HERO_PERKS, type HeroPerkId } from './heroProgression';
-
-const KEY = 'fruit-td-hero-perks-v1';
-export type HeroPerkRanks = Record<HeroId, Partial<Record<HeroPerkId, number>>>;
-
-const empty = (): HeroPerkRanks => ({ jiju:{}, topfu:{}, lagen:{}, tripos:{}, ki:{} });
+import { loadSave, writeSave, type HeroPerkRanks } from './save';
 
 export function loadHeroPerks(): HeroPerkRanks {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return empty();
-    const parsed = JSON.parse(raw) as Partial<HeroPerkRanks>;
-    const out = empty();
-    for (const hero of Object.keys(out) as HeroId[]) {
-      for (const perk of HERO_PERKS) {
-        const rank = Number(parsed[hero]?.[perk.id]) || 0;
-        out[hero][perk.id] = Math.max(0, Math.min(perk.maxRank, Math.floor(rank)));
-      }
-    }
-    return out;
-  } catch { return empty(); }
+  const save = loadSave();
+  return save.heroPerkRanks || { jiju:{}, topfu:{}, lagen:{}, tripos:{}, ki:{} };
 }
 
 export function heroPerkRank(hero: HeroId, perk: HeroPerkId): number {
@@ -38,8 +23,10 @@ export function upgradeHeroPerk(hero: HeroId, perk: HeroPerkId, heroXp: number, 
   if (!canUpgradeHeroPerk(hero, perk, heroXp, availablePoints)) return false;
   const def = HERO_PERKS.find((p) => p.id === perk);
   if (!def) return false;
-  const data = loadHeroPerks();
-  const rank = Number(data[hero][perk]) || 0;
-  data[hero][perk] = Math.min(def.maxRank, rank + 1);
-  try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch { return false; }
+  const save = loadSave();
+  if (!save.heroPerkRanks) save.heroPerkRanks = { jiju:{}, topfu:{}, lagen:{}, tripos:{}, ki:{} };
+  const rank = Number(save.heroPerkRanks[hero][perk]) || 0;
+  save.heroPerkRanks[hero][perk] = Math.min(def.maxRank, rank + 1);
+  writeSave(save);
+  return true;
 }

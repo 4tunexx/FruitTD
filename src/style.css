@@ -171,11 +171,29 @@ canvas {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  background: linear-gradient(to top, #f59e0b 0%, #fbbf24 50%, #fde68a 100%);
+  /* P0-5: Liquid look with gradient, wave, and sheen */
+  background: 
+    linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 25%),
+    radial-gradient(ellipse at 50% 120%, rgba(251,191,36,0.4), transparent 70%),
+    linear-gradient(to top, #d97706 0%, #f59e0b 30%, #fbbf24 60%, #fde047 85%, #fef08a 100%);
   border-radius: 8px;
   height: 0%;
   transition: height 200ms ease;
-  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+  box-shadow: 
+    inset 0 2px 4px rgba(255,255,255,0.35),
+    inset 0 -2px 8px rgba(217,119,6,0.5),
+    0 0 12px rgba(251, 191, 36, 0.6),
+    0 0 24px rgba(251, 191, 36, 0.3);
+  animation: juiceShimmer 3s ease-in-out infinite;
+}
+
+@keyframes juiceShimmer {
+  0%, 100% { 
+    filter: brightness(1) saturate(1);
+  }
+  50% { 
+    filter: brightness(1.15) saturate(1.1);
+  }
 }
 
 #super-label {
@@ -2799,3 +2817,413 @@ canvas {
   box-shadow: 0 0 18px rgba(163, 230, 53, 0.12);
 }
 .profile-upload-btn { cursor: pointer; margin: 0; display: inline-block; }
+
+/* ══════════════════════════════════════════════
+   P1-1: PROFILE PAGE STYLES
+══════════════════════════════════════════════ */
+.profile-hero-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(163, 230, 53, 0.08), rgba(34, 197, 94, 0.05));
+  border: 1px solid rgba(163, 230, 53, 0.2);
+  margin-bottom: 1.5rem;
+}
+.profile-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 1rem;
+  object-fit: cover;
+  border: 2px solid rgba(163, 230, 53, 0.4);
+  box-shadow: 0 0 20px rgba(163, 230, 53, 0.2);
+}
+.profile-hero-info { flex: 1; }
+.profile-name {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin: 0 0 0.25rem 0;
+}
+.profile-rank-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fbbf24;
+  margin-top: 0.25rem;
+}
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.profile-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.profile-stat-icon {
+  font-size: 1.75rem;
+}
+.profile-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.2rem 0;
+}
+.profile-stat-value {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #a3e635;
+  margin: 0;
+}
+
+.profile-section {
+  margin-bottom: 1.5rem;
+}
+.profile-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0 0 0.75rem 0;
+}
+.profile-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.profile-badge-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(163, 230, 53, 0.1);
+  border: 1px solid rgba(163, 230, 53, 0.25);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #d9f99d;
+}
+
+/* ══════════════════════════════════════════════
+   P1-4: BOSS LETTERBOX INTRO (Borderlands-style)
+══════════════════════════════════════════════ */
+.boss-letterbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: bossLetterboxFadeOut 3s ease-in-out forwards;
+}
+.boss-letterbox.hidden {
+  display: none;
+}
+
+.boss-letterbox-bars {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.boss-bar {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 18%;
+  background: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.95) 50%, #000 100%);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+}
+.boss-bar-top {
+  top: 0;
+  animation: bossBarSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.boss-bar-bottom {
+  bottom: 0;
+  animation: bossBarSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.05s;
+}
+
+.boss-intro-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg);
+  animation: bossContentFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+.boss-intro-title {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 1000;
+  font-style: italic;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: #fef08a;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 
+    0 0 20px rgba(251, 191, 36, 0.8),
+    0 0 40px rgba(251, 191, 36, 0.5),
+    0 4px 0 rgba(0, 0, 0, 0.8),
+    0 6px 12px rgba(0, 0, 0, 0.6);
+  filter: drop-shadow(0 8px 24px rgba(251, 191, 36, 0.35));
+}
+.boss-intro-subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  color: #f97316;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.8), 0 0 12px rgba(249, 115, 22, 0.6);
+}
+
+@keyframes bossBarSlideIn {
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes bossContentFadeIn {
+  0% {
+    opacity: 0;
+    transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(40px) scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(-5px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(0) scale(1);
+  }
+}
+/* ══════════════════════════════════════════════
+   P1-6: MENU POLISH - GAME SHELL FEEL
+══════════════════════════════════════════════ */
+
+/* Tab buttons - more game-like */
+.menu-tab {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.menu-tab::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #a3e635, transparent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.menu-tab:hover {
+  transform: translateY(-1px);
+}
+.menu-tab.is-active::before {
+  opacity: 1;
+}
+
+/* Skin/item cards - elevated game feel */
+.skin-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.skin-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(163, 230, 53, 0.1), transparent);
+  transition: left 0.3s;
+}
+.skin-btn:hover::before {
+  left: 100%;
+}
+.skin-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+.skin-btn:active {
+  transform: translateY(-1px);
+}
+
+/* Menu pages - smoother transitions */
+.menu-page {
+  animation: menuFadeIn 0.3s ease-out;
+}
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Profile cards - game UI depth */
+.profile-stat-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(163, 230, 53, 0.2);
+}
+.profile-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(163, 230, 53, 0.4);
+  box-shadow: 0 4px 12px rgba(163, 230, 53, 0.15);
+}
+
+/* VIP cards - premium feel */
+.vip-tier-btn {
+  position: relative;
+  overflow: hidden;
+}
+.vip-tier-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+.vip-tier-btn:hover::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* Shop sections - better hierarchy */
+.shop-section-head {
+  position: relative;
+  padding-left: 12px;
+}
+.shop-section-head::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  background: linear-gradient(180deg, #a3e635, transparent);
+  border-radius: 2px;
+}
+
+/* Button press feedback */
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+@keyframes bossLetterboxFadeOut {
+  0%, 70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   P1-2: VIP MEMBERSHIP STYLES
+══════════════════════════════════════════════ */
+.vip-status-card {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(147, 51, 234, 0.05));
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  margin-bottom: 1.5rem;
+}
+.vip-card-content {
+  margin-bottom: 1rem;
+}
+.vip-status-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #94a3b8;
+  margin: 0 0 0.5rem 0;
+}
+.vip-benefit-text {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+.vip-tiers {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.vip-tier-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.vip-tier-btn small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.vip-bronze {
+  background: rgba(205, 127, 50, 0.15);
+  border-color: rgba(205, 127, 50, 0.4);
+  color: #cd7f32;
+}
+.vip-bronze:hover {
+  background: rgba(205, 127, 50, 0.25);
+  transform: translateY(-2px);
+}
+.vip-silver {
+  background: rgba(192, 192, 192, 0.15);
+  border-color: rgba(192, 192, 192, 0.4);
+  color: #c0c0c0;
+}
+.vip-silver:hover {
+  background: rgba(192, 192, 192, 0.25);
+  transform: translateY(-2px);
+}
+.vip-gold {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: rgba(255, 215, 0, 0.4);
+  color: #ffd700;
+}
+.vip-gold:hover {
+  background: rgba(255, 215, 0, 0.25);
+  transform: translateY(-2px);
+}
+.vip-tier-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
