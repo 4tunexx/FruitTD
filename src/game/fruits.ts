@@ -150,7 +150,10 @@ export class FruitField {
       const rule = ENEMY_RULES.explosive;
       fruit.volatileTriggered = true;
       const damage = damageTower(this.activeState, rule.towerDamageOnHit);
-      if (damage > 0) toast(this.activeState, `VOLATILE HIT! Tower -${damage} HP`, 1.1);
+      if (damage > 0) {
+        const hitLabel = rule.warning || rule.label;
+        toast(this.activeState, `${hitLabel}! Tower -${damage} HP`, 1.1);
+      }
     }
     fruit.hp -= amount; fruit.squash = 0.16; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
     if (fruit.hp <= 0) { this.kill(fruit); return true; }
