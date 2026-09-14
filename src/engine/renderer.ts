@@ -15,7 +15,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-const CLEAR = new Color(0xdce8d4);
+const CLEAR = new Color(0x4a5f3e);
 
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
@@ -42,13 +42,13 @@ export class GameRenderer {
     this.renderer.setClearColor(CLEAR, 1);
     this.renderer.outputColorSpace = 'srgb';
     this.renderer.toneMapping = ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = false;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     this.scene = new Scene();
     this.scene.background = CLEAR.clone();
-    this.scene.fog = new Fog(0xdce8d4, 24, 52);
+    this.scene.fog = new Fog(0x3a4d32, 28, 58);
 
     const aspect = window.innerWidth / window.innerHeight;
     const viewW = this.viewH * aspect;
@@ -56,13 +56,13 @@ export class GameRenderer {
     this.camera.position.copy(this.cameraBase);
     this.camera.lookAt(0, 0.2, this.lookZ);
 
-    // Lighting — ambient + key (warm) + fill (cool rim)
-    this.scene.add(new AmbientLight(0xffffff, 0.85));
-    const key = new DirectionalLight(0xfff6e8, 0.72);
-    key.position.set(6, 18, -8);
+    // Lighting — ambient + key (warm sun) + fill (cool sky)
+    this.scene.add(new AmbientLight(0xe8f4dc, 0.92));
+    const key = new DirectionalLight(0xfff4d8, 0.85);
+    key.position.set(8, 22, -10);
     this.scene.add(key);
-    const fill = new DirectionalLight(0xc8e8ff, 0.28);
-    fill.position.set(-8, 10, 12);
+    const fill = new DirectionalLight(0xa8d8f0, 0.35);
+    fill.position.set(-9, 14, 14);
     this.scene.add(fill);
 
     // Post-processing: Bloom → Output
