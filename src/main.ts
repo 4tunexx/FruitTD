@@ -33,6 +33,7 @@ import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
 import { navigation } from './game/navigation';
 import { heroPerkMultiplier } from './game/heroProgression';
+import { installHudToggles } from './ui/hudToggle';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const startBtn = document.getElementById('btn-start')!;
@@ -102,6 +103,7 @@ function getTowerProgressionBonuses(): { damageBonus: number; hpBonus: number } 
 }
 
 initAchievementsCache();
+installHudToggles();
 void loadLiveConfig().then(() => {
   applyEquippedBlade();
   hud.mountShop(save);

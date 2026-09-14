@@ -421,7 +421,47 @@ canvas {
 }
 
 /* Resource row */
-#resource-row { display: flex; flex-direction: column; gap: 0.2rem; }
+#resource-row { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.2rem; 
+  position: relative;
+}
+
+.hud-toggle-btn {
+  position: absolute;
+  right: -2.5rem;
+  top: 0;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: all 150ms ease;
+  z-index: 10;
+}
+
+.hud-toggle-btn:hover {
+  opacity: 1;
+  border-color: #a3e635;
+  transform: scale(1.05);
+}
+
+#juice-panel {
+  transition: all 250ms ease;
+  overflow: hidden;
+  max-height: 100px;
+  opacity: 1;
+}
+
+#juice-panel.hidden {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+}
 
 #hud-juice {
   font-size: 0.72rem;
