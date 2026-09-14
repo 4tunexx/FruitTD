@@ -189,7 +189,7 @@ export class FruitField {
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false;
-    resetStudioAnimState(idle.studio, enemyKind);
+    resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind });
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.group.position.set(x, boss ? 1.05 : 0.7, z); idle.spin.set(0, 1.4 + Math.random(), 0);
     idle.bob = Math.random() * Math.PI * 2; idle.squash = 0; layoutHp(idle, 1); paint(idle, def);
