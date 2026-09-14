@@ -60,6 +60,8 @@ export interface AdminConfig {
   ranks: RankTier[];
   slicers: CatalogSlicer[];
   enemies: any[];
+  /** Creator-published wave/level packs (fruittd-creator-waves-v1 shape). */
+  waves?: any;
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -97,6 +99,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
+  waves: { version: 1, levels: {} },
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -114,6 +117,9 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     ranks: structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
     enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
+    waves: src.waves && typeof src.waves === 'object'
+      ? structuredClone(src.waves)
+      : structuredClone(DEFAULT_ADMIN_CONFIG.waves),
   };
 }
 

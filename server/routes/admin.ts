@@ -56,6 +56,7 @@ export interface AdminConfigDoc {
   ranks?: any[];
   slicers?: any[];
   enemies?: any[];
+  waves?: any;
   updatedAt: Date;
 }
 
@@ -150,6 +151,7 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
+  waves: { version: 1, levels: {} },
 };
 
 // Check if request is authenticated as admin (Steam ID only)
@@ -184,6 +186,7 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
+        waves: cfg.waves && typeof cfg.waves === 'object' ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
       },
     });
   } catch (err: any) {
@@ -214,7 +217,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
   }
 
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies } = req.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves } = req.body;
     const col = await getCollection<AdminConfigDoc>('admin_config');
     const existing = await col.findOne({ configKey: 'game_config' });
 
@@ -230,6 +233,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
+      waves: waves && typeof waves === 'object' ? waves : (existing?.waves || DEFAULT_ADMIN_CONFIG.waves),
       updatedAt: new Date(),
     };
 
