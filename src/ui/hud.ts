@@ -97,6 +97,7 @@ export class Hud {
   private lastToast = '';
   private currentLbMode = 'ranked';
   private dailyCountdownTimer: number | null = null;
+  private juiceCanvasBooted = false;
   private readonly adminController: AdminController;
 
   onPlace: ((kind: TurretKind) => void) | null = null;
@@ -158,6 +159,7 @@ export class Hud {
     this.initQuestsSubtabs();
     void this.initSteamIntegration(); // P1-2: async Steam auth check
     this.checkDailyBonus();
+    this.bootSuperLiquidCanvas();
     void loadLiveConfig().then(() => this.refreshMonthlyRank());
   }
 
@@ -540,6 +542,57 @@ export class Hud {
     if (goldBtn) goldBtn.disabled = vipStatus === 'gold';
   }
 
+
+  private bootSuperLiquidCanvas(): void {
+    if (this.juiceCanvasBooted) return;
+    const canvas = document.getElementById('super-liquid-canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    this.juiceCanvasBooted = true;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let t = 0;
+    const draw = () => {
+      requestAnimationFrame(draw);
+      t += 0.04;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const juice = Number(document.getElementById('super-fill')?.style.getPropertyValue('--juice') || 0);
+      if (juice <= 0.5) return;
+      for (let i = 0; i < 3; i++) {
+        const y = h * (0.15 + i * 0.22) + Math.sin(t * 1.4 + i * 1.7) * 6;
+        const grad = ctx.createLinearGradient(0, y - 8, 0, y + 8);
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.5, `rgba(255,250,220,${0.18 - i * 0.04})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x <= w; x += 2) {
+          const yy = y + Math.sin(x * 0.18 + t * 2.2 + i) * (3.5 - i) + Math.cos(x * 0.09 - t + i) * 1.5;
+          ctx.lineTo(x, yy);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.globalAlpha = 0.55;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // bubbles
+      for (let b = 0; b < 7; b++) {
+        const bx = ((Math.sin(t * 0.7 + b * 1.3) * 0.5 + 0.5) * 0.7 + 0.15) * w;
+        const by = h - ((t * 8 + b * 37) % (h * 0.9));
+        const r = 1.2 + (b % 3) * 0.7;
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255,255,255,${0.22 + (b % 3) * 0.06})`;
+        ctx.arc(bx, by, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+    draw();
+  }
+
   mountInventory(save: SaveData): void {
     const box = document.getElementById('skin-inventory');
     if (!box) return;
@@ -547,49 +600,151 @@ export class Hud {
     const allSlicers = getSlicers();
     const lockedDefaults = new Set(['blade-default', 'wall-brick']);
 
+    type InvItem = {
+      id: string;
+      isBlade: boolean;
+      isDefault: boolean;
+      name: string;
+      color: string;
+      glow: string;
+      sell: number;
+      eq: boolean;
+      fx?: string;
+    };
+
+    const items: InvItem[] = [];
     for (const id of save.ownedSkins) {
       const slicer = findSlicer(allSlicers, id) || findSlicer(getLiveConfig().slicers, id);
       const wall = WALL_SKINS.find((w) => w.id === id);
       if (!slicer && !wall) continue;
-
       const isBlade = !!slicer;
-      const eq = isBlade ? save.bladeSkin === id : save.wallSkin === id;
-      const name = slicer?.name || wall!.name;
-      const color = slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`;
-      const glow = slicer?.glowColor || color;
-      const sell = slicer?.sellValue ?? wall!.sellValue;
-      const canRemove = !lockedDefaults.has(id);
+      const isDefault = lockedDefaults.has(id);
+      items.push({
+        id,
+        isBlade,
+        isDefault,
+        name: slicer?.name || wall!.name,
+        color: slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`,
+        glow: slicer?.glowColor || (slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`),
+        sell: slicer?.sellValue ?? wall!.sellValue,
+        eq: isBlade ? save.bladeSkin === id : save.wallSkin === id,
+        fx: slicer?.fxStyle,
+      });
+    }
+
+    // Purchased / non-defaults first, then locked starters
+    items.sort((a, b) => {
+      if (a.isDefault !== b.isDefault) return a.isDefault ? 1 : -1;
+      if (a.eq !== b.eq) return a.eq ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    const nonDefaults = items.filter((i) => !i.isDefault);
+    if (nonDefaults.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'inv-empty-state';
+      empty.textContent =
+        'Buy blades & walls in Shop — starters stay equipped until you own more.';
+      box.appendChild(empty);
+    }
+
+    for (const item of items) {
+      const canRemove = !item.isDefault;
+      const status = item.isDefault
+        ? 'Starter · locked'
+        : `${item.isBlade ? 'Blade' : 'Wall'} · ${item.eq ? 'Equipped' : 'Owned'}${item.fx ? ` · ${item.fx}` : ''}`;
 
       const card = document.createElement('div');
-      card.className = `inv-card${eq ? ' is-on' : ''}`;
+      const kind = item.isBlade ? 'blade' : 'wall';
+      card.className = `inv-card inv-card--glass${item.eq ? ' is-on' : ''}${item.isDefault ? ' is-starter' : ' is-owned'}`;
+      card.style.setProperty('--inv-i', String(box.querySelectorAll('.inv-card').length));
       card.innerHTML = `
+        <div class="inv-card__glow" style="--inv-c:${item.color};--inv-g:${item.glow}"></div>
         <div class="skin-btn-row">
-          <span class="skin-swatch" style="background:linear-gradient(135deg,${color},${glow})"></span>
+          <span class="skin-swatch inv-swatch" style="background:linear-gradient(135deg,${item.color},${item.glow})"></span>
           <div class="flex-1">
-            <p class="font-black">${name}</p>
-            <p class="text-[11px] text-zinc-400">${isBlade ? 'Blade' : 'Wall'} · ${eq ? 'Equipped' : 'Owned'}${slicer ? ` · ${slicer.fxStyle}` : ''}</p>
+            <p class="font-black inv-card__name">${item.name}</p>
+            <p class="inv-card__meta">${status}</p>
+            <span class="inv-card__badge">${item.isDefault ? 'STARTER' : item.eq ? 'EQUIPPED' : 'OWNED'} · ${kind}</span>
           </div>
         </div>
         <div class="inv-actions">
-          <button type="button" class="inv-btn inv-equip" ${eq ? 'disabled' : ''}>${eq ? 'Equipped' : 'Equip'}</button>
-          <button type="button" class="inv-btn inv-sell" ${!canRemove || sell <= 0 ? 'disabled' : ''}>Sell ${sell}</button>
+          <button type="button" class="inv-btn inv-equip" ${item.eq ? 'disabled' : ''}>${item.eq ? 'Equipped' : 'Equip'}</button>
+          <button type="button" class="inv-btn inv-sell" ${!canRemove || item.sell <= 0 ? 'disabled' : ''}>Sell ${item.sell}</button>
           <button type="button" class="inv-btn inv-del" ${!canRemove ? 'disabled' : ''}>Delete</button>
         </div>`;
 
-      card.querySelector('.inv-equip')?.addEventListener('click', () => this.onEquipItem?.(id));
+      card.querySelector('.inv-equip')?.addEventListener('click', () => this.onEquipItem?.(item.id));
       card.querySelector('.inv-sell')?.addEventListener('click', () => {
-        if (!canRemove || sell <= 0) return;
-        if (confirm(`Sell ${name} for ${sell} coins?`)) this.onSellItem?.(id);
+        if (!canRemove || item.sell <= 0) return;
+        if (confirm(`Sell ${item.name} for ${item.sell} coins?`)) this.onSellItem?.(item.id);
       });
       card.querySelector('.inv-del')?.addEventListener('click', () => {
         if (!canRemove) return;
-        if (confirm(`Delete ${name} permanently? No coins refunded.`)) this.onDeleteItem?.(id);
+        if (confirm(`Delete ${item.name} permanently? No coins refunded.`)) this.onDeleteItem?.(item.id);
       });
       box.appendChild(card);
     }
 
-    if (!box.children.length) {
-      box.innerHTML = '<p class="text-[12px] text-zinc-500">Inventory is empty.</p>';
+    this.mountProfileInventory(save, items);
+  }
+
+  private mountProfileInventory(
+    save: SaveData,
+    items?: Array<{
+      id: string;
+      isBlade: boolean;
+      isDefault: boolean;
+      name: string;
+      color: string;
+      glow: string;
+      eq: boolean;
+    }>
+  ): void {
+    const box = document.getElementById('profile-inventory');
+    if (!box) return;
+    box.innerHTML = '';
+
+    let list = items;
+    if (!list) {
+      const allSlicers = getSlicers();
+      const lockedDefaults = new Set(['blade-default', 'wall-brick']);
+      list = [];
+      for (const id of save.ownedSkins) {
+        const slicer = findSlicer(allSlicers, id) || findSlicer(getLiveConfig().slicers, id);
+        const wall = WALL_SKINS.find((w) => w.id === id);
+        if (!slicer && !wall) continue;
+        const isBlade = !!slicer;
+        list.push({
+          id,
+          isBlade,
+          isDefault: lockedDefaults.has(id),
+          name: slicer?.name || wall!.name,
+          color: slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`,
+          glow: slicer?.glowColor || (slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`),
+          eq: isBlade ? save.bladeSkin === id : save.wallSkin === id,
+        });
+      }
+      list.sort((a, b) => Number(a.isDefault) - Number(b.isDefault) || a.name.localeCompare(b.name));
+    }
+
+    const owned = list.filter((i) => !i.isDefault);
+    if (!owned.length) {
+      box.innerHTML =
+        '<p class="text-[12px] text-zinc-500">No purchased skins yet — open Shop to expand your loadout. Starters stay equipped until you own more.</p>';
+      return;
+    }
+    for (const item of owned.slice(0, 8)) {
+      const row = document.createElement('div');
+      row.className = `profile-inv-chip${item.eq ? ' is-on' : ''}`;
+      row.innerHTML = `<span class="skin-swatch" style="background:linear-gradient(135deg,${item.color},${item.glow})"></span><span>${item.name}</span>`;
+      box.appendChild(row);
+    }
+    if (owned.length > 8) {
+      const more = document.createElement('p');
+      more.className = 'text-[11px] text-zinc-500';
+      more.textContent = `+${owned.length - 8} more in Shop → Inventory`;
+      box.appendChild(more);
     }
   }
 
@@ -692,7 +847,13 @@ export class Hud {
       this.combo.textContent = '';
       this.combo.style.display = 'none';
     }
-    this.superFill.style.height = `${Math.min(100, state.superJuice)}%`;
+    const juicePct = Math.min(100, state.superJuice);
+    this.superFill.style.height = `${juicePct}%`;
+    this.superFill.style.setProperty('--juice', String(juicePct));
+    this.superFill.classList.toggle('is-full', juicePct >= 100);
+    this.superFill.classList.toggle('is-low', juicePct > 0 && juicePct < 28);
+    const wave = document.getElementById('super-wave');
+    if (wave) wave.style.setProperty('--juice', String(juicePct));
     this.superBtn.disabled = state.superJuice < 100;
     this.modeLabel.textContent = modeRules(state.mode).name;
 
@@ -763,12 +924,16 @@ export class Hud {
       this.lastToast = '';
     }
 
+    // playActive must include GAME_OVER (isInGame). Using isPlaying alone hid the overlay every frame.
     const showOver = !state.running && playActive;
     this.gameover.classList.toggle('hidden', !showOver);
     this.gameover.classList.toggle('flex', showOver);
     if (showOver) {
       this.finalScore.textContent = `${state.score.toLocaleString()}`;
       if (this.finalWave) this.finalWave.textContent = `Wave ${state.wave}`;
+    } else if (!playActive) {
+      this.gameover.classList.add('hidden');
+      this.gameover.classList.remove('flex');
     }
   }
 
@@ -1128,6 +1293,7 @@ export class Hud {
   // ══════════════════════════════════════════════════════════════════════════
   private renderProfilePage(): void {
     if (!this.currentSave) return;
+    this.mountProfileInventory(this.currentSave);
     
     // Hero info
     const avatar = document.getElementById('profile-hero-avatar') as HTMLImageElement | null;
