@@ -268,7 +268,13 @@ canvas {
 }
 
 @media (max-width: 860px) {
-  :root { --sidebar-w: min(88vw, 320px); }
+  :root { 
+    --sidebar-w: min(88vw, 320px);
+  }
+  
+  body {
+    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  }
 
   .sidebar-toggle { display: inline-flex; }
   .sidebar-hide-btn { display: grid; place-items: center; }
@@ -289,16 +295,21 @@ canvas {
 
   #super-wrap {
     top: 5.2rem;
-    bottom: 5.5rem;
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
     left: 0.45rem;
     width: 2.1rem;
   }
   #super-bar-track { width: 1.15rem; }
   #super-label { font-size: 0.5rem; }
-  #btn-super { font-size: 0.48rem; padding: 0.28rem 0.1rem; }
+  #btn-super { 
+    font-size: 0.48rem; 
+    padding: 0.28rem 0.1rem;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
 
   #player-chip {
-    top: 0.55rem;
+    top: calc(0.55rem + env(safe-area-inset-top, 0));
     left: 0.55rem;
     max-width: calc(100vw - 5rem);
     padding: 0.4rem 0.55rem 0.4rem 0.4rem;
