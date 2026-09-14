@@ -113,10 +113,24 @@
         <div id="super-wrap">
           <button id="btn-super" disabled>SUPER</button>
           <div id="super-bar-track">
-            <div id="super-fill"></div>
+            <div id="super-fill" class="super-liquid" aria-hidden="true">
+              <div class="super-liquid__body"></div>
+              <div class="super-liquid__shine"></div>
+              <svg id="super-wave" class="super-liquid__wave" viewBox="0 0 40 12" preserveAspectRatio="none" aria-hidden="true">
+                <path class="super-liquid__wave-a" d="M0 6 Q5 0 10 6 T20 6 T30 6 T40 6 V12 H0 Z"/>
+                <path class="super-liquid__wave-b" d="M0 7 Q5 3 10 7 T20 7 T30 7 T40 7 V12 H0 Z"/>
+              </svg>
+              <canvas id="super-liquid-canvas" class="super-liquid__canvas" width="48" height="240" aria-hidden="true"></canvas>
+            </div>
           </div>
           <p id="super-label">JUICE</p>
         </div>
+
+        <!-- In-match glass ambience -->
+        <div class="match-blob match-blob--1" aria-hidden="true"></div>
+        <div class="match-blob match-blob--2" aria-hidden="true"></div>
+        <div class="match-blob match-blob--3" aria-hidden="true"></div>
+        <div id="combo-focus-vignette" aria-hidden="true"></div>
 
         <!-- Combo pop layer -->
         <div id="combo-layer"></div>
@@ -281,6 +295,10 @@
           <div class="menu-blob menu-blob--1"></div>
           <div class="menu-blob menu-blob--2"></div>
           <div class="menu-blob menu-blob--3"></div>
+          <div class="menu-blob menu-blob--4"></div>
+          <div class="menu-blob menu-blob--5"></div>
+          <div class="bl-scanlines" aria-hidden="true"></div>
+          <div class="bl-noise" aria-hidden="true"></div>
 
           <div id="menu-inner">
             <!-- Title area -->
@@ -392,6 +410,12 @@
               <div class="profile-section">
                 <h3 class="profile-section-title">Monthly Rank Progress</h3>
                 <div id="profile-rank-progress"></div>
+              </div>
+
+              <div class="profile-section">
+                <h3 class="profile-section-title">Inventory</h3>
+                <p class="section-desc">Owned blades &amp; walls. Full manage controls live under <strong>Shop → Inventory</strong> (<code>#skin-inventory</code>).</p>
+                <div id="profile-inventory" class="profile-inventory"></div>
               </div>
             </section>
 
@@ -972,7 +996,7 @@
                   <div id="creator-waves-list" class="cw-wave-list"></div>
 
                   <details class="cw-advanced">
-                    <summary>Advanced JSON</summary>
+                    <summary>Advanced (last resort) — Waves JSON</summary>
                     <p class="studio-hint">Raw store shape. Apply pulls JSON into the board; Publish still uses the board state.</p>
                     <textarea id="admin-waves-json" rows="8" class="admin-input font-mono" style="font-size: 0.7rem; width:100%;" placeholder='{"version":1,"levels":{...}}'></textarea>
                     <div class="studio-toolbar" style="margin-top:0.5rem;">
@@ -1225,24 +1249,23 @@
                 <textarea id="admin-boss-names" rows="12" class="admin-input font-mono" style="font-size: 0.75rem;" placeholder="SENTINEL&#10;GUARDIAN&#10;WATCHER&#10;THE CRUSHER&#10;..."></textarea>
                 <button id="btn-save-boss-names" class="admin-btn-action" style="margin-top: 0.5rem;">Save Boss Names</button>
                 
-                <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-top: 2rem; margin-bottom: 0.5rem;">Fruit Types</h3>
-                <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">JSON array of fruit configurations (id, name, health, score, color, etc.):</p>
-                <textarea id="admin-fruits-json" rows="8" class="admin-input font-mono" style="font-size: 0.7rem;" placeholder='[{"id":"apple","name":"Apple","health":1,...}]'></textarea>
-                <button id="btn-save-fruits" class="admin-btn-action" style="margin-top: 0.5rem;">Save Fruits</button>
-                
-                <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-top: 2rem; margin-bottom: 0.5rem;">Enemy Configs</h3>
-                <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">JSON array of enemy types (normal, explosive, armored) with health/speed modifiers:</p>
-                <textarea id="admin-enemies-json" rows="6" class="admin-input font-mono" style="font-size: 0.7rem;" placeholder='[{"type":"normal","healthMul":1,...}]'></textarea>
-                <button id="btn-save-enemies" class="admin-btn-action" style="margin-top: 0.5rem;">Save Enemies</button>
-                
-                <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-top: 2rem; margin-bottom: 0.5rem;">Wave Patterns</h3>
-                <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">Prefer the visual <strong>Wave / Level Board</strong> under the Creator tab. Advanced JSON lives there (collapsed). Legacy local key: <code>admin-waves-config</code>.</p>
-                <p style="font-size: 0.7rem; color: #64748b;">Published packs use admin config field <code>waves</code> and storage <code>fruittd-creator-waves-v1</code>.</p>
-                
-                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 0.5rem;">
-                  <p style="font-size: 0.75rem; color: #fca5a5; font-weight: 600;">⚠️ Advanced Editing</p>
-                  <p style="font-size: 0.7rem; color: #fecaca; margin-top: 0.25rem;">JSON must be valid. Invalid JSON will be rejected. Back up your config before major changes.</p>
-                </div>
+                <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 1.25rem;">Prefer Creator / Media Studio forms for fruits, enemies, and waves. Raw JSON is last-resort only.</p>
+                <p style="font-size: 0.7rem; color: #64748b; margin-top: 0.35rem;">Wave packs: use the visual <strong>Wave / Level Board</strong> under Creator (Advanced JSON collapsed there). Published packs use admin field <code>waves</code> / <code>fruittd-creator-waves-v1</code>.</p>
+
+                <details class="admin-advanced" style="margin-top: 1.25rem;">
+                  <summary>Advanced (last resort) — Fruit / Enemy JSON</summary>
+                  <p style="font-size: 0.7rem; color: #fca5a5; margin: 0.65rem 0;">JSON must be valid. Invalid JSON is rejected. Prefer studio forms; back up before major edits.</p>
+
+                  <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-top: 0.75rem; margin-bottom: 0.5rem;">Fruit Types</h3>
+                  <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">JSON array of fruit configurations (id, name, health, score, color, etc.):</p>
+                  <textarea id="admin-fruits-json" rows="8" class="admin-input font-mono" style="font-size: 0.7rem;" placeholder='[{"id":"apple","name":"Apple","health":1,...}]'></textarea>
+                  <button id="btn-save-fruits" class="admin-btn-action" style="margin-top: 0.5rem;">Save Fruits</button>
+
+                  <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-top: 1.5rem; margin-bottom: 0.5rem;">Enemy Configs</h3>
+                  <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">JSON array of enemy types (normal, explosive, armored) with health/speed modifiers:</p>
+                  <textarea id="admin-enemies-json" rows="6" class="admin-input font-mono" style="font-size: 0.7rem;" placeholder='[{"type":"normal","healthMul":1,...}]'></textarea>
+                  <button id="btn-save-enemies" class="admin-btn-action" style="margin-top: 0.5rem;">Save Enemies</button>
+                </details>
               </div>
             </div>
 

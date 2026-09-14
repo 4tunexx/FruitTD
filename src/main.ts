@@ -22,7 +22,7 @@ import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
 import { MAIN_INDEX, PADS, slotIndexAt, upgradeCost } from './game/world';
 import { BladeInput, type Slash } from './input/blade';
-import { ComboFx } from './ui/combos';
+import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { Hud } from './ui/hud';
 import { submitScore, syncCloudSave, fetchCloudSave } from './services/api';
 import { initAchievementsCache } from './services/achievements';
@@ -91,6 +91,10 @@ const combos = new ComboFx();
 applyEquippedBlade();
 state.mode = save.mode;
 combos.setPlayer(save.nickname, save.avatar);
+
+setComboFocusHandler(({ intensity }) => {
+  renderer.impulseShake(0.55 + intensity * 1.25);
+});
 
 renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks, slashFx.group);
 
@@ -427,8 +431,26 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   emit({ type: 'juice', amount: juiceAmt });
 }
 
+function showGameOverOverlay(): void {
+  const el = document.getElementById('hud-gameover');
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.classList.add('flex');
+  const finalScore = document.getElementById('hud-final-score');
+  const finalWave = document.getElementById('hud-final-wave');
+  if (finalScore) finalScore.textContent = `${state.score.toLocaleString()}`;
+  if (finalWave) finalWave.textContent = `Wave ${state.wave}`;
+}
+
 function maybeOver(): void {
   if (state.lives > 0) return;
+  // Already ended — keep overlay visible (hud.sync must not fight this)
+  if (navigation.state === 'GAME_OVER') {
+    showGameOverOverlay();
+    return;
+  }
+  // Only end an active / paused match (never from dashboard/title)
+  if (!navigation.isInGame() && !state.running) return;
   state.running = false;
   navigation.setState('GAME_OVER');
   save.games += 1;
@@ -436,12 +458,8 @@ function maybeOver(): void {
   persist();
   sfx.gameOver();
   sfx.stopAllLoops();
-  
-  document.getElementById('hud-gameover')?.classList.remove('hidden');
-  const finalScore = document.getElementById('hud-final-score');
-  const finalWave = document.getElementById('hud-final-wave');
-  if (finalScore) finalScore.textContent = `${state.score.toLocaleString()}`;
-  if (finalWave) finalWave.textContent = `Wave ${state.wave}`;
+
+  showGameOverOverlay();
 
   // Submit score to MongoDB Atlas
   const steamState = getCachedSteamState();
@@ -606,6 +624,24 @@ function resolveSlash(slash: Slash): void {
   const slicerFx = equippedSlicer();
   const critChance = (heroCombatPerkMultiplier(state.hero, 'critical') - 1) * 0.15;
   const isCrit = Math.random() < critChance;
+
+  // Equipped blade juice on EVERY slash (not only fruit hits)
+  const slashMid = {
+    x: (slash.from.x + slash.to.x) * 0.5,
+    y: (slash.from.y + slash.to.y) * 0.5,
+    z: (slash.from.z + slash.to.z) * 0.5,
+  };
+  const bladeColor = hexToNumber(slicerFx?.color || '', hero.trail);
+  slashFx.spawn(slashMid.x, slashMid.z, bladeColor);
+  try {
+    fireCreatorSlicerVfx(slicerFx?.id, 'onSlash', slashMid);
+    if (isCrit) fireCreatorSlicerVfx(slicerFx?.id, 'onCrit', slashMid);
+  } catch {
+    /* Creator VFX must never break combat */
+  }
+  // Keep trail synced immediately so glint follows empty swings
+  trail.sync(blade.trail);
+  trail.applySlicer(slicerFx, bladeColor);
   const lastStandMul = state.lives <= Math.ceil(state.maxLives * 0.25) ? heroCombatPerkMultiplier(state.hero, 'survival') : 1;
   const dmg =
     (heroSlashDamage(state.hero, state.heroLevel, state.combo, slash.charge, pointer) + save.skills.edge * 4) *
@@ -1060,7 +1096,7 @@ function draw(): void {
 }
 
 const loop = new GameLoop(simulate, draw, () => {
-  hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, navigation.isPlaying());
+  hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, navigation.isInGame());
 });
 hud.onPlace = (kind) => {
   if (navigation.canInteract() && state.running) tryPlace(kind);
