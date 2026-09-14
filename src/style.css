@@ -3227,3 +3227,93 @@ button:not(:disabled):active {
   cursor: not-allowed;
   transform: none !important;
 }
+
+/* Boss intro letterbox overlay */
+.boss-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: bossIntroFade 2.5s ease-in-out;
+}
+
+.boss-intro.hidden {
+  display: none;
+}
+
+.boss-intro__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18%;
+  background: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.boss-intro__bar--top {
+  top: 0;
+  animation: letterboxSlideIn 0.4s ease-out;
+}
+
+.boss-intro__bar--bottom {
+  bottom: 0;
+  animation: letterboxSlideIn 0.4s ease-out;
+}
+
+.boss-intro__text {
+  position: relative;
+  font-family: Outfit, system-ui, sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #fbbf24;
+  text-shadow: 
+    0 0 20px rgba(251, 191, 36, 0.8),
+    0 0 40px rgba(251, 191, 36, 0.4),
+    2px 2px 8px rgba(0, 0, 0, 0.8);
+  animation: bossTextPulse 2.5s ease-in-out;
+}
+
+@keyframes letterboxSlideIn {
+  0% {
+    transform: scaleY(0);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes bossTextPulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  20%, 80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bossIntroFade {
+  0%, 100% {
+    opacity: 0;
+  }
+  10%, 90% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .boss-intro__text {
+    font-size: 2rem;
+  }
+  .boss-intro__bar {
+    height: 15%;
+  }
+}

@@ -16,7 +16,7 @@ import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
 import { addScore, chargeSuper, createState, leakCost, resetState, toast } from './game/state';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
-import { planWave } from './game/waves';
+import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { BladeTrail } from './game/trail';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
@@ -47,6 +47,7 @@ const quitMenuBtn = document.getElementById('btn-quit-menu') as HTMLButtonElemen
 const retryBtn = document.getElementById('btn-retry') as HTMLButtonElement;
 const overMenuBtn = document.getElementById('btn-over-menu') as HTMLButtonElement;
 const muteBtn = document.getElementById('btn-mute') as HTMLButtonElement;
+const bossIntroEl = document.getElementById('boss-intro')!;
 
 const save: SaveData = loadSave();
 const renderer = new GameRenderer(canvas);
@@ -866,13 +867,32 @@ function simulate(dt: number): void {
     resolveSlash(slash);
   }
 
-  if (!state.waveSpawning) {
+  if (state.bossIntro) {
+    if (state.bossIntroTimer === 2.5) {
+      bossIntroEl.classList.remove('hidden');
+    }
+    state.bossIntroTimer -= dt;
+    if (state.bossIntroTimer <= 0) {
+      state.bossIntro = false;
+      bossIntroEl.classList.add('hidden');
+      state.waveSpawning = true;
+      const plan = planBossWave(state.wave, state.mode, state.level);
+      state.waveTotal = plan.items.length;
+      state.waveKilled = 0;
+      fruits.beginWave(plan.items, plan.gap, plan.hpScale);
+      toast(state, plan.title, 1.8);
+      sfx.wave();
+    }
+  } else if (!state.waveSpawning) {
     state.waveClearTimer -= dt;
     if (state.waveClearTimer <= 0) {
       state.waveSpawning = true;
-      const plan = planWave(state.wave, state.mode);
+      const totalWavesInLevel = wavesPerLevel(state.level);
+      const currentWaveInLevel = ((state.wave - 1) % totalWavesInLevel) + 1;
+      const plan = planWave(state.wave, state.mode, state.level, currentWaveInLevel, totalWavesInLevel);
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
+      state.wavesInLevel = totalWavesInLevel;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
       
       // Boss intro letterbox if this is a boss wave
@@ -885,12 +905,29 @@ function simulate(dt: number): void {
     }
   } else if (!fruits.waveBusy) {
     state.waveSpawning = false;
+    const totalWavesInLevel = wavesPerLevel(state.level);
+    const completedWavesInLevel = ((state.wave - 1) % totalWavesInLevel) + 1;
+    const wasBoss = fruits.fruits.some(f => !f.alive && f.boss);
+    
     state.wave += 1;
-    state.waveClearTimer = 2.2;
     const rules = modeRules(state.mode);
     state.currency += Math.round((22 + state.wave * 6) * rules.currencyMul);
     persist();
-    toast(state, 'Wave clear', 1.3);
+    
+    if (wasBoss) {
+      toast(state, `Level ${state.level} complete!`, 2);
+      state.level += 1;
+      state.waveClearTimer = 2.2;
+    } else {
+      toast(state, 'Wave clear', 1.3);
+      if (completedWavesInLevel >= totalWavesInLevel) {
+        state.bossIntro = true;
+        state.bossIntroTimer = 2.5;
+      } else {
+        state.waveClearTimer = 2.2;
+      }
+    }
+    
     emit({ type: 'wave_clear', wave: state.wave, lives: state.lives, maxLives: state.maxLives });
   }
 

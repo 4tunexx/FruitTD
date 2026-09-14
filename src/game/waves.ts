@@ -50,74 +50,75 @@ function mix(wave: number, count: number): SpawnItem[] {
   return out;
 }
 
-export function planWave(wave: number, mode: GameMode): WavePlan {
+export function wavesPerLevel(level: number): number {
+  return Math.max(5, level);
+}
+
+export function planWave(wave: number, mode: GameMode, level: number, waveInLevel: number, totalWavesInLevel: number): WavePlan {
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
-  
-  // HOARD MODE: Calculate level and wave-in-level
-  // Level 1-4: 5 waves each, Level 5+: N waves per level
-  let level = 1;
-  let totalWavesSoFar = 0;
-  while (true) {
-    const wavesInThisLevel = Math.max(5, level);
-    if (totalWavesSoFar + wavesInThisLevel >= w) {
-      const waveInLevel = w - totalWavesSoFar;
-      const isBossWave = waveInLevel === wavesInThisLevel;
-      
-      const items: SpawnItem[] = [];
-      let title = `LEVEL ${level}  ·  ${waveInLevel}/${wavesInThisLevel}`;
-      
-      // Generate normal wave content
-      if (w === 1) {
-        add(items, 'lemon', 4);
-        add(items, 'orange', 3);
-      } else if (w === 2) {
-        add(items, 'lemon', 3);
-        add(items, 'banana', 3);
-        add(items, 'strawberry', 3);
-      } else if (w === 3) {
-        add(items, 'orange', 3);
-        add(items, 'kiwi', 3);
-        add(items, 'bomb', 2, false, 'explosive');
-        add(items, 'pineapple', 2);
-      } else if (w === 4) {
-        add(items, 'watermelon', 2);
-        add(items, 'strawberry', 4);
-        add(items, 'banana', 3);
-        add(items, 'bomb', 1, false, 'explosive');
-      } else {
-        const count = Math.min(28, 8 + w * 2);
-        items.push(...mix(w, count));
-      }
-      
-      if (w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
-        const special = enemyRule('explosive');
-        const index = Math.min(items.length - 1, Math.floor(w * 0.7));
-        if (items[index]) {
-          items[index].enemy = special.kind;
-          items[index].kind = 'bomb';
-        }
-      }
-      
-      // Boss only at end of level
-      if (isBossWave) {
-        const enemyType = level >= 3 ? 'armored' : 'normal';
-        add(items, 'watermelon', 1, true, enemyType);
-        title = `LEVEL ${level}  ·  BOSS`;
-      }
-      
-      return {
-        items,
-        gap: Math.max(0.28, (0.82 - w * 0.035) * rules.spawnGapMul),
-        hpScale: (1 + (w - 1) * 0.2) * rules.hpMul,
-        boss: isBossWave,
-        title,
-        level,
-        waveInLevel,
-        wavesInLevel: wavesInThisLevel,
-      };
-    }
-    totalWavesSoFar += wavesInThisLevel;
-    level++;
+  const items: SpawnItem[] = [];
+  let title = `LEVEL ${level}  ·  WAVE ${waveInLevel}/${totalWavesInLevel}`;
+
+  if (w === 1) {
+    add(items, 'lemon', 4);
+    add(items, 'orange', 3);
+  } else if (w === 2) {
+    add(items, 'lemon', 3);
+    add(items, 'banana', 3);
+    add(items, 'strawberry', 3);
+  } else if (w === 3) {
+    add(items, 'orange', 3);
+    add(items, 'kiwi', 3);
+    add(items, 'bomb', 2, false, 'explosive');
+    add(items, 'pineapple', 2);
+  } else if (w === 4) {
+    add(items, 'watermelon', 2);
+    add(items, 'strawberry', 4);
+    add(items, 'banana', 3);
+    add(items, 'bomb', 1, false, 'explosive');
+  } else {
+    const count = Math.min(28, 8 + w * 2);
+    items.push(...mix(w, count));
   }
+
+  if (w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
+    const special = enemyRule('explosive');
+    const index = Math.min(items.length - 1, Math.floor(w * 0.7));
+    if (items[index]) {
+      items[index].enemy = special.kind;
+      items[index].kind = 'bomb';
+    }
+  }
+
+  return {
+    items,
+    gap: Math.max(0.28, (0.82 - w * 0.035) * rules.spawnGapMul),
+    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul,
+    boss: false,
+    title,
+    level,
+    waveInLevel,
+    wavesInLevel: totalWavesInLevel,
+  };
+}
+
+export function planBossWave(wave: number, mode: GameMode, level: number): WavePlan {
+  const rules = modeRules(mode);
+  const w = Math.max(1, wave + rules.waveOffset);
+  const items: SpawnItem[] = [];
+  const wavesInLevel = wavesPerLevel(level);
+  
+  add(items, 'watermelon', 1, true, level >= 2 ? 'armored' : 'normal');
+  
+  return {
+    items,
+    gap: 1.2,
+    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul * 1.5,
+    boss: true,
+    title: `LEVEL ${level}  ·  BOSS`,
+    level,
+    waveInLevel: wavesInLevel + 1,
+    wavesInLevel,
+  };
 }
