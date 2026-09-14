@@ -565,6 +565,7 @@ canvas {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.75rem;
+  min-height: 44px;
   font-size: 0.78rem;
   font-weight: 800;
   color: var(--text);
@@ -572,6 +573,7 @@ canvas {
   transition: background 100ms, border-color 100ms, box-shadow 120ms, transform 60ms;
   font-family: var(--font);
   text-align: center;
+  touch-action: manipulation;
 }
 .action-btn:not(:disabled):hover {
   background: var(--surface-hover);
