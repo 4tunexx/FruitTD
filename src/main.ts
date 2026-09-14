@@ -678,17 +678,20 @@ function showBossIntro(wave: number): void {
   
   if (!letterbox || !title || !subtitle) return;
   
-  // Boss names scale with wave
+  // Boss names scale continuously with wave
   const bossNames = [
-    'THE JUGGERNAUT',
-    'TITANFRUIT',
-    'APEX PREDATOR',
-    'THE BEHEMOTH',
-    'FRUIT OVERLORD',
-    'ULTIMATE DESTROYER',
+    ['SENTINEL', 'GUARDIAN', 'WATCHER'],           // Waves 1-3
+    ['THE CRUSHER', 'BERSERKER', 'RAVAGER'],       // Waves 4-6
+    ['TITANFRUIT', 'COLOSSUS', 'JUGGERNAUT'],      // Waves 7-9
+    ['APEX PREDATOR', 'DOMINATOR', 'ANNIHILATOR'], // Waves 10-12
+    ['THE BEHEMOTH', 'LEVIATHAN', 'TITAN'],        // Waves 13-15
+    ['FRUIT OVERLORD', 'SUPREME RULER', 'EMPEROR'], // Waves 16-18
+    ['ULTIMATE DESTROYER', 'GOD EMPEROR', 'OMEGA'], // Waves 19+
   ];
-  const nameIndex = Math.min(bossNames.length - 1, Math.floor((wave - 5) / 5));
-  const bossName = bossNames[nameIndex];
+  const tierIndex = Math.min(bossNames.length - 1, Math.floor(wave / 9));
+  const tier = bossNames[tierIndex];
+  const nameIndex = (wave - 1) % tier.length;
+  const bossName = tier[nameIndex] || tier[0];
   
   title.textContent = bossName;
   subtitle.textContent = `WAVE ${wave} BOSS`;

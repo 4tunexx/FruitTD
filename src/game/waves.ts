@@ -84,9 +84,10 @@ export function planWave(wave: number, mode: GameMode): WavePlan {
     }
   }
 
-  const bossWave = w > 0 && w % 5 === 0;
+  const bossWave = w > 0; // P1-4 FIX: Boss at end of EVERY wave
   if (bossWave) {
-    add(items, 'watermelon', 1, true, w >= 10 ? 'armored' : 'normal');
+    const enemyType = w >= 10 ? 'armored' : 'normal';
+    add(items, 'watermelon', 1, true, enemyType);
     title = `WAVE ${wave}  ·  BOSS`;
   }
 
