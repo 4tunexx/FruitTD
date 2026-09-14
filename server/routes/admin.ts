@@ -14,7 +14,6 @@ import { DEFAULT_SLICERS } from '../../src/game/slicers';
 export const adminRouter = Router();
 
 export const ADMIN_STEAM_ID = '76561198001993310';
-export const ADMIN_DEV_PIN = '1337';
 
 export interface AdminConfigDoc {
   configKey: string; // 'game_config'
@@ -132,11 +131,10 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   slicers: DEFAULT_SLICERS,
 };
 
-// Check if request is authenticated as admin
+// Check if request is authenticated as admin (Steam ID only)
 function isAuthorized(req: Request): boolean {
   const steamId = req.headers['x-admin-steamid'] as string;
-  const pin = req.headers['x-admin-pin'] as string;
-  return steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  return steamId === ADMIN_STEAM_ID;
 }
 
 // GET /api/admin/config (Public or admin)
@@ -175,10 +173,10 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
   }
 });
 
-// POST /api/admin/verify (Verify admin status)
+// POST /api/admin/verify (Verify admin status - Steam ID only)
 adminRouter.post('/verify', async (req: Request, res: Response) => {
-  const { steamId, pin } = req.body;
-  const valid = steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  const { steamId } = req.body;
+  const valid = steamId === ADMIN_STEAM_ID;
   res.json({
     success: true,
     isAdmin: valid,

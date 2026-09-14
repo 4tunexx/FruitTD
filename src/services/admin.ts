@@ -12,7 +12,6 @@ import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { getCachedSteamState } from './steam';
 
 export const ADMIN_STEAM_ID = '76561198001993310';
-const ADMIN_TOKEN_KEY = 'fruit_td_admin_auth';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
 
@@ -95,19 +94,9 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
   };
 }
 
-let activePin: string = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
-
 export function isUserAdmin(): boolean {
   const steam = getCachedSteamState();
-  if (steam.linked && steam.steamId === ADMIN_STEAM_ID) {
-    return true;
-  }
-  return activePin === '1337';
-}
-
-export function setAdminPin(pin: string): void {
-  activePin = pin;
-  localStorage.setItem(ADMIN_TOKEN_KEY, pin);
+  return steam.linked && steam.steamId === ADMIN_STEAM_ID;
 }
 
 function getAdminHeaders(): Record<string, string> {
@@ -117,9 +106,6 @@ function getAdminHeaders(): Record<string, string> {
   };
   if (steam.steamId) {
     headers['x-admin-steamid'] = steam.steamId;
-  }
-  if (activePin) {
-    headers['x-admin-pin'] = activePin;
   }
   return headers;
 }

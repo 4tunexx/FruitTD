@@ -6,7 +6,6 @@ import {
   adminDeleteScore,
   adminWipeLeaderboardMode,
   isUserAdmin,
-  setAdminPin,
   ADMIN_STEAM_ID,
   DEFAULT_ADMIN_CONFIG,
   type AdminConfig,
@@ -46,14 +45,13 @@ export class AdminController {
   checkAdminPrivileges(): void {
     const adminBtn = document.getElementById('btn-admin');
     if (adminBtn) {
-      // Always keep admin button available so the owner can access or enter PIN 1337
       adminBtn.classList.remove('hidden');
       if (isUserAdmin()) {
         adminBtn.classList.add('is-active-admin');
         adminBtn.title = `Admin Active (Steam ID: ${ADMIN_STEAM_ID})`;
       } else {
         adminBtn.classList.remove('is-active-admin');
-        adminBtn.title = 'Click to open Admin Control Center';
+        adminBtn.title = 'Admin Control Center (Steam auth required)';
       }
     }
   }
@@ -126,11 +124,6 @@ export class AdminController {
       if (res.success) this.renderLeaderboardManager();
     });
 
-    document.getElementById('btn-admin-login-pin')?.addEventListener('click', () => this.submitAdminPin());
-    document.getElementById('admin-pin-input')?.addEventListener('keydown', (e) => {
-      if ((e as KeyboardEvent).key === 'Enter') this.submitAdminPin();
-    });
-
     document.getElementById('btn-admin-add-mission')?.addEventListener('click', () => {
       if (!this.config) return;
       addMission(this.config.missions);
@@ -156,22 +149,6 @@ export class AdminController {
       addSlicer(this.config.slicers);
       this.renderCatalogEditors();
     });
-  }
-
-  private submitAdminPin(): void {
-    const input = document.getElementById('admin-pin-input') as HTMLInputElement | null;
-    const pinMsg = document.getElementById('admin-pin-msg');
-    if (input && input.value.trim() === '1337') {
-      setAdminPin('1337');
-      this.checkAdminPrivileges();
-      if (pinMsg) {
-        pinMsg.textContent = 'Admin privileges unlocked';
-        pinMsg.className = 'admin-status-ok';
-      }
-    } else if (pinMsg) {
-      pinMsg.textContent = 'Invalid Admin PIN';
-      pinMsg.className = 'admin-status-err';
-    }
   }
 
   private renderTabs(): void {
