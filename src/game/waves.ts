@@ -3,6 +3,14 @@ import './enemyRuntime';
 import { enemyRule, specialEnemyForWave, type EnemyKind } from './enemies';
 import { modeRules } from './modes';
 import type { GameMode } from './save';
+import {
+  authoredWavesPerLevel,
+  getLiveWavesConfig,
+  loadCreatorWavesStore,
+  tryAuthoredPlanBossWave,
+  tryAuthoredPlanWave,
+  type WaveOverrideSources,
+} from './creatorWaves';
 
 export interface SpawnItem {
   kind: FruitKind;
@@ -72,11 +80,24 @@ function planTitle(level: number, waveInLevel: number, totalWavesInLevel: number
   return { title: base };
 }
 
+function overrideSources(): WaveOverrideSources {
+  let creator: WaveOverrideSources['creator'] = null;
+  try {
+    creator = loadCreatorWavesStore();
+  } catch {
+    creator = null;
+  }
+  return { creator, live: getLiveWavesConfig() };
+}
+
 export function wavesPerLevel(level: number): number {
-  return Math.max(5, level);
+  return authoredWavesPerLevel(level, overrideSources(), (lvl) => Math.max(5, lvl));
 }
 
 export function planWave(wave: number, mode: GameMode, level: number, waveInLevel: number, totalWavesInLevel: number): WavePlan {
+  const authored = tryAuthoredPlanWave(wave, mode, level, waveInLevel, totalWavesInLevel, overrideSources());
+  if (authored) return authored;
+
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
   const items: SpawnItem[] = [];
@@ -128,6 +149,9 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
 }
 
 export function planBossWave(wave: number, mode: GameMode, level: number): WavePlan {
+  const authored = tryAuthoredPlanBossWave(wave, mode, level, overrideSources());
+  if (authored) return authored;
+
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
   const items: SpawnItem[] = [];

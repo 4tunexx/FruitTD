@@ -26,6 +26,7 @@ import {
 } from './adminCatalog';
 import { installSpriteUploads } from './adminSprites';
 import { installMediaStudio } from './adminMediaStudio';
+import { installCreatorWaveBoard } from './creatorWaveBoard';
 
 type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
@@ -65,6 +66,7 @@ export class AdminController {
     this.renderActiveTab();
     installSpriteUploads();
     installMediaStudio();
+    installCreatorWaveBoard();
   }
 
   close(): void {
@@ -157,6 +159,11 @@ export class AdminController {
     document.getElementById('btn-save-fruits')?.addEventListener('click', () => this.saveContent('fruits'));
     document.getElementById('btn-save-enemies')?.addEventListener('click', () => this.saveContent('enemies'));
     document.getElementById('btn-save-waves')?.addEventListener('click', () => this.saveContent('waves'));
+
+    window.addEventListener('fruittd-waves-published', ((e: CustomEvent) => {
+      if (!this.config) return;
+      (this.config as AdminConfig & { waves?: unknown }).waves = e.detail;
+    }) as EventListener);
   }
 
   private renderTabs(): void {

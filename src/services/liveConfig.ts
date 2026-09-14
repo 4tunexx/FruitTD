@@ -1,10 +1,14 @@
 import { DEFAULT_ADMIN_CONFIG, fetchAdminConfig, mergeAdminConfig, type AdminConfig } from './admin';
+import { setLiveWavesConfig } from '../game/creatorWaves';
 
 const BASE_START_MONEY = DEFAULT_ADMIN_CONFIG.gameplayConfig.startMoney;
 const BASE_START_LIVES = DEFAULT_ADMIN_CONFIG.gameplayConfig.startLives;
 
 let cached: AdminConfig = mergeAdminConfig(DEFAULT_ADMIN_CONFIG);
 let loadPromise: Promise<AdminConfig> | null = null;
+
+// Prefer published AdminConfig.waves when planning waves.
+setLiveWavesConfig(cached.waves);
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -37,6 +41,7 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
 export function setLiveConfig(config: AdminConfig): void {
   cached = config;
   applyMenuAppearance(config);
+  setLiveWavesConfig(cached.waves);
 }
 
 export async function loadLiveConfig(): Promise<AdminConfig> {
