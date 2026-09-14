@@ -1178,19 +1178,19 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(5,10,15,0.72);
-  backdrop-filter: blur(8px);
+  background: radial-gradient(ellipse at 50% 35%, rgba(30,50,22,0.6) 0%, rgba(5,10,15,0.88) 55%);
+  backdrop-filter: blur(12px) saturate(110%);
   pointer-events: auto;
 }
 
 .modal-card {
-  background: rgba(12,18,26,0.95);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(20,30,18,0.96), rgba(12,18,14,0.98));
+  border: 2px solid rgba(163, 230, 53, 0.32);
+  border-radius: 16px;
   padding: 2rem 2.5rem;
   text-align: center;
   width: min(24rem, 92vw);
-  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.75), 0 0 60px rgba(163, 230, 53, 0.12);
   animation: modalIn 0.3s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 
@@ -1217,6 +1217,7 @@ canvas {
   font-size: 1.8rem;
   font-weight: 900;
   line-height: 1;
+  text-shadow: 0 2px 12px rgba(163, 230, 53, 0.35);
 }
 
 .modal-title--over {
