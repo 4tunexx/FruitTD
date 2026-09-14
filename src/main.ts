@@ -559,7 +559,21 @@ function resolveSlash(slash: Slash): void {
         }
       }
       const towerBonus = getTowerProgressionBonuses().damageBonus;
-      if (fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus)) killFruit(fruit, swipe);
+      const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus);
+      
+      if (fruit.enemyKind === 'explosive' && !killed && !fruit.volatileTriggered) {
+        const enemy = enemyRule(fruit.enemyKind);
+        const hitDamage = Math.ceil(enemy.towerDamageOnHit);
+        if (hitDamage > 0) {
+          state.lives -= hitDamage;
+          fruit.volatileTriggered = true;
+          toast(state, 'VOLATILE HIT!', 1.2);
+          renderer.impulseShake(0.6);
+          maybeOver();
+        }
+      }
+      
+      if (killed) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
       if (segmentHitsHalf(line.from, line.to, bit, radius * 0.35)) cutBits.add(bit);
