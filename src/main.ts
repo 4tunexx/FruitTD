@@ -287,7 +287,7 @@ function grantHeroXp(n: number): void {
     const gained = next - state.heroLevel;
     state.heroLevel = next;
     save.skillPoints += gained;
-    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 1.8);
+    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 2.2);
     emit({ type: 'hero_level' });
     sfx.unlockItem();
   }
@@ -311,7 +311,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   addScore(state, scoreReward);
   grantHeroXp(xpReward);
   const rules = modeRules(state.mode);
-  chargeSuper(state, (6 + save.skills.flow * 2) * rules.superMul);
+  chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
   if (state.combo >= 2) sfx.combo(state.combo);
   combos.onKills(1);
@@ -566,7 +566,7 @@ function resolveSlash(slash: Slash): void {
     hits += 1;
     juice.burst(px, py, pz, kind, swipe, 0.55);
     addScore(state, 4 * gen);
-    chargeSuper(state, 2 + save.skills.flow);
+    chargeSuper(state, 1.2 + save.skills.flow * 0.6);
     slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash);
     const screen = worldPct(px, py + 0.35, pz);
     combos.onReslice(gen, screen.nx, screen.ny);
