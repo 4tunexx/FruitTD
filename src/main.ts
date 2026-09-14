@@ -117,6 +117,7 @@ hud.onBuySkin = (id) => buySkin(id);
 hud.onEquipItem = (id) => equipItem(id);
 hud.onSellItem = (id) => sellItem(id);
 hud.onDeleteItem = (id) => deleteItem(id);
+hud.onBuyVIP = (tier) => buyVIP(tier); // P1-2
 hud.onBuySkill = (id) => buySkill(id);
 hud.onSaveUpdate = (newSave) => {
   Object.assign(save, newSave);
@@ -230,6 +231,43 @@ function sellItem(id: string): void {
   wallSkinApply();
   persist();
   sfx.place();
+}
+
+// P1-2: VIP Purchase System
+function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
+  const vipCosts = { bronze: 100, silver: 250, gold: 500 };
+  const cost = vipCosts[tier];
+  const currentStatus = save.vipStatus || 'none';
+  
+  // Check if already have this tier or higher
+  const tiers = ['none', 'bronze', 'silver', 'gold'];
+  const currentTier = tiers.indexOf(currentStatus);
+  const targetTier = tiers.indexOf(tier);
+  if (currentTier >= targetTier) {
+    toast(state, 'You already have this VIP tier!', 2);
+    sfx.denied();
+    return;
+  }
+  
+  // Check gems
+  if ((save.gems || 0) < cost) {
+    toast(state, `Not enough gems! Need ${cost} 💎`, 2);
+    sfx.denied();
+    return;
+  }
+  
+  // Purchase!
+  save.gems! -= cost;
+  save.vipStatus = tier;
+  
+  // Apply VIP rewards (coins bonus)
+  const rewards = { bronze: 1000, silver: 2500, gold: 5000 };
+  save.coins += rewards[tier];
+  
+  toast(state, `${tier.toUpperCase()} VIP Unlocked! +${rewards[tier]} coins`, 3);
+  sfx.place();
+  persist();
+  hud.mountShop(save);
 }
 
 function deleteItem(id: string): void {

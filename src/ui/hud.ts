@@ -108,6 +108,7 @@ export class Hud {
   onRename: ((name: string) => void) | null = null;
   onSuper: (() => void) | null = null;
   onSaveUpdate: ((save: SaveData) => void) | null = null;
+  onBuyVIP: ((tier: 'bronze' | 'silver' | 'gold') => void) | null = null; // P1-2
 
   constructor() {
     this.place.classList.add('hidden');
@@ -153,7 +154,7 @@ export class Hud {
     this.initTitleScreen();
     this.initLeaderboardFilters();
     this.initQuestsSubtabs();
-    this.initSteamIntegration();
+    void this.initSteamIntegration(); // P1-2: async Steam auth check
     this.checkDailyBonus();
     void loadLiveConfig().then(() => this.refreshMonthlyRank());
   }
@@ -449,6 +450,14 @@ export class Hud {
   mountShop(save: SaveData): void {
     const coinEl = document.getElementById('shop-coins');
     if (coinEl) coinEl.textContent = `${save.coins} coins`;
+    
+    // P1-2: Show gems
+    const gemEl = document.getElementById('shop-gems');
+    if (gemEl) gemEl.textContent = `💎 ${save.gems || 0} gems`;
+    
+    // P1-2: Update VIP status
+    this.updateVIPStatus(save);
+    
     const box = document.getElementById('skin-shop');
     if (!box) return;
     box.innerHTML = '';
@@ -499,6 +508,28 @@ export class Hud {
     }
 
     this.mountInventory(save);
+  }
+
+  // P1-2: VIP System
+  private updateVIPStatus(save: SaveData): void {
+    const statusEl = document.getElementById('vip-current-status');
+    const vipStatus = save.vipStatus || 'none';
+    const statusText: Record<string, string> = {
+      none: 'Status: Free Player',
+      bronze: 'Status: Bronze VIP ⭐',
+      silver: 'Status: Silver VIP ⭐⭐',
+      gold: 'Status: Gold VIP ⭐⭐⭐',
+    };
+    if (statusEl) statusEl.textContent = statusText[vipStatus];
+    
+    // Disable already-purchased tiers
+    const bronzeBtn = document.getElementById('btn-vip-bronze') as HTMLButtonElement | null;
+    const silverBtn = document.getElementById('btn-vip-silver') as HTMLButtonElement | null;
+    const goldBtn = document.getElementById('btn-vip-gold') as HTMLButtonElement | null;
+    
+    if (bronzeBtn) bronzeBtn.disabled = vipStatus !== 'none';
+    if (silverBtn) silverBtn.disabled = vipStatus === 'silver' || vipStatus === 'gold';
+    if (goldBtn) goldBtn.disabled = vipStatus === 'gold';
   }
 
   mountInventory(save: SaveData): void {
@@ -1402,6 +1433,10 @@ export class Hud {
       if (res && this.currentSave) {
         this.currentSave.coins += res.reward.coins;
         this.currentSave.skillPoints += res.reward.skillPoints;
+        // P1-2: Add gems from daily rewards
+        if (res.reward.gems) {
+          this.currentSave.gems = (this.currentSave.gems || 0) + res.reward.gems;
+        }
         if (res.reward.skinUnlock && !this.currentSave.ownedSkins.includes(res.reward.skinUnlock)) {
           this.currentSave.ownedSkins.push(res.reward.skinUnlock);
         }
@@ -1556,5 +1591,10 @@ export class Hud {
     document.getElementById('btn-submit-steam')?.addEventListener('click', () => {
       startSteamLogin(this.steamModalMode);
     });
+
+    // P1-2: VIP purchase buttons
+    document.getElementById('btn-vip-bronze')?.addEventListener('click', () => this.onBuyVIP?.('bronze'));
+    document.getElementById('btn-vip-silver')?.addEventListener('click', () => this.onBuyVIP?.('silver'));
+    document.getElementById('btn-vip-gold')?.addEventListener('click', () => this.onBuyVIP?.('gold'));
   }
 }

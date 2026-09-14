@@ -474,9 +474,30 @@
             <section id="page-shop" class="menu-page hidden">
               <p class="section-desc">Buy slicers &amp; walls, then manage what you own. Only one blade can be equipped at a time.</p>
               <div class="shop-top-row">
-                <p id="shop-coins">0 coins</p>
+                <div style="display: flex; gap: 1rem;">
+                  <p id="shop-coins">0 coins</p>
+                  <p id="shop-gems" style="color: #60a5fa;">💎 0 gems</p>
+                </div>
                 <button id="btn-open-steam-shop" class="steam-link-btn">🎮 Link Steam (+500 Coins)</button>
               </div>
+              
+              <!-- P1-2: VIP Section -->
+              <div class="shop-section-head" style="margin-top: 1.5rem;">
+                <h3>VIP Membership</h3>
+                <p class="section-desc">Premium benefits: bonus coins, exclusive items, priority support</p>
+              </div>
+              <div id="vip-status-card" class="vip-status-card">
+                <div class="vip-card-content">
+                  <p id="vip-current-status" class="vip-status-label">Status: Free Player</p>
+                  <p class="vip-benefit-text">Unlock VIP with gems for permanent bonuses!</p>
+                </div>
+                <div class="vip-tiers">
+                  <button id="btn-vip-bronze" class="vip-tier-btn vip-bronze">Bronze VIP<br><small>100 💎</small></button>
+                  <button id="btn-vip-silver" class="vip-tier-btn vip-silver">Silver VIP<br><small>250 💎</small></button>
+                  <button id="btn-vip-gold" class="vip-tier-btn vip-gold">Gold VIP<br><small>500 💎</small></button>
+                </div>
+              </div>
+              
               <div class="shop-section-head">
                 <h3>Shop</h3>
                 <p class="section-desc">Purchase items with coins.</p>

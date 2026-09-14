@@ -19,6 +19,7 @@ export interface SaveData {
   bestWave: number;
   games: number;
   coins: number;
+  gems: number; // P1-2: Premium currency
   nickname: string;
   avatar: string;
   skillPoints: number;
@@ -28,6 +29,7 @@ export interface SaveData {
   wallSkin: string;
   mode: GameMode;
   heroPerkRanks?: HeroPerkRanks;
+  vipStatus?: 'none' | 'bronze' | 'silver' | 'gold'; // P1-2: VIP tier
 }
 
 function emptyXp(): Record<HeroId, number> { return { jiju:0, topfu:0, lagen:0, tripos:0, ki:0 }; }
@@ -50,9 +52,9 @@ export function defaultAvatar(name: string): string {
 export function defaultSave(): SaveData {
   return {
     hero:'jiju', xp:emptyXp(), ownedHeroes:['jiju'], towerXp:0, towerLifetimeXp:0,
-    highScore:0, rankedScore:0, bestWave:1, games:0, coins:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
+    highScore:0, rankedScore:0, bestWave:1, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
     skillPoints:0, skills:emptySkills(), ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
-    heroPerkRanks:emptyPerkRanks(),
+    heroPerkRanks:emptyPerkRanks(), vipStatus:'none',
   };
 }
 
@@ -70,6 +72,7 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.bestWave = safeInt(data.bestWave, 1, 1, 9999);
   data.games = safeInt(data.games, 0, 0, 1_000_000);
   data.coins = safeInt(data.coins, 0, 0, 10_000_000);
+  data.gems = safeInt(data.gems ?? 0, 0, 0, 10_000_000); // P1-2
   data.skillPoints = safeInt(data.skillPoints, 0, 0, 1000);
   data.nickname = typeof data.nickname === 'string' ? data.nickname.trim().slice(0, 16) || 'Slicer' : 'Slicer';
   data.avatar = typeof data.avatar === 'string' && data.avatar ? data.avatar : defaultAvatar(data.nickname);
@@ -79,6 +82,7 @@ export function sanitiseSave(data: SaveData): SaveData {
   if (!data.ownedSkins.includes('wall-brick')) data.ownedSkins.push('wall-brick');
   if (!data.ownedSkins.includes(data.bladeSkin)) data.bladeSkin = 'blade-default';
   if (!data.ownedSkins.includes(data.wallSkin)) data.wallSkin = 'wall-brick';
+  if (!data.vipStatus || !['none','bronze','silver','gold'].includes(data.vipStatus)) data.vipStatus = 'none'; // P1-2
   
   if (!data.heroPerkRanks || typeof data.heroPerkRanks !== 'object') data.heroPerkRanks = emptyPerkRanks();
   for (const hero of HEROES) {

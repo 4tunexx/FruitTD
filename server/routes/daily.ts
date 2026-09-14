@@ -8,6 +8,7 @@ export interface DailyRewardTier {
   day: number;
   coins: number;
   skillPoints: number;
+  gems?: number; // P1-2
   skinUnlock?: string;
   label: string;
   iconType?: 'coin' | 'gem' | 'chest' | 'blade';

@@ -104,13 +104,13 @@ function normalizeGameplayConfig(input: unknown): AdminConfigDoc['gameplayConfig
 export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   configKey: 'game_config',
   dailyRewards: [
-    { day: 1, coins: 50, skillPoints: 0, label: '50 Coins', iconType: 'coin' },
-    { day: 2, coins: 100, skillPoints: 1, label: '100 Coins + 1 SP', iconType: 'gem' },
-    { day: 3, coins: 150, skillPoints: 0, label: '150 Coins', iconType: 'coin' },
-    { day: 4, coins: 200, skillPoints: 0, label: '200 Coins', iconType: 'coin' },
-    { day: 5, coins: 300, skillPoints: 2, label: '300 Coins + 2 SP', iconType: 'gem' },
-    { day: 6, coins: 450, skillPoints: 0, label: '450 Coins', iconType: 'chest' },
-    { day: 7, coins: 1000, skillPoints: 2, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade!', iconType: 'blade' },
+    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: '50 Coins + 5 💎', iconType: 'coin' },
+    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: '100 Coins + 1 SP + 10 💎', iconType: 'gem' },
+    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: '150 Coins + 15 💎', iconType: 'coin' },
+    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: '200 Coins + 20 💎', iconType: 'coin' },
+    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: '300 Coins + 2 SP + 25 💎', iconType: 'gem' },
+    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 💎', iconType: 'chest' },
+    { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 💎!', iconType: 'blade' },
   ],
   menuConfig: {
     eyebrow: 'FRUIT TD · LIVE ONLINE',
