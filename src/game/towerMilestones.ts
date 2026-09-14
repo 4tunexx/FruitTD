@@ -7,6 +7,17 @@ export interface TowerMilestone {
   reward: string;
 }
 
+export interface TowerMilestoneBonuses {
+  startingLives: number;
+  maxLives: number;
+  juiceGainMultiplier: number;
+  defenceFireRateMultiplier: number;
+  comboRewardMultiplier: number;
+  lastStandRewardMultiplier: number;
+  perfectWaveXpMultiplier: number;
+  masterFortressBadge: boolean;
+}
+
 /** Account-level Main Tower milestones. These are progression rewards, not free combat upgrades. */
 export const TOWER_MILESTONES: TowerMilestone[] = [
   { level: 2, name: 'Fortified Base', description: 'Your tower has survived its first major upgrade.', reward: '+1 starting life' },
@@ -28,4 +39,33 @@ export function towerMilestone(level: number): TowerMilestone | null {
 export function towerUnlockedMilestones(level: number): TowerMilestone[] {
   const lv = Math.max(1, Math.floor(level));
   return TOWER_MILESTONES.filter((m) => m.level <= lv);
+}
+
+/** Calculate cumulative permanent bonuses from unlocked tower milestones. */
+export function getTowerMilestoneBonuses(accountTowerLevel: number): TowerMilestoneBonuses {
+  const unlocked = towerUnlockedMilestones(accountTowerLevel);
+  const bonuses: TowerMilestoneBonuses = {
+    startingLives: 0,
+    maxLives: 0,
+    juiceGainMultiplier: 1,
+    defenceFireRateMultiplier: 1,
+    comboRewardMultiplier: 1,
+    lastStandRewardMultiplier: 1,
+    perfectWaveXpMultiplier: 1,
+    masterFortressBadge: false,
+  };
+  
+  for (const milestone of unlocked) {
+    if (milestone.level === 2) bonuses.startingLives += 1;
+    if (milestone.level === 3) bonuses.juiceGainMultiplier += 0.05;
+    if (milestone.level === 4) bonuses.maxLives += 1;
+    if (milestone.level === 5) bonuses.defenceFireRateMultiplier += 0.05;
+    if (milestone.level === 6) bonuses.comboRewardMultiplier += 0.05;
+    if (milestone.level === 7) bonuses.lastStandRewardMultiplier += 0.1;
+    if (milestone.level === 8) bonuses.maxLives += 1;
+    if (milestone.level === 9) bonuses.perfectWaveXpMultiplier += 0.1;
+    if (milestone.level === 10) bonuses.masterFortressBadge = true;
+  }
+  
+  return bonuses;
 }
