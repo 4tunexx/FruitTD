@@ -2917,3 +2917,109 @@ canvas {
   font-weight: 600;
   color: #d9f99d;
 }
+
+/* ══════════════════════════════════════════════
+   P1-4: BOSS LETTERBOX INTRO (Borderlands-style)
+══════════════════════════════════════════════ */
+.boss-letterbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: bossLetterboxFadeOut 3s ease-in-out forwards;
+}
+.boss-letterbox.hidden {
+  display: none;
+}
+
+.boss-letterbox-bars {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.boss-bar {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 18%;
+  background: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.95) 50%, #000 100%);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+}
+.boss-bar-top {
+  top: 0;
+  animation: bossBarSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.boss-bar-bottom {
+  bottom: 0;
+  animation: bossBarSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.05s;
+}
+
+.boss-intro-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg);
+  animation: bossContentFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+.boss-intro-title {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 1000;
+  font-style: italic;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: #fef08a;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 
+    0 0 20px rgba(251, 191, 36, 0.8),
+    0 0 40px rgba(251, 191, 36, 0.5),
+    0 4px 0 rgba(0, 0, 0, 0.8),
+    0 6px 12px rgba(0, 0, 0, 0.6);
+  filter: drop-shadow(0 8px 24px rgba(251, 191, 36, 0.35));
+}
+.boss-intro-subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  color: #f97316;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.8), 0 0 12px rgba(249, 115, 22, 0.6);
+}
+
+@keyframes bossBarSlideIn {
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes bossContentFadeIn {
+  0% {
+    opacity: 0;
+    transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(40px) scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(-5px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(0) scale(1);
+  }
+}
+@keyframes bossLetterboxFadeOut {
+  0%, 70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

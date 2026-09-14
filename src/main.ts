@@ -671,6 +671,35 @@ function restartMatch(): void {
   restart();
 }
 
+function showBossIntro(wave: number): void {
+  const letterbox = document.getElementById('boss-letterbox');
+  const title = document.getElementById('boss-intro-title');
+  const subtitle = document.getElementById('boss-intro-subtitle');
+  
+  if (!letterbox || !title || !subtitle) return;
+  
+  // Boss names scale with wave
+  const bossNames = [
+    'THE JUGGERNAUT',
+    'TITANFRUIT',
+    'APEX PREDATOR',
+    'THE BEHEMOTH',
+    'FRUIT OVERLORD',
+    'ULTIMATE DESTROYER',
+  ];
+  const nameIndex = Math.min(bossNames.length - 1, Math.floor((wave - 5) / 5));
+  const bossName = bossNames[nameIndex];
+  
+  title.textContent = bossName;
+  subtitle.textContent = `WAVE ${wave} BOSS`;
+  
+  letterbox.classList.remove('hidden');
+  setTimeout(() => {
+    letterbox.classList.add('hidden');
+    toast(state, `${bossName}  ·  WAVE ${wave}`, 1.8);
+  }, 3000);
+}
+
 function tickGuest(dt: number): void {
   if (!modeRules(state.mode).guest) return;
   guestCd -= dt;
@@ -802,7 +831,13 @@ function simulate(dt: number): void {
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
-      toast(state, plan.title, 1.4);
+      
+      // P1-4: Show boss intro letterbox if this is a boss wave
+      if (plan.boss) {
+        showBossIntro(state.wave);
+      } else {
+        toast(state, plan.title, 1.4);
+      }
       sfx.wave();
     }
   } else if (!fruits.waveBusy) {
