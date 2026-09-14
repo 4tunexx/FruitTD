@@ -220,6 +220,176 @@ function getMonthKey() {
   return currentMonthKey();
 }
 
+// server/auth.ts
+import crypto from "crypto";
+
+// server/emailTemplates.ts
+function verifyEmailHtml(code) {
+  const digits = code.split("").map(
+    (d) => `<td style="width:42px;height:52px;text-align:center;font-size:26px;font-weight:800;color:#ecfccb;background:#122018;border:1px solid rgba(163,230,53,.35);border-radius:10px;letter-spacing:0">${d}</td>`
+  );
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /></head>
+<body style="margin:0;padding:0;background:#050a0f;font-family:'Segoe UI',system-ui,-apple-system,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050a0f;padding:32px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:linear-gradient(180deg,#12261a 0%,#0a1210 40%,#080e14 100%);border:1px solid rgba(163,230,53,.22);border-radius:20px;overflow:hidden">
+        <tr>
+          <td style="padding:28px 28px 8px;text-align:center">
+            <div style="display:inline-block;width:56px;height:56px;border-radius:16px;background:radial-gradient(circle at 35% 30%,#3dff7a,#146628);border:2px solid #a3e635;line-height:56px;font-size:28px">\u{1F349}</div>
+            <p style="margin:14px 0 0;color:#a3e635;font-weight:800;letter-spacing:.28em;text-transform:uppercase;font-size:11px">Fruit TD</p>
+            <h1 style="margin:8px 0 0;color:#f1f5f9;font-size:24px;font-weight:900;line-height:1.2">Confirm your email</h1>
+            <p style="margin:10px 0 0;color:#94a3b8;font-size:14px;line-height:1.5;font-weight:600">
+              Enter this code in the game to finish signing in. It expires in <strong style="color:#cbd5e1">30 minutes</strong>.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 28px 8px" align="center">
+            <table role="presentation" cellpadding="0" cellspacing="8" style="margin:0 auto">
+              <tr>${digits.join("")}</tr>
+            </table>
+            <p style="margin:18px 0 0;color:#64748b;font-size:12px;letter-spacing:.2em;font-weight:700">${code}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 28px 28px;text-align:center">
+            <p style="margin:0;padding:12px 14px;background:rgba(163,230,53,.08);border:1px solid rgba(163,230,53,.2);border-radius:12px;color:#a3e635;font-size:12px;font-weight:700;line-height:1.45">
+              Slice. Hold the Wall. \u2014 See you in the slicer dashboard.
+            </p>
+            <p style="margin:16px 0 0;color:#475569;font-size:11px;line-height:1.4">
+              If you did not create a Fruit TD account, you can ignore this email.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+function verifyEmailText(code) {
+  return `Fruit TD \u2014 confirm your email
+
+Your code is ${code}.
+It expires in 30 minutes.
+
+If you did not create an account, ignore this email.`;
+}
+
+// server/auth.ts
+var SESSION_DAYS = 30;
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+function verifyPassword(password, stored) {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const next = crypto.scryptSync(password, salt, 64).toString("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(next, "hex"));
+  } catch {
+    return false;
+  }
+}
+function makeVerifyCode() {
+  return String(crypto.randomInt(1e5, 999999));
+}
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+function makeSessionToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+function requestSessionToken(req2) {
+  const authorization = req2.headers.authorization;
+  if (authorization?.startsWith("Bearer ")) return authorization.slice(7);
+  const cookie = req2.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("fruit_td_session="));
+  return cookie ? decodeURIComponent(cookie.slice("fruit_td_session=".length)) : null;
+}
+async function createSession(userId) {
+  const token = makeSessionToken();
+  const col = await getCollection("sessions");
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1e3);
+  await col.insertOne({
+    tokenHash: hashToken(token),
+    userId,
+    createdAt: /* @__PURE__ */ new Date(),
+    expiresAt
+  });
+  return token;
+}
+async function resolveSession(token) {
+  if (!token) return null;
+  const col = await getCollection("sessions");
+  const doc = await col.findOne({ tokenHash: hashToken(token) });
+  if (!doc || doc.expiresAt.getTime() < Date.now()) return null;
+  const users = await getCollection("users");
+  return users.findOne({ userId: doc.userId });
+}
+async function resolveRequestUser(req2) {
+  return resolveSession(requestSessionToken(req2));
+}
+async function destroySession(token) {
+  if (!token) return;
+  const col = await getCollection("sessions");
+  await col.deleteOne({ tokenHash: hashToken(token) });
+}
+function publicUser(user) {
+  return {
+    userId: user.userId,
+    nickname: user.nickname,
+    username: user.username || user.nickname,
+    avatar: user.avatar,
+    email: user.email || null,
+    emailVerified: !!user.emailVerified,
+    profileComplete: !!user.profileComplete,
+    authProvider: user.authProvider || (user.steamId ? "steam" : "email"),
+    steamId: user.steamId || null,
+    steamPersona: user.steamPersona || null,
+    steamAvatar: user.steamAvatar || null,
+    isAdmin: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID)
+  };
+}
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+async function deliverVerifyCode(email, code) {
+  console.log(`[auth] Email verify code for ${email}: ${code}`);
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { previewCode: code };
+  }
+  const from = process.env.EMAIL_FROM || "Fruit TD <onboarding@resend.dev>";
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from,
+        to: [email],
+        subject: "Fruit TD \u2014 your confirmation code",
+        html: verifyEmailHtml(code),
+        text: verifyEmailText(code)
+      })
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[auth] Resend failed:", res.status, body);
+      return { previewCode: code, emailed: false, error: "Email send failed" };
+    }
+    return { emailed: true };
+  } catch (err) {
+    console.error("[auth] Resend error:", err);
+    return { previewCode: code, emailed: false, error: "Email send failed" };
+  }
+}
+
 // server/routes/leaderboard.ts
 var leaderboardRouter = Router();
 function resolveMode(mode) {
@@ -305,7 +475,6 @@ leaderboardRouter.get("/", async (req2, res) => {
 leaderboardRouter.post("/", async (req2, res) => {
   try {
     const {
-      userId,
       nickname,
       avatar,
       hero,
@@ -313,14 +482,32 @@ leaderboardRouter.post("/", async (req2, res) => {
       score,
       wave,
       fruitsSliced,
-      maxCombo,
-      steamId,
-      steamPersona,
-      steamAvatar
+      maxCombo
     } = req2.body;
-    if (!userId || typeof score !== "number" || score < 0) {
+    if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
       return res.status(400).json({ success: false, error: "Invalid score submission payload" });
     }
+    const MAX_REASONABLE_SCORE = 1e7;
+    const MAX_REASONABLE_WAVE = 1e3;
+    const MAX_REASONABLE_FRUITS = 1e5;
+    const MAX_REASONABLE_COMBO = 5e3;
+    if (score > MAX_REASONABLE_SCORE) {
+      return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
+    }
+    if (wave && wave > MAX_REASONABLE_WAVE) {
+      return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
+    }
+    if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
+      return res.status(400).json({ success: false, error: "Fruits sliced exceeds reasonable maximum" });
+    }
+    if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
+      return res.status(400).json({ success: false, error: "Combo exceeds reasonable maximum" });
+    }
+    const user = await resolveRequestUser(req2);
+    if (!user) {
+      return res.status(401).json({ success: false, error: "Sign in to submit leaderboard scores" });
+    }
+    const userId = user.userId;
     const col = await getCollection("leaderboards");
     const playMode = mode || "casual";
     const upsertBest = async (modeKey) => {
@@ -328,17 +515,17 @@ leaderboardRouter.post("/", async (req2, res) => {
       if (!existing) {
         await col.insertOne({
           userId,
-          nickname: nickname || "Slicer",
-          avatar: avatar || "",
+          nickname: nickname || user.nickname || "Slicer",
+          avatar: avatar || user.avatar || "",
           hero: hero || "jiju",
           mode: modeKey,
           score,
           wave: wave || 1,
           fruitsSliced: fruitsSliced || 0,
           maxCombo: maxCombo || 0,
-          steamId,
-          steamPersona,
-          steamAvatar,
+          steamId: user.steamId,
+          steamPersona: user.steamPersona,
+          steamAvatar: user.steamAvatar,
           createdAt: /* @__PURE__ */ new Date()
         });
         return true;
@@ -355,9 +542,9 @@ leaderboardRouter.post("/", async (req2, res) => {
               wave: wave || existing.wave,
               fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
               maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
-              steamId: steamId || existing.steamId,
-              steamPersona: steamPersona || existing.steamPersona,
-              steamAvatar: steamAvatar || existing.steamAvatar,
+              steamId: user.steamId || existing.steamId,
+              steamPersona: user.steamPersona || existing.steamPersona,
+              steamAvatar: user.steamAvatar || existing.steamAvatar,
               createdAt: /* @__PURE__ */ new Date()
             }
           }
@@ -652,8 +839,7 @@ import { Router as Router5 } from "express";
 import { Router as Router4 } from "express";
 import { ObjectId } from "mongodb";
 var adminRouter = Router4();
-var ADMIN_STEAM_ID = "76561198001993310";
-var ADMIN_DEV_PIN = "1337";
+var ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || "";
 var ICON_TYPES = /* @__PURE__ */ new Set(["coin", "gem", "chest", "blade"]);
 function normalizeDailyRewards(input) {
   const rows = Array.isArray(input) ? input : [];
@@ -662,11 +848,13 @@ function normalizeDailyRewards(input) {
     const iconType = ICON_TYPES.has(row.iconType) ? row.iconType : fallback.iconType;
     const coins = Math.max(0, Number(row.coins ?? fallback.coins) || 0);
     const skillPoints = Math.max(0, Number(row.skillPoints ?? fallback.skillPoints) || 0);
+    const gems = Math.max(0, Number(row.gems ?? fallback.gems ?? 0) || 0);
     const skinUnlock = typeof row.skinUnlock === "string" && row.skinUnlock.trim() ? row.skinUnlock.trim() : fallback.skinUnlock;
     return {
       day: i + 1,
       coins,
       skillPoints,
+      ...gems ? { gems } : {},
       ...skinUnlock ? { skinUnlock } : {},
       label: String(row.label || fallback.label),
       iconType
@@ -713,6 +901,11 @@ var DEFAULT_ADMIN_CONFIG = {
     { day: 6, coins: 450, skillPoints: 0, gems: 30, label: "450 Coins + 30 \u{1F48E}", iconType: "chest" },
     { day: 7, coins: 1e3, skillPoints: 2, gems: 50, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade + 50 \u{1F48E}!", iconType: "blade" }
   ],
+  vipTiers: [
+    { tier: "bronze", title: "Bronze VIP", price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: "+10% coins, +5% XP, 25 daily coins" },
+    { tier: "silver", title: "Silver VIP", price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ["blade-silver-vip"], description: "+25% coins, +15% XP, 75 daily coins + 1 SP" },
+    { tier: "gold", title: "Gold VIP", price: 5e3, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ["blade-gold-vip", "wall-gold-vip"], description: "+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins" }
+  ],
   menuConfig: {
     eyebrow: "FRUIT TD \xB7 LIVE ONLINE",
     title: "Slice.\nHold the Wall.",
@@ -730,12 +923,13 @@ var DEFAULT_ADMIN_CONFIG = {
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
-  slicers: DEFAULT_SLICERS
+  slicers: DEFAULT_SLICERS,
+  enemies: [],
+  waves: { version: 1, levels: {} }
 };
-function isAuthorized(req2) {
-  const steamId = req2.headers["x-admin-steamid"];
-  const pin = req2.headers["x-admin-pin"];
-  return steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+async function isAuthorized(req2) {
+  const user = await resolveRequestUser(req2);
+  return Boolean(ADMIN_STEAM_ID && user?.steamId === ADMIN_STEAM_ID);
 }
 adminRouter.get("/config", async (_req, res) => {
   try {
@@ -755,11 +949,14 @@ adminRouter.get("/config", async (_req, res) => {
       config: {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
+        vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
         missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
         achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
         badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
         ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
-        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS
+        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
+        enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
+        waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves
       }
     });
   } catch (err) {
@@ -772,25 +969,24 @@ adminRouter.get("/config", async (_req, res) => {
   }
 });
 adminRouter.post("/verify", async (req2, res) => {
-  const { steamId, pin } = req2.body;
-  const valid = steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  const valid = await isAuthorized(req2);
   res.json({
     success: true,
-    isAdmin: valid,
-    adminSteamId: ADMIN_STEAM_ID
+    isAdmin: valid
   });
 });
 adminRouter.post("/config", async (req2, res) => {
-  if (!isAuthorized(req2)) {
+  if (!await isAuthorized(req2)) {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
-    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers } = req2.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves } = req2.body;
     const col = await getCollection("admin_config");
     const existing = await col.findOne({ configKey: "game_config" });
     const updated = {
       configKey: "game_config",
       dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG.dailyRewards,
+      vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
       missions: Array.isArray(missions) ? missions : existing?.missions || DEFAULT_MISSIONS,
@@ -798,6 +994,8 @@ adminRouter.post("/config", async (req2, res) => {
       badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
       ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
+      enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
+      waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG.waves,
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
@@ -813,7 +1011,7 @@ adminRouter.post("/config", async (req2, res) => {
   }
 });
 adminRouter.post("/reset-daily", async (req2, res) => {
-  if (!isAuthorized(req2)) {
+  if (!await isAuthorized(req2)) {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
@@ -833,7 +1031,7 @@ adminRouter.post("/reset-daily", async (req2, res) => {
   }
 });
 adminRouter.get("/leaderboard", async (req2, res) => {
-  if (!isAuthorized(req2)) {
+  if (!await isAuthorized(req2)) {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
@@ -846,7 +1044,7 @@ adminRouter.get("/leaderboard", async (req2, res) => {
   }
 });
 adminRouter.post("/leaderboard/delete", async (req2, res) => {
-  if (!isAuthorized(req2)) {
+  if (!await isAuthorized(req2)) {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
@@ -1011,166 +1209,6 @@ async function fetchSteamPlayerSummary(steamId) {
   } catch (err) {
     console.error("Error fetching Steam player summary:", err);
     return null;
-  }
-}
-
-// server/auth.ts
-import crypto from "crypto";
-
-// server/emailTemplates.ts
-function verifyEmailHtml(code) {
-  const digits = code.split("").map(
-    (d) => `<td style="width:42px;height:52px;text-align:center;font-size:26px;font-weight:800;color:#ecfccb;background:#122018;border:1px solid rgba(163,230,53,.35);border-radius:10px;letter-spacing:0">${d}</td>`
-  );
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /></head>
-<body style="margin:0;padding:0;background:#050a0f;font-family:'Segoe UI',system-ui,-apple-system,sans-serif">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050a0f;padding:32px 12px">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:linear-gradient(180deg,#12261a 0%,#0a1210 40%,#080e14 100%);border:1px solid rgba(163,230,53,.22);border-radius:20px;overflow:hidden">
-        <tr>
-          <td style="padding:28px 28px 8px;text-align:center">
-            <div style="display:inline-block;width:56px;height:56px;border-radius:16px;background:radial-gradient(circle at 35% 30%,#3dff7a,#146628);border:2px solid #a3e635;line-height:56px;font-size:28px">\u{1F349}</div>
-            <p style="margin:14px 0 0;color:#a3e635;font-weight:800;letter-spacing:.28em;text-transform:uppercase;font-size:11px">Fruit TD</p>
-            <h1 style="margin:8px 0 0;color:#f1f5f9;font-size:24px;font-weight:900;line-height:1.2">Confirm your email</h1>
-            <p style="margin:10px 0 0;color:#94a3b8;font-size:14px;line-height:1.5;font-weight:600">
-              Enter this code in the game to finish signing in. It expires in <strong style="color:#cbd5e1">30 minutes</strong>.
-            </p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:22px 28px 8px" align="center">
-            <table role="presentation" cellpadding="0" cellspacing="8" style="margin:0 auto">
-              <tr>${digits.join("")}</tr>
-            </table>
-            <p style="margin:18px 0 0;color:#64748b;font-size:12px;letter-spacing:.2em;font-weight:700">${code}</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:20px 28px 28px;text-align:center">
-            <p style="margin:0;padding:12px 14px;background:rgba(163,230,53,.08);border:1px solid rgba(163,230,53,.2);border-radius:12px;color:#a3e635;font-size:12px;font-weight:700;line-height:1.45">
-              Slice. Hold the Wall. \u2014 See you in the slicer dashboard.
-            </p>
-            <p style="margin:16px 0 0;color:#475569;font-size:11px;line-height:1.4">
-              If you did not create a Fruit TD account, you can ignore this email.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
-function verifyEmailText(code) {
-  return `Fruit TD \u2014 confirm your email
-
-Your code is ${code}.
-It expires in 30 minutes.
-
-If you did not create an account, ignore this email.`;
-}
-
-// server/auth.ts
-var SESSION_DAYS = 30;
-function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-function verifyPassword(password, stored) {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const next = crypto.scryptSync(password, salt, 64).toString("hex");
-  try {
-    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(next, "hex"));
-  } catch {
-    return false;
-  }
-}
-function makeVerifyCode() {
-  return String(crypto.randomInt(1e5, 999999));
-}
-function hashToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
-function makeSessionToken() {
-  return crypto.randomBytes(32).toString("hex");
-}
-async function createSession(userId) {
-  const token = makeSessionToken();
-  const col = await getCollection("sessions");
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1e3);
-  await col.insertOne({
-    tokenHash: hashToken(token),
-    userId,
-    createdAt: /* @__PURE__ */ new Date(),
-    expiresAt
-  });
-  return token;
-}
-async function resolveSession(token) {
-  if (!token) return null;
-  const col = await getCollection("sessions");
-  const doc = await col.findOne({ tokenHash: hashToken(token) });
-  if (!doc || doc.expiresAt.getTime() < Date.now()) return null;
-  const users = await getCollection("users");
-  return users.findOne({ userId: doc.userId });
-}
-async function destroySession(token) {
-  if (!token) return;
-  const col = await getCollection("sessions");
-  await col.deleteOne({ tokenHash: hashToken(token) });
-}
-function publicUser(user) {
-  return {
-    userId: user.userId,
-    nickname: user.nickname,
-    username: user.username || user.nickname,
-    avatar: user.avatar,
-    email: user.email || null,
-    emailVerified: !!user.emailVerified,
-    profileComplete: !!user.profileComplete,
-    authProvider: user.authProvider || (user.steamId ? "steam" : "email"),
-    steamId: user.steamId || null,
-    steamPersona: user.steamPersona || null,
-    steamAvatar: user.steamAvatar || null
-  };
-}
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-async function deliverVerifyCode(email, code) {
-  console.log(`[auth] Email verify code for ${email}: ${code}`);
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return { previewCode: code };
-  }
-  const from = process.env.EMAIL_FROM || "Fruit TD <onboarding@resend.dev>";
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from,
-        to: [email],
-        subject: "Fruit TD \u2014 your confirmation code",
-        html: verifyEmailHtml(code),
-        text: verifyEmailText(code)
-      })
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error("[auth] Resend failed:", res.status, body);
-      return { previewCode: code, emailed: false, error: "Email send failed" };
-    }
-    return { emailed: true };
-  } catch (err) {
-    console.error("[auth] Resend error:", err);
-    return { previewCode: code, emailed: false, error: "Email send failed" };
   }
 }
 
@@ -1729,10 +1767,31 @@ profileRouter.get("/", async (req2, res) => {
 });
 profileRouter.post("/sync", async (req2, res) => {
   try {
-    const { userId, saveData } = req2.body;
-    if (!userId || !saveData) {
-      return res.status(400).json({ success: false, error: "userId and saveData are required" });
+    const { saveData } = req2.body;
+    if (!saveData) {
+      return res.status(400).json({ success: false, error: "saveData is required" });
     }
+    const MAX_REASONABLE_COINS = 1e6;
+    const MAX_REASONABLE_SKILL_POINTS = 1e4;
+    const MAX_REASONABLE_XP = 1e6;
+    if (saveData.coins && saveData.coins > MAX_REASONABLE_COINS) {
+      return res.status(400).json({ success: false, error: "Coins exceed reasonable maximum" });
+    }
+    if (saveData.skillPoints && saveData.skillPoints > MAX_REASONABLE_SKILL_POINTS) {
+      return res.status(400).json({ success: false, error: "Skill points exceed reasonable maximum" });
+    }
+    if (saveData.xp) {
+      for (const heroXp of Object.values(saveData.xp)) {
+        if (typeof heroXp === "number" && heroXp > MAX_REASONABLE_XP) {
+          return res.status(400).json({ success: false, error: "Hero XP exceeds reasonable maximum" });
+        }
+      }
+    }
+    const user = await resolveRequestUser(req2);
+    if (!user) {
+      return res.status(401).json({ success: false, error: "Sign in to sync a profile" });
+    }
+    const userId = user.userId;
     const col = await getCollection("cloud_saves");
     await col.updateOne(
       { userId },
@@ -1749,8 +1808,8 @@ profileRouter.post("/sync", async (req2, res) => {
       { userId },
       {
         $set: {
-          nickname: saveData.nickname || "Slicer",
-          avatar: saveData.avatar || "",
+          nickname: saveData.nickname || user.nickname || "Slicer",
+          avatar: saveData.avatar || user.avatar || "",
           updatedAt: /* @__PURE__ */ new Date()
         },
         $setOnInsert: {
@@ -1847,7 +1906,11 @@ badgesRouter.post("/progress", async (req2, res) => {
 // server/app.ts
 function createApp() {
   const app2 = express();
-  app2.use(cors());
+  const allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map((origin) => origin.trim()).filter(Boolean);
+  app2.use(cors({
+    origin: allowedOrigins.length ? allowedOrigins : ["http://localhost:5173"],
+    credentials: true
+  }));
   app2.use(express.json({ limit: "2mb" }));
   app2.use(express.urlencoded({ extended: true }));
   app2.use((req2, _res, next) => {

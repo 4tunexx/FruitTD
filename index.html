@@ -331,7 +331,7 @@
 
             <!-- Admin Button (Dashboard Only) -->
             <div id="menu-admin-row" style="margin-bottom: 1rem;">
-              <button id="btn-admin" class="chip-btn admin-chip" title="Admin Control Center (Steam ID: 76561198001993310 / F2)" style="font-size: 0.875rem; padding: 0.75rem 1.5rem;">
+              <button id="btn-admin" class="chip-btn admin-chip" title="Admin Control Center (authenticated Steam account / F2)" style="font-size: 0.875rem; padding: 0.75rem 1.5rem;">
                 <svg class="chip-svg-icon admin-shield-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width: 1.25rem; height: 1.25rem;">
                   <path d="M12 3L4.5 6.2V12.1C4.5 16.3 7.7 19.9 12 21.2C16.3 19.9 19.5 16.3 19.5 12.1V6.2L12 3Z" fill="#F59E0B" stroke="#FDE68A" stroke-width="1.5"/>
                   <path d="M8.8 12.1L11 14.3L15.3 10" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
@@ -749,16 +749,10 @@
                   <h2 class="modal-title" style="margin:0">Admin Control Center</h2>
                 </div>
                 <p class="text-xs text-amber-300 font-semibold mt-1">
-                  Main Admin Steam ID: <span class="font-mono text-white">76561198001993310</span>
+                  Main Admin: <span class="font-mono text-white">configured server-side</span>
                 </p>
               </div>
 
-              <!-- Quick PIN Login -->
-              <div class="admin-quick-pin">
-                <input id="admin-pin-input" type="password" placeholder="PIN" maxlength="8" class="admin-pin-input" />
-                <button id="btn-admin-login-pin" class="admin-pin-btn">Unlock</button>
-                <span id="admin-pin-msg"></span>
-              </div>
             </div>
 
             <!-- Admin Tabs Navigation -->

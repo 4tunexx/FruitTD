@@ -8,51 +8,33 @@ Fruit TD is a browser-based Three.js game combining fast slicing combat with tow
 
 ## Current status
 
-`phase-1-foundation` is an active development branch. The progression foundation is substantially upgraded, but the project is not yet a finished production release.
+`main` contains a playable vertical slice deployed through Vercel. Core match,
+progression, content tools and menu surfaces are implemented; production hardening
+and larger online features remain explicitly tracked below.
 
 ### Implemented foundations
 
-- Hero progression to **Level 100**
-- Persistent hero XP
-- Owned-hero progression and unlock logic
-- Level-based hero unlocks
-- Purchase-only late-game heroes
-- Main Tower progression to **Level 10**
-- Persistent Main Tower XP foundation
-- Tower milestone rewards
-- Normal, explosive, armored, splitter and swift enemies
-- Explosive enemies that can damage the Main Tower
-- Progressive special-enemy wave spawning
-- Boss-wave foundations
-- Hero perk progression foundation
-- Slicer Creator and live preview foundation
-- Slicer catalogue/equipment foundations
-- Combo/danger feedback improvements
-- Responsive/mobile UI foundations
-- Local save and MongoDB-backed server foundation
-- Steam integration foundations
-- Progression and admin-route tests
+- Hero progression to **Level 100**, persistent XP and combat perks
+- Main Tower progression to **Level 10** with milestone rewards
+- Five enemy kinds, splitter behavior, volatile tower damage and boss waves
+- Slice combat, combos, danger feedback, turrets, wall and game-over flow
+- Dashboard, shop, inventory, profile, VIP, daily, auth and admin menus
+- Creator Hub, slicer VFX, authored wave tools and live configuration
+- Local save plus MongoDB-backed server foundations
+- Session-gated leaderboard and cloud-save writes with server-side caps
+- Progression, save, creator and admin-route tests
+- Automated checks for tests, typechecking and production builds
 
-### Still in development
+### Remaining work
 
-- Complete hero XP reward wiring
-- Complete tower XP reward wiring
-- Full special-enemy behaviours
-- Splitter runtime behaviour
-- Consistent special-enemy rewards
-- Fruit atlas/texture alignment validation
-- Final slicing/impact polish
-- Full combo reward integration
-- Production Slicer Creator test mode
-- Clean Shop vs Inventory separation
-- Final game-style menus/dashboard
-- Reliable Back/Home navigation
-- Full mobile-first polish
-- Complete missions/achievements/retention systems
-- Real-time co-op networking
-- Production ranked matchmaking/seasons
-- Larger content roster
-- Final security/performance/regression QA
+- Real-time co-op networking and ranked matchmaking
+- Server-authoritative combat and trusted economy ownership
+- Persisted Creator packs beyond local browser storage
+- Bosses with phase patterns, weak points and unique mechanics
+- Device-matrix mobile QA and screenshot regression tests
+- Licensed or original replacement audio for assets whose provenance is unclear
+- Final Shop vs Inventory polish, mastery cosmetics and Back/Home consistency
+- Larger content roster, weather/day-night and season-end rewards
 
 ## Core loop
 

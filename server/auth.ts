@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import type { Request } from 'express';
 import { getCollection, type UserDoc } from './db';
 
 const SESSION_DAYS = 30;
@@ -31,6 +32,16 @@ export function makeSessionToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+export function requestSessionToken(req: Request): string | null {
+  const authorization = req.headers.authorization;
+  if (authorization?.startsWith('Bearer ')) return authorization.slice(7);
+  const cookie = req.headers.cookie
+    ?.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('fruit_td_session='));
+  return cookie ? decodeURIComponent(cookie.slice('fruit_td_session='.length)) : null;
+}
+
 export interface SessionDoc {
   tokenHash: string;
   userId: string;
@@ -60,6 +71,10 @@ export async function resolveSession(token: string | undefined | null): Promise<
   return users.findOne({ userId: doc.userId });
 }
 
+export async function resolveRequestUser(req: Request): Promise<UserDoc | null> {
+  return resolveSession(requestSessionToken(req));
+}
+
 export async function destroySession(token: string | undefined | null): Promise<void> {
   if (!token) return;
   const col = await getCollection<SessionDoc>('sessions');
@@ -79,6 +94,7 @@ export function publicUser(user: UserDoc) {
     steamId: user.steamId || null,
     steamPersona: user.steamPersona || null,
     steamAvatar: user.steamAvatar || null,
+    isAdmin: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID),
   };
 }
 

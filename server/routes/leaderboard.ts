@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getCollection, LeaderboardDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { monthlyLeaderboardMode, rankFromScore } from '../../src/game/requirements';
+import { resolveRequestUser } from '../auth';
 
 export const leaderboardRouter = Router();
 
@@ -105,7 +106,6 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
 leaderboardRouter.post('/', async (req: Request, res: Response) => {
   try {
     const {
-      userId,
       nickname,
       avatar,
       hero,
@@ -114,12 +114,9 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       wave,
       fruitsSliced,
       maxCombo,
-      steamId,
-      steamPersona,
-      steamAvatar,
     } = req.body;
 
-    if (!userId || typeof score !== 'number' || score < 0) {
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0) {
       return res.status(400).json({ success: false, error: 'Invalid score submission payload' });
     }
 
@@ -142,6 +139,12 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Combo exceeds reasonable maximum' });
     }
 
+    const user = await resolveRequestUser(req);
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Sign in to submit leaderboard scores' });
+    }
+    const userId = user.userId;
+
     const col = await getCollection<LeaderboardDoc>('leaderboards');
     const playMode = mode || 'casual';
 
@@ -150,17 +153,17 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       if (!existing) {
         await col.insertOne({
           userId,
-          nickname: nickname || 'Slicer',
-          avatar: avatar || '',
+          nickname: nickname || user.nickname || 'Slicer',
+          avatar: avatar || user.avatar || '',
           hero: hero || 'jiju',
           mode: modeKey,
           score,
           wave: wave || 1,
           fruitsSliced: fruitsSliced || 0,
           maxCombo: maxCombo || 0,
-          steamId,
-          steamPersona,
-          steamAvatar,
+          steamId: user.steamId,
+          steamPersona: user.steamPersona,
+          steamAvatar: user.steamAvatar,
           createdAt: new Date(),
         });
         return true;
@@ -177,9 +180,9 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
               wave: wave || existing.wave,
               fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
               maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
-              steamId: steamId || existing.steamId,
-              steamPersona: steamPersona || existing.steamPersona,
-              steamAvatar: steamAvatar || existing.steamAvatar,
+              steamId: user.steamId || existing.steamId,
+              steamPersona: user.steamPersona || existing.steamPersona,
+              steamAvatar: user.steamAvatar || existing.steamAvatar,
               createdAt: new Date(),
             },
           }

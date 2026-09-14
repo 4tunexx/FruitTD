@@ -3,7 +3,6 @@ import { createServer, type Server } from 'node:http';
 import { test } from 'node:test';
 import { createApp } from './app';
 import { closeDb } from './db';
-import { ADMIN_STEAM_ID } from './routes/admin';
 
 async function listen(app: ReturnType<typeof createApp>): Promise<{ server: Server; base: string }> {
   const server = createServer(app);
@@ -26,18 +25,21 @@ test('admin API routes are registered and authorized', async (t) => {
   const verifyNoPin = await fetch(`${base}/api/admin/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin: '1337' }),
+    body: JSON.stringify({ pin: 'invalid-development-pin' }),
   });
   assert.equal(verifyNoPin.status, 200);
   const noPinBody = await verifyNoPin.json();
   assert.equal(noPinBody.isAdmin, false, 'PIN should not grant admin access');
 
-  const verifySteam = await fetch(`${base}/api/admin/verify`, {
+  const verifySpoofedHeader = await fetch(`${base}/api/admin/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ steamId: ADMIN_STEAM_ID }),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-steamid': 'spoofed-steam-id',
+    },
+    body: JSON.stringify({ steamId: 'spoofed-steam-id' }),
   });
-  assert.equal((await verifySteam.json()).isAdmin, true, 'Valid Steam ID should grant admin access');
+  assert.equal((await verifySpoofedHeader.json()).isAdmin, false, 'Spoofed Steam ID should not grant admin access');
 
   const denySave = await fetch(`${base}/api/admin/config`, {
     method: 'POST',

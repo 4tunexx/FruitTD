@@ -9,9 +9,7 @@ import {
   type RankTier,
 } from '../game/requirements';
 import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
-import { getCachedSteamState } from './steam';
-
-export const ADMIN_STEAM_ID = '76561198001993310';
+import { getAuthToken, getCachedAuthUser } from './auth';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
 
@@ -133,17 +131,17 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
 }
 
 export function isUserAdmin(): boolean {
-  const steam = getCachedSteamState();
-  return steam.linked && steam.steamId === ADMIN_STEAM_ID;
+  const user = getCachedAuthUser();
+  return Boolean(user?.isAdmin && getAuthToken());
 }
 
 function getAdminHeaders(): Record<string, string> {
-  const steam = getCachedSteamState();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (steam.steamId) {
-    headers['x-admin-steamid'] = steam.steamId;
+  const token = getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
   return headers;
 }

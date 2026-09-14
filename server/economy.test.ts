@@ -66,6 +66,13 @@ test('leaderboard rejects absurd score values', async (t) => {
   });
   assert.equal(absurdCombo.status, 400, 'Should reject combo > 5000');
 
+  const unauthenticatedScore = await fetch(`${base}/api/leaderboard`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ score: 5000, mode: 'casual', wave: 10 }),
+  });
+  assert.equal(unauthenticatedScore.status, 401, 'Scores require an authenticated session');
+
   // Test valid score
   const validScore = await fetch(`${base}/api/leaderboard`, {
     method: 'POST',
@@ -80,7 +87,7 @@ test('leaderboard rejects absurd score values', async (t) => {
       fruitsSliced: 200,
     }),
   });
-  assert.ok(validScore.status === 200 || validScore.status === 500, 'Valid score should be accepted or DB error');
+  assert.equal(validScore.status, 401, 'Client-supplied user IDs must not bypass authentication');
 });
 
 test('cloud save sync rejects absurd economy values', async (t) => {
@@ -150,5 +157,5 @@ test('cloud save sync rejects absurd economy values', async (t) => {
       },
     }),
   });
-  assert.ok(validSave.status === 200 || validSave.status === 500, 'Valid save should be accepted or DB error');
+  assert.equal(validSave.status, 401, 'Cloud saves require an authenticated session');
 });

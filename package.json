@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build && node scripts/bundle-api.mjs",
     "build:api": "node scripts/bundle-api.mjs",
     "preview": "vite preview",
-    "test": "tsx --test server/admin.routes.test.ts server/economy.test.ts src/game/progression.test.ts src/game/progression.extra.test.ts src/game/save.test.ts src/game/save.validation.test.ts src/ui/adminMediaStudio.test.ts src/game/studioRuntime.test.ts src/game/creatorWaves.test.ts src/game/creatorVfx.test.ts"
+    "test": "tsx --test \"server/**/*.test.ts\" \"src/**/*.test.ts\""
   },
   "dependencies": {
     "cors": "^2.8.6",
