@@ -33,10 +33,13 @@ export class GameRenderer {
   private readonly composer: EffectComposer;
 
   constructor(canvas: HTMLCanvasElement) {
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    const isMobile = window.matchMedia('(max-width: 860px), (pointer: coarse)').matches;
+    const isLowMemory = typeof deviceMemory === 'number' && deviceMemory <= 4;
     this.renderer = new WebGLRenderer({
       canvas,
-      antialias: true,
-      powerPreference: 'high-performance',
+      antialias: !isMobile && !isLowMemory,
+      powerPreference: isMobile || isLowMemory ? 'low-power' : 'high-performance',
       alpha: false,
     });
     this.renderer.setClearColor(CLEAR, 1);
@@ -44,7 +47,7 @@ export class GameRenderer {
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = false;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile || isLowMemory ? 1 : 1.5));
 
     this.scene = new Scene();
     this.scene.background = CLEAR.clone();
@@ -74,6 +77,7 @@ export class GameRenderer {
       0.55,  // radius
       0.72,  // threshold — only very bright emissive bits glow
     );
+    bloom.enabled = !isMobile && !isLowMemory;
     this.composer.addPass(bloom);
     this.composer.addPass(new OutputPass());
 
