@@ -23,23 +23,26 @@ export function availableHeroPerks(level: number): HeroPerkDef[] {
   return HERO_PERKS.filter((perk) => level >= perk.unlockLevel);
 }
 
+/** Auto-rank projection from hero level (unlock pacing / UI). Combat uses spent ranks instead. */
 export function heroPerkRank(level: number, perk: HeroPerkDef): number {
   if (level < perk.unlockLevel) return 0;
   const steps = Math.floor((level - perk.unlockLevel) / 10) + 1;
   return Math.max(1, Math.min(perk.maxRank, steps));
 }
 
-export function heroPerkMultiplier(id: HeroPerkId, level: number): number {
-  const perk = HERO_PERKS.find((p) => p.id === id);
-  if (!perk) return 1;
-  const rank = heroPerkRank(level, perk);
-  if (rank <= 0) return 1;
+/**
+ * Combat multiplier from an explicit perk rank.
+ * Rank 0 stays neutral (1× / no tower leak reduction).
+ */
+export function heroPerkMultiplier(id: HeroPerkId, rank: number): number {
+  const safeRank = Math.max(0, Math.floor(Number(rank) || 0));
+  if (safeRank <= 0) return 1;
   switch (id) {
-    case 'combo': return 1 + rank * 0.08;
-    case 'juice': return 1 + rank * 0.10;
-    case 'tower': return Math.max(0.7, 1 - rank * 0.10);
-    case 'critical': return 1 + rank * 0.06;
-    case 'survival': return 1 + rank * 0.12;
+    case 'combo': return 1 + safeRank * 0.08;
+    case 'juice': return 1 + safeRank * 0.10;
+    case 'tower': return Math.max(0.7, 1 - safeRank * 0.10);
+    case 'critical': return 1 + safeRank * 0.06;
+    case 'survival': return 1 + safeRank * 0.12;
   }
 }
 

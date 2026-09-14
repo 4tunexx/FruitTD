@@ -62,7 +62,7 @@ export const MODE_INFO: ModeRules[] = [
   {
     id: 'coop',
     name: 'Co-op',
-    blurb: 'Shared wall. A guest slicer helps. Steam drop-in later.',
+    blurb: 'Guest assist on a shared wall (local helper — online drop-in later).',
     lives: 20,
     startMoney: 200,
     yellow: 14,
