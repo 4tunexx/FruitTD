@@ -176,10 +176,15 @@
           </div>
 
           <!-- Wave progress bar -->
-          <div id="hud-wave-prog" class="hidden">
-            <p class="stat-label">Wave progress</p>
-            <div id="wave-prog-track">
-              <div id="hud-wave-prog-fill"></div>
+          <div style="position: relative;">
+            <button id="wave-toggle" class="hud-toggle-btn" style="right: auto; left: -2.5rem;" title="Toggle wave progress">🌊</button>
+            <div id="wave-panel" class="collapsible-panel">
+              <div id="hud-wave-prog" class="hidden">
+                <p class="stat-label">Wave progress</p>
+                <div id="wave-prog-track">
+                  <div id="hud-wave-prog-fill"></div>
+                </div>
+              </div>
             </div>
           </div>
 
