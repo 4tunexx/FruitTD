@@ -32,6 +32,7 @@ import type { GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
 import { navigation } from './game/navigation';
+import { heroPerkMultiplier } from './game/heroProgression';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const startBtn = document.getElementById('btn-start')!;
@@ -299,7 +300,8 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
-  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul));
+  const juiceHunterMul = heroPerkMultiplier('juice', state.heroLevel);
+  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul));
   bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   
   const enemy = enemyRule(fruit.enemyKind);
@@ -509,9 +511,14 @@ function resolveSlash(slash: Slash): void {
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
   const slicerFx = equippedSlicer();
+  const critChance = state.heroLevel >= 50 ? (heroPerkMultiplier('critical', state.heroLevel) - 1) * 0.15 : 0;
+  const isCrit = Math.random() < critChance;
+  const lastStandMul = state.lives <= Math.ceil(state.maxLives * 0.25) ? heroPerkMultiplier('survival', state.heroLevel) : 1;
   const dmg =
     (heroSlashDamage(state.hero, state.heroLevel, state.combo, slash.charge, pointer) + save.skills.edge * 4) *
-    (slicerFx?.damageMul ?? 1);
+    (slicerFx?.damageMul ?? 1) *
+    (isCrit ? 1.8 : 1) *
+    lastStandMul;
   const brittleBonus = slicerFx?.brittleBonus ?? 0;
   let hits = 0;
   const swipe = new Vector3().subVectors(slash.to, slash.from);
@@ -576,7 +583,8 @@ function resolveSlash(slash: Slash): void {
 
   if (hits > 0) {
     state.combo = state.hero === 'jiju' ? state.combo + hits : Math.max(1, state.combo) + hits;
-    state.comboTimer = 1.35;
+    const comboEngineMul = heroPerkMultiplier('combo', state.heroLevel);
+    state.comboTimer = 1.35 * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
     renderer.impulseShake(hero.shake * (1 + Math.min(0.8, slash.charge)));
@@ -794,7 +802,8 @@ function simulate(dt: number): void {
   fruits.update(dt, state, (fruit) => {
     const enemy = enemyRule(fruit.enemyKind);
     const baseCost = leakCost(state, fruit.kind, fruit.boss);
-    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak);
+    const towerGuardianMul = heroPerkMultiplier('tower', state.heroLevel);
+    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
     state.lives -= leakDamage;
     resetCombo('leak');
     sessionLeaks += 1;
