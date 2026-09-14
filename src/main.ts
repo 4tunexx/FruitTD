@@ -87,7 +87,7 @@ function emit(event: GameEvent): void {
   });
 }
 
-function resetCombo(reason?: string): void {
+function resetCombo(_reason?: string): void {
   state.combo = 0;
   state.comboTimer = 0;
 }
