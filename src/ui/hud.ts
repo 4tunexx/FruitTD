@@ -1,5 +1,5 @@
 import type { JuiceBank } from '../game/juice';
-import { HEROES, heroDef, xpForNext, type HeroId } from '../game/heroes';
+import { HEROES, MAX_HERO_LEVEL, heroDef, xpForNext, type HeroId } from '../game/heroes';
 import { HERO_PERKS } from '../game/heroProgression';
 import { getAvailableHeroPerkPoints, upgradeHeroPerk } from '../game/heroPerkSave';
 import { MODE_INFO, modeRules } from '../game/modes';
@@ -428,7 +428,7 @@ export class Hud {
       btn.type = 'button';
       btn.dataset.hero = hero.id;
       btn.className = 'hero-btn';
-      btn.innerHTML = `<p class="text-sm font-black">${hero.name}</p><p class="text-[11px] text-zinc-400">${hero.title} · Lv ${lv}/5 · ${xp} XP</p>`;
+      btn.innerHTML = `<p class="text-sm font-black">${hero.name}</p><p class="text-[11px] text-zinc-400">${hero.title} · Lv ${lv}/${MAX_HERO_LEVEL} · ${xp} XP</p>`;
       btn.addEventListener('click', () => this.onHero?.(hero.id));
       this.heroPick.appendChild(btn);
     }
@@ -683,7 +683,7 @@ export class Hud {
     this.points.textContent = points > 0 ? `✨ ${points} skill point${points !== 1 ? 's' : ''} available` : '';
     const hero = heroDef(state.hero);
     const next = xpForNext(state.heroLevel);
-    this.hero.textContent = `${hero.name}  ·  Lv ${state.heroLevel}/5  ·  XP ${state.heroXp}/${next}`;
+    this.hero.textContent = `${hero.name}  ·  Lv ${state.heroLevel}/${MAX_HERO_LEVEL}  ·  XP ${state.heroXp}/${next}`;
     this.hpFill.style.width = `${Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100)}%`;
     if (state.combo >= 1) {
       this.combo.textContent = `× ${state.combo} COMBO`;
