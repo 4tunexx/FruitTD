@@ -729,7 +729,7 @@
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
               <button class="admin-tab-btn" data-tab="ranks">Monthly Ranks</button>
               <button class="admin-tab-btn" data-tab="slicers">Slicers</button>
-              <button class="admin-tab-btn" data-tab="sprites">Sprites</button>
+              <button class="admin-tab-btn" data-tab="sprites">Sprites / Studio</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
               <button class="admin-tab-btn" data-tab="economy">Game Economy</button>
               <button class="admin-tab-btn" data-tab="content">Content (Fruits/Enemies/Waves)</button>
@@ -787,9 +787,106 @@
               <div id="admin-slicers-list" class="admin-catalog-list"></div>
             </div>
 
+
             <!-- Sprites Tab -->
             <div id="admin-tab-sprites" class="admin-panel-tab hidden">
               <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <!-- Admin Media Studio (v1) -->
+                <section id="admin-media-studio" class="admin-media-studio">
+                  <div class="studio-header">
+                    <div>
+                      <h3 class="studio-title">Media Studio</h3>
+                      <p class="studio-sub">Sprite sheet editor + sound bank. Clips save to localStorage only — runtime mesh wiring is a follow-up PR. Sheets can be large; browsers often cap localStorage around ~5MB.</p>
+                    </div>
+                    <span id="studio-status" class="studio-status">Ready</span>
+                  </div>
+
+                  <div class="studio-grid">
+                    <div class="studio-panel studio-panel--sheet">
+                      <div class="studio-toolbar">
+                        <label class="studio-label">Target entity
+                          <select id="studio-entity" class="studio-input"></select>
+                        </label>
+                        <label class="studio-btn studio-btn--file">Upload sheet (PNG)
+                          <input id="studio-sheet-upload" type="file" accept="image/png,image/*" hidden />
+                        </label>
+                        <button type="button" id="studio-save" class="studio-btn studio-btn--accent">Save</button>
+                        <button type="button" id="studio-export-frame" class="studio-btn">Export frame PNG</button>
+                        <button type="button" id="studio-clear-entity" class="studio-btn studio-btn--danger">Clear entity</button>
+                      </div>
+                      <div class="studio-toolbar studio-toolbar--grid">
+                        <label class="studio-label">Cols <input id="studio-cols" class="studio-input studio-input--num" type="number" min="1" max="64" value="4" /></label>
+                        <label class="studio-label">Rows <input id="studio-rows" class="studio-input studio-input--num" type="number" min="1" max="64" value="4" /></label>
+                        <label class="studio-label">Frame W <input id="studio-frame-w" class="studio-input studio-input--num" type="number" min="0" placeholder="auto" /></label>
+                        <label class="studio-label">Frame H <input id="studio-frame-h" class="studio-input studio-input--num" type="number" min="0" placeholder="auto" /></label>
+                        <span id="studio-sheet-info" class="studio-sheet-info">No sheet</span>
+                      </div>
+                      <canvas id="studio-sheet-canvas" class="studio-sheet-canvas" width="640" height="220"></canvas>
+                    </div>
+
+                    <div class="studio-panel studio-panel--preview">
+                      <h4 class="studio-section-label">Preview</h4>
+                      <canvas id="studio-preview-canvas" class="studio-preview-canvas" width="160" height="160"></canvas>
+                      <div class="studio-btn-row">
+                        <button type="button" class="studio-btn is-on" data-studio-state="idle">Idle</button>
+                        <button type="button" class="studio-btn" data-studio-state="walk">Walk</button>
+                        <button type="button" class="studio-btn" data-studio-state="run">Run</button>
+                        <button type="button" class="studio-btn" data-studio-state="hit">Hit</button>
+                        <button type="button" class="studio-btn" data-studio-state="death">Death</button>
+                      </div>
+                      <div class="studio-btn-row">
+                        <button type="button" class="studio-btn is-on" data-studio-dir="down">↓ D</button>
+                        <button type="button" class="studio-btn" data-studio-dir="left">← L</button>
+                        <button type="button" class="studio-btn" data-studio-dir="right">→ R</button>
+                        <button type="button" class="studio-btn" data-studio-dir="up">↑ U</button>
+                      </div>
+                      <div class="studio-toolbar">
+                        <label class="studio-label">FPS <input id="studio-fps" class="studio-input studio-input--num" type="range" min="1" max="24" value="8" /></label>
+                        <span id="studio-fps-label" class="studio-sheet-info">8 FPS</span>
+                        <button type="button" id="studio-play" class="studio-btn studio-btn--accent">Play</button>
+                        <button type="button" id="studio-stop" class="studio-btn">Stop</button>
+                      </div>
+
+                      <h4 class="studio-section-label">Animation clip</h4>
+                      <div class="studio-toolbar">
+                        <label class="studio-label">State
+                          <select id="studio-clip-state" class="studio-input">
+                            <option value="idle">idle</option>
+                            <option value="walk" selected>walk</option>
+                            <option value="run">run</option>
+                            <option value="hit">hit</option>
+                            <option value="death">death</option>
+                          </select>
+                        </label>
+                        <label class="studio-label">Dir
+                          <select id="studio-clip-dir" class="studio-input">
+                            <option value="down" selected>down</option>
+                            <option value="left">left</option>
+                            <option value="right">right</option>
+                            <option value="up">up</option>
+                          </select>
+                        </label>
+                        <span class="studio-clip-key">key: <code id="studio-clip-key">walk_down</code></span>
+                      </div>
+                      <div class="studio-toolbar">
+                        <label class="studio-label">Start <input id="studio-clip-start" class="studio-input studio-input--num" type="number" min="0" value="0" /></label>
+                        <label class="studio-label">Count <input id="studio-clip-count" class="studio-input studio-input--num" type="number" min="1" value="1" /></label>
+                        <button type="button" id="studio-use-selected-start" class="studio-btn">Use selected cell</button>
+                        <button type="button" id="studio-apply-clip" class="studio-btn studio-btn--accent">Apply clip</button>
+                      </div>
+                      <p class="studio-hint">Walk/run store as walk_down, walk_left, … Hit/Death/Idle are directionless keys. Click a grid cell to select a frame.</p>
+                    </div>
+                  </div>
+
+                  <div class="studio-panel studio-panel--sfx">
+                    <h4 class="studio-section-label">Sound Bank</h4>
+                    <p class="studio-hint">Preview shipped /Sound files or upload local replacements (dataURL in localStorage). Not wired into live Sfx runtime yet.</p>
+                    <div id="studio-sound-list" class="studio-sound-list"></div>
+                  </div>
+                </section>
+
+                <hr class="studio-divider" />
+
                 <div class="admin-sprite-upload-section">
                   <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-bottom: 0.5rem;">Enemy Sprites</h3>
                   <p class="text-xs text-slate-400" style="margin-bottom: 0.75rem;">Upload PNG sprites for enemy types. Recommended: 128x128 transparent PNG. Stores locally.</p>

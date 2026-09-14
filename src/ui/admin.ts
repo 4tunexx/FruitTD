@@ -25,8 +25,9 @@ import {
   renderSlicerEditor,
 } from './adminCatalog';
 import { installSpriteUploads } from './adminSprites';
+import { installMediaStudio } from './adminMediaStudio';
 
-type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'content' | 'leaderboard';
+type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -63,6 +64,7 @@ export class AdminController {
     await this.loadConfig();
     this.renderActiveTab();
     installSpriteUploads();
+    installMediaStudio();
   }
 
   close(): void {
@@ -203,6 +205,8 @@ export class AdminController {
       this.activeTab === 'slicers'
     ) {
       this.renderCatalogEditors();
+    } else if (this.activeTab === 'sprites' || this.activeTab === 'studio') {
+      installMediaStudio();
     } else if (this.activeTab === 'branding') {
       this.renderBrandingEditor();
     } else if (this.activeTab === 'economy') {
