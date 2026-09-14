@@ -15,6 +15,8 @@ import type { JuiceBank, JuiceSystem } from './juice';
 import { TurretRig, canPlaceTurret, sellRefund, turretRange, type TurretHit, type TurretKind } from './turrets';
 import { ARENA_W, EXTRA_Z, MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, towerStats } from './world';
 import { getAdminTexture } from './adminTextureLoader';
+import { getTowerXpState } from './towerProgression';
+import { getTowerMilestoneBonuses } from './towerMilestones';
 import type { HeroId } from './heroes';
 
 export interface Slot {
@@ -349,7 +351,8 @@ export class WallBase {
         }
       }
       if (!best || slot.cooldown > 0) continue;
-      slot.cooldown = 1 / stats.fireRate;
+      const fireMul = getTowerMilestoneBonuses(getTowerXpState().level).defenceFireRateMultiplier;
+      slot.cooldown = 1 / (stats.fireRate * fireMul);
       if (slot.head) slot.head.lookAt(best.group.position);
       this.spawnShot(slot.x, slot.z, best.group.position, 0xf4d35e);
       onHit({ fruit: best, damage: stats.damage });

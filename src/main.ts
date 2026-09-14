@@ -14,7 +14,7 @@ import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
 import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
-import { addScore, chargeSuper, createState, leakCost, resetState, toast } from './game/state';
+import { addScore, awardPerfectWave, chargeSuper, createState, leakCost, resetState, toast } from './game/state';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { BladeTrail } from './game/trail';
@@ -31,8 +31,10 @@ import { getCachedSteamState } from './services/steam';
 import type { GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
+import { getTowerMilestoneBonuses } from './game/towerMilestones';
 import { navigation } from './game/navigation';
-import { heroPerkMultiplier } from './game/heroProgression';
+import { heroCombatPerkMultiplier } from './game/heroPerkSave';
+import { vipTierPrice, vipTierPurchaseCoins, vipXpMultiplier } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -247,10 +249,9 @@ function sellItem(id: string): void {
 
 // P1-2: VIP Purchase System
 function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
-  const vipCosts = { bronze: 100, silver: 250, gold: 500 };
-  const cost = vipCosts[tier];
+  const cost = vipTierPrice(tier);
   const currentStatus = save.vipStatus || 'none';
-  
+
   // Check if already have this tier or higher
   const tiers = ['none', 'bronze', 'silver', 'gold'];
   const currentTier = tiers.indexOf(currentStatus);
@@ -260,23 +261,23 @@ function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
     sfx.denied();
     return;
   }
-  
-  // Check gems
+
+  // Check gems (live admin VIP price when available)
   if ((save.gems || 0) < cost) {
     toast(state, `Not enough gems! Need ${cost} 💎`, 2);
     sfx.denied();
     return;
   }
-  
+
   // Purchase!
   save.gems! -= cost;
   save.vipStatus = tier;
-  
-  // Apply VIP rewards (coins bonus)
-  const rewards = { bronze: 1000, silver: 2500, gold: 5000 };
-  save.coins += rewards[tier];
-  
-  toast(state, `${tier.toUpperCase()} VIP Unlocked! +${rewards[tier]} coins`, 3);
+
+  // Flat coin grant on purchase (schema has % bonuses, not purchase coins)
+  const coins = vipTierPurchaseCoins(tier);
+  save.coins += coins;
+
+  toast(state, `${tier.toUpperCase()} VIP Unlocked! +${coins} coins`, 3);
   sfx.place();
   persist();
   hud.mountShop(save);
@@ -330,7 +331,8 @@ function selectHero(id: HeroId): void {
 }
 
 function grantHeroXp(n: number): void {
-  state.heroXp += n;
+  const amount = Math.max(0, Math.round(n * vipXpMultiplier()));
+  state.heroXp += amount;
   const next = heroXpToLevel(state.heroXp);
   if (next > state.heroLevel) {
     const gained = next - state.heroLevel;
@@ -348,8 +350,9 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
-  const juiceHunterMul = heroPerkMultiplier('juice', state.heroLevel);
-  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul));
+  const juiceHunterMul = heroCombatPerkMultiplier(state.hero, 'juice');
+  const towerJuiceMul = getTowerMilestoneBonuses(getTowerXpState().level).juiceGainMultiplier;
+  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul * towerJuiceMul));
   bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   
   const enemy = enemyRule(fruit.enemyKind);
@@ -560,9 +563,9 @@ function resolveSlash(slash: Slash): void {
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
   const slicerFx = equippedSlicer();
-  const critChance = state.heroLevel >= 50 ? (heroPerkMultiplier('critical', state.heroLevel) - 1) * 0.15 : 0;
+  const critChance = (heroCombatPerkMultiplier(state.hero, 'critical') - 1) * 0.15;
   const isCrit = Math.random() < critChance;
-  const lastStandMul = state.lives <= Math.ceil(state.maxLives * 0.25) ? heroPerkMultiplier('survival', state.heroLevel) : 1;
+  const lastStandMul = state.lives <= Math.ceil(state.maxLives * 0.25) ? heroCombatPerkMultiplier(state.hero, 'survival') : 1;
   const dmg =
     (heroSlashDamage(state.hero, state.heroLevel, state.combo, slash.charge, pointer) + save.skills.edge * 4) *
     (slicerFx?.damageMul ?? 1) *
@@ -646,7 +649,7 @@ function resolveSlash(slash: Slash): void {
 
   if (hits > 0) {
     state.combo = state.hero === 'jiju' ? state.combo + hits : Math.max(1, state.combo) + hits;
-    const comboEngineMul = heroPerkMultiplier('combo', state.heroLevel);
+    const comboEngineMul = heroCombatPerkMultiplier(state.hero, 'combo');
     state.comboTimer = 1.35 * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
@@ -919,7 +922,13 @@ function simulate(dt: number): void {
     const totalWavesInLevel = wavesPerLevel(state.level);
     const completedWavesInLevel = ((state.wave - 1) % totalWavesInLevel) + 1;
     const wasBoss = fruits.fruits.some(f => !f.alive && f.boss);
-    
+
+    // Perfect wave: every fruit killed (no leaks that wave)
+    const perfectReward = awardPerfectWave(state);
+    if (perfectReward > 0) {
+      toast(state, `Perfect wave! +${perfectReward}`, 1.4);
+    }
+
     state.wave += 1;
     const rules = modeRules(state.mode);
     state.currency += Math.round((22 + state.wave * 6) * rules.currencyMul);
@@ -945,7 +954,7 @@ function simulate(dt: number): void {
   fruits.update(dt, state, (fruit) => {
     const enemy = enemyRule(fruit.enemyKind);
     const baseCost = leakCost(state, fruit.kind, fruit.boss);
-    const towerGuardianMul = heroPerkMultiplier('tower', state.heroLevel);
+    const towerGuardianMul = heroCombatPerkMultiplier(state.hero, 'tower');
     const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
     state.lives -= leakDamage;
     resetCombo('leak');

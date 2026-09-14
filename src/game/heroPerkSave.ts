@@ -1,6 +1,6 @@
 import type { HeroId } from './heroes';
 import { heroXpToLevel } from './heroes';
-import { HERO_PERKS, type HeroPerkId } from './heroProgression';
+import { HERO_PERKS, heroPerkMultiplier, type HeroPerkId } from './heroProgression';
 import { loadSave, writeSave, type HeroPerkRanks } from './save';
 
 export function loadHeroPerks(): HeroPerkRanks {
@@ -10,6 +10,11 @@ export function loadHeroPerks(): HeroPerkRanks {
 
 export function heroPerkRank(hero: HeroId, perk: HeroPerkId): number {
   return Number(loadHeroPerks()[hero]?.[perk]) || 0;
+}
+
+/** Combat multiplier from the player's spent perk ranks for this hero. */
+export function heroCombatPerkMultiplier(hero: HeroId, perk: HeroPerkId): number {
+  return heroPerkMultiplier(perk, heroPerkRank(hero, perk));
 }
 
 export function canUpgradeHeroPerk(hero: HeroId, perk: HeroPerkId, heroXp: number, availablePoints: number): boolean {
