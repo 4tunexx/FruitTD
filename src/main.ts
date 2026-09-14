@@ -42,6 +42,7 @@ import {
   fireStudioEvent,
   setStudioFxCallbacks,
 } from './game/studioRuntime';
+import { fireCreatorSlicerVfx, setCreatorVfxCallbacks } from './game/creatorVfx';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -100,6 +101,17 @@ setStudioFxCallbacks({
     const swipe = new Vector3(0.2, 0.6, -0.15);
     const mul = preset === 'dark-pulse' ? 0.45 : preset === 'spark' ? 0.55 : 0.85;
     juice.burst(x, y, z, 'lemon', swipe, mul);
+  },
+});
+
+setCreatorVfxCallbacks({
+  shake: (amount) => renderer.impulseShake(amount),
+  juiceBurst: (x, y, z, _colorHex, intensity) => {
+    const swipe = new Vector3(0.25, 0.55, -0.1);
+    juice.burst(x, y, z, 'lemon', swipe, Math.max(0.35, intensity));
+  },
+  slashArc: (x, z, colorHex) => {
+    slashFx.spawn(x, z, colorHex);
   },
 });
 
@@ -370,6 +382,15 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
+  try {
+    fireCreatorSlicerVfx(equippedSlicer()?.id, 'onKill', {
+      x: fruit.group.position.x,
+      y: fruit.group.position.y,
+      z: fruit.group.position.z,
+    });
+  } catch {
+    /* Creator VFX must never break combat */
+  }
   const juiceHunterMul = heroCombatPerkMultiplier(state.hero, 'juice');
   const towerJuiceMul = getTowerMilestoneBonuses(getTowerXpState().level).juiceGainMultiplier;
   const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul * towerJuiceMul));
@@ -604,7 +625,18 @@ function resolveSlash(slash: Slash): void {
       if (!fruit.alive) continue;
       if (!segmentHitsFruit(line.from, line.to, fruit, radius).hit) continue;
       hits += 1;
-      slashFx.spawn(fruit.group.position.x, fruit.group.position.z, hexToNumber(slicerFx?.color || '', hero.trail));
+      const hitPos = {
+        x: fruit.group.position.x,
+        y: fruit.group.position.y,
+        z: fruit.group.position.z,
+      };
+      slashFx.spawn(hitPos.x, hitPos.z, hexToNumber(slicerFx?.color || '', hero.trail));
+      try {
+        fireCreatorSlicerVfx(slicerFx?.id, 'onSlash', hitPos);
+        if (isCrit) fireCreatorSlicerVfx(slicerFx?.id, 'onCrit', hitPos);
+      } catch {
+        /* Creator VFX must never break combat */
+      }
       if (fruit.kind === 'bomb') {
         if (line.speed > 8 || state.hero === 'ki') {
           sfx.bombParry();

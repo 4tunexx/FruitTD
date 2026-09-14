@@ -27,6 +27,7 @@ import {
 import { installSpriteUploads } from './adminSprites';
 import { installMediaStudio } from './adminMediaStudio';
 import { installCreatorWaveBoard } from './creatorWaveBoard';
+import { installCreatorSlicerVfx } from './creatorSlicerVfx';
 
 type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
@@ -67,6 +68,7 @@ export class AdminController {
     installSpriteUploads();
     installMediaStudio();
     installCreatorWaveBoard();
+    installCreatorSlicerVfx();
   }
 
   close(): void {
