@@ -15,6 +15,18 @@ export const ADMIN_STEAM_ID = '76561198001993310';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
 
+export interface VipTierRewards {
+  tier: 'bronze' | 'silver' | 'gold';
+  title: string;
+  price: number;
+  coinBonus: number;
+  xpBonus: number;
+  dailyCoins: number;
+  dailySp: number;
+  exclusiveSkins: string[];
+  description: string;
+}
+
 export interface AdminDailyReward {
   day: number;
   coins: number;
@@ -27,6 +39,7 @@ export interface AdminDailyReward {
 export interface AdminConfig {
   configKey: string;
   dailyRewards: AdminDailyReward[];
+  vipTiers: VipTierRewards[];
   menuConfig: {
     eyebrow: string;
     title: string;
@@ -58,6 +71,11 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     { day: 6, coins: 450, skillPoints: 0, label: '450 Coins', iconType: 'chest' },
     { day: 7, coins: 1000, skillPoints: 2, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade!', iconType: 'blade' },
   ],
+  vipTiers: [
+    { tier: 'bronze', title: 'Bronze VIP', price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: '+10% coins, +5% XP, 25 daily coins' },
+    { tier: 'silver', title: 'Silver VIP', price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ['blade-silver-vip'], description: '+25% coins, +15% XP, 75 daily coins + 1 SP' },
+    { tier: 'gold', title: 'Gold VIP', price: 5000, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ['blade-gold-vip', 'wall-gold-vip'], description: '+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins' },
+  ],
   menuConfig: {
     eyebrow: 'FRUIT TD · LIVE ONLINE',
     title: 'Slice.\nHold the Wall.',
@@ -84,6 +102,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     ...DEFAULT_ADMIN_CONFIG,
     ...src,
     dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG.dailyRewards,
+    vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...(src.menuConfig || {}) },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...(src.gameplayConfig || {}) },
     missions: structuredClone(Array.isArray(src.missions) && src.missions.length ? src.missions : DEFAULT_ADMIN_CONFIG.missions),

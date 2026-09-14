@@ -617,6 +617,7 @@
             <!-- Admin Tabs Navigation -->
             <div class="admin-tabs-nav">
               <button class="admin-tab-btn is-active" data-tab="daily">Daily Rewards</button>
+              <button class="admin-tab-btn" data-tab="vip">VIP Tiers</button>
               <button class="admin-tab-btn" data-tab="missions">Missions</button>
               <button class="admin-tab-btn" data-tab="achievements">Achievements</button>
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
@@ -637,6 +638,12 @@
                   ⚡ Reset My Streak (Test Claiming Immediately)
                 </button>
               </div>
+            </div>
+
+            <!-- Tab 2: VIP Tiers -->
+            <div id="admin-tab-vip" class="admin-panel-tab hidden">
+              <p class="text-xs text-slate-400 mb-3">Edit VIP tier rewards for Bronze, Silver, and Gold memberships. Price is in coins. Bonuses are percentages.</p>
+              <div id="admin-vip-list" class="admin-daily-grid"></div>
             </div>
 
             <div id="admin-tab-missions" class="admin-panel-tab hidden">
