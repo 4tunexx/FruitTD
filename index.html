@@ -982,6 +982,114 @@
                   </details>
                 </section>
 
+                <hr class="studio-divider" />
+
+                <!-- Creator Slicer + VFX -->
+                <section id="creator-slicer-vfx" class="admin-media-studio creator-hub creator-slicer-vfx">
+                  <div class="studio-header">
+                    <div>
+                      <h3 class="studio-title">Slicer Pack + VFX Library</h3>
+                      <p class="studio-sub">Author blade look overrides and bind named VFX presets to slash / crit / kill. Draft: <code>fruittd-creator-vfx-v1</code>. Publish merges color/damage/juice/brittle into live admin <code>slicers</code>.</p>
+                    </div>
+                    <span id="creator-svfx-status" class="studio-status">Ready</span>
+                  </div>
+
+                  <div class="svfx-layout">
+                    <aside class="studio-panel studio-panel--rail">
+                      <h4 class="studio-section-label">Slicer pack</h4>
+                      <label class="studio-label">Slicer
+                        <select id="creator-svfx-slicer" class="studio-input"></select>
+                      </label>
+                      <p id="creator-svfx-slicer-meta" class="studio-sheet-info">—</p>
+                      <div id="creator-svfx-swatch" class="svfx-blade-swatch" aria-hidden="true"></div>
+                      <label class="studio-label">Trail / blade color
+                        <input id="creator-svfx-color" class="studio-input" type="color" value="#1d4ed8" />
+                      </label>
+                      <label class="studio-label">Glow color
+                        <input id="creator-svfx-glow" class="studio-input" type="color" value="#38bdf8" />
+                      </label>
+                      <label class="studio-label">Damage ×
+                        <input id="creator-svfx-dmg" class="studio-input studio-input--num" type="number" min="0.1" max="5" step="0.01" value="1" />
+                      </label>
+                      <label class="studio-label">Juice ×
+                        <input id="creator-svfx-juice" class="studio-input studio-input--num" type="number" min="0.1" max="5" step="0.01" value="1" />
+                      </label>
+                      <label class="studio-label">Brittle +s
+                        <input id="creator-svfx-brittle" class="studio-input studio-input--num" type="number" min="0" max="10" step="0.1" value="0" />
+                      </label>
+                      <div class="studio-toolbar" style="margin-top:0.45rem; flex-wrap:wrap;">
+                        <label class="studio-btn studio-btn--file studio-btn--sm">Blade icon
+                          <input id="creator-svfx-icon-upload" type="file" accept="image/png,image/*" hidden />
+                        </label>
+                        <label class="studio-btn studio-btn--file studio-btn--sm">Trail sheet
+                          <input id="creator-svfx-trail-upload" type="file" accept="image/png,image/*" hidden />
+                        </label>
+                      </div>
+                      <div class="svfx-upload-previews">
+                        <img id="creator-svfx-icon-preview" class="svfx-thumb hidden" alt="Blade icon" />
+                        <img id="creator-svfx-trail-preview" class="svfx-thumb hidden" alt="Trail sheet" />
+                      </div>
+                      <button type="button" id="creator-svfx-clear-slicer" class="studio-btn studio-btn--sm studio-btn--danger" style="margin-top:0.5rem;">Clear slicer overrides</button>
+                    </aside>
+
+                    <div class="studio-panel">
+                      <h4 class="studio-section-label">VFX library</h4>
+                      <p class="studio-hint">Named presets: juice-burst, spark, dark-pulse, slash-arc, screen-shake. Params: intensity, duration, color.</p>
+                      <div id="creator-svfx-preset-list" class="studio-entity-rail svfx-preset-rail"></div>
+                      <div class="studio-toolbar" style="margin-top:0.45rem;">
+                        <button type="button" id="creator-svfx-add-preset" class="studio-btn studio-btn--sm">+ Preset</button>
+                        <button type="button" id="creator-svfx-reset-presets" class="studio-btn studio-btn--sm studio-btn--danger">Reset defaults</button>
+                      </div>
+                      <div class="svfx-preset-fields">
+                        <label class="studio-label">Name
+                          <input id="creator-svfx-preset-name" class="studio-input" type="text" />
+                        </label>
+                        <label class="studio-label">Kind
+                          <select id="creator-svfx-preset-kind" class="studio-input"></select>
+                        </label>
+                        <label class="studio-label">Intensity
+                          <input id="creator-svfx-preset-intensity" class="studio-input studio-input--num" type="number" min="0" max="4" step="0.05" value="1" />
+                        </label>
+                        <label class="studio-label">Duration
+                          <input id="creator-svfx-preset-duration" class="studio-input studio-input--num" type="number" min="0.05" max="3" step="0.05" value="0.3" />
+                        </label>
+                        <label class="studio-label">Color
+                          <input id="creator-svfx-preset-color" class="studio-input" type="color" value="#f472b6" />
+                        </label>
+                      </div>
+
+                      <h4 class="studio-section-label" style="margin-top:0.75rem;">Bind to slicer events</h4>
+                      <div class="svfx-binds">
+                        <label class="studio-label">onSlash
+                          <select id="creator-svfx-bind-slash" class="studio-input"></select>
+                        </label>
+                        <label class="studio-label">onCrit
+                          <select id="creator-svfx-bind-crit" class="studio-input"></select>
+                        </label>
+                        <label class="studio-label">onKill
+                          <select id="creator-svfx-bind-kill" class="studio-input"></select>
+                        </label>
+                      </div>
+                      <div class="studio-toolbar" style="margin-top:0.65rem;">
+                        <button type="button" id="creator-svfx-save" class="studio-btn">Save draft</button>
+                        <button type="button" id="creator-svfx-publish" class="studio-btn studio-btn--accent">Publish slicers to live</button>
+                      </div>
+                    </div>
+
+                    <div class="studio-panel studio-panel--preview">
+                      <h4 class="studio-section-label">Sandbox preview</h4>
+                      <canvas id="creator-svfx-preview" class="studio-preview-canvas studio-preview-canvas--lg svfx-preview-canvas" width="240" height="240"></canvas>
+                      <div class="studio-btn-row">
+                        <button type="button" id="creator-svfx-sim-slash" class="studio-btn">Simulate Slash</button>
+                        <button type="button" id="creator-svfx-sim-crit" class="studio-btn">Simulate Crit</button>
+                        <button type="button" id="creator-svfx-sim-kill" class="studio-btn">Simulate Kill</button>
+                      </div>
+                      <p id="creator-svfx-event-log" class="studio-event-log">Hooks idle</p>
+                      <p class="studio-hint">Runtime reads binds from <code>fruittd-creator-vfx-v1</code> on slash resolve (shake / juice.burst / slashFx) without breaking combat.</p>
+                    </div>
+                  </div>
+                </section>
+
 
                 <div class="admin-sprite-upload-section">
                   <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-bottom: 0.5rem;">Enemy Sprites</h3>

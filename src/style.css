@@ -4114,3 +4114,83 @@ button:not(:disabled):active {
   color: #a3e635;
   margin-bottom: 0.35rem;
 }
+
+
+/* Creator Slicer + VFX */
+.creator-slicer-vfx {
+  margin-top: 0.5rem;
+}
+
+.svfx-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(260px, 1fr) minmax(220px, 260px);
+  gap: 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .svfx-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.svfx-blade-swatch {
+  height: 36px;
+  margin: 0.35rem 0 0.5rem;
+  border: 2px solid rgba(217, 249, 157, 0.45);
+  background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+}
+
+.svfx-preset-rail {
+  max-height: 180px;
+  overflow: auto;
+}
+
+.svfx-preset-rail .studio-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.svfx-preset-rail .studio-rail-item small {
+  display: block;
+  opacity: 0.65;
+  font-size: 0.65rem;
+}
+
+.svfx-swatch {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.svfx-preset-fields,
+.svfx-binds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.svfx-upload-previews {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.svfx-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border: 1px solid rgba(163, 230, 53, 0.4);
+  background: #0a1008;
+}
+
+.svfx-preview-canvas {
+  width: 100%;
+  max-width: 240px;
+  background: #0a1008;
+  border: 2px solid rgba(217, 249, 157, 0.35);
+}
