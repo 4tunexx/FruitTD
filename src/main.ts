@@ -186,17 +186,12 @@ function buySkin(id: string): void {
     save.coins -= cost;
     save.ownedSkins.push(id);
     emit({ type: 'skin_buy' });
+    // P0-3: Don't auto-equip on purchase - let user explicitly equip
+    persist();
+    sfx.place();
+  } else {
+    sfx.denied();
   }
-
-  if (slicer) {
-    save.bladeSkin = id;
-  } else if (wall) {
-    save.wallSkin = id;
-  }
-  applyEquippedBlade();
-  wallSkinApply();
-  persist();
-  sfx.place();
 }
 
 function equipItem(id: string): void {
@@ -643,6 +638,12 @@ function setPaused(on: boolean): void {
 }
 
 function quitToMenu(): void {
+  // P0-2: Confirm before leaving mid-match
+  if (navigation.isInGame() && state.running) {
+    const confirmed = confirm('Leave this match?\n\nYour progress will be lost.');
+    if (!confirmed) return;
+  }
+  
   persist();
   navigation.setState('DASHBOARD');
   state.running = false;

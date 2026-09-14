@@ -46,8 +46,8 @@ export class AdminController {
   checkAdminPrivileges(): void {
     const adminBtn = document.getElementById('btn-admin');
     if (adminBtn) {
-      // Always keep admin button available so the owner can access or enter PIN 1337
-      adminBtn.classList.remove('hidden');
+      // Admin button is only in dashboard, visibility managed by dashboard state
+      // No longer forcing visibility here
       if (isUserAdmin()) {
         adminBtn.classList.add('is-active-admin');
         adminBtn.title = `Admin Active (Steam ID: ${ADMIN_STEAM_ID})`;
