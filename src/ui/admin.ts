@@ -11,7 +11,7 @@ import {
   type AdminConfig,
 } from '../services/admin';
 import { getUserId } from '../services/api';
-import { setLiveConfig } from '../services/liveConfig';
+import { setLiveConfig, writeLocalBranding, applyMenuAppearance } from '../services/liveConfig';
 import {
   addAchievement,
   addBadge,
@@ -369,12 +369,110 @@ export class AdminController {
     const inSubtitle = document.getElementById('admin-in-subtitle') as HTMLInputElement | null;
     const inAnnouncement = document.getElementById('admin-in-announcement') as HTMLInputElement | null;
     const inTheme = document.getElementById('admin-in-theme') as HTMLInputElement | null;
+    const inBg = document.getElementById('admin-in-bg-image') as HTMLInputElement | null;
+    const inLogo = document.getElementById('admin-in-logo-image') as HTMLInputElement | null;
+    const inFavicon = document.getElementById('admin-in-favicon') as HTMLInputElement | null;
+    const uploadBg = document.getElementById('admin-upload-bg-image') as HTMLInputElement | null;
+    const uploadLogo = document.getElementById('admin-upload-logo-image') as HTMLInputElement | null;
+    const uploadFavicon = document.getElementById('admin-upload-favicon') as HTMLInputElement | null;
 
     if (inEyebrow) inEyebrow.value = menuConfig.eyebrow;
     if (inTitle) inTitle.value = menuConfig.title;
     if (inSubtitle) inSubtitle.value = menuConfig.subtitle;
     if (inAnnouncement) inAnnouncement.value = menuConfig.announcement;
     if (inTheme) inTheme.value = menuConfig.themeColor || '#a3e635';
+    if (inBg) inBg.value = menuConfig.backgroundImage || '';
+    if (inLogo) inLogo.value = menuConfig.logoImage || '';
+    if (inFavicon) inFavicon.value = menuConfig.faviconImage || '';
+    this.refreshBrandingPreview(
+      menuConfig.backgroundImage || '',
+      menuConfig.logoImage || '',
+      menuConfig.faviconImage || ''
+    );
+
+    type BrandField = 'backgroundImage' | 'logoImage' | 'faviconImage';
+    const urlInputs: Record<BrandField, HTMLInputElement | null> = {
+      backgroundImage: inBg,
+      logoImage: inLogo,
+      faviconImage: inFavicon,
+    };
+
+    const syncPreview = () => {
+      if (!this.config) return;
+      this.refreshBrandingPreview(
+        this.config.menuConfig.backgroundImage || '',
+        this.config.menuConfig.logoImage || '',
+        this.config.menuConfig.faviconImage || ''
+      );
+    };
+
+    const wireUpload = (input: HTMLInputElement | null, field: BrandField) => {
+      if (!input || input.dataset.wired === '1') return;
+      input.dataset.wired = '1';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file || !this.config) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result || '');
+          if (!dataUrl) return;
+          this.config!.menuConfig[field] = dataUrl;
+          const urlInput = urlInputs[field];
+          if (urlInput) urlInput.value = dataUrl.slice(0, 120) + (dataUrl.length > 120 ? '…' : '');
+          writeLocalBranding({ [field]: dataUrl });
+          applyMenuAppearance(this.config!);
+          syncPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+    wireUpload(uploadBg, 'backgroundImage');
+    wireUpload(uploadLogo, 'logoImage');
+    wireUpload(uploadFavicon, 'faviconImage');
+
+    const wireUrl = (input: HTMLInputElement | null, field: BrandField) => {
+      if (!input || input.dataset.wired === '1') return;
+      input.dataset.wired = '1';
+      input.addEventListener('change', () => {
+        if (!this.config) return;
+        const value = input.value.trim();
+        if (value.endsWith('…')) return; // truncated data-URL preview
+        this.config.menuConfig[field] = value;
+        writeLocalBranding({ [field]: value });
+        applyMenuAppearance(this.config);
+        syncPreview();
+      });
+    };
+    wireUrl(inBg, 'backgroundImage');
+    wireUrl(inLogo, 'logoImage');
+    wireUrl(inFavicon, 'faviconImage');
+  }
+
+  private refreshBrandingPreview(bg: string, logo: string, favicon = ''): void {
+    const preview = document.querySelector<HTMLElement>('[data-branding-preview]');
+    const logoImg = document.getElementById('admin-logo-preview') as HTMLImageElement | null;
+    const favImg = document.getElementById('admin-favicon-preview') as HTMLImageElement | null;
+    if (preview) {
+      preview.style.backgroundImage = bg ? `url("${bg.replace(/"/g, '\\"')}")` : '';
+    }
+    if (logoImg) {
+      if (logo) {
+        logoImg.src = logo;
+        logoImg.style.display = 'block';
+      } else {
+        logoImg.removeAttribute('src');
+        logoImg.style.display = 'none';
+      }
+    }
+    if (favImg) {
+      if (favicon) {
+        favImg.src = favicon;
+        favImg.style.display = 'block';
+      } else {
+        favImg.removeAttribute('src');
+        favImg.style.display = 'none';
+      }
+    }
   }
 
   private renderEconomyEditor(): void {
@@ -449,6 +547,25 @@ export class AdminController {
     if (inSubtitle) this.config.menuConfig.subtitle = inSubtitle.value;
     if (inAnnouncement) this.config.menuConfig.announcement = inAnnouncement.value;
     if (inTheme) this.config.menuConfig.themeColor = inTheme.value;
+
+    const inBg = document.getElementById('admin-in-bg-image') as HTMLInputElement | null;
+    const inLogo = document.getElementById('admin-in-logo-image') as HTMLInputElement | null;
+    const inFavicon = document.getElementById('admin-in-favicon') as HTMLInputElement | null;
+    // Prefer already-set data URLs from uploads; URL inputs only overwrite when they look like real URLs (not truncated preview).
+    if (inBg && inBg.value && !inBg.value.endsWith('…') && !inBg.value.startsWith('data:')) {
+      this.config.menuConfig.backgroundImage = inBg.value.trim();
+    }
+    if (inLogo && inLogo.value && !inLogo.value.endsWith('…') && !inLogo.value.startsWith('data:')) {
+      this.config.menuConfig.logoImage = inLogo.value.trim();
+    }
+    if (inFavicon && inFavicon.value && !inFavicon.value.endsWith('…') && !inFavicon.value.startsWith('data:')) {
+      this.config.menuConfig.faviconImage = inFavicon.value.trim();
+    }
+    writeLocalBranding({
+      backgroundImage: this.config.menuConfig.backgroundImage || '',
+      logoImage: this.config.menuConfig.logoImage || '',
+      faviconImage: this.config.menuConfig.faviconImage || '',
+    });
 
     const inMoney = document.getElementById('admin-in-money') as HTMLInputElement | null;
     const inLives = document.getElementById('admin-in-lives') as HTMLInputElement | null;

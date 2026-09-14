@@ -4200,11 +4200,17 @@ button:not(:disabled):active {
    FEEL POLISH · GLASS + LIQUID SUPER + MATCH
 ══════════════════════════════════════════════ */
 :root {
-  --glass-bg: rgba(12, 18, 14, 0.55);
-  --glass-bg-strong: rgba(8, 12, 10, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-bg: rgba(10, 14, 12, 0.62);
+  --glass-bg-strong: rgba(6, 10, 8, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.16);
   --glass-radius: 0.65rem;
-  --glass-blur: blur(18px) saturate(145%);
+  --glass-blur: blur(22px) saturate(160%);
+  --menu-bg-image: none;
+  --menu-logo-image: none;
+  --menu-favicon-image: none;
+  --parallax-x: 0px;
+  --parallax-y: 0px;
+  --parallax-zoom: 1;
 }
 
 .menu-blob {
@@ -4697,4 +4703,213 @@ button:not(:disabled):active {
 }
 @media (prefers-reduced-motion: reduce) {
   .inv-card--glass { animation: none; opacity: 1; transform: none; }
+}
+
+
+/* ═══════════════════════════════════════════
+   INVENTORY GRID + HERO LOADOUT
+══════════════════════════════════════════════ */
+.inventory-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  align-items: start;
+}
+@media (min-width: 720px) {
+  .inventory-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.7fr);
+  }
+}
+#skin-inventory.inv-grid,
+.inv-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.hero-loadout {
+  position: sticky;
+  top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-radius: var(--glass-radius);
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+    var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.hero-loadout__head h4 {
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ecfccb;
+}
+.hero-loadout__head p {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+.loadout-slot {
+  border-radius: 0.65rem;
+  border: 1px dashed rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.28);
+  padding: 0.7rem 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.loadout-slot.is-filled {
+  border-style: solid;
+  border-color: rgba(163, 230, 53, 0.4);
+  background: rgba(163, 230, 53, 0.08);
+}
+.loadout-slot.is-drop-target,
+.inventory-layout.is-dragging-item .loadout-slot {
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 0 24px rgba(56, 189, 248, 0.18);
+  transform: scale(1.02);
+}
+.loadout-slot__label {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 0.4rem;
+}
+.loadout-slot__card {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+.loadout-slot__empty {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #64748b;
+  padding: 0.55rem 0;
+}
+.loadout-slot__hint {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+.loadout-unequip {
+  margin-top: 0.55rem;
+  width: 100%;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(251, 113, 133, 0.4) !important;
+  background: rgba(251, 113, 133, 0.12) !important;
+  color: #ffe4e6 !important;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 0.4rem 0.65rem;
+}
+.inv-card--draggable {
+  cursor: grab;
+}
+.inv-card--draggable.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+.inv-card--glass .inv-unequip,
+.inv-card--glass .inv-equip {
+  min-width: 4.5rem;
+}
+
+/* Stronger dark glass on menus / modals / sidebar */
+#title-screen .bl-panel--title,
+#hud-start #menu-inner,
+.menu-page,
+.modal-card,
+#sidebar {
+  background-color: var(--glass-bg-strong) !important;
+}
+.modal-card,
+#sidebar,
+.menu-page .profile-section,
+.menu-page .profile-stat-card {
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
+/* ═══════════════════════════════════════════
+   MENU PARALLAX + BRANDING LAYERS
+══════════════════════════════════════════════ */
+.menu-parallax {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transform: translate3d(var(--parallax-x), var(--parallax-y), 0) scale(var(--parallax-zoom));
+  will-change: transform;
+}
+.menu-parallax__bg,
+.menu-parallax__mid,
+.menu-parallax__logo {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.menu-parallax__bg {
+  background-size: cover;
+  background-image: var(--menu-bg-image);
+  opacity: 0;
+  transform: translate3d(calc(var(--parallax-x) * -0.35), calc(var(--parallax-y) * -0.35), 0) scale(1.08);
+}
+.menu-parallax__bg.is-custom {
+  opacity: 0.45;
+  filter: blur(2px) saturate(120%);
+}
+.menu-parallax__mid {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(163,230,53,0.14), transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(56,189,248,0.12), transparent 50%);
+  transform: translate3d(calc(var(--parallax-x) * 0.55), calc(var(--parallax-y) * 0.55), 0);
+  opacity: 0.9;
+}
+.menu-parallax__logo {
+  background-image: var(--menu-logo-image);
+  background-size: contain;
+  width: min(42vw, 280px);
+  height: min(18vw, 96px);
+  left: 50%;
+  top: 8%;
+  right: auto;
+  bottom: auto;
+  margin-left: calc(min(42vw, 280px) / -2);
+  opacity: 0;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.45));
+  transform: translate3d(calc(var(--parallax-x) * 0.9), calc(var(--parallax-y) * 0.9), 0);
+}
+.menu-parallax__logo.is-visible { opacity: 0.92; }
+
+#title-screen,
+#hud-start {
+  --parallax-x: 0px;
+  --parallax-y: 0px;
+  --parallax-zoom: 1;
+}
+/* Blobs keep blobDrift keyframes; parallax is on .menu-parallax / .match-parallax layers. */
+
+.match-parallax {
+  position: absolute;
+  inset: -4%;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  transform: translate3d(calc(var(--parallax-x) * 0.35), calc(var(--parallax-y) * 0.35), 0) scale(var(--parallax-zoom));
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-parallax,
+  .match-parallax {
+    transform: none !important;
+  }
 }

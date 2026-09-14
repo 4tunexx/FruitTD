@@ -91,8 +91,14 @@ export function sanitiseSave(data: SaveData): SaveData {
   if (!['casual','ranked','coop','arena'].includes(data.mode)) data.mode = 'casual';
   if (!data.ownedSkins.includes('blade-default')) data.ownedSkins.push('blade-default');
   if (!data.ownedSkins.includes('wall-brick')) data.ownedSkins.push('wall-brick');
-  if (!data.ownedSkins.includes(data.bladeSkin)) data.bladeSkin = 'blade-default';
-  if (!data.ownedSkins.includes(data.wallSkin)) data.wallSkin = 'wall-brick';
+  // Unequipped slots use '' or 'none' — do not force starters back on.
+  data.bladeSkin = typeof data.bladeSkin === 'string' ? data.bladeSkin : '';
+  data.wallSkin = typeof data.wallSkin === 'string' ? data.wallSkin : '';
+  const unequipped = (id: string) => !id || id === 'none';
+  if (!unequipped(data.bladeSkin) && !data.ownedSkins.includes(data.bladeSkin)) data.bladeSkin = '';
+  if (!unequipped(data.wallSkin) && !data.ownedSkins.includes(data.wallSkin)) data.wallSkin = '';
+  if (data.bladeSkin === 'none') data.bladeSkin = '';
+  if (data.wallSkin === 'none') data.wallSkin = '';
   if (!data.vipStatus || !['none','bronze','silver','gold'].includes(data.vipStatus)) data.vipStatus = 'none';
   
   if (!data.heroPerkRanks || typeof data.heroPerkRanks !== 'object') data.heroPerkRanks = emptyPerkRanks();
