@@ -1,16 +1,22 @@
-export function installHudToggles(): void {
-  const juiceToggle = document.getElementById('juice-toggle');
-  const juicePanel = document.getElementById('juice-panel');
+function setupToggle(toggleId: string, panelId: string, storageKey: string): void {
+  const toggle = document.getElementById(toggleId);
+  const panel = document.getElementById(panelId);
   
-  if (juiceToggle && juicePanel) {
-    juiceToggle.addEventListener('click', () => {
-      juicePanel.classList.toggle('hidden');
-      const hidden = juicePanel.classList.contains('hidden');
-      localStorage.setItem('juice-panel-hidden', hidden ? '1' : '0');
+  if (toggle && panel) {
+    toggle.addEventListener('click', () => {
+      panel.classList.toggle('hidden');
+      const hidden = panel.classList.contains('hidden');
+      localStorage.setItem(storageKey, hidden ? '1' : '0');
     });
     
-    if (localStorage.getItem('juice-panel-hidden') === '1') {
-      juicePanel.classList.add('hidden');
+    if (localStorage.getItem(storageKey) === '1') {
+      panel.classList.add('hidden');
     }
   }
+}
+
+export function installHudToggles(): void {
+  setupToggle('juice-toggle', 'juice-panel', 'juice-panel-hidden');
+  setupToggle('hp-toggle', 'hp-panel', 'hp-panel-hidden');
+  setupToggle('wave-toggle', 'wave-panel', 'wave-panel-hidden');
 }

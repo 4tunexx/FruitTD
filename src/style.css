@@ -378,7 +378,21 @@ canvas {
 }
 
 /* HP bar */
-#hp-row { display: flex; flex-direction: column; gap: 0.3rem; }
+#hp-row { display: flex; flex-direction: column; gap: 0.3rem; position: relative; }
+
+#hp-panel {
+  transition: all 250ms ease;
+  overflow: hidden;
+  max-height: 100px;
+  opacity: 1;
+}
+
+#hp-panel.hidden {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+}
 
 #hp-track {
   height: 0.35rem;
@@ -403,6 +417,20 @@ canvas {
 }
 
 /* Wave progress */
+#wave-panel {
+  transition: all 250ms ease;
+  overflow: hidden;
+  max-height: 100px;
+  opacity: 1;
+}
+
+#wave-panel.hidden {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+}
+
 #hud-wave-prog { display: flex; flex-direction: column; gap: 0.3rem; }
 
 #wave-prog-track {
