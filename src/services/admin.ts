@@ -79,10 +79,10 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     { tier: 'gold', title: 'Gold VIP', price: 5000, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ['blade-gold-vip', 'wall-gold-vip'], description: '+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins' },
   ],
   menuConfig: {
-    eyebrow: 'FRUIT TD · LIVE ONLINE',
+    eyebrow: 'FRUIT TD · HOLD THE WALL',
     title: 'Slice.\nHold the Wall.',
-    subtitle: 'High-speed tower defense with fruit-slashing action.',
-    announcement: 'Welcome Slicers! Daily bonus is live. Climb the Global Leaderboard!',
+    subtitle: 'Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.',
+    announcement: 'WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.',
     themeColor: '#a3e635',
   },
   gameplayConfig: {
