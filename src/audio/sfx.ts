@@ -343,6 +343,30 @@ export class Sfx {
     this.play(this.pick(bank), opts);
   }
 
+  /** Play a Creator Hub / sound-bank slot by id (custom override or BANKS fallback). */
+  playStudioSlot(slotId: string, opts?: { volume?: number; rate?: number; interrupt?: boolean; ui?: boolean }): void {
+    if (!slotId) return;
+    const studioKey = `studio:${slotId}`;
+    if (this.buffers.has(studioKey)) {
+      this.play(studioKey, opts ?? { volume: 0.35 });
+      return;
+    }
+    const bankMap = BANKS as Record<string, string[]>;
+    const bank = bankMap[slotId];
+    if (bank) {
+      this.playBank(bank, opts ?? { volume: 0.35 });
+      return;
+    }
+    // One-shot filenames used by SOUND_BANK_SLOTS (gameStart, gameOver, critical, …).
+    const oneShots: Record<string, string> = {
+      gameStart: 'Game-start',
+      gameOver: 'Game-over',
+      critical: 'Critical',
+    };
+    const name = oneShots[slotId];
+    if (name) this.play(name, opts ?? { volume: 0.35 });
+  }
+
   startLoop(_id: string, _name: string, _volume = 0.55): void {}
 
   stopLoop(id: string, fade = 0.18): void {

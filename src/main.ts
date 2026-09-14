@@ -36,6 +36,7 @@ import { navigation } from './game/navigation';
 import { heroCombatPerkMultiplier } from './game/heroPerkSave';
 import { vipTierPrice, vipTierPurchaseCoins, vipXpMultiplier } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
+import { setStudioFxCallbacks } from './game/studioRuntime';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -86,6 +87,16 @@ state.mode = save.mode;
 combos.setPlayer(save.nickname, save.avatar);
 
 renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks, slashFx.group);
+
+setStudioFxCallbacks({
+  shake: (amount) => renderer.impulseShake(amount),
+  playSfxSlot: (slotId) => sfx.playStudioSlot(slotId, { volume: 0.38 }),
+  juiceBurst: (x, y, z, preset) => {
+    const swipe = new Vector3(0.2, 0.6, -0.15);
+    const mul = preset === 'dark-pulse' ? 0.45 : preset === 'spark' ? 0.55 : 0.85;
+    juice.burst(x, y, z, 'lemon', swipe, mul);
+  },
+});
 
 let guestCd = 1.6;
 let totalFruitsSliced = 0;

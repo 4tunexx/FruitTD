@@ -729,7 +729,7 @@
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
               <button class="admin-tab-btn" data-tab="ranks">Monthly Ranks</button>
               <button class="admin-tab-btn" data-tab="slicers">Slicers</button>
-              <button class="admin-tab-btn" data-tab="sprites">Sprites / Studio</button>
+              <button class="admin-tab-btn" data-tab="sprites">Creator</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
               <button class="admin-tab-btn" data-tab="economy">Game Economy</button>
               <button class="admin-tab-btn" data-tab="content">Content (Fruits/Enemies/Waves)</button>
@@ -791,27 +791,42 @@
             <!-- Sprites Tab -->
             <div id="admin-tab-sprites" class="admin-panel-tab hidden">
               <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                <!-- Admin Media Studio (v1) -->
-                <section id="admin-media-studio" class="admin-media-studio">
+                <!-- FruitTD Creator Hub v2 -->
+                <section id="admin-media-studio" class="admin-media-studio creator-hub">
                   <div class="studio-header">
                     <div>
-                      <h3 class="studio-title">Media Studio</h3>
-                      <p class="studio-sub">Sprite sheet editor + sound bank. Clips save to localStorage only — runtime mesh wiring is a follow-up PR. Sheets can be large; browsers often cap localStorage around ~5MB.</p>
+                      <h3 class="studio-title">FruitTD Creator Hub v2</h3>
+                      <p class="studio-sub">Author animations, event hooks, FX presets, and sounds in-panel. Saves to <code>fruittd-creator-v2</code> (reads legacy <code>admin-media-studio-v1</code>). Sheets/packs can be large — browsers often cap localStorage around ~5MB.</p>
                     </div>
                     <span id="studio-status" class="studio-status">Ready</span>
                   </div>
 
-                  <div class="studio-grid">
+                  <div class="creator-layout">
+                    <aside class="studio-panel studio-panel--rail">
+                      <h4 class="studio-section-label">Entity Pack</h4>
+                      <div id="studio-entity-rail" class="studio-entity-rail"></div>
+                      <div class="studio-toolbar" style="margin-top:0.5rem;">
+                        <button type="button" id="studio-duplicate" class="studio-btn studio-btn--sm">Duplicate entity</button>
+                      </div>
+                      <label class="studio-label">Rename label
+                        <input id="studio-entity-label" class="studio-input" type="text" placeholder="Display name" />
+                      </label>
+                      <label class="studio-label" style="margin-top:0.4rem;">Target key
+                        <select id="studio-entity" class="studio-input"></select>
+                      </label>
+                    </aside>
+
                     <div class="studio-panel studio-panel--sheet">
                       <div class="studio-toolbar">
-                        <label class="studio-label">Target entity
-                          <select id="studio-entity" class="studio-input"></select>
-                        </label>
                         <label class="studio-btn studio-btn--file">Upload sheet (PNG)
                           <input id="studio-sheet-upload" type="file" accept="image/png,image/*" hidden />
                         </label>
                         <button type="button" id="studio-save" class="studio-btn studio-btn--accent">Save</button>
-                        <button type="button" id="studio-export-frame" class="studio-btn">Export frame PNG</button>
+                        <button type="button" id="studio-export-frame" class="studio-btn">Export frame</button>
+                        <button type="button" id="studio-export-pack" class="studio-btn">Export pack JSON</button>
+                        <label class="studio-btn studio-btn--file">Import pack
+                          <input id="studio-import-pack" type="file" accept="application/json,.json" hidden />
+                        </label>
                         <button type="button" id="studio-clear-entity" class="studio-btn studio-btn--danger">Clear entity</button>
                       </div>
                       <div class="studio-toolbar studio-toolbar--grid">
@@ -822,30 +837,11 @@
                         <span id="studio-sheet-info" class="studio-sheet-info">No sheet</span>
                       </div>
                       <canvas id="studio-sheet-canvas" class="studio-sheet-canvas" width="640" height="220"></canvas>
-                    </div>
 
-                    <div class="studio-panel studio-panel--preview">
-                      <h4 class="studio-section-label">Preview</h4>
-                      <canvas id="studio-preview-canvas" class="studio-preview-canvas" width="160" height="160"></canvas>
-                      <div class="studio-btn-row">
-                        <button type="button" class="studio-btn is-on" data-studio-state="idle">Idle</button>
-                        <button type="button" class="studio-btn" data-studio-state="walk">Walk</button>
-                        <button type="button" class="studio-btn" data-studio-state="run">Run</button>
-                        <button type="button" class="studio-btn" data-studio-state="hit">Hit</button>
-                        <button type="button" class="studio-btn" data-studio-state="death">Death</button>
-                      </div>
-                      <div class="studio-btn-row">
-                        <button type="button" class="studio-btn is-on" data-studio-dir="down">↓ D</button>
-                        <button type="button" class="studio-btn" data-studio-dir="left">← L</button>
-                        <button type="button" class="studio-btn" data-studio-dir="right">→ R</button>
-                        <button type="button" class="studio-btn" data-studio-dir="up">↑ U</button>
-                      </div>
-                      <div class="studio-toolbar">
-                        <label class="studio-label">FPS <input id="studio-fps" class="studio-input studio-input--num" type="range" min="1" max="24" value="8" /></label>
-                        <span id="studio-fps-label" class="studio-sheet-info">8 FPS</span>
-                        <button type="button" id="studio-play" class="studio-btn studio-btn--accent">Play</button>
-                        <button type="button" id="studio-stop" class="studio-btn">Stop</button>
-                      </div>
+                      <h4 class="studio-section-label" style="margin-top:0.65rem;">Clip timeline</h4>
+                      <p id="studio-timeline-meta" class="studio-sheet-info">No clip</p>
+                      <canvas id="studio-timeline-canvas" class="studio-timeline-canvas" width="640" height="56"></canvas>
+                      <p class="studio-hint">Drag start/end handles or click-drag to set the clip range. Highlighted frames are in the active clip.</p>
 
                       <h4 class="studio-section-label">Animation clip</h4>
                       <div class="studio-toolbar">
@@ -870,17 +866,80 @@
                       </div>
                       <div class="studio-toolbar">
                         <label class="studio-label">Start <input id="studio-clip-start" class="studio-input studio-input--num" type="number" min="0" value="0" /></label>
+                        <label class="studio-label">End <input id="studio-clip-end" class="studio-input studio-input--num" type="number" min="0" value="0" /></label>
                         <label class="studio-label">Count <input id="studio-clip-count" class="studio-input studio-input--num" type="number" min="1" value="1" /></label>
-                        <button type="button" id="studio-use-selected-start" class="studio-btn">Use selected cell</button>
+                        <label class="studio-label">Clip FPS <input id="studio-clip-fps" class="studio-input studio-input--num" type="number" min="1" max="60" placeholder="global" /></label>
+                        <label class="studio-label">FX
+                          <select id="studio-clip-fx" class="studio-input"></select>
+                        </label>
+                        <button type="button" id="studio-use-selected-start" class="studio-btn">Start = selected</button>
+                        <button type="button" id="studio-set-range-end" class="studio-btn">End = selected</button>
                         <button type="button" id="studio-apply-clip" class="studio-btn studio-btn--accent">Apply clip</button>
                       </div>
-                      <p class="studio-hint">Walk/run store as walk_down, walk_left, … Hit/Death/Idle are directionless keys. Click a grid cell to select a frame.</p>
+                    </div>
+
+                    <div class="studio-panel studio-panel--preview">
+                      <h4 class="studio-section-label">Sandbox preview</h4>
+                      <canvas id="studio-preview-canvas" class="studio-preview-canvas studio-preview-canvas--lg" width="240" height="240"></canvas>
+                      <div class="studio-btn-row">
+                        <button type="button" class="studio-btn is-on" data-studio-state="idle">Idle</button>
+                        <button type="button" class="studio-btn" data-studio-state="walk">Walk</button>
+                        <button type="button" class="studio-btn" data-studio-state="run">Run</button>
+                        <button type="button" class="studio-btn" data-studio-state="hit">Hit</button>
+                        <button type="button" class="studio-btn" data-studio-state="death">Death</button>
+                      </div>
+                      <div class="studio-btn-row">
+                        <button type="button" class="studio-btn is-on" data-studio-dir="down">↓ D</button>
+                        <button type="button" class="studio-btn" data-studio-dir="left">← L</button>
+                        <button type="button" class="studio-btn" data-studio-dir="right">→ R</button>
+                        <button type="button" class="studio-btn" data-studio-dir="up">↑ U</button>
+                      </div>
+                      <div class="studio-toolbar">
+                        <label class="studio-label">Global FPS <input id="studio-fps" class="studio-input studio-input--num" type="range" min="1" max="24" value="8" /></label>
+                        <span id="studio-fps-label" class="studio-sheet-info">8 FPS</span>
+                        <label class="studio-label studio-check"><input id="studio-onion" type="checkbox" /> Onion-skin</label>
+                        <button type="button" id="studio-play" class="studio-btn studio-btn--accent">Play</button>
+                        <button type="button" id="studio-play-all" class="studio-btn studio-btn--accent">Play All States</button>
+                        <button type="button" id="studio-stop" class="studio-btn">Stop</button>
+                      </div>
+                      <div class="studio-btn-row">
+                        <button type="button" id="studio-sim-spawn" class="studio-btn">Simulate spawn</button>
+                        <button type="button" id="studio-sim-hit" class="studio-btn">Simulate hit</button>
+                        <button type="button" id="studio-sim-death" class="studio-btn">Simulate death</button>
+                      </div>
+                      <p id="studio-event-log" class="studio-event-log">Hooks idle</p>
+
+                      <h4 class="studio-section-label">Event hooks</h4>
+                      <p class="studio-hint">Fired at runtime on spawn / hurt / kill. SFX uses sound-bank slots; shake/flash/FX are best-effort.</p>
+                      <div class="studio-events">
+                        <div class="studio-event-row">
+                          <strong>onSpawn</strong>
+                          <label class="studio-label">SFX <select id="studio-evt-onSpawn-sfx" class="studio-input"></select></label>
+                          <label class="studio-label studio-check"><input id="studio-evt-onSpawn-flash" type="checkbox" /> Flash</label>
+                          <label class="studio-label">Shake <input id="studio-evt-onSpawn-shake" class="studio-input studio-input--num" type="number" min="0" max="4" step="0.05" value="0" /></label>
+                          <label class="studio-label">FX <select id="studio-evt-onSpawn-fx" class="studio-input"></select></label>
+                        </div>
+                        <div class="studio-event-row">
+                          <strong>onHit</strong>
+                          <label class="studio-label">SFX <select id="studio-evt-onHit-sfx" class="studio-input"></select></label>
+                          <label class="studio-label studio-check"><input id="studio-evt-onHit-flash" type="checkbox" /> Flash</label>
+                          <label class="studio-label">Shake <input id="studio-evt-onHit-shake" class="studio-input studio-input--num" type="number" min="0" max="4" step="0.05" value="0" /></label>
+                          <label class="studio-label">FX <select id="studio-evt-onHit-fx" class="studio-input"></select></label>
+                        </div>
+                        <div class="studio-event-row">
+                          <strong>onDeath</strong>
+                          <label class="studio-label">SFX <select id="studio-evt-onDeath-sfx" class="studio-input"></select></label>
+                          <label class="studio-label studio-check"><input id="studio-evt-onDeath-flash" type="checkbox" /> Flash</label>
+                          <label class="studio-label">Shake <input id="studio-evt-onDeath-shake" class="studio-input studio-input--num" type="number" min="0" max="4" step="0.05" value="0" /></label>
+                          <label class="studio-label">FX <select id="studio-evt-onDeath-fx" class="studio-input"></select></label>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <div class="studio-panel studio-panel--sfx">
                     <h4 class="studio-section-label">Sound Bank</h4>
-                    <p class="studio-hint">Preview shipped /Sound files or upload local replacements (dataURL in localStorage). Not wired into live Sfx runtime yet.</p>
+                    <p class="studio-hint">Preview shipped /Sound files or upload local replacements (dataURL). Custom slots feed live Sfx when mapped; event hooks can pick any slot.</p>
                     <div id="studio-sound-list" class="studio-sound-list"></div>
                   </div>
                 </section>
