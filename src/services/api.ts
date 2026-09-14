@@ -70,6 +70,8 @@ export interface SteamProfile {
   countryCode?: string;
 }
 
+import { getAuthToken } from './auth';
+
 const USER_ID_KEY = 'fruit_td_user_id';
 
 export function getUserId(): string {
@@ -86,8 +88,10 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
   try {
     const res = await fetch(endpoint, {
       ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
         ...(options?.headers || {}),
       },
     });

@@ -1,13 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { getCollection, BadgeDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
+import { resolveRequestUser } from '../auth';
 
 export const badgesRouter = Router();
 
 badgesRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
-    if (!userId) return res.status(400).json({ success: false, error: 'userId is required' });
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to view badges' });
+    const userId = user.userId;
 
     const catalog = await loadQuestCatalog();
     const defs = catalog.badges.filter((b) => b.enabled !== false);
@@ -44,10 +46,13 @@ badgesRouter.get('/', async (req: Request, res: Response) => {
 
 badgesRouter.post('/progress', async (req: Request, res: Response) => {
   try {
-    const { userId, updates } = req.body;
-    if (!userId || !Array.isArray(updates)) {
+    const { updates } = req.body;
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to update badges' });
+    const userId = user.userId;
 
     const catalog = await loadQuestCatalog();
     const col = await getCollection<BadgeDoc>('badges');

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getCollection, MissionDoc } from '../db';
 import { getMonthKey, loadQuestCatalog } from '../catalog';
+import { resolveRequestUser } from '../auth';
 
 export const missionsRouter = Router();
 
@@ -24,10 +25,9 @@ function periodKey(type: string): string {
 
 missionsRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId is required' });
-    }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to view missions' });
+    const userId = user.userId;
 
     const catalog = await loadQuestCatalog();
     const defs = catalog.missions.filter((m) => m.enabled !== false);
@@ -74,10 +74,13 @@ missionsRouter.get('/', async (req: Request, res: Response) => {
 
 missionsRouter.post('/progress', async (req: Request, res: Response) => {
   try {
-    const { userId, updates } = req.body;
-    if (!userId || !Array.isArray(updates)) {
+    const { updates } = req.body;
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to update missions' });
+    const userId = user.userId;
 
     const catalog = await loadQuestCatalog();
     const col = await getCollection<MissionDoc>('missions');
@@ -121,10 +124,13 @@ missionsRouter.post('/progress', async (req: Request, res: Response) => {
 
 missionsRouter.post('/claim', async (req: Request, res: Response) => {
   try {
-    const { userId, missionId } = req.body;
+    const { missionId } = req.body;
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim missions' });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const def = catalog.missions.find((m) => m.id === missionId && m.enabled !== false);
-    if (!userId || !def) {
+    if (!def) {
       return res.status(400).json({ success: false, error: 'Invalid missionId' });
     }
 

@@ -10,11 +10,19 @@ import { adminRouter } from './routes/admin';
 import { badgesRouter } from './routes/badges';
 import { authRouter } from './routes/auth';
 import { getDb } from './db';
+import { rateLimit } from './rateLimit';
 
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.use(cors({
+    origin: allowedOrigins.length ? allowedOrigins : ['http://localhost:5173'],
+    credentials: true,
+  }));
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
 
@@ -35,14 +43,14 @@ export function createApp() {
     }
   });
 
-  app.use('/api/auth', authRouter);
-  app.use('/api/leaderboard', leaderboardRouter);
+  app.use('/api/auth', rateLimit(30, 60_000), authRouter);
+  app.use('/api/leaderboard', rateLimit(60, 60_000), leaderboardRouter);
   app.use('/api/achievements', achievementsRouter);
   app.use('/api/missions', missionsRouter);
-  app.use('/api/daily', dailyRouter);
+  app.use('/api/daily', rateLimit(20, 60_000), dailyRouter);
   app.use('/api/steam', steamRouter);
   app.use('/api/profile', profileRouter);
-  app.use('/api/admin', adminRouter);
+  app.use('/api/admin', rateLimit(30, 60_000), adminRouter);
   app.use('/api/badges', badgesRouter);
 
   return app;

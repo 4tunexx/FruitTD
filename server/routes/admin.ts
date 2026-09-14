@@ -10,10 +10,11 @@ import {
   monthlyLeaderboardMode,
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
+import { resolveRequestUser } from '../auth';
 
 export const adminRouter = Router();
 
-export const ADMIN_STEAM_ID = '76561198001993310';
+export const ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || '';
 
 export interface AdminConfigDoc {
   configKey: string; // 'game_config'
@@ -155,9 +156,9 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
 };
 
 // Check if request is authenticated as admin (Steam ID only)
-function isAuthorized(req: Request): boolean {
-  const steamId = req.headers['x-admin-steamid'] as string;
-  return steamId === ADMIN_STEAM_ID;
+async function isAuthorized(req: Request): Promise<boolean> {
+  const user = await resolveRequestUser(req);
+  return Boolean(ADMIN_STEAM_ID && user?.steamId === ADMIN_STEAM_ID);
 }
 
 // GET /api/admin/config (Public or admin)
@@ -171,7 +172,7 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         updatedAt: new Date(),
       };
       await col.insertOne(seed as any);
-      doc = seed as typeof doc;
+      doc = seed as unknown as typeof doc;
     }
     const cfg = doc!;
     res.json({
@@ -201,18 +202,16 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
 
 // POST /api/admin/verify (Verify admin status - Steam ID only)
 adminRouter.post('/verify', async (req: Request, res: Response) => {
-  const { steamId } = req.body;
-  const valid = steamId === ADMIN_STEAM_ID;
+  const valid = await isAuthorized(req);
   res.json({
     success: true,
     isAdmin: valid,
-    adminSteamId: ADMIN_STEAM_ID,
   });
 });
 
 // POST /api/admin/config (Save changes to MongoDB)
 adminRouter.post('/config', async (req: Request, res: Response) => {
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return res.status(403).json({ success: false, error: 'Unauthorized: Admin privileges required.' });
   }
 
@@ -253,7 +252,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
 
 // POST /api/admin/reset-daily (Reset user's daily streak for instant testing)
 adminRouter.post('/reset-daily', async (req: Request, res: Response) => {
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return res.status(403).json({ success: false, error: 'Unauthorized: Admin privileges required.' });
   }
 
@@ -278,7 +277,7 @@ adminRouter.post('/reset-daily', async (req: Request, res: Response) => {
 
 // GET /api/admin/leaderboard (View all entries for moderation)
 adminRouter.get('/leaderboard', async (req: Request, res: Response) => {
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return res.status(403).json({ success: false, error: 'Unauthorized: Admin privileges required.' });
   }
 
@@ -294,7 +293,7 @@ adminRouter.get('/leaderboard', async (req: Request, res: Response) => {
 
 // POST /api/admin/leaderboard/delete (Delete a score entry)
 adminRouter.post('/leaderboard/delete', async (req: Request, res: Response) => {
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return res.status(403).json({ success: false, error: 'Unauthorized: Admin privileges required.' });
   }
 

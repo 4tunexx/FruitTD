@@ -6,7 +6,6 @@ import {
   adminDeleteScore,
   adminWipeLeaderboardMode,
   isUserAdmin,
-  ADMIN_STEAM_ID,
   DEFAULT_ADMIN_CONFIG,
   type AdminConfig,
 } from '../services/admin';
@@ -51,7 +50,7 @@ export class AdminController {
       // Admin button is only in dashboard, visibility managed by dashboard state
       if (isUserAdmin()) {
         adminBtn.classList.add('is-active-admin');
-        adminBtn.title = `Admin Active (Steam ID: ${ADMIN_STEAM_ID})`;
+        adminBtn.title = 'Admin Active (authenticated Steam account)';
       } else {
         adminBtn.classList.remove('is-active-admin');
         adminBtn.title = 'Admin Control Center (Steam auth required)';

@@ -15,6 +15,7 @@ export interface AuthUser {
   steamId: string | null;
   steamPersona: string | null;
   steamAvatar: string | null;
+  isAdmin: boolean;
 }
 
 export interface AuthResult {

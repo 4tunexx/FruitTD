@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getCollection, DailyBonusDoc } from '../db';
 import { AdminConfigDoc, DEFAULT_ADMIN_CONFIG } from './admin';
+import { resolveRequestUser } from '../auth';
 
 export const dailyRouter = Router();
 
@@ -38,10 +39,9 @@ function getDayKey(date = new Date()): string {
 // GET /api/daily?userId=xxx
 dailyRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId is required' });
-    }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to view daily rewards' });
+    const userId = user.userId;
 
     const todayStr = getDayKey();
     const col = await getCollection<DailyBonusDoc>('daily_bonus');
@@ -92,10 +92,9 @@ dailyRouter.get('/', async (req: Request, res: Response) => {
 // Body: { userId }
 dailyRouter.post('/claim', async (req: Request, res: Response) => {
   try {
-    const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId is required' });
-    }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim daily rewards' });
+    const userId = user.userId;
 
     const todayStr = getDayKey();
     const col = await getCollection<DailyBonusDoc>('daily_bonus');

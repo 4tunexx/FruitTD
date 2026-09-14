@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getCollection, CloudSaveDoc, UserDoc } from '../db';
+import { resolveRequestUser } from '../auth';
 
 export const profileRouter = Router();
 
@@ -41,9 +42,9 @@ profileRouter.get('/', async (req: Request, res: Response) => {
 // Body: { userId, saveData }
 profileRouter.post('/sync', async (req: Request, res: Response) => {
   try {
-    const { userId, saveData } = req.body;
-    if (!userId || !saveData) {
-      return res.status(400).json({ success: false, error: 'userId and saveData are required' });
+    const { saveData } = req.body;
+    if (!saveData) {
+      return res.status(400).json({ success: false, error: 'saveData is required' });
     }
 
     // SERVER-SIDE VALIDATION: Reject absurd economy values
@@ -65,6 +66,12 @@ profileRouter.post('/sync', async (req: Request, res: Response) => {
       }
     }
 
+    const user = await resolveRequestUser(req);
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Sign in to sync a profile' });
+    }
+    const userId = user.userId;
+
     const col = await getCollection<CloudSaveDoc>('cloud_saves');
     await col.updateOne(
       { userId },
@@ -83,8 +90,8 @@ profileRouter.post('/sync', async (req: Request, res: Response) => {
       { userId },
       {
         $set: {
-          nickname: saveData.nickname || 'Slicer',
-          avatar: saveData.avatar || '',
+          nickname: saveData.nickname || user.nickname || 'Slicer',
+          avatar: saveData.avatar || user.avatar || '',
           updatedAt: new Date(),
         },
         $setOnInsert: {
