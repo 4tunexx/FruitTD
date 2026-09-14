@@ -1,1 +1,1 @@
-PLACEHOLDER_HUD_WILL_BE_REPLACED
+FILE:/workspace/hotfix/hud.ts
