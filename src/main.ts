@@ -36,6 +36,17 @@ import { heroPerkMultiplier } from './game/heroProgression';
 import { installHudToggles } from './ui/hudToggle';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+
+function hideBootLoader(): void {
+  const boot = document.getElementById('boot-loader');
+  if (!boot || boot.classList.contains('is-done')) return;
+  boot.classList.add('is-done');
+  window.setTimeout(() => boot.remove(), 500);
+}
+requestAnimationFrame(() => hideBootLoader());
+window.addEventListener('error', () => hideBootLoader());
+window.addEventListener('unhandledrejection', () => hideBootLoader());
+
 const startBtn = document.getElementById('btn-start')!;
 const upgradeBtn = document.getElementById('btn-upgrade') as HTMLButtonElement;
 const sellBtn = document.getElementById('btn-sell') as HTMLButtonElement;
@@ -1066,11 +1077,3 @@ startBtn.addEventListener('click', async () => {
 
 loop.start();
 
-function hideBootLoader(): void {
-  const boot = document.getElementById('boot-loader');
-  if (!boot || boot.classList.contains('is-done')) return;
-  boot.classList.add('is-done');
-  window.setTimeout(() => boot.remove(), 500);
-}
-
-requestAnimationFrame(() => hideBootLoader());

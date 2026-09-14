@@ -30,3 +30,12 @@ export function upgradeHeroPerk(hero: HeroId, perk: HeroPerkId, heroXp: number, 
   writeSave(save);
   return true;
 }
+
+/** Perk points earned from hero level minus ranks already spent. */
+export function getAvailableHeroPerkPoints(hero: HeroId, heroXp: number): number {
+  const level = heroXpToLevel(heroXp);
+  const earned = level < 10 ? 0 : Math.floor((level - 10) / 10) + 1;
+  const ranks = loadHeroPerks()[hero] || {};
+  const spent = HERO_PERKS.reduce((sum, perk) => sum + (Number(ranks[perk.id]) || 0), 0);
+  return Math.max(0, earned - spent);
+}
