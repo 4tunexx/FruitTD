@@ -648,9 +648,10 @@ canvas {
   inset: 0;
   z-index: 28;
   overflow: hidden;
-  background: radial-gradient(ellipse at 60% 30%, rgba(16,50,10,0.7) 0%, transparent 65%),
-              radial-gradient(ellipse at 20% 80%, rgba(50,10,70,0.5) 0%, transparent 60%),
-              rgba(5, 10, 15, 0.98);
+  background: radial-gradient(ellipse at 55% 20%, rgba(35,60,25,0.85) 0%, transparent 55%),
+              radial-gradient(ellipse at 30% 85%, rgba(55,25,75,0.65) 0%, transparent 50%),
+              rgba(12, 18, 10, 0.96);
+  backdrop-filter: blur(12px);
   pointer-events: auto;
 }
 #title-inner {
@@ -677,10 +678,12 @@ canvas {
   font-size: clamp(2.6rem, 8vw, 4.4rem);
   font-weight: 900;
   line-height: 1.02;
-  background: linear-gradient(135deg, #f1f5f9 30%, var(--lime) 100%);
+  background: linear-gradient(135deg, #e8f4d8 15%, #a3e635 55%, #84cc16 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  text-shadow: 0 4px 24px rgba(163, 230, 53, 0.4);
+  filter: drop-shadow(0 2px 8px rgba(163, 230, 53, 0.3));
 }
 .title-tagline {
   margin: 0.85rem 0 1.8rem;
@@ -739,9 +742,10 @@ canvas {
   inset: 0;
   z-index: 20;
   overflow-y: auto;
-  background: radial-gradient(ellipse at 60% 30%, rgba(16,50,10,0.7) 0%, transparent 65%),
-              radial-gradient(ellipse at 20% 80%, rgba(50,10,70,0.5) 0%, transparent 60%),
-              rgba(5, 10, 15, 0.97);
+  background: radial-gradient(ellipse at 55% 25%, rgba(35,60,25,0.8) 0%, transparent 60%),
+              radial-gradient(ellipse at 25% 80%, rgba(55,25,75,0.6) 0%, transparent 50%),
+              rgba(12, 18, 10, 0.95);
+  backdrop-filter: blur(10px);
   pointer-events: auto;
   scrollbar-width: none;
 }
