@@ -3015,6 +3015,130 @@ canvas {
     transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(0) scale(1);
   }
 }
+/* ══════════════════════════════════════════════
+   P1-6: MENU POLISH - GAME SHELL FEEL
+══════════════════════════════════════════════ */
+
+/* Tab buttons - more game-like */
+.menu-tab {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.menu-tab::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #a3e635, transparent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.menu-tab:hover {
+  transform: translateY(-1px);
+}
+.menu-tab.is-active::before {
+  opacity: 1;
+}
+
+/* Skin/item cards - elevated game feel */
+.skin-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.skin-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(163, 230, 53, 0.1), transparent);
+  transition: left 0.3s;
+}
+.skin-btn:hover::before {
+  left: 100%;
+}
+.skin-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+.skin-btn:active {
+  transform: translateY(-1px);
+}
+
+/* Menu pages - smoother transitions */
+.menu-page {
+  animation: menuFadeIn 0.3s ease-out;
+}
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Profile cards - game UI depth */
+.profile-stat-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(163, 230, 53, 0.2);
+}
+.profile-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(163, 230, 53, 0.4);
+  box-shadow: 0 4px 12px rgba(163, 230, 53, 0.15);
+}
+
+/* VIP cards - premium feel */
+.vip-tier-btn {
+  position: relative;
+  overflow: hidden;
+}
+.vip-tier-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+.vip-tier-btn:hover::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* Shop sections - better hierarchy */
+.shop-section-head {
+  position: relative;
+  padding-left: 12px;
+}
+.shop-section-head::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  background: linear-gradient(180deg, #a3e635, transparent);
+  border-radius: 2px;
+}
+
+/* Button press feedback */
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
 @keyframes bossLetterboxFadeOut {
   0%, 70% {
     opacity: 1;
