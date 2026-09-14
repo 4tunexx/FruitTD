@@ -1,5 +1,7 @@
 import type { JuiceBank } from '../game/juice';
 import { HEROES, heroDef, xpForNext, type HeroId } from '../game/heroes';
+import { HERO_PERKS } from '../game/heroProgression';
+import { getAvailableHeroPerkPoints, upgradeHeroPerk } from '../game/heroPerkSave';
 import { MODE_INFO, modeRules } from '../game/modes';
 import { WALL_SKINS, heroLevelFromSave, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
 import { findSlicer } from '../game/slicers';
@@ -612,16 +614,13 @@ export class Hud {
     const heroXp = save.xp[hero] || 0;
     const perkRanks = save.heroPerkRanks?.[hero] || {};
     
-    const { HERO_PERKS } = require('../game/heroProgression');
-    const { getAvailableHeroPerkPoints, upgradeHeroPerk } = require('../game/heroPerkSave');
-    
     const availablePoints = getAvailableHeroPerkPoints(hero, heroXp);
-    const heroDef = require('../game/heroes').heroDef(hero);
+    const heroInfo = heroDef(hero);
     
     const header = document.createElement('div');
     header.className = 'flex items-center justify-between mb-3';
     header.innerHTML = `
-      <p class="text-sm font-bold text-slate-300">${heroDef.name} Perks</p>
+      <p class="text-sm font-bold text-slate-300">${heroInfo.name} Perks</p>
       <p class="text-xs font-bold ${availablePoints > 0 ? 'text-lime-400' : 'text-slate-400'}">
         ${availablePoints} perk point${availablePoints !== 1 ? 's' : ''} available
       </p>

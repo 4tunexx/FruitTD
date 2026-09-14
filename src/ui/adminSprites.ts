@@ -1,3 +1,4 @@
+import { refreshAdminTexture } from '../game/adminTextureLoader';
 const SPRITE_KEYS = {
   'enemy-normal': 'admin-sprite-enemy-normal',
   'enemy-explosive': 'admin-sprite-enemy-explosive',
@@ -41,7 +42,6 @@ export function installSpriteUploads(): void {
           localStorage.setItem(storageKey, dataUrl);
           loadStored();
           
-          const { refreshAdminTexture } = require('../game/adminTextureLoader');
           refreshAdminTexture(id as any);
         }
       };
@@ -53,7 +53,6 @@ export function installSpriteUploads(): void {
       input.value = '';
       loadStored();
       
-      const { refreshAdminTexture } = require('../game/adminTextureLoader');
       refreshAdminTexture(id as any);
     });
     
