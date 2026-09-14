@@ -6,6 +6,7 @@ import { damageTower, toast, type GameState } from './state';
 import type { Slash } from '../input/blade';
 import type { SpawnItem } from './waves';
 import { ENEMY_RULES, type EnemyKind } from './enemies';
+import { getAdminTexture } from './adminTextureLoader';
 
 export type FruitKind = 'watermelon' | 'lemon' | 'orange' | 'banana' | 'strawberry' | 'pineapple' | 'kiwi' | 'bomb';
 export type FruitFamily = 'lemon' | 'berry' | 'melon' | 'bomb';
@@ -41,17 +42,20 @@ const BAR_GEO = new BoxGeometry(1, 0.14, 0.14);
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
   fruit.hpBack.position.set(0, 1.35 / s, 0);
-  fruit.hpBack.scale.set(1.35 / s, 0.16 / s, 0.16 / s);
-  fruit.hpBar.position.set(0, 1.35 / s, 0.02 / s);
-  fruit.hpBar.scale.set((1.28 * t) / s, 0.11 / s, 0.11 / s);
+  fruit.hpBack.scale.set(1.4 / s, 0.28 / s, 0.28 / s);
+  fruit.hpBar.position.set(0, 1.35 / s, 0.04 / s);
+  fruit.hpBar.scale.set((1.32 * t) / s, 0.22 / s, 0.22 / s);
   const ok = fruit.boss ? 0xf4d35e : 0x3d8b2e;
   (fruit.hpBar.material as MeshBasicMaterial).color.setHex(t > 0.4 ? ok : 0xc23b3b);
 }
 
 function makeFruit(): Fruit {
   const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff }));
-  const hpBack = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x1a1a1a }));
-  const hpBar = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x3d8b2e }));
+  const hpBackMat = new MeshBasicMaterial({ color: 0x000000 });
+  hpBackMat.transparent = true;
+  hpBackMat.opacity = 0.85;
+  const hpBack = new Mesh(BAR_GEO, hpBackMat);
+  const hpBar = new Mesh(BAR_GEO, new MeshLambertMaterial({ color: 0x3d8b2e, emissive: 0x1a5015, emissiveIntensity: 0.4 }));
   const group = new Group();
   group.add(body, hpBack, hpBar);
   group.visible = false;
@@ -64,7 +68,22 @@ function makeFruit(): Fruit {
 
 function paint(fruit: Fruit, def: FruitDef): void {
   const mat = fruit.body.material as MeshLambertMaterial;
-  mat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
+  
+  let adminTexture = null;
+  if (fruit.enemyKind === 'explosive') {
+    adminTexture = getAdminTexture('enemy-explosive');
+  } else if (fruit.enemyKind === 'armored') {
+    adminTexture = getAdminTexture('enemy-armored');
+  } else if (fruit.enemyKind === 'normal') {
+    adminTexture = getAdminTexture('enemy-normal');
+  }
+  
+  if (adminTexture) {
+    mat.map = adminTexture;
+  } else {
+    mat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
+  }
+  
   mat.color.setHex(0xffffff);
   mat.needsUpdate = true;
 }

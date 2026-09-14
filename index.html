@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="description" content="Fruit TD — slice fruit, hold the wall. High-speed tower defense with satisfying fruit-slashing action, global leaderboards, and Steam integration." />
     <title>Fruit TD — Slice. Hold the Wall.</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -176,16 +176,24 @@
           </div>
 
           <!-- Wave progress bar -->
-          <div id="hud-wave-prog" class="hidden">
-            <p class="stat-label">Wave progress</p>
-            <div id="wave-prog-track">
-              <div id="hud-wave-prog-fill"></div>
+          <div style="position: relative;">
+            <button id="wave-toggle" class="hud-toggle-btn" style="right: auto; left: -2.5rem;" title="Toggle wave progress">🌊</button>
+            <div id="wave-panel" class="collapsible-panel">
+              <div id="hud-wave-prog" class="hidden">
+                <p class="stat-label">Wave progress</p>
+                <div id="wave-prog-track">
+                  <div id="hud-wave-prog-fill"></div>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- Juice + skill points -->
           <div id="resource-row">
-            <p id="hud-juice">🍋0  🍓0  🍊0  🥝0</p>
+            <button id="juice-toggle" class="hud-toggle-btn" title="Toggle juice panel">🧃</button>
+            <div id="juice-panel" class="collapsible-panel">
+              <p id="hud-juice">🍋0  🍓0  🍊0  🥝0</p>
+            </div>
             <p id="hud-points"></p>
           </div>
 
@@ -616,6 +624,7 @@
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
               <button class="admin-tab-btn" data-tab="ranks">Monthly Ranks</button>
               <button class="admin-tab-btn" data-tab="slicers">Slicers</button>
+              <button class="admin-tab-btn" data-tab="sprites">Sprites</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
               <button class="admin-tab-btn" data-tab="economy">Game Economy</button>
               <button class="admin-tab-btn" data-tab="leaderboard">Leaderboards</button>
@@ -670,6 +679,47 @@
                 <button type="button" id="btn-admin-add-slicer" class="admin-btn-action">+ Add Slicer</button>
               </div>
               <div id="admin-slicers-list" class="admin-catalog-list"></div>
+            </div>
+
+            <!-- Sprites Tab -->
+            <div id="admin-tab-sprites" class="admin-panel-tab hidden">
+              <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div class="admin-sprite-upload-section">
+                  <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-bottom: 0.5rem;">Enemy Sprites</h3>
+                  <p class="text-xs text-slate-400" style="margin-bottom: 0.75rem;">Upload PNG sprites for enemy types. Recommended: 128x128 transparent PNG. Stores locally.</p>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+                    <div class="sprite-upload-card">
+                      <label style="font-size: 0.75rem; font-weight: 600; color: #cbd5e1;">Normal Enemy</label>
+                      <input type="file" id="sprite-enemy-normal" accept="image/png" class="sprite-file-input" />
+                      <div id="preview-enemy-normal" class="sprite-preview"></div>
+                      <button id="clear-enemy-normal" class="sprite-clear-btn" style="display:none;">Clear</button>
+                    </div>
+                    <div class="sprite-upload-card">
+                      <label style="font-size: 0.75rem; font-weight: 600; color: #cbd5e1;">Explosive Enemy</label>
+                      <input type="file" id="sprite-enemy-explosive" accept="image/png" class="sprite-file-input" />
+                      <div id="preview-enemy-explosive" class="sprite-preview"></div>
+                      <button id="clear-enemy-explosive" class="sprite-clear-btn" style="display:none;">Clear</button>
+                    </div>
+                    <div class="sprite-upload-card">
+                      <label style="font-size: 0.75rem; font-weight: 600; color: #cbd5e1;">Armored Enemy</label>
+                      <input type="file" id="sprite-enemy-armored" accept="image/png" class="sprite-file-input" />
+                      <div id="preview-enemy-armored" class="sprite-preview"></div>
+                      <button id="clear-enemy-armored" class="sprite-clear-btn" style="display:none;">Clear</button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="admin-sprite-upload-section">
+                  <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-bottom: 0.5rem;">Main Tower Sprite</h3>
+                  <p class="text-xs text-slate-400" style="margin-bottom: 0.75rem;">Upload PNG sprite for Main Tower. Recommended: 256x256 transparent PNG.</p>
+                  <div class="sprite-upload-card" style="max-width: 300px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #cbd5e1;">Main Tower</label>
+                    <input type="file" id="sprite-tower-main" accept="image/png" class="sprite-file-input" />
+                    <div id="preview-tower-main" class="sprite-preview" style="height: 150px;"></div>
+                    <button id="clear-tower-main" class="sprite-clear-btn" style="display:none;">Clear</button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Tab 2: Branding & Menus -->

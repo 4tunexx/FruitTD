@@ -7,14 +7,14 @@ export class Field {
   constructor() {
     const ground = new Mesh(
       new PlaneGeometry(ARENA_W + 8, ARENA_D + 8),
-      new MeshLambertMaterial({ color: 0x7db85a }),
+      new MeshLambertMaterial({ color: 0x5a8a42, emissive: 0x1a2a15, emissiveIntensity: 0.15 }),
     );
     ground.rotation.x = -Math.PI / 2;
     this.group.add(ground);
 
     const inner = new Mesh(
       new PlaneGeometry(ARENA_W + 1.2, ARENA_D + 1.2),
-      new MeshLambertMaterial({ color: 0x8fbf6a }),
+      new MeshLambertMaterial({ color: 0x6fa052, emissive: 0x2a3a1f, emissiveIntensity: 0.12 }),
     );
     inner.rotation.x = -Math.PI / 2;
     inner.position.y = 0.01;
@@ -26,7 +26,7 @@ export class Field {
       [-3.2, 9.4, 3.8],
       [7.2, -1.2, 2.6],
     ] as const) {
-      const patch = new Mesh(new PlaneGeometry(s, s * 0.7), new MeshLambertMaterial({ color: 0x6fa34c }));
+      const patch = new Mesh(new PlaneGeometry(s, s * 0.7), new MeshLambertMaterial({ color: 0x578836, emissive: 0x1f3018, emissiveIntensity: 0.1 }));
       patch.rotation.x = -Math.PI / 2;
       patch.position.set(x, 0.02, z);
       this.group.add(patch);

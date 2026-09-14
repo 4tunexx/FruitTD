@@ -32,6 +32,8 @@ import type { GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
 import { navigation } from './game/navigation';
+import { heroPerkMultiplier } from './game/heroProgression';
+import { installHudToggles } from './ui/hudToggle';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const startBtn = document.getElementById('btn-start')!;
@@ -101,6 +103,7 @@ function getTowerProgressionBonuses(): { damageBonus: number; hpBonus: number } 
 }
 
 initAchievementsCache();
+installHudToggles();
 void loadLiveConfig().then(() => {
   applyEquippedBlade();
   hud.mountShop(save);
@@ -287,7 +290,7 @@ function grantHeroXp(n: number): void {
     const gained = next - state.heroLevel;
     state.heroLevel = next;
     save.skillPoints += gained;
-    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 1.8);
+    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 2.2);
     emit({ type: 'hero_level' });
     sfx.unlockItem();
   }
@@ -299,7 +302,8 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
-  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul));
+  const juiceHunterMul = heroPerkMultiplier('juice', state.heroLevel);
+  const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul));
   bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   
   const enemy = enemyRule(fruit.enemyKind);
@@ -311,7 +315,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   addScore(state, scoreReward);
   grantHeroXp(xpReward);
   const rules = modeRules(state.mode);
-  chargeSuper(state, (6 + save.skills.flow * 2) * rules.superMul);
+  chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
   if (state.combo >= 2) sfx.combo(state.combo);
   combos.onKills(1);
@@ -341,6 +345,13 @@ function maybeOver(): void {
   save.coins += Math.max(2, Math.floor(state.score / 18));
   persist();
   sfx.gameOver();
+  sfx.stopAllLoops();
+  
+  document.getElementById('hud-gameover')?.classList.remove('hidden');
+  const finalScore = document.getElementById('hud-final-score');
+  const finalWave = document.getElementById('hud-final-wave');
+  if (finalScore) finalScore.textContent = `${state.score.toLocaleString()}`;
+  if (finalWave) finalWave.textContent = `Wave ${state.wave}`;
 
   // Submit score to MongoDB Atlas
   const steamState = getCachedSteamState();
@@ -502,9 +513,14 @@ function resolveSlash(slash: Slash): void {
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
   const slicerFx = equippedSlicer();
+  const critChance = state.heroLevel >= 50 ? (heroPerkMultiplier('critical', state.heroLevel) - 1) * 0.15 : 0;
+  const isCrit = Math.random() < critChance;
+  const lastStandMul = state.lives <= Math.ceil(state.maxLives * 0.25) ? heroPerkMultiplier('survival', state.heroLevel) : 1;
   const dmg =
     (heroSlashDamage(state.hero, state.heroLevel, state.combo, slash.charge, pointer) + save.skills.edge * 4) *
-    (slicerFx?.damageMul ?? 1);
+    (slicerFx?.damageMul ?? 1) *
+    (isCrit ? 1.8 : 1) *
+    lastStandMul;
   const brittleBonus = slicerFx?.brittleBonus ?? 0;
   let hits = 0;
   const swipe = new Vector3().subVectors(slash.to, slash.from);
@@ -543,7 +559,21 @@ function resolveSlash(slash: Slash): void {
         }
       }
       const towerBonus = getTowerProgressionBonuses().damageBonus;
-      if (fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus)) killFruit(fruit, swipe);
+      const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus);
+      
+      if (fruit.enemyKind === 'explosive' && !killed && !fruit.volatileTriggered) {
+        const enemy = enemyRule(fruit.enemyKind);
+        const hitDamage = Math.ceil(enemy.towerDamageOnHit);
+        if (hitDamage > 0) {
+          state.lives -= hitDamage;
+          fruit.volatileTriggered = true;
+          toast(state, 'VOLATILE HIT!', 1.2);
+          renderer.impulseShake(0.6);
+          maybeOver();
+        }
+      }
+      
+      if (killed) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
       if (segmentHitsHalf(line.from, line.to, bit, radius * 0.35)) cutBits.add(bit);
@@ -559,7 +589,7 @@ function resolveSlash(slash: Slash): void {
     hits += 1;
     juice.burst(px, py, pz, kind, swipe, 0.55);
     addScore(state, 4 * gen);
-    chargeSuper(state, 2 + save.skills.flow);
+    chargeSuper(state, 1.2 + save.skills.flow * 0.6);
     slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash);
     const screen = worldPct(px, py + 0.35, pz);
     combos.onReslice(gen, screen.nx, screen.ny);
@@ -569,7 +599,8 @@ function resolveSlash(slash: Slash): void {
 
   if (hits > 0) {
     state.combo = state.hero === 'jiju' ? state.combo + hits : Math.max(1, state.combo) + hits;
-    state.comboTimer = 1.35;
+    const comboEngineMul = heroPerkMultiplier('combo', state.heroLevel);
+    state.comboTimer = 1.35 * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
     renderer.impulseShake(hero.shake * (1 + Math.min(0.8, slash.charge)));
@@ -616,12 +647,19 @@ function quitToMenu(): void {
   navigation.setState('DASHBOARD');
   state.running = false;
   wall.cancelMove();
+  blade.consumeClick();
+  blade.consumeSlash();
   document.getElementById('app')?.classList.remove('sidebar-open');
+  document.getElementById('hud-gameover')?.classList.add('hidden');
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
   sfx.pause();
   sfx.stopAllLoops();
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).__fruitTdQuitToMenu = quitToMenu;
 }
 
 function restartMatch(): void {
@@ -780,7 +818,8 @@ function simulate(dt: number): void {
   fruits.update(dt, state, (fruit) => {
     const enemy = enemyRule(fruit.enemyKind);
     const baseCost = leakCost(state, fruit.kind, fruit.boss);
-    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak);
+    const towerGuardianMul = heroPerkMultiplier('tower', state.heroLevel);
+    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
     state.lives -= leakDamage;
     resetCombo('leak');
     sessionLeaks += 1;

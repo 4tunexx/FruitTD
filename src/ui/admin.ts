@@ -25,8 +25,9 @@ import {
   renderRankEditor,
   renderSlicerEditor,
 } from './adminCatalog';
+import { installSpriteUploads } from './adminSprites';
 
-type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'branding' | 'economy' | 'leaderboard';
+type AdminTab = 'daily' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -63,6 +64,7 @@ export class AdminController {
     this.renderTabs();
     await this.loadConfig();
     this.renderActiveTab();
+    installSpriteUploads();
   }
 
   close(): void {

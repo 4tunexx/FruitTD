@@ -24,12 +24,12 @@ export interface TurretDef {
 }
 
 export const TURRETS: TurretDef[] = [
-  { kind: 'guillotine', name: 'Guillotine', cost: 70, blurb: 'Swinging blade. High split. No aim.', fuel: 'none', floorOnly: true },
-  { kind: 'vortex', name: 'Vortex Drain', cost: 55, blurb: 'Sucks juice into the wall tank.', fuel: 'none', floorOnly: false },
-  { kind: 'laser', name: 'Lemon Laser', cost: 80, blurb: 'Needs yellow juice. Beam down a row.', fuel: 'yellow', floorOnly: false },
-  { kind: 'railgun', name: 'Melon Railgun', cost: 90, blurb: 'Needs pink juice. Pierce + knockback.', fuel: 'pink', floorOnly: false },
-  { kind: 'sprinkler', name: 'Citrus Sprinkler', cost: 50, blurb: 'Brittle: slow + bigger bursts.', fuel: 'orange', floorOnly: false },
-  { kind: 'blender', name: 'Blender Pit', cost: 65, blurb: 'Floor trap. Press B to open/close.', fuel: 'none', floorOnly: true },
+  { kind: 'guillotine', name: 'Fire Blade', cost: 70, blurb: 'Flaming slicer. Area split damage.', fuel: 'none', floorOnly: true },
+  { kind: 'vortex', name: 'Vortex Drain', cost: 55, blurb: 'Pulls juice. Weak damage + pull.', fuel: 'none', floorOnly: false },
+  { kind: 'laser', name: 'Lemon Laser', cost: 80, blurb: 'Yellow juice. Fast beam down lane.', fuel: 'yellow', floorOnly: false },
+  { kind: 'railgun', name: 'Berry Cannon', cost: 90, blurb: 'Pink juice. Pierce shot + knockback.', fuel: 'pink', floorOnly: false },
+  { kind: 'sprinkler', name: 'Frost Sprinkler', cost: 50, blurb: 'Orange juice. Slows + brittle.', fuel: 'orange', floorOnly: false },
+  { kind: 'blender', name: 'Spike Trap', cost: 65, blurb: 'Floor trap. Press B to open/close.', fuel: 'none', floorOnly: true },
 ];
 
 export function turretDef(kind: TurretKind): TurretDef {
@@ -97,9 +97,9 @@ export class TurretRig {
   constructor(kind: TurretKind) {
     this.kind = kind;
     if (kind === 'guillotine') {
-      const post = new Mesh(new BoxGeometry(0.18, 1.15, 0.18), new MeshLambertMaterial({ color: 0x4a3424 }));
+      const post = new Mesh(new BoxGeometry(0.18, 1.15, 0.18), new MeshLambertMaterial({ color: 0x2a1a0a }));
       post.position.y = 0.62;
-      this.blade = new Mesh(new BoxGeometry(0.95, 0.07, 0.28), new MeshLambertMaterial({ color: 0xd7dee6 }));
+      this.blade = new Mesh(new BoxGeometry(0.95, 0.07, 0.28), new MeshLambertMaterial({ color: 0xff6622, emissive: 0xff3300, emissiveIntensity: 0.6 }));
       this.blade.position.set(0.42, 0.85, 0);
       this.group.add(post, this.blade);
     } else if (kind === 'vortex') {
@@ -151,13 +151,15 @@ export class TurretRig {
       }
       this.group.add(base, this.spin);
     } else {
-      const pit = new Mesh(new CylinderGeometry(0.62, 0.62, 0.28, 14), new MeshLambertMaterial({ color: 0x2a2a2a }));
+      const pit = new Mesh(new CylinderGeometry(0.62, 0.62, 0.28, 14), new MeshLambertMaterial({ color: 0x3a2a2a }));
       pit.position.y = 0.08;
-      this.lid = new Mesh(new CylinderGeometry(0.6, 0.6, 0.08, 14), new MeshLambertMaterial({ color: 0x8a8f78 }));
+      const spikes = new Mesh(new CylinderGeometry(0.5, 0.5, 0.32, 8), new MeshLambertMaterial({ color: 0x888888 }));
+      spikes.position.y = 0.1;
+      this.lid = new Mesh(new CylinderGeometry(0.6, 0.6, 0.08, 14), new MeshLambertMaterial({ color: 0x5a4a38 }));
       this.lid.position.y = 0.24;
-      this.lever = new Mesh(new BoxGeometry(0.08, 0.45, 0.08), new MeshLambertMaterial({ color: 0xc43b3b }));
+      this.lever = new Mesh(new BoxGeometry(0.08, 0.45, 0.08), new MeshLambertMaterial({ color: 0xaa5533 }));
       this.lever.position.set(0.72, 0.35, 0);
-      this.group.add(pit, this.lid, this.lever);
+      this.group.add(pit, spikes, this.lid, this.lever);
     }
   }
 
@@ -183,9 +185,9 @@ export class TurretRig {
           this.cooldown = 0.7;
           for (const fruit of pack) {
             onHit({ fruit, damage: 20 + level * 7, split: true });
-            ctx.shoot(fruit.group.position.x, fruit.group.position.z, 0xd7dee6);
+            ctx.shoot(fruit.group.position.x, fruit.group.position.z, 0xff5522);
           }
-          juice.floorSplash(x, z, 0x3ad15c, 10 + pack.length * 3);
+          juice.floorSplash(x, z, 0xff6622, 10 + pack.length * 3);
           noisy = true;
         }
       }
