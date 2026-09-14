@@ -188,3 +188,21 @@ test('progression and reward routes require an authenticated session', async (t)
     assert.equal(response.status, 401, `${endpoint} must require a session`);
   }
 });
+
+test('cloud profile reads require a session and leaderboard reads ignore spoofed IDs', async (t) => {
+  const { server, base } = await listen(createApp());
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+    await closeDb();
+  });
+
+  const profile = await fetch(`${base}/api/profile?userId=another-user`);
+  assert.equal(profile.status, 401, 'Cloud saves must not be readable by client user ID');
+
+  const rank = await fetch(`${base}/api/leaderboard/monthly-rank?userId=another-user`);
+  assert.ok(rank.status === 200 || rank.status === 500, 'Public rank endpoint should remain available');
+  if (rank.status === 200) {
+    const body = await rank.json();
+    assert.equal(body.score, 0, 'Unauthenticated rank reads must not use a spoofed user ID');
+  }
+});

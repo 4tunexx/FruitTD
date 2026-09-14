@@ -13,7 +13,7 @@ function resolveMode(mode: string): string {
 
 leaderboardRouter.get('/monthly-rank', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
+    const userId = (await resolveRequestUser(req))?.userId;
     const catalog = await loadQuestCatalog();
     const seasonMode = monthlyLeaderboardMode();
     const col = await getCollection<LeaderboardDoc>('leaderboards');
@@ -39,7 +39,7 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
   try {
     const mode = resolveMode((req.query.mode as string) || 'ranked');
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-    const userId = req.query.userId as string;
+    const userId = (await resolveRequestUser(req))?.userId;
 
     const col = await getCollection<LeaderboardDoc>('leaderboards');
 

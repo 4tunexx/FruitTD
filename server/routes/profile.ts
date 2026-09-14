@@ -7,10 +7,9 @@ export const profileRouter = Router();
 // GET /api/profile?userId=xxx
 profileRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId is required' });
-    }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to view a cloud save' });
+    const userId = user.userId;
 
     const col = await getCollection<CloudSaveDoc>('cloud_saves');
     const doc = await col.findOne({ userId });

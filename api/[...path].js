@@ -398,7 +398,7 @@ function resolveMode(mode) {
 }
 leaderboardRouter.get("/monthly-rank", async (req2, res) => {
   try {
-    const userId = req2.query.userId;
+    const userId = (await resolveRequestUser(req2))?.userId;
     const catalog = await loadQuestCatalog();
     const seasonMode = monthlyLeaderboardMode();
     const col = await getCollection("leaderboards");
@@ -422,7 +422,7 @@ leaderboardRouter.get("/", async (req2, res) => {
   try {
     const mode = resolveMode(req2.query.mode || "ranked");
     const limit = Math.min(parseInt(req2.query.limit) || 50, 100);
-    const userId = req2.query.userId;
+    const userId = (await resolveRequestUser(req2))?.userId;
     const col = await getCollection("leaderboards");
     const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
     const leaderboard = topEntries.map((entry, idx) => ({
@@ -1748,10 +1748,9 @@ import { Router as Router8 } from "express";
 var profileRouter = Router8();
 profileRouter.get("/", async (req2, res) => {
   try {
-    const userId = req2.query.userId;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required" });
-    }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to view a cloud save" });
+    const userId = user.userId;
     const col = await getCollection("cloud_saves");
     const doc = await col.findOne({ userId });
     const usersCol = await getCollection("users");
