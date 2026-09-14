@@ -2,13 +2,19 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   advanceFrameCursor,
+  bossStudioCandidates,
+  bossStudioKey,
+  BOSS_OVERLORD_STUDIO_KEY,
   directionFromVelocity,
   enemyKindToStudioKey,
   fireStudioEvent,
+  heroIdToStudioKey,
+  invalidateStudioRuntimeCache,
+  resolveFruitStudioKey,
   resolveStudioHook,
   setStudioFxCallbacks,
   STUDIO_DEFAULT_FPS,
-  invalidateStudioRuntimeCache,
+  TOWER_STUDIO_KEY,
 } from './studioRuntime';
 
 test('enemyKindToStudioKey maps all enemy kinds', () => {
@@ -107,4 +113,87 @@ test('fireStudioEvent invokes callbacks for hooks in localStorage store', () => 
   assert.equal(hook?.sfxSlot, 'lemonImpact');
 
   setStudioFxCallbacks({});
+});
+
+
+test('heroIdToStudioKey maps hero ids', () => {
+  assert.equal(heroIdToStudioKey('jiju'), 'hero-jiju');
+  assert.equal(heroIdToStudioKey('topfu'), 'hero-topfu');
+  assert.equal(heroIdToStudioKey('ki'), 'hero-ki');
+  assert.equal(heroIdToStudioKey('TRIPOS'), 'hero-tripos');
+});
+
+test('tower and boss studio key helpers', () => {
+  assert.equal(TOWER_STUDIO_KEY, 'tower-main');
+  assert.equal(BOSS_OVERLORD_STUDIO_KEY, 'boss-overlord');
+  assert.equal(bossStudioKey(), 'boss-overlord');
+  assert.equal(bossStudioKey(null), 'boss-overlord');
+  assert.equal(bossStudioKey('watermelon'), 'boss-watermelon');
+  assert.deepEqual(bossStudioCandidates('watermelon'), ['boss-watermelon', 'boss-overlord']);
+  assert.deepEqual(bossStudioCandidates(), ['boss-overlord']);
+});
+
+test('enemyKindToStudioKey and resolveFruitStudioKey fallbacks without store', () => {
+  assert.equal(enemyKindToStudioKey('normal'), 'enemy-normal');
+  assert.equal(enemyKindToStudioKey('armored'), 'enemy-armored');
+  // No Creator packs in store → boss falls back to enemy key.
+  assert.equal(resolveFruitStudioKey('armored', true, 'watermelon'), 'enemy-armored');
+  assert.equal(resolveFruitStudioKey('swift', false), 'enemy-swift');
+  assert.equal(resolveFruitStudioKey('normal', false, 'lemon'), 'enemy-normal');
+});
+
+test('resolveFruitStudioKey prefers boss-overlord when pack has clips', () => {
+  const mem = new Map<string, string>();
+  (globalThis as { localStorage?: Storage }).localStorage = {
+    getItem: (k) => (mem.has(k) ? mem.get(k)! : null),
+    setItem: (k, v) => {
+      mem.set(k, String(v));
+    },
+    removeItem: (k) => {
+      mem.delete(k);
+    },
+    clear: () => mem.clear(),
+    key: () => null,
+    length: 0,
+  } as Storage;
+
+  const entities: Record<string, unknown> = {
+    'boss-overlord': {
+      sheetDataUrl: 'data:image/png;base64,xxx',
+      cols: 4,
+      rows: 4,
+      frameW: 0,
+      frameH: 0,
+      clips: {
+        walk_down: { startFrame: 0, frameCount: 4, fps: 10 },
+      },
+      events: {},
+    },
+  };
+  const store = {
+    version: 2,
+    selectedEntity: 'boss-overlord',
+    entities,
+  };
+  mem.set('fruittd-creator-v2', JSON.stringify(store));
+  invalidateStudioRuntimeCache();
+
+  assert.equal(resolveFruitStudioKey('armored', true, 'watermelon'), 'boss-overlord');
+  assert.equal(resolveFruitStudioKey('normal', false), 'enemy-normal');
+
+  // Specific boss fruit pack wins when present.
+  entities['boss-watermelon'] = {
+    sheetDataUrl: 'data:image/png;base64,yyy',
+    cols: 2,
+    rows: 2,
+    frameW: 0,
+    frameH: 0,
+    clips: { idle: { startFrame: 0, frameCount: 2, fps: 8 } },
+    events: {},
+  };
+  mem.set('fruittd-creator-v2', JSON.stringify(store));
+  invalidateStudioRuntimeCache();
+  assert.equal(resolveFruitStudioKey('armored', true, 'watermelon'), 'boss-watermelon');
+
+  invalidateStudioRuntimeCache();
 });

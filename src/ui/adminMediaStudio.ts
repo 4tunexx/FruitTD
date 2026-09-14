@@ -71,6 +71,10 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'hero-lagen', label: 'Lagen (hero-lagen)' },
   { key: 'hero-tripos', label: 'Tripos (hero-tripos)' },
   { key: 'hero-ki', label: 'Master Ki (hero-ki)' },
+  { key: 'boss-overlord', label: 'Fruit Overlord (boss-overlord)' },
+  { key: 'boss-watermelon', label: 'Boss Watermelon (boss-watermelon)' },
+  { key: 'boss-pineapple', label: 'Boss Pineapple (boss-pineapple)' },
+  { key: 'boss-bomb', label: 'Boss Bomb (boss-bomb)' },
 ];
 
 export const STUDIO_STATES: StudioState[] = ['idle', 'walk', 'run', 'hit', 'death'];

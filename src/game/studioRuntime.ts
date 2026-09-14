@@ -19,6 +19,26 @@ import {
   type StudioState,
 } from '../ui/adminMediaStudio';
 import type { EnemyKind } from './enemies';
+export const TOWER_STUDIO_KEY = 'tower-main';
+export const BOSS_OVERLORD_STUDIO_KEY = 'boss-overlord';
+
+/** Map gameplay hero id → Media Studio entity key. */
+export function heroIdToStudioKey(heroId: string): string {
+  return `hero-${String(heroId || 'jiju').toLowerCase()}`;
+}
+
+/** Preferred studio keys for a boss fruit (specific fruit first, then overlord). */
+export function bossStudioCandidates(fruitKind?: string | null): string[] {
+  const keys: string[] = [];
+  if (fruitKind) keys.push(`boss-${fruitKind}`);
+  keys.push(BOSS_OVERLORD_STUDIO_KEY);
+  return keys;
+}
+
+/** Pure default boss key (no store lookup). */
+export function bossStudioKey(fruitKind?: string | null): string {
+  return fruitKind ? `boss-${fruitKind}` : BOSS_OVERLORD_STUDIO_KEY;
+}
 
 export const STUDIO_DEFAULT_FPS = 10;
 export const STUDIO_HIT_SECONDS = 0.22;
@@ -59,6 +79,24 @@ export function enemyKindToStudioKey(kind: EnemyKind): string {
     default:
       return 'enemy-normal';
   }
+}
+
+/**
+ * Resolve the studio entity key for a live fruit.
+ * Bosses prefer boss-<fruit> / boss-overlord when those packs have playback clips;
+ * otherwise fall back to the enemy kind key (existing path).
+ */
+export function resolveFruitStudioKey(
+  enemyKind: EnemyKind,
+  boss = false,
+  fruitKind?: string | null,
+): string {
+  if (boss) {
+    for (const key of bossStudioCandidates(fruitKind)) {
+      if (hasStudioPlaybackClip(key)) return key;
+    }
+  }
+  return enemyKindToStudioKey(enemyKind);
 }
 
 /** Approximate facing from movement (impulse + approach velocity). */
@@ -139,6 +177,33 @@ export function hasStudioWalkClip(entityKey: string): boolean {
   return Boolean(resolveClip(ent, 'walk', 'down'));
 }
 
+/** True when sheet has idle and/or walk (tower/hero/boss packs). */
+export function hasStudioPlaybackClip(entityKey: string): boolean {
+  const ent = getStudioEntity(entityKey);
+  if (!ent) return false;
+  return Boolean(resolveClip(ent, 'idle', 'down') || resolveClip(ent, 'walk', 'down'));
+}
+
+/**
+ * Sample a single frame texture (prefer idle, then walk). Used by tower/hero
+ * mesh binding when a full anim tick is not required yet / sheet still loading.
+ */
+export function sampleStudioTexture(
+  entityKey: string,
+  prefer: StudioState = 'idle',
+): CanvasTexture | null {
+  const ent = getStudioEntity(entityKey);
+  if (!ent || !ent.sheetDataUrl) return null;
+  const img = ensureSheet(entityKey, ent.sheetDataUrl);
+  if (!img) return null;
+  const resolved =
+    resolveClip(ent, prefer, 'down') ||
+    resolveClip(ent, 'idle', 'down') ||
+    resolveClip(ent, 'walk', 'down');
+  if (!resolved) return null;
+  return frameTexture(entityKey, ent, img, resolved.clip.startFrame);
+}
+
 function resolveClip(
   ent: EntityStudioData,
   state: StudioState,
@@ -159,6 +224,10 @@ function resolveClip(
   // Non-directional states may be stored as walk_down style by mistake — also try bare state.
   if (clips[state] && clips[state].frameCount > 0) {
     return { key: state, clip: clips[state] };
+  }
+  // Tower / hero packs often only author idle — reuse for walk/run playback.
+  if ((state === 'walk' || state === 'run') && clips.idle && clips.idle.frameCount > 0) {
+    return { key: 'idle', clip: clips.idle };
   }
   return null;
 }
@@ -238,8 +307,7 @@ export interface StudioAnimState {
   flashT: number;
 }
 
-export function createStudioAnimState(enemyKind: EnemyKind): StudioAnimState {
-  const entityKey = enemyKindToStudioKey(enemyKind);
+export function createStudioAnimForKey(entityKey: string): StudioAnimState {
   return {
     entityKey,
     phase: 'walk',
@@ -248,20 +316,44 @@ export function createStudioAnimState(enemyKind: EnemyKind): StudioAnimState {
     cursor: 0,
     lastClipKey: '',
     lastFrame: -1,
-    active: hasStudioWalkClip(entityKey),
+    active: hasStudioPlaybackClip(entityKey),
     flashT: 0,
   };
 }
 
-export function resetStudioAnimState(anim: StudioAnimState, enemyKind: EnemyKind): void {
-  anim.entityKey = enemyKindToStudioKey(enemyKind);
+export function createStudioAnimState(
+  enemyKind: EnemyKind,
+  opts?: { boss?: boolean; fruitKind?: string | null },
+): StudioAnimState {
+  const entityKey = resolveFruitStudioKey(enemyKind, Boolean(opts?.boss), opts?.fruitKind);
+  return createStudioAnimForKey(entityKey);
+}
+
+export function resetStudioAnimState(
+  anim: StudioAnimState,
+  enemyKind: EnemyKind,
+  opts?: { boss?: boolean; fruitKind?: string | null },
+): void {
+  anim.entityKey = resolveFruitStudioKey(enemyKind, Boolean(opts?.boss), opts?.fruitKind);
   anim.phase = 'walk';
   anim.phaseT = 0;
   anim.dir = 'down';
   anim.cursor = 0;
   anim.lastClipKey = '';
   anim.lastFrame = -1;
-  anim.active = hasStudioWalkClip(anim.entityKey);
+  anim.active = hasStudioPlaybackClip(anim.entityKey);
+  anim.flashT = 0;
+}
+
+export function resetStudioAnimForKey(anim: StudioAnimState, entityKey: string): void {
+  anim.entityKey = entityKey;
+  anim.phase = 'walk';
+  anim.phaseT = 0;
+  anim.dir = 'down';
+  anim.cursor = 0;
+  anim.lastClipKey = '';
+  anim.lastFrame = -1;
+  anim.active = hasStudioPlaybackClip(entityKey);
   anim.flashT = 0;
 }
 

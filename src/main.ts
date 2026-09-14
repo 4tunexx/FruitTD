@@ -36,7 +36,12 @@ import { navigation } from './game/navigation';
 import { heroCombatPerkMultiplier } from './game/heroPerkSave';
 import { vipTierPrice, vipTierPurchaseCoins, vipXpMultiplier } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
-import { setStudioFxCallbacks } from './game/studioRuntime';
+import {
+  BOSS_OVERLORD_STUDIO_KEY,
+  bossStudioKey,
+  fireStudioEvent,
+  setStudioFxCallbacks,
+} from './game/studioRuntime';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -747,6 +752,11 @@ function showBossIntro(level: number): void {
   const subtitle = document.getElementById('boss-intro-subtitle');
   
   if (!letterbox || !title || !subtitle) return;
+
+  // Creator Hub: fire boss onSpawn hooks at intro (best-effort; fruit spawn also fires).
+  if (!fireStudioEvent(bossStudioKey('watermelon'), 'onSpawn')) {
+    fireStudioEvent(BOSS_OVERLORD_STUDIO_KEY, 'onSpawn');
+  }
   
   // Fruit-zombie overlord names scale with LEVEL (not wave)
   const bossNames = [

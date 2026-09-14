@@ -18,6 +18,15 @@ import { getAdminTexture } from './adminTextureLoader';
 import { getTowerXpState } from './towerProgression';
 import { getTowerMilestoneBonuses } from './towerMilestones';
 import type { HeroId } from './heroes';
+import {
+  TOWER_STUDIO_KEY,
+  createStudioAnimForKey,
+  heroIdToStudioKey,
+  resetStudioAnimForKey,
+  sampleStudioTexture,
+  updateStudioAnim,
+  type StudioAnimState,
+} from './studioRuntime';
 
 export interface Slot {
   index: number;
@@ -57,6 +66,8 @@ export class WallBase {
   private readonly rangeRing: Mesh;
   private readonly keepMesh: Mesh;
   private currentHero: HeroId | null = null;
+  private towerStudio: StudioAnimState = createStudioAnimForKey(TOWER_STUDIO_KEY);
+  private heroStudio: StudioAnimState = createStudioAnimForKey(heroIdToStudioKey('jiju'));
 
   constructor() {
     this.wallMesh = new Mesh(
@@ -143,40 +154,115 @@ export class WallBase {
   }
 
   applySkins(): void {
-    const main = this.slots[MAIN_INDEX].head;
-    if (main) {
-      const mat = main.material as MeshLambertMaterial;
-      mat.map = fruitAtlas.tile(0, 0);
+    this.refreshTowerTexture();
+    if (this.currentHero) this.refreshHeroTexture();
+  }
+
+  /** Apply Creator `tower-main` sheet (idle/walk) to the main turret head; fall back to atlas/admin PNG. */
+  refreshTowerTexture(): void {
+    resetStudioAnimForKey(this.towerStudio, TOWER_STUDIO_KEY);
+    const main = this.slots[MAIN_INDEX]?.head;
+    if (!main) return;
+    const mat = main.material as MeshLambertMaterial;
+    const studioTex =
+      sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') ||
+      (this.towerStudio.active ? updateStudioAnim(this.towerStudio, 0, 0, 0) : null);
+    if (studioTex) {
+      mat.map = studioTex;
+      mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
+      return;
     }
+    const adminTex = getAdminTexture('tower-main');
+    if (adminTex) {
+      mat.map = adminTex;
+      mat.color.setHex(0xffffff);
+      mat.needsUpdate = true;
+      return;
+    }
+    mat.map = fruitAtlas.tile(0, 0);
+    mat.color.setHex(0xffffff);
+    mat.needsUpdate = true;
   }
 
   setHero(heroId: HeroId): void {
-    if (this.currentHero === heroId) return;
+    if (this.currentHero === heroId) {
+      this.refreshHeroTexture();
+      return;
+    }
     this.currentHero = heroId;
     this.refreshHeroTexture();
   }
 
+  /**
+   * Hero avatar on the keep: prefer Creator `hero-*` sheet over single PNG upload,
+   * then admin tower-main / default keep colour.
+   */
   refreshHeroTexture(): void {
     if (!this.currentHero) return;
-    
+    const key = heroIdToStudioKey(this.currentHero);
+    resetStudioAnimForKey(this.heroStudio, key);
+
     const mat = this.keepMesh.material as MeshLambertMaterial;
+    const studioTex =
+      sampleStudioTexture(key, 'idle') ||
+      (this.heroStudio.active ? updateStudioAnim(this.heroStudio, 0, 0, 0) : null);
+
+    if (studioTex) {
+      mat.map = studioTex;
+      mat.color.setHex(0xffffff);
+      mat.needsUpdate = true;
+      return;
+    }
+
     const heroTex = getAdminTexture(`hero-${this.currentHero}` as any);
-    
     if (heroTex) {
       mat.map = heroTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
+      return;
+    }
+
+    const towerStudio =
+      sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') || getAdminTexture('tower-main');
+    if (towerStudio) {
+      mat.map = towerStudio;
+      mat.color.setHex(0xffffff);
     } else {
-      const defaultTowerTex = getAdminTexture('tower-main');
-      if (defaultTowerTex) {
-        mat.map = defaultTowerTex;
+      mat.map = null;
+      mat.color.setHex(0x6e3128);
+    }
+    mat.needsUpdate = true;
+  }
+
+  /** Subtle idle/walk advance for Creator tower + hero packs. */
+  private tickStudioSkins(dt: number): void {
+    const main = this.slots[MAIN_INDEX]?.head;
+    if (main && this.towerStudio.active) {
+      const tex = updateStudioAnim(this.towerStudio, dt, 0, 0);
+      if (tex) {
+        const mat = main.material as MeshLambertMaterial;
+        if (mat.map !== tex) {
+          mat.map = tex;
+          mat.needsUpdate = true;
+        } else {
+          tex.needsUpdate = true;
+        }
         mat.color.setHex(0xffffff);
-      } else {
-        mat.map = null;
-        mat.color.setHex(0x6e3128);
       }
-      mat.needsUpdate = true;
+    }
+    if (this.currentHero && this.heroStudio.active) {
+      const tex = updateStudioAnim(this.heroStudio, dt, 0, 0);
+      if (tex) {
+        const mat = this.keepMesh.material as MeshLambertMaterial;
+        if (mat.map !== tex) {
+          mat.map = tex;
+          mat.needsUpdate = true;
+        } else {
+          tex.needsUpdate = true;
+        }
+        mat.color.setHex(0xffffff);
+      }
     }
   }
 
@@ -323,6 +409,7 @@ export class WallBase {
     bank: JuiceBank,
     onHit: (hit: TurretHit) => void,
   ): boolean {
+    this.tickStudioSkins(dt);
     let shot = false;
     for (const slot of this.slots) {
       if (!slot.filled) continue;
