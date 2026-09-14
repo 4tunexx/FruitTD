@@ -95,7 +95,10 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
   };
 }
 
-let activePin: string = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+let activePin: string = '';
+if (typeof localStorage !== 'undefined') {
+  activePin = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+}
 
 export function isUserAdmin(): boolean {
   const steam = getCachedSteamState();
@@ -107,7 +110,9 @@ export function isUserAdmin(): boolean {
 
 export function setAdminPin(pin: string): void {
   activePin = pin;
-  localStorage.setItem(ADMIN_TOKEN_KEY, pin);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(ADMIN_TOKEN_KEY, pin);
+  }
 }
 
 function getAdminHeaders(): Record<string, string> {

@@ -2,6 +2,7 @@ import { CanvasTexture, LinearFilter, SRGBColorSpace } from 'three';
 import { getAdminSprite } from '../ui/adminSprites';
 
 const textureCache = new Map<string, CanvasTexture | null>();
+const pendingLoads = new Map<string, ((tex: CanvasTexture | null) => void)[]>();
 
 export function getAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main'): CanvasTexture | null {
   if (textureCache.has(type)) {
@@ -15,9 +16,6 @@ export function getAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enem
   }
   
   try {
-    const img = new Image();
-    img.src = dataUrl;
-    
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -28,14 +26,11 @@ export function getAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enem
       return null;
     }
     
-    img.onload = () => {
-      ctx.clearRect(0, 0, 256, 256);
-      ctx.drawImage(img, 0, 0, 256, 256);
-      const tex = textureCache.get(type);
-      if (tex) {
-        tex.needsUpdate = true;
-      }
-    };
+    // Draw a placeholder so texture isn't completely blank
+    ctx.fillStyle = '#888888';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = '#666666';
+    ctx.fillText('Loading...', 110, 128);
     
     const texture = new CanvasTexture(canvas);
     texture.colorSpace = SRGBColorSpace;
@@ -44,9 +39,34 @@ export function getAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enem
     texture.needsUpdate = true;
     
     textureCache.set(type, texture);
+    
+    // Load actual image asynchronously
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, 256, 256);
+      ctx.drawImage(img, 0, 0, 256, 256);
+      texture.needsUpdate = true;
+      
+      // Notify any pending callbacks
+      const callbacks = pendingLoads.get(type);
+      if (callbacks) {
+        callbacks.forEach(cb => cb(texture));
+        pendingLoads.delete(type);
+      }
+    };
+    img.onerror = () => {
+      console.warn(`Failed to load admin sprite ${type}`);
+      const callbacks = pendingLoads.get(type);
+      if (callbacks) {
+        callbacks.forEach(cb => cb(null));
+        pendingLoads.delete(type);
+      }
+    };
+    img.src = dataUrl;
+    
     return texture;
   } catch (err) {
-    console.warn(`Failed to load admin sprite ${type}:`, err);
+    console.warn(`Failed to create admin sprite ${type}:`, err);
     textureCache.set(type, null);
     return null;
   }
@@ -59,6 +79,7 @@ export function clearAdminTextureCache(): void {
     }
   });
   textureCache.clear();
+  pendingLoads.clear();
 }
 
 export function refreshAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main'): void {

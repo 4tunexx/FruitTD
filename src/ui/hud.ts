@@ -564,6 +564,54 @@ export class Hud {
       btn.addEventListener('click', () => this.onBuySkill?.(skill.id as SkillId));
       box.appendChild(btn);
     }
+    this.mountHeroPerks(save);
+  }
+
+  mountHeroPerks(save: SaveData): void {
+    const container = document.getElementById('hero-perks-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    const hero = save.hero;
+    const heroXp = save.xp[hero] || 0;
+    const perkRanks = save.heroPerkRanks?.[hero] || {};
+    
+    const { HERO_PERKS } = require('../game/heroProgression');
+    const { getAvailableHeroPerkPoints, upgradeHeroPerk } = require('../game/heroPerkSave');
+    
+    const availablePoints = getAvailableHeroPerkPoints(hero, heroXp);
+    const heroDef = require('../game/heroes').heroDef(hero);
+    
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between mb-3';
+    header.innerHTML = `
+      <p class="text-sm font-bold text-slate-300">${heroDef.name} Perks</p>
+      <p class="text-xs font-bold ${availablePoints > 0 ? 'text-lime-400' : 'text-slate-400'}">
+        ${availablePoints} perk point${availablePoints !== 1 ? 's' : ''} available
+      </p>
+    `;
+    container.appendChild(header);
+    
+    for (const perk of HERO_PERKS) {
+      const perkId = String(perk.id);
+      const rank = Number((perkRanks as any)[perkId]) || 0;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'skill-btn';
+      btn.innerHTML = `
+        <p class="font-black">${perk.name}  ${rank}/${perk.maxRank}</p>
+        <p class="text-[11px] text-zinc-400">${perk.description}</p>
+      `;
+      btn.disabled = availablePoints <= 0 || rank >= perk.maxRank;
+      btn.addEventListener('click', () => {
+        if (upgradeHeroPerk(hero, perk.id, heroXp, availablePoints)) {
+          const updatedSave = loadSave();
+          this.currentSave = updatedSave;
+          this.mountHeroPerks(updatedSave);
+        }
+      });
+      container.appendChild(btn);
+    }
   }
 
   refreshHeroPick(id: HeroId, save: SaveData): void {

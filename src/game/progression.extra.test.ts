@@ -1,7 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
-
-// Mock localStorage for Node test environment
+// Mock localStorage BEFORE any imports to prevent module initialization errors
 if (typeof globalThis.localStorage === 'undefined') {
   const store = new Map<string, string>();
   (globalThis as any).localStorage = {
@@ -12,6 +9,8 @@ if (typeof globalThis.localStorage === 'undefined') {
   };
 }
 
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { HERO_PERKS, heroPerkMultiplier, heroPerkRank } from './heroProgression';
 import { TOWER_MILESTONES } from './towerMilestones';
 import { createState } from './state';
