@@ -159,3 +159,32 @@ test('cloud save sync rejects absurd economy values', async (t) => {
   });
   assert.equal(validSave.status, 401, 'Cloud saves require an authenticated session');
 });
+
+test('progression and reward routes require an authenticated session', async (t) => {
+  const { server, base } = await listen(createApp());
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+    await closeDb();
+  });
+
+  const protectedReads = ['/api/achievements', '/api/missions', '/api/badges', '/api/daily'];
+  for (const endpoint of protectedReads) {
+    const response = await fetch(`${base}${endpoint}?userId=another-user`);
+    assert.equal(response.status, 401, `${endpoint} must not trust a client user ID`);
+  }
+
+  const protectedWrites = [
+    ['/api/achievements/progress', { userId: 'another-user', updates: [] }],
+    ['/api/missions/progress', { userId: 'another-user', updates: [] }],
+    ['/api/badges/progress', { userId: 'another-user', updates: [] }],
+    ['/api/daily/claim', { userId: 'another-user' }],
+  ] as const;
+  for (const [endpoint, body] of protectedWrites) {
+    const response = await fetch(`${base}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 401, `${endpoint} must require a session`);
+  }
+});

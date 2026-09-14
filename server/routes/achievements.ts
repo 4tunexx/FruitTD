@@ -1,15 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { getCollection, AchievementDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
+import { resolveRequestUser } from '../auth';
 
 export const achievementsRouter = Router();
 
 achievementsRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId is required' });
-    }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to view achievements' });
+    const userId = user.userId;
 
     const catalog = await loadQuestCatalog();
     const defs = catalog.achievements.filter((a) => a.enabled !== false);
@@ -55,10 +55,13 @@ achievementsRouter.get('/', async (req: Request, res: Response) => {
 
 achievementsRouter.post('/progress', async (req: Request, res: Response) => {
   try {
-    const { userId, updates } = req.body;
-    if (!userId || !Array.isArray(updates)) {
+    const { updates } = req.body;
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to update achievements' });
+    const userId = user.userId;
 
     const catalog = await loadQuestCatalog();
     const col = await getCollection<AchievementDoc>('achievements');
@@ -106,11 +109,14 @@ achievementsRouter.post('/progress', async (req: Request, res: Response) => {
 
 achievementsRouter.post('/claim', async (req: Request, res: Response) => {
   try {
-    const { userId, achievementId } = req.body;
+    const { achievementId } = req.body;
+    const user = await resolveRequestUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim achievements' });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const def = catalog.achievements.find((a) => a.id === achievementId && a.enabled !== false);
-    if (!userId || !def) {
-      return res.status(400).json({ success: false, error: 'Invalid userId or achievementId' });
+    if (!def) {
+      return res.status(400).json({ success: false, error: 'Invalid achievementId' });
     }
 
     const col = await getCollection<AchievementDoc>('achievements');

@@ -581,10 +581,9 @@ import { Router as Router2 } from "express";
 var achievementsRouter = Router2();
 achievementsRouter.get("/", async (req2, res) => {
   try {
-    const userId = req2.query.userId;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required" });
-    }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to view achievements" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const defs = catalog.achievements.filter((a) => a.enabled !== false);
     const col = await getCollection("achievements");
@@ -626,10 +625,13 @@ achievementsRouter.get("/", async (req2, res) => {
 });
 achievementsRouter.post("/progress", async (req2, res) => {
   try {
-    const { userId, updates } = req2.body;
-    if (!userId || !Array.isArray(updates)) {
+    const { updates } = req2.body;
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: "Invalid payload" });
     }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to update achievements" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const col = await getCollection("achievements");
     const newlyUnlocked = [];
@@ -669,11 +671,14 @@ achievementsRouter.post("/progress", async (req2, res) => {
 });
 achievementsRouter.post("/claim", async (req2, res) => {
   try {
-    const { userId, achievementId } = req2.body;
+    const { achievementId } = req2.body;
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim achievements" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const def = catalog.achievements.find((a) => a.id === achievementId && a.enabled !== false);
-    if (!userId || !def) {
-      return res.status(400).json({ success: false, error: "Invalid userId or achievementId" });
+    if (!def) {
+      return res.status(400).json({ success: false, error: "Invalid achievementId" });
     }
     const col = await getCollection("achievements");
     const existing = await col.findOne({ userId, achievementId });
@@ -717,10 +722,9 @@ function periodKey(type) {
 }
 missionsRouter.get("/", async (req2, res) => {
   try {
-    const userId = req2.query.userId;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required" });
-    }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to view missions" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const defs = catalog.missions.filter((m) => m.enabled !== false);
     const keys = [...new Set(defs.map((d) => periodKey(d.type)))];
@@ -763,10 +767,13 @@ missionsRouter.get("/", async (req2, res) => {
 });
 missionsRouter.post("/progress", async (req2, res) => {
   try {
-    const { userId, updates } = req2.body;
-    if (!userId || !Array.isArray(updates)) {
+    const { updates } = req2.body;
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: "Invalid payload" });
     }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to update missions" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const col = await getCollection("missions");
     for (const update of updates) {
@@ -803,10 +810,13 @@ missionsRouter.post("/progress", async (req2, res) => {
 });
 missionsRouter.post("/claim", async (req2, res) => {
   try {
-    const { userId, missionId } = req2.body;
+    const { missionId } = req2.body;
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim missions" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const def = catalog.missions.find((m) => m.id === missionId && m.enabled !== false);
-    if (!userId || !def) {
+    if (!def) {
       return res.status(400).json({ success: false, error: "Invalid missionId" });
     }
     const activeKey = periodKey(def.type);
@@ -1088,10 +1098,9 @@ function getDayKey2(date = /* @__PURE__ */ new Date()) {
 }
 dailyRouter.get("/", async (req2, res) => {
   try {
-    const userId = req2.query.userId;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required" });
-    }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to view daily rewards" });
+    const userId = user.userId;
     const todayStr = getDayKey2();
     const col = await getCollection("daily_bonus");
     const existing = await col.findOne({ userId });
@@ -1130,10 +1139,9 @@ dailyRouter.get("/", async (req2, res) => {
 });
 dailyRouter.post("/claim", async (req2, res) => {
   try {
-    const { userId } = req2.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required" });
-    }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim daily rewards" });
+    const userId = user.userId;
     const todayStr = getDayKey2();
     const col = await getCollection("daily_bonus");
     const existing = await col.findOne({ userId });
@@ -1830,8 +1838,9 @@ import { Router as Router9 } from "express";
 var badgesRouter = Router9();
 badgesRouter.get("/", async (req2, res) => {
   try {
-    const userId = req2.query.userId;
-    if (!userId) return res.status(400).json({ success: false, error: "userId is required" });
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to view badges" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const defs = catalog.badges.filter((b) => b.enabled !== false);
     const col = await getCollection("badges");
@@ -1864,10 +1873,13 @@ badgesRouter.get("/", async (req2, res) => {
 });
 badgesRouter.post("/progress", async (req2, res) => {
   try {
-    const { userId, updates } = req2.body;
-    if (!userId || !Array.isArray(updates)) {
+    const { updates } = req2.body;
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: "Invalid payload" });
     }
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to update badges" });
+    const userId = user.userId;
     const catalog = await loadQuestCatalog();
     const col = await getCollection("badges");
     const newlyUnlocked = [];
@@ -1903,6 +1915,30 @@ badgesRouter.post("/progress", async (req2, res) => {
   }
 });
 
+// server/rateLimit.ts
+function rateLimit(maxRequests, windowMs) {
+  const buckets = /* @__PURE__ */ new Map();
+  return (req2, res, next) => {
+    const now = Date.now();
+    const key = req2.ip || req2.socket.remoteAddress || "unknown";
+    const current = buckets.get(key);
+    const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + windowMs } : current;
+    bucket.count += 1;
+    buckets.set(key, bucket);
+    if (buckets.size > 1e4) {
+      for (const [bucketKey, value] of buckets) {
+        if (value.resetAt <= now) buckets.delete(bucketKey);
+      }
+    }
+    if (bucket.count > maxRequests) {
+      res.setHeader("Retry-After", Math.ceil((bucket.resetAt - now) / 1e3));
+      res.status(429).json({ success: false, error: "Too many requests" });
+      return;
+    }
+    next();
+  };
+}
+
 // server/app.ts
 function createApp() {
   const app2 = express();
@@ -1928,14 +1964,14 @@ function createApp() {
       res.status(500).json({ status: "error", error: err.message });
     }
   });
-  app2.use("/api/auth", authRouter);
-  app2.use("/api/leaderboard", leaderboardRouter);
+  app2.use("/api/auth", rateLimit(30, 6e4), authRouter);
+  app2.use("/api/leaderboard", rateLimit(60, 6e4), leaderboardRouter);
   app2.use("/api/achievements", achievementsRouter);
   app2.use("/api/missions", missionsRouter);
-  app2.use("/api/daily", dailyRouter);
+  app2.use("/api/daily", rateLimit(20, 6e4), dailyRouter);
   app2.use("/api/steam", steamRouter);
   app2.use("/api/profile", profileRouter);
-  app2.use("/api/admin", adminRouter);
+  app2.use("/api/admin", rateLimit(30, 6e4), adminRouter);
   app2.use("/api/badges", badgesRouter);
   return app2;
 }
