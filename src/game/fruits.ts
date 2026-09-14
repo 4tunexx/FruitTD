@@ -54,10 +54,7 @@ function makeFruit(): Fruit {
   hpBackMat.transparent = true;
   hpBackMat.opacity = 0.85;
   const hpBack = new Mesh(BAR_GEO, hpBackMat);
-  const hpBarMat = new MeshBasicMaterial({ color: 0x3d8b2e });
-  hpBarMat.emissive.setHex(0x1a5015);
-  hpBarMat.emissiveIntensity = 0.4;
-  const hpBar = new Mesh(BAR_GEO, hpBarMat);
+  const hpBar = new Mesh(BAR_GEO, new MeshLambertMaterial({ color: 0x3d8b2e, emissive: 0x1a5015, emissiveIntensity: 0.4 }));
   const group = new Group();
   group.add(body, hpBack, hpBar);
   group.visible = false;
