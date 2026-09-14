@@ -341,6 +341,13 @@ function maybeOver(): void {
   save.coins += Math.max(2, Math.floor(state.score / 18));
   persist();
   sfx.gameOver();
+  sfx.stopAllLoops();
+  
+  document.getElementById('hud-gameover')?.classList.remove('hidden');
+  const finalScore = document.getElementById('hud-final-score');
+  const finalWave = document.getElementById('hud-final-wave');
+  if (finalScore) finalScore.textContent = `${state.score.toLocaleString()}`;
+  if (finalWave) finalWave.textContent = `Wave ${state.wave}`;
 
   // Submit score to MongoDB Atlas
   const steamState = getCachedSteamState();
@@ -616,12 +623,19 @@ function quitToMenu(): void {
   navigation.setState('DASHBOARD');
   state.running = false;
   wall.cancelMove();
+  blade.consumeClick();
+  blade.consumeSlash();
   document.getElementById('app')?.classList.remove('sidebar-open');
+  document.getElementById('hud-gameover')?.classList.add('hidden');
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
   sfx.pause();
   sfx.stopAllLoops();
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).__fruitTdQuitToMenu = quitToMenu;
 }
 
 function restartMatch(): void {

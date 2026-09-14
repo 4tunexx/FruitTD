@@ -596,7 +596,13 @@ export class Hud {
     const next = xpForNext(state.heroLevel);
     this.hero.textContent = `${hero.name}  ·  Lv ${state.heroLevel}/5  ·  XP ${state.heroXp}/${next}`;
     this.hpFill.style.width = `${Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100)}%`;
-    this.combo.textContent = state.combo > 1 ? `× ${state.combo} COMBO` : '';
+    if (state.combo >= 1) {
+      this.combo.textContent = `× ${state.combo} COMBO`;
+      this.combo.style.display = '';
+    } else {
+      this.combo.textContent = '';
+      this.combo.style.display = 'none';
+    }
     this.superFill.style.height = `${Math.min(100, state.superJuice)}%`;
     this.superBtn.disabled = state.superJuice < 100;
     this.modeLabel.textContent = modeRules(state.mode).name;
