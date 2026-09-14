@@ -321,6 +321,22 @@ leaderboardRouter.post("/", async (req2, res) => {
     if (!userId || typeof score !== "number" || score < 0) {
       return res.status(400).json({ success: false, error: "Invalid score submission payload" });
     }
+    const MAX_REASONABLE_SCORE = 1e7;
+    const MAX_REASONABLE_WAVE = 1e3;
+    const MAX_REASONABLE_FRUITS = 1e5;
+    const MAX_REASONABLE_COMBO = 5e3;
+    if (score > MAX_REASONABLE_SCORE) {
+      return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
+    }
+    if (wave && wave > MAX_REASONABLE_WAVE) {
+      return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
+    }
+    if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
+      return res.status(400).json({ success: false, error: "Fruits sliced exceeds reasonable maximum" });
+    }
+    if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
+      return res.status(400).json({ success: false, error: "Combo exceeds reasonable maximum" });
+    }
     const col = await getCollection("leaderboards");
     const playMode = mode || "casual";
     const upsertBest = async (modeKey) => {
@@ -653,7 +669,6 @@ import { Router as Router4 } from "express";
 import { ObjectId } from "mongodb";
 var adminRouter = Router4();
 var ADMIN_STEAM_ID = "76561198001993310";
-var ADMIN_DEV_PIN = "1337";
 var ICON_TYPES = /* @__PURE__ */ new Set(["coin", "gem", "chest", "blade"]);
 function normalizeDailyRewards(input) {
   const rows = Array.isArray(input) ? input : [];
@@ -713,6 +728,11 @@ var DEFAULT_ADMIN_CONFIG = {
     { day: 6, coins: 450, skillPoints: 0, label: "450 Coins", iconType: "chest" },
     { day: 7, coins: 1e3, skillPoints: 2, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade!", iconType: "blade" }
   ],
+  vipTiers: [
+    { tier: "bronze", title: "Bronze VIP", price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: "+10% coins, +5% XP, 25 daily coins" },
+    { tier: "silver", title: "Silver VIP", price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ["blade-silver-vip"], description: "+25% coins, +15% XP, 75 daily coins + 1 SP" },
+    { tier: "gold", title: "Gold VIP", price: 5e3, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ["blade-gold-vip", "wall-gold-vip"], description: "+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins" }
+  ],
   menuConfig: {
     eyebrow: "FRUIT TD \xB7 LIVE ONLINE",
     title: "Slice.\nHold the Wall.",
@@ -730,12 +750,12 @@ var DEFAULT_ADMIN_CONFIG = {
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
-  slicers: DEFAULT_SLICERS
+  slicers: DEFAULT_SLICERS,
+  enemies: []
 };
 function isAuthorized(req2) {
   const steamId = req2.headers["x-admin-steamid"];
-  const pin = req2.headers["x-admin-pin"];
-  return steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  return steamId === ADMIN_STEAM_ID;
 }
 adminRouter.get("/config", async (_req, res) => {
   try {
@@ -755,11 +775,13 @@ adminRouter.get("/config", async (_req, res) => {
       config: {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
+        vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
         missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
         achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
         badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
         ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
-        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS
+        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
+        enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : []
       }
     });
   } catch (err) {
@@ -772,8 +794,8 @@ adminRouter.get("/config", async (_req, res) => {
   }
 });
 adminRouter.post("/verify", async (req2, res) => {
-  const { steamId, pin } = req2.body;
-  const valid = steamId === ADMIN_STEAM_ID || pin === ADMIN_DEV_PIN;
+  const { steamId } = req2.body;
+  const valid = steamId === ADMIN_STEAM_ID;
   res.json({
     success: true,
     isAdmin: valid,
@@ -785,12 +807,13 @@ adminRouter.post("/config", async (req2, res) => {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
-    const { dailyRewards, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers } = req2.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies } = req2.body;
     const col = await getCollection("admin_config");
     const existing = await col.findOne({ configKey: "game_config" });
     const updated = {
       configKey: "game_config",
       dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG.dailyRewards,
+      vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
       missions: Array.isArray(missions) ? missions : existing?.missions || DEFAULT_MISSIONS,
@@ -798,6 +821,7 @@ adminRouter.post("/config", async (req2, res) => {
       badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
       ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
+      enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
@@ -1732,6 +1756,22 @@ profileRouter.post("/sync", async (req2, res) => {
     const { userId, saveData } = req2.body;
     if (!userId || !saveData) {
       return res.status(400).json({ success: false, error: "userId and saveData are required" });
+    }
+    const MAX_REASONABLE_COINS = 1e6;
+    const MAX_REASONABLE_SKILL_POINTS = 1e4;
+    const MAX_REASONABLE_XP = 1e6;
+    if (saveData.coins && saveData.coins > MAX_REASONABLE_COINS) {
+      return res.status(400).json({ success: false, error: "Coins exceed reasonable maximum" });
+    }
+    if (saveData.skillPoints && saveData.skillPoints > MAX_REASONABLE_SKILL_POINTS) {
+      return res.status(400).json({ success: false, error: "Skill points exceed reasonable maximum" });
+    }
+    if (saveData.xp) {
+      for (const heroXp of Object.values(saveData.xp)) {
+        if (typeof heroXp === "number" && heroXp > MAX_REASONABLE_XP) {
+          return res.status(400).json({ success: false, error: "Hero XP exceeds reasonable maximum" });
+        }
+      }
     }
     const col = await getCollection("cloud_saves");
     await col.updateOne(

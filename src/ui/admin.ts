@@ -206,7 +206,76 @@ export class AdminController {
     }
   }
 
-  // 1. Daily Rewards Editor
+  // 2. VIP Tiers Editor
+  private renderVipEditor(): void {
+    const container = document.getElementById('admin-vip-list');
+    if (!container || !this.config) return;
+    container.innerHTML = '';
+
+    this.config.vipTiers.forEach((vip) => {
+      const card = document.createElement('div');
+      card.className = 'admin-reward-row';
+      const tierColor = vip.tier === 'gold' ? '#f5c542' : vip.tier === 'silver' ? '#c0c0c0' : '#cd7f32';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span style="font-size:1.5rem;color:${tierColor}">◆</span>
+          <strong style="color:${tierColor}">${vip.title}</strong>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;">
+          <label class="admin-label">
+            Price (coins)
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="price" value="${vip.price}" min="0" />
+          </label>
+          <label class="admin-label">
+            Coin Bonus (%)
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="coinBonus" value="${vip.coinBonus}" min="0" max="100" />
+          </label>
+          <label class="admin-label">
+            XP Bonus (%)
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="xpBonus" value="${vip.xpBonus}" min="0" max="100" />
+          </label>
+          <label class="admin-label">
+            Daily Coins
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="dailyCoins" value="${vip.dailyCoins}" min="0" />
+          </label>
+          <label class="admin-label">
+            Daily SP
+            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="dailySp" value="${vip.dailySp}" min="0" />
+          </label>
+          <label class="admin-label">
+            Exclusive Skins (comma-separated IDs)
+            <input type="text" class="admin-input" data-vip="${vip.tier}" data-field="exclusiveSkins" value="${vip.exclusiveSkins.join(',')}" />
+          </label>
+        </div>
+        <label class="admin-label">
+          Description
+          <input type="text" class="admin-input" data-vip="${vip.tier}" data-field="description" value="${this.escapeAttr(vip.description)}" />
+        </label>
+      `;
+      container.appendChild(card);
+    });
+
+    // Attach listeners to sync changes
+    container.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('input', () => {
+        const tier = (input as HTMLInputElement).dataset.vip as 'bronze' | 'silver' | 'gold';
+        const field = (input as HTMLInputElement).dataset.field;
+        const vipObj = this.config!.vipTiers.find((v) => v.tier === tier);
+        if (!vipObj || !field) return;
+        
+        const value = (input as HTMLInputElement).value;
+        if (field === 'exclusiveSkins') {
+          vipObj.exclusiveSkins = value.split(',').map((s) => s.trim()).filter(Boolean);
+        } else if (field === 'description' || field === 'title') {
+          (vipObj as any)[field] = value;
+        } else {
+          (vipObj as any)[field] = parseFloat(value) || 0;
+        }
+      });
+    });
+  }
+
+  // 3. Daily Rewards Editor
   private renderDailyEditor(): void {
     const container = document.getElementById('admin-daily-list');
     if (!container || !this.config) return;

@@ -1,4 +1,4 @@
-import { HEROES, heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } from './heroes';
+import { HEROES, heroXpToLevel, type HeroId } from './heroes';
 import { SKILLS, emptySkills, type SkillId, type SkillMap } from './skills';
 import { getTowerProgression, syncTowerProgression } from './towerProgression';
 
