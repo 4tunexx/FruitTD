@@ -1,1 +1,1 @@
-@file:///workspace/hotfix/hud.ts
+__CURSOR_READ_FILE__/workspace/hotfix/hud.ts
