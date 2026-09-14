@@ -46,6 +46,25 @@ profileRouter.post('/sync', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'userId and saveData are required' });
     }
 
+    // SERVER-SIDE VALIDATION: Reject absurd economy values
+    const MAX_REASONABLE_COINS = 1_000_000;
+    const MAX_REASONABLE_SKILL_POINTS = 10_000;
+    const MAX_REASONABLE_XP = 1_000_000;
+
+    if (saveData.coins && saveData.coins > MAX_REASONABLE_COINS) {
+      return res.status(400).json({ success: false, error: 'Coins exceed reasonable maximum' });
+    }
+    if (saveData.skillPoints && saveData.skillPoints > MAX_REASONABLE_SKILL_POINTS) {
+      return res.status(400).json({ success: false, error: 'Skill points exceed reasonable maximum' });
+    }
+    if (saveData.xp) {
+      for (const heroXp of Object.values(saveData.xp)) {
+        if (typeof heroXp === 'number' && heroXp > MAX_REASONABLE_XP) {
+          return res.status(400).json({ success: false, error: 'Hero XP exceeds reasonable maximum' });
+        }
+      }
+    }
+
     const col = await getCollection<CloudSaveDoc>('cloud_saves');
     await col.updateOne(
       { userId },
