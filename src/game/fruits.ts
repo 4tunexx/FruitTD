@@ -7,6 +7,14 @@ import type { Slash } from '../input/blade';
 import type { SpawnItem } from './waves';
 import { ENEMY_RULES, type EnemyKind } from './enemies';
 import { getAdminTexture } from './adminTextureLoader';
+import {
+  createStudioAnimState,
+  resetStudioAnimState,
+  triggerStudioDeath,
+  triggerStudioHit,
+  updateStudioAnim,
+  type StudioAnimState,
+} from './studioRuntime';
 
 export type FruitKind = 'watermelon' | 'lemon' | 'orange' | 'banana' | 'strawberry' | 'pineapple' | 'kiwi' | 'bomb';
 export type FruitFamily = 'lemon' | 'berry' | 'melon' | 'bomb';
@@ -34,6 +42,8 @@ export interface Fruit {
   alive: boolean; kind: FruitKind; enemyKind: EnemyKind; radius: number; group: Group; body: Mesh; hpBar: Mesh; hpBack: Mesh;
   squash: number; vel: Vector3; spin: Vector3; bob: number; hp: number; maxHp: number; dodgeX: number; dodgeZ: number;
   brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
+  /** Studio clip playback; inactive when no sheet/walk clip is saved. */
+  studio: StudioAnimState;
 }
 
 const BODY_GEO = new SphereGeometry(1, 18, 14);
@@ -63,12 +73,13 @@ function makeFruit(): Fruit {
     alive: false, kind: 'lemon', enemyKind: 'normal', radius: 0.5, group, body, hpBar, hpBack,
     vel: new Vector3(), spin: new Vector3(), bob: 0, hp: 1, maxHp: 1, dodgeX: 0, dodgeZ: 0,
     brittle: 0, impulseX: 0, impulseZ: 0, squash: 0, boss: false, volatileTriggered: false,
+    studio: createStudioAnimState('normal'),
   };
 }
 
-function paint(fruit: Fruit, def: FruitDef): void {
+function paintStatic(fruit: Fruit, def: FruitDef): void {
   const mat = fruit.body.material as MeshLambertMaterial;
-  
+
   let adminTexture = null;
   if (fruit.enemyKind === 'explosive') {
     adminTexture = getAdminTexture('enemy-explosive');
@@ -77,15 +88,43 @@ function paint(fruit: Fruit, def: FruitDef): void {
   } else if (fruit.enemyKind === 'normal') {
     adminTexture = getAdminTexture('enemy-normal');
   }
-  
+
   if (adminTexture) {
     mat.map = adminTexture;
   } else {
     mat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
   }
-  
+
   mat.color.setHex(0xffffff);
   mat.needsUpdate = true;
+}
+
+function paint(fruit: Fruit, def: FruitDef): void {
+  // Prefer studio walk clip when available; otherwise atlas / admin single PNG.
+  if (fruit.studio.active) {
+    const tex = updateStudioAnim(fruit.studio, 0, 0, -1);
+    if (tex) {
+      const mat = fruit.body.material as MeshLambertMaterial;
+      mat.map = tex;
+      mat.color.setHex(0xffffff);
+      mat.needsUpdate = true;
+      return;
+    }
+  }
+  paintStatic(fruit, def);
+}
+
+function applyStudioTexture(fruit: Fruit, dt: number, vx: number, vz: number): void {
+  if (!fruit.studio.active) return;
+  const tex = updateStudioAnim(fruit.studio, dt, vx, vz);
+  if (!tex) return;
+  const mat = fruit.body.material as MeshLambertMaterial;
+  if (mat.map !== tex) {
+    mat.map = tex;
+    mat.needsUpdate = true;
+  } else {
+    tex.needsUpdate = true;
+  }
 }
 
 export class FruitField {
@@ -112,7 +151,8 @@ export class FruitField {
   reset(): void {
     this.queue.length = 0; this.spawnCd = 0; this.activeState = null;
     for (const fruit of this.fruits) {
-      fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false; fruit.group.visible = false;
+      fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false;
+      resetStudioAnimState(fruit.studio, 'normal'); fruit.group.visible = false;
     }
   }
 
@@ -121,6 +161,7 @@ export class FruitField {
   }
 
   spawn(kind: FruitKind, boss = false, enemyKind: EnemyKind = 'normal'): Fruit | null {
+    // Skip fruits still playing a death clip so the pool does not steal their mesh.
     const idle = this.fruits.find((f) => !f.alive);
     if (!idle) return null;
     const def = FRUIT_DEFS[kind];
@@ -137,7 +178,9 @@ export class FruitField {
     idle.radius = def.radius * (boss ? 1.05 : 0.62);
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
-    idle.volatileTriggered = false; idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
+    idle.volatileTriggered = false;
+    resetStudioAnimState(idle.studio, enemyKind);
+    idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.group.position.set(x, boss ? 1.05 : 0.7, z); idle.spin.set(0, 1.4 + Math.random(), 0);
     idle.bob = Math.random() * Math.PI * 2; idle.squash = 0; layoutHp(idle, 1); paint(idle, def);
     this.onSpawn?.(idle);
@@ -156,11 +199,21 @@ export class FruitField {
       }
     }
     fruit.hp -= amount; fruit.squash = 0.16; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
-    if (fruit.hp <= 0) { this.kill(fruit); return true; }
+    if (fruit.hp <= 0) {
+      // Death clips are intentionally not deferred: killFruit spawns debris halves
+      // immediately, and keeping the body visible would fight that flow.
+      triggerStudioDeath(fruit.studio);
+      this.kill(fruit);
+      return true;
+    }
+    triggerStudioHit(fruit.studio);
     return false;
   }
 
-  kill(fruit: Fruit): void { fruit.alive = false; fruit.group.visible = false; }
+  kill(fruit: Fruit): void {
+    fruit.alive = false;
+    fruit.group.visible = false;
+  }
 
   update(dt: number, state: GameState, onLeak: (fruit: Fruit) => void): void {
     this.activeState = state;
@@ -182,8 +235,10 @@ export class FruitField {
       const enemy = ENEMY_RULES[fruit.enemyKind] || ENEMY_RULES.normal;
       const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * 0.32 * rules.speedMul * (fruit.boss ? 0.58 : 1) * (fruit.brittle > 0 ? 0.48 : 1);
       fruit.dodgeX *= 0.86; fruit.dodgeZ *= 0.86;
-      fruit.group.position.x += (dx / dist) * speed * dt + fruit.dodgeX * dt + fruit.impulseX * dt;
-      fruit.group.position.z += (dz / dist) * speed * dt + fruit.dodgeZ * dt + fruit.impulseZ * dt;
+      const moveX = (dx / dist) * speed + fruit.dodgeX + fruit.impulseX;
+      const moveZ = (dz / dist) * speed + fruit.dodgeZ + fruit.impulseZ;
+      fruit.group.position.x += moveX * dt;
+      fruit.group.position.z += moveZ * dt;
       fruit.group.position.x = Math.max(-hw, Math.min(hw, fruit.group.position.x)); fruit.group.position.z = Math.min(top, fruit.group.position.z);
       if (fruit.group.position.z <= LEAK_Z) { this.kill(fruit); onLeak(fruit); continue; }
       fruit.squash = Math.max(0, fruit.squash - dt);
@@ -191,6 +246,7 @@ export class FruitField {
       fruit.group.scale.set(fruit.radius * (2 - squash), fruit.radius * squash, fruit.radius * (2 - squash));
       fruit.group.position.y = 0.62 + Math.sin(fruit.bob) * 0.06; fruit.body.rotation.y += fruit.spin.y * dt; fruit.group.rotation.set(0, 0, 0);
       layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
+      applyStudioTexture(fruit, dt, moveX, moveZ);
     }
   }
 

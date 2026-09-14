@@ -149,6 +149,8 @@ export class Sfx {
   private master: GainNode | null = null;
   private readonly buffers = new Map<string, AudioBuffer>();
   private readonly inflight = new Map<string, Promise<AudioBuffer | null>>();
+  /** Admin Media Studio sound-bank overrides keyed by BANKS array identity. */
+  private readonly studioByBank = new WeakMap<string[], string>();
   private readonly loops = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
   private lastSwipeAt = 0;
   private lastDripAt = 0;
@@ -211,6 +213,40 @@ export class Sfx {
     ];
     await this.preload(priority);
     this.ready = true;
+    void this.loadStudioSoundBank();
+  }
+
+  /** Optional: prefer admin Media Studio dataURL replacements for matching BANKS slots. */
+  private async loadStudioSoundBank(): Promise<void> {
+    try {
+      const { loadSoundBank, SOUND_BANK_SLOTS } = await import('../ui/adminMediaStudio');
+      const store = loadSoundBank();
+      const bankMap = BANKS as Record<string, string[]>;
+      for (const slot of SOUND_BANK_SLOTS) {
+        const dataUrl = store.replacements[slot.id];
+        if (!dataUrl) continue;
+        const bank = bankMap[slot.id];
+        if (!bank) continue;
+        const buf = await this.decodeDataUrl(dataUrl);
+        if (!buf) continue;
+        const key = `studio:${slot.id}`;
+        this.buffers.set(key, buf);
+        this.studioByBank.set(bank, key);
+      }
+    } catch {
+      /* studio sound bank is optional */
+    }
+  }
+
+  private async decodeDataUrl(dataUrl: string): Promise<AudioBuffer | null> {
+    try {
+      const ctx = this.ensure();
+      const res = await fetch(dataUrl);
+      const raw = await res.arrayBuffer();
+      return await ctx.decodeAudioData(raw.slice(0));
+    } catch {
+      return null;
+    }
   }
 
   async preload(list: string[]): Promise<void> {
@@ -299,6 +335,11 @@ export class Sfx {
   }
 
   playBank(bank: string[], opts?: { volume?: number; rate?: number; interrupt?: boolean; ui?: boolean }): void {
+    const studioKey = this.studioByBank.get(bank);
+    if (studioKey) {
+      this.play(studioKey, opts);
+      return;
+    }
     this.play(this.pick(bank), opts);
   }
 
