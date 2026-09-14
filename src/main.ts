@@ -123,7 +123,11 @@ void loadLiveConfig().then(() => {
   hud.mountShop(save);
 });
 
-fruits.onSpawn = () => undefined;
+fruits.onSpawn = (fruit) => {
+  const enemy = enemyRule(fruit.enemyKind);
+  if (enemy.kind === 'normal' || !enemy.warning) return;
+  toast(state, enemy.warning, 1.35);
+};
 hud.mountMeta(save);
 hud.onHero = (id) => selectHero(id);
 hud.onMode = (id) => setMode(id);
@@ -617,7 +621,7 @@ function resolveSlash(slash: Slash): void {
         if (hitDamage > 0) {
           state.lives -= hitDamage;
           fruit.volatileTriggered = true;
-          toast(state, 'VOLATILE HIT!', 1.2);
+          toast(state, enemy.warning || `${enemy.label} HIT!`, 1.2);
           renderer.impulseShake(0.6);
           maybeOver();
         }
@@ -733,15 +737,15 @@ function showBossIntro(level: number): void {
   
   if (!letterbox || !title || !subtitle) return;
   
-  // Boss names scale with LEVEL (not wave)
+  // Fruit-zombie overlord names scale with LEVEL (not wave)
   const bossNames = [
-    ['SENTINEL', 'GUARDIAN', 'WATCHER'],           // Level 1-3
-    ['THE CRUSHER', 'BERSERKER', 'RAVAGER'],       // Level 4-6
-    ['TITANFRUIT', 'COLOSSUS', 'JUGGERNAUT'],      // Level 7-9
-    ['APEX PREDATOR', 'DOMINATOR', 'ANNIHILATOR'], // Level 10-12
-    ['THE BEHEMOTH', 'LEVIATHAN', 'TITAN'],        // Level 13-15
-    ['FRUIT OVERLORD', 'SUPREME RULER', 'EMPEROR'], // Level 16-18
-    ['ULTIMATE DESTROYER', 'GOD EMPEROR', 'OMEGA'], // Level 19+
+    ['ROTTEN KING', 'ORCHARD WARDEN', 'RIPE WATCHER'],           // Level 1-3
+    ['THE JUICE CRUSHER', 'MASH BERSERKER', 'PULP RAVAGER'],     // Level 4-6
+    ['TITAN RIND', 'COLOSSUS CORE', 'JUGGERNAUT POD'],           // Level 7-9
+    ['APEX BLIGHT', 'DOMINATOR PEEL', 'ANNIHILATOR GROVE'],      // Level 10-12
+    ['THE BEHEMOTH MELON', 'LEVIATHAN CITRUS', 'TITAN ORCHARD'], // Level 13-15
+    ['FRUIT OVERLORD', 'SUPREME ROT', 'EMPEROR OF RIND'],        // Level 16-18
+    ['ULTIMATE BLIGHT', 'GOD OF JUICE', 'OMEGA ORCHARD'],        // Level 19+
   ];
   const tierIndex = Math.min(bossNames.length - 1, Math.floor((level - 1) / 3));
   const tier = bossNames[tierIndex];
@@ -749,7 +753,7 @@ function showBossIntro(level: number): void {
   const bossName = tier[nameIndex] || tier[0];
   
   title.textContent = bossName;
-  subtitle.textContent = `LEVEL ${level} BOSS`;
+  subtitle.textContent = `LEVEL ${level} OVERLORD`;
   
   letterbox.classList.remove('hidden');
   setTimeout(() => {
@@ -884,6 +888,7 @@ function simulate(dt: number): void {
   if (state.bossIntro) {
     if (state.bossIntroTimer === 2.5) {
       bossIntroEl.classList.remove('hidden');
+      showBossIntro(state.level);
     }
     state.bossIntroTimer -= dt;
     if (state.bossIntroTimer <= 0) {
@@ -894,7 +899,7 @@ function simulate(dt: number): void {
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
-      toast(state, plan.title, 1.8);
+      toast(state, plan.subtitle ? `${plan.title} — ${plan.subtitle}` : plan.title, 1.8);
       sfx.wave();
     }
   } else if (!state.waveSpawning) {
@@ -913,7 +918,7 @@ function simulate(dt: number): void {
       if (plan.boss) {
         showBossIntro(plan.level);
       } else {
-        toast(state, plan.title, 1.4);
+        toast(state, plan.subtitle ? `${plan.title} — ${plan.subtitle}` : plan.title, 1.4);
       }
       sfx.wave();
     }
@@ -960,7 +965,13 @@ function simulate(dt: number): void {
     resetCombo('leak');
     sessionLeaks += 1;
     sfx.leak();
-    toast(state, fruit.boss ? 'Boss hit the wall' : 'They hit the wall');
+    if (fruit.boss) {
+      toast(state, 'Overlord hit the wall');
+    } else if (enemy.kind !== 'normal' && enemy.label) {
+      toast(state, `${enemy.label} hit the wall`);
+    } else {
+      toast(state, 'They hit the wall');
+    }
     emit({ type: 'leak', amount: 1, leaks: sessionLeaks, fruitKind: fruit.kind });
     maybeOver();
   });

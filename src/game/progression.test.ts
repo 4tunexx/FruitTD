@@ -23,3 +23,18 @@ test('special enemies become available in later waves', () => {
   assert.equal(ENEMY_RULES.explosive.towerDamageOnHit, 2);
   assert.equal(ENEMY_RULES.explosive.towerDamageOnLeak, 3);
 });
+
+
+test('enemy kinds stay stable with fruit-zombie fantasy labels', () => {
+  const kinds = Object.keys(ENEMY_RULES).sort();
+  assert.deepEqual(kinds, ['armored', 'explosive', 'normal', 'splitter', 'swift']);
+  assert.equal(ENEMY_RULES.explosive.label, 'Chem-Burst');
+  assert.match(ENEMY_RULES.explosive.warning, /CHEM-BURST/);
+  assert.equal(ENEMY_RULES.armored.label, 'Rind-Plate');
+  assert.equal(ENEMY_RULES.splitter.label, 'Pod-Spawner');
+  assert.equal(ENEMY_RULES.swift.label, 'Juice-Runner');
+  assert.equal(ENEMY_RULES.normal.label, 'Rot-Walker');
+  for (const rule of Object.values(ENEMY_RULES)) {
+    assert.ok(rule.flavor.length > 0, `${rule.kind} needs flavor`);
+  }
+});

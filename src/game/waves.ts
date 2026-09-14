@@ -16,6 +16,7 @@ export interface WavePlan {
   hpScale: number;
   boss: boolean;
   title: string;
+  subtitle?: string;
   level: number; // Current level/stage
   waveInLevel: number; // Wave within current level (1-based)
   wavesInLevel: number; // Total waves in this level
@@ -50,6 +51,27 @@ function mix(wave: number, count: number): SpawnItem[] {
   return out;
 }
 
+function planTitle(level: number, waveInLevel: number, totalWavesInLevel: number, items: SpawnItem[]): { title: string; subtitle?: string } {
+  const base = `LEVEL ${level}  ·  WAVE ${waveInLevel}/${totalWavesInLevel}`;
+  const specials = new Set(items.map((i) => i.enemy).filter((e): e is EnemyKind => !!e && e !== 'normal'));
+  if (specials.has('explosive')) {
+    return { title: base, subtitle: 'Chem-Burst inbound — cut clean' };
+  }
+  if (specials.has('splitter')) {
+    return { title: base, subtitle: 'Pod-Spawner nest spotted' };
+  }
+  if (specials.has('armored')) {
+    return { title: base, subtitle: 'Rind-Plate advance' };
+  }
+  if (specials.has('swift')) {
+    return { title: base, subtitle: 'Juice-Runners on the field' };
+  }
+  if (waveInLevel === 1) {
+    return { title: base, subtitle: 'Rot-Walkers stir in the orchard' };
+  }
+  return { title: base };
+}
+
 export function wavesPerLevel(level: number): number {
   return Math.max(5, level);
 }
@@ -58,7 +80,6 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
   const items: SpawnItem[] = [];
-  let title = `LEVEL ${level}  ·  WAVE ${waveInLevel}/${totalWavesInLevel}`;
 
   if (w === 1) {
     add(items, 'lemon', 4);
@@ -91,12 +112,15 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
     }
   }
 
+  const { title, subtitle } = planTitle(level, waveInLevel, totalWavesInLevel, items);
+
   return {
     items,
     gap: Math.max(0.28, (0.82 - w * 0.035) * rules.spawnGapMul),
     hpScale: (1 + (w - 1) * 0.2) * rules.hpMul,
     boss: false,
     title,
+    subtitle,
     level,
     waveInLevel,
     wavesInLevel: totalWavesInLevel,
@@ -108,15 +132,16 @@ export function planBossWave(wave: number, mode: GameMode, level: number): WaveP
   const w = Math.max(1, wave + rules.waveOffset);
   const items: SpawnItem[] = [];
   const wavesInLevel = wavesPerLevel(level);
-  
+
   add(items, 'watermelon', 1, true, level >= 2 ? 'armored' : 'normal');
-  
+
   return {
     items,
     gap: 1.2,
     hpScale: (1 + (w - 1) * 0.2) * rules.hpMul * 1.5,
     boss: true,
-    title: `LEVEL ${level}  ·  BOSS`,
+    title: `LEVEL ${level}  ·  OVERLORD`,
+    subtitle: level >= 2 ? 'Rind-Plate overlord breaches the wall' : 'Fruit-zombie overlord approaches',
     level,
     waveInLevel: wavesInLevel + 1,
     wavesInLevel,
