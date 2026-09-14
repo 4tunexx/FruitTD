@@ -15,6 +15,7 @@ import type { JuiceBank, JuiceSystem } from './juice';
 import { TurretRig, canPlaceTurret, sellRefund, turretRange, type TurretHit, type TurretKind } from './turrets';
 import { ARENA_W, EXTRA_Z, MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, towerStats } from './world';
 import { getAdminTexture } from './adminTextureLoader';
+import type { HeroId } from './heroes';
 
 export interface Slot {
   index: number;
@@ -52,6 +53,8 @@ export class WallBase {
   private readonly shots: Shot[] = [];
   private readonly wallMesh: Mesh;
   private readonly rangeRing: Mesh;
+  private readonly keepMesh: Mesh;
+  private currentHero: HeroId | null = null;
 
   constructor() {
     this.wallMesh = new Mesh(
@@ -69,17 +72,12 @@ export class WallBase {
     this.group.add(lip);
 
     const keepMat = new MeshLambertMaterial({ color: 0x6e3128 });
-    const adminTowerTex = getAdminTexture('tower-main');
-    if (adminTowerTex) {
-      keepMat.map = adminTowerTex;
-      keepMat.color.setHex(0xffffff);
-    }
-    const keep = new Mesh(
+    this.keepMesh = new Mesh(
       new CylinderGeometry(1.05, 1.2, 2.1, 10),
       keepMat,
     );
-    keep.position.set(0, 1.15, WALL_Z);
-    this.group.add(keep);
+    this.keepMesh.position.set(0, 1.15, WALL_Z);
+    this.group.add(this.keepMesh);
     for (let i = 0; i < 6; i++) {
       const merlon = new Mesh(new BoxGeometry(0.32, 0.38, 0.28), new MeshLambertMaterial({ color: 0x5a271f }));
       const a = (i / 6) * Math.PI * 2;
@@ -147,6 +145,35 @@ export class WallBase {
     if (main) {
       const mat = main.material as MeshLambertMaterial;
       mat.map = fruitAtlas.tile(0, 0);
+      mat.needsUpdate = true;
+    }
+  }
+
+  setHero(heroId: HeroId): void {
+    if (this.currentHero === heroId) return;
+    this.currentHero = heroId;
+    this.refreshHeroTexture();
+  }
+
+  refreshHeroTexture(): void {
+    if (!this.currentHero) return;
+    
+    const mat = this.keepMesh.material as MeshLambertMaterial;
+    const heroTex = getAdminTexture(`hero-${this.currentHero}` as any);
+    
+    if (heroTex) {
+      mat.map = heroTex;
+      mat.color.setHex(0xffffff);
+      mat.needsUpdate = true;
+    } else {
+      const defaultTowerTex = getAdminTexture('tower-main');
+      if (defaultTowerTex) {
+        mat.map = defaultTowerTex;
+        mat.color.setHex(0xffffff);
+      } else {
+        mat.map = null;
+        mat.color.setHex(0x6e3128);
+      }
       mat.needsUpdate = true;
     }
   }
