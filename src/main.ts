@@ -29,6 +29,9 @@ import { initAchievementsCache } from './services/achievements';
 import { reportGameEvent } from './services/progress';
 import { getCachedSteamState } from './services/steam';
 import type { GameEvent } from './game/requirements';
+import { enemyRule } from './game/enemies';
+import { getTowerXpState } from './game/towerProgression';
+import { navigation } from './game/navigation';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const startBtn = document.getElementById('btn-start')!;
@@ -68,9 +71,6 @@ combos.setPlayer(save.nickname, save.avatar);
 
 renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks, slashFx.group);
 
-let started = false;
-let paused = false;
-let menuOpen = true;
 let guestCd = 1.6;
 let totalFruitsSliced = 0;
 let sessionMaxCombo = 0;
@@ -85,6 +85,19 @@ function emit(event: GameEvent): void {
     score: state.score,
     ...event,
   });
+}
+
+function resetCombo(_reason?: string): void {
+  state.combo = 0;
+  state.comboTimer = 0;
+}
+
+function getTowerProgressionBonuses(): { damageBonus: number; hpBonus: number } {
+  const tower = getTowerXpState();
+  const level = tower.level;
+  const damageBonus = Math.floor(level / 2);
+  const hpBonus = level >= 5 ? Math.floor((level - 4) * 0.5) : 0;
+  return { damageBonus, hpBonus };
 }
 
 initAchievementsCache();
@@ -268,17 +281,13 @@ function selectHero(id: HeroId): void {
 }
 
 function grantHeroXp(n: number): void {
-  if (state.heroLevel >= 5) {
-    state.heroXp += n;
-    persist();
-    return;
-  }
   state.heroXp += n;
   const next = heroXpToLevel(state.heroXp);
   if (next > state.heroLevel) {
+    const gained = next - state.heroLevel;
     state.heroLevel = next;
-    save.skillPoints += 1;
-    toast(state, `${heroDef(state.hero).name} Lv ${next}  +1 skill point`, 1.8);
+    save.skillPoints += gained;
+    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 1.8);
     emit({ type: 'hero_level' });
     sfx.unlockItem();
   }
@@ -292,8 +301,15 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
   const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul));
   bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
-  addScore(state, FRUIT_DEFS[fruit.kind].score * (fruit.boss ? 4 : 1));
-  grantHeroXp(fruit.boss ? 4 : 1);
+  
+  const enemy = enemyRule(fruit.enemyKind);
+  const baseScore = FRUIT_DEFS[fruit.kind].score * (fruit.boss ? 4 : 1);
+  const scoreReward = Math.round(baseScore * enemy.scoreMultiplier);
+  const baseXp = fruit.boss ? 4 : 1;
+  const xpReward = Math.round(baseXp * enemy.xpMultiplier);
+  
+  addScore(state, scoreReward);
+  grantHeroXp(xpReward);
   const rules = modeRules(state.mode);
   chargeSuper(state, (6 + save.skills.flow * 2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
@@ -304,7 +320,6 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   if (fruitFamily(fruit.kind) === 'melon') renderer.impulseShake(1.15);
 
   const family = fruitFamily(fruit.kind);
-  const gained = FRUIT_DEFS[fruit.kind].score * (fruit.boss ? 4 : 1);
   emit({
     type: 'fruit_slice',
     fruitKind: fruit.kind,
@@ -314,13 +329,14 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   if (fruit.boss) {
     emit({ type: 'boss_kill', fruitKind: fruit.kind, fruitFamily: family, boss: true });
   }
-  emit({ type: 'slash_damage', damage: Math.max(1, FRUIT_DEFS[fruit.kind].hp), score: gained });
+  emit({ type: 'slash_damage', damage: Math.max(1, FRUIT_DEFS[fruit.kind].hp), score: scoreReward });
   emit({ type: 'juice', amount: juiceAmt });
 }
 
 function maybeOver(): void {
   if (state.lives > 0) return;
   state.running = false;
+  navigation.setState('GAME_OVER');
   save.games += 1;
   save.coins += Math.max(2, Math.floor(state.score / 18));
   persist();
@@ -370,7 +386,7 @@ function maybeOver(): void {
 }
 
 function tryPlace(kind: TurretKind): void {
-  if (!started || paused || menuOpen || !state.running) return;
+  if (!navigation.canInteract() || !state.running) return;
   const slot = wall.selectedSlot();
   const pad = PADS[slot.index];
   if (slot.main || slot.filled) return;
@@ -394,7 +410,7 @@ function tryPlace(kind: TurretKind): void {
 }
 
 function tryUpgrade(): void {
-  if (!started || paused || menuOpen || !state.running) return;
+  if (!navigation.canInteract() || !state.running) return;
   const slot = wall.selectedSlot();
   if (!slot.filled) return;
   const cost = upgradeCost(slot.level);
@@ -444,7 +460,7 @@ function restart(): void {
   sfx.gameStart();
   if (rules.hints && save.games < 1) {
     window.setTimeout(() => {
-      if (started && state.running) toast(state, 'Slash fruit. Click a pad to build.', 2.4);
+      if (navigation.isPlaying() && state.running) toast(state, 'Slash fruit. Click a pad to build.', 2.4);
     }, 2600);
   }
 }
@@ -526,7 +542,8 @@ function resolveSlash(slash: Slash): void {
           fruit.impulseZ += swipe.z * 2.2;
         }
       }
-      if (fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level)) killFruit(fruit, swipe);
+      const towerBonus = getTowerProgressionBonuses().damageBonus;
+      if (fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus)) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
       if (segmentHitsHalf(line.from, line.to, bit, radius * 0.35)) cutBits.add(bit);
@@ -561,7 +578,7 @@ function resolveSlash(slash: Slash): void {
 }
 
 function trySuper(): void {
-  if (!started || paused || menuOpen || !state.running || state.superJuice < 100) return;
+  if (!navigation.canInteract() || !state.running || state.superJuice < 100) return;
   state.superJuice = 0;
   const swipe = new Vector3(0, 0.4, 1);
   const dmg = 30 + save.skills.storm * 12 + state.heroLevel * 4;
@@ -587,8 +604,8 @@ function worldPct(x: number, y: number, z: number): { nx: number; ny: number } {
 }
 
 function setPaused(on: boolean): void {
-  if (!started || menuOpen || !state.running) return;
-  paused = on;
+  if (!navigation.isInGame() || !state.running) return;
+  navigation.setState(on ? 'PAUSED' : 'PLAYING');
   hud.showPause(on);
   if (on) sfx.pause();
   else sfx.unpause();
@@ -596,22 +613,20 @@ function setPaused(on: boolean): void {
 
 function quitToMenu(): void {
   persist();
-  started = false;
-  paused = false;
-  menuOpen = true;
+  navigation.setState('DASHBOARD');
   state.running = false;
+  wall.cancelMove();
   document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
   sfx.pause();
+  sfx.stopAllLoops();
 }
 
 function restartMatch(): void {
   hud.showPause(false);
-  paused = false;
-  menuOpen = false;
-  started = true;
+  navigation.setState('PLAYING');
   document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showMenu(false);
   restart();
@@ -645,7 +660,7 @@ function tickGuest(dt: number): void {
 }
 
 function tryMove(): void {
-  if (!started || paused || menuOpen || !state.running) return;
+  if (!navigation.canInteract() || !state.running) return;
   if (wall.moving) {
     wall.cancelMove();
     toast(state, 'Move cancelled');
@@ -656,7 +671,7 @@ function tryMove(): void {
 }
 
 function trySell(): void {
-  if (!started || paused || menuOpen || !state.running) return;
+  if (!navigation.canInteract() || !state.running) return;
   const slot = wall.selectedSlot();
   if (slot.main || !slot.filled) return;
   const refund = wall.sellSelected();
@@ -690,10 +705,10 @@ function kiPulse(x: number, z: number): void {
 }
 
 function simulate(dt: number): void {
-  if (!started || paused || menuOpen || !state.running) {
+  if (!navigation.isPlaying() || !state.running) {
     blade.consumeClick();
     blade.consumeSlash();
-    if (paused && started && !menuOpen) {
+    if (navigation.isPaused()) {
       renderer.update(dt);
       blade.fadeTrail();
       trail.sync(blade.trail);
@@ -709,7 +724,7 @@ function simulate(dt: number): void {
   if (state.toastTimer > 0) state.toastTimer -= dt;
   if (state.comboTimer > 0) {
     state.comboTimer -= dt;
-    if (state.comboTimer <= 0) state.combo = 0;
+    if (state.comboTimer <= 0) resetCombo('timeout');
   }
 
   const tap = blade.consumeClick();
@@ -763,7 +778,11 @@ function simulate(dt: number): void {
   }
 
   fruits.update(dt, state, (fruit) => {
-    state.lives -= leakCost(state, fruit.kind, fruit.boss);
+    const enemy = enemyRule(fruit.enemyKind);
+    const baseCost = leakCost(state, fruit.kind, fruit.boss);
+    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak);
+    state.lives -= leakDamage;
+    resetCombo('leak');
     sessionLeaks += 1;
     sfx.leak();
     toast(state, fruit.boss ? 'Boss hit the wall' : 'They hit the wall');
@@ -778,7 +797,8 @@ function simulate(dt: number): void {
     if (hit.impulseZ) hit.fruit.impulseZ += hit.impulseZ;
     if (hit.brittle) hit.fruit.brittle = Math.max(hit.fruit.brittle, 2.4);
     const swipe = new Vector3(0, 0.2, 1);
-    const dmg = Math.round(hit.damage * (1 + save.skills.steel * 0.12));
+    const towerBonus = getTowerProgressionBonuses().damageBonus;
+    const dmg = Math.round(hit.damage * (1 + save.skills.steel * 0.12) + towerBonus);
     if (fruits.hurt(hit.fruit, dmg)) {
       killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
     }
@@ -801,10 +821,10 @@ function draw(): void {
 }
 
 const loop = new GameLoop(simulate, draw, () => {
-  hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, started && !menuOpen);
+  hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, navigation.isPlaying());
 });
 hud.onPlace = (kind) => {
-  if (started && state.running && !paused && !menuOpen) tryPlace(kind);
+  if (navigation.canInteract() && state.running) tryPlace(kind);
 };
 
 window.addEventListener('keydown', (e) => {
@@ -814,11 +834,13 @@ window.addEventListener('keydown', (e) => {
       document.getElementById('title-quit')?.classList.add('hidden');
       return;
     }
-    if (menuOpen) {
+    if (navigation.state === 'DASHBOARD') {
+      navigation.setState('TITLE');
       hud.returnToTitle();
       return;
     }
-    if (!started) {
+    if (navigation.state === 'TITLE') {
+      navigation.setState('DASHBOARD');
       hud.showPage('play');
       hud.showMenu(true);
       return;
@@ -831,7 +853,7 @@ window.addEventListener('keydown', (e) => {
       wall.cancelMove();
       return;
     }
-    setPaused(!paused);
+    setPaused(!navigation.isPaused());
     return;
   }
   if (e.code === 'Space') {
@@ -841,24 +863,24 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyU') tryUpgrade();
   if (e.code === 'KeyX') trySell();
   if (e.code === 'KeyM') tryMove();
-  if (e.code === 'KeyB' && started && state.running && !menuOpen && !paused) {
+  if (e.code === 'KeyB' && navigation.canInteract() && state.running) {
     if (wall.toggleSelected()) toast(state, wall.selectedSlot().turret?.open ? 'Blender open' : 'Blender closed');
   }
-  if (e.code === 'KeyP' && started && !menuOpen && state.running) setPaused(!paused);
-  if (e.code === 'KeyR' && started && !state.running && !menuOpen) restartMatch();
+  if (e.code === 'KeyP' && navigation.isInGame() && state.running) setPaused(!navigation.isPaused());
+  if (e.code === 'KeyR' && navigation.isInGame() && !state.running) restartMatch();
   if (e.code.startsWith('Digit')) {
     const n = Number(e.code.slice(5));
-    if (n >= 1 && n <= 5 && menuOpen && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
+    if (n >= 1 && n <= 5 && navigation.state === 'DASHBOARD' && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
   }
 });
 
 upgradeBtn.addEventListener('click', () => {
-  if (started && state.running && !paused) tryUpgrade();
+  if (navigation.canInteract() && state.running) tryUpgrade();
 });
 sellBtn.addEventListener('click', () => trySell());
 moveBtn.addEventListener('click', () => tryMove());
 toggleBtn.addEventListener('click', () => {
-  if (started && state.running && !paused && wall.toggleSelected()) {
+  if (navigation.canInteract() && state.running && wall.toggleSelected()) {
     toast(state, wall.selectedSlot().turret?.open ? 'Blender open' : 'Blender closed');
   }
 });
