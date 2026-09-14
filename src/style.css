@@ -5168,3 +5168,44 @@ button:not(:disabled):active {
     transition: none;
   }
 }
+
+/* ═══════════════════════════════════════════
+   PERF HOTFIX · in-match glass blur off
+   Keep frosted blur on menus/modals only.
+══════════════════════════════════════════════ */
+body.is-playing #sidebar,
+#app.is-playing #sidebar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(5, 10, 15, 0.92) !important;
+}
+
+body.is-playing #player-chip,
+#app.is-playing #player-chip,
+body.is-playing .chip-btn,
+#app.is-playing .chip-btn,
+body.is-playing .stat-card,
+#app.is-playing .stat-card,
+body.is-playing #hud-toast,
+#app.is-playing #hud-toast {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(8, 14, 12, 0.88) !important;
+}
+
+body.is-playing #combo-focus-vignette,
+#app.is-playing #combo-focus-vignette,
+body.is-playing #combo-focus-vignette.is-hot,
+#app.is-playing #combo-focus-vignette.is-hot,
+body.is-playing #combo-focus-vignette.is-super,
+#app.is-playing #combo-focus-vignette.is-super {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.is-playing .match-parallax,
+#app.is-playing .match-parallax {
+  --parallax-x: 0px;
+  --parallax-y: 0px;
+  --parallax-zoom: 1;
+}
