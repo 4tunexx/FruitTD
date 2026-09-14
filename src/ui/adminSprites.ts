@@ -34,6 +34,9 @@ export function installSpriteUploads(): void {
         if (dataUrl) {
           localStorage.setItem(storageKey, dataUrl);
           loadStored();
+          
+          const { refreshAdminTexture } = require('../game/adminTextureLoader');
+          refreshAdminTexture(id as any);
         }
       };
       reader.readAsDataURL(file);
@@ -43,6 +46,9 @@ export function installSpriteUploads(): void {
       localStorage.removeItem(storageKey);
       input.value = '';
       loadStored();
+      
+      const { refreshAdminTexture } = require('../game/adminTextureLoader');
+      refreshAdminTexture(id as any);
     });
     
     loadStored();

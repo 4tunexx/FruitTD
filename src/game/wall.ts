@@ -14,6 +14,7 @@ import type { Fruit } from './fruits';
 import type { JuiceBank, JuiceSystem } from './juice';
 import { TurretRig, canPlaceTurret, sellRefund, turretRange, type TurretHit, type TurretKind } from './turrets';
 import { ARENA_W, EXTRA_Z, MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, towerStats } from './world';
+import { getAdminTexture } from './adminTextureLoader';
 
 export interface Slot {
   index: number;
@@ -67,9 +68,15 @@ export class WallBase {
     lip.position.set(0, 1.12, EXTRA_Z + 0.55);
     this.group.add(lip);
 
+    const keepMat = new MeshLambertMaterial({ color: 0x6e3128 });
+    const adminTowerTex = getAdminTexture('tower-main');
+    if (adminTowerTex) {
+      keepMat.map = adminTowerTex;
+      keepMat.color.setHex(0xffffff);
+    }
     const keep = new Mesh(
       new CylinderGeometry(1.05, 1.2, 2.1, 10),
-      new MeshLambertMaterial({ color: 0x6e3128 }),
+      keepMat,
     );
     keep.position.set(0, 1.15, WALL_Z);
     this.group.add(keep);
