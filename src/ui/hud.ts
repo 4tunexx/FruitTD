@@ -1,1 +1,1 @@
-FILE:/workspace/hotfix/hud.ts
+@file:///workspace/hotfix/hud.ts
