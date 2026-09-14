@@ -231,10 +231,17 @@
           <div class="menu-blob menu-blob--1"></div>
           <div class="menu-blob menu-blob--2"></div>
           <div class="menu-blob menu-blob--3"></div>
-          <div id="title-inner">
-            <p class="title-eyebrow">Fruit TD</p>
-            <h1 class="title-logo">Slice.<br>Hold the Wall.</h1>
-            <p class="title-tagline">Login or register with Steam or email to enter the slicer dashboard.</p>
+          <div class="bl-scanlines" aria-hidden="true"></div>
+          <div class="bl-noise" aria-hidden="true"></div>
+          <div id="title-inner" class="bl-panel bl-panel--title">
+            <p class="title-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
+            <h1 class="title-logo">
+              <span class="title-logo__outline">FRUIT<span class="title-logo__td">TD</span></span>
+              <span class="title-logo__sub">Slice. Hold the Wall.</span>
+            </h1>
+            <div class="title-lore-panel">
+              <p class="title-tagline">Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.</p>
+            </div>
             <div id="title-menu" class="title-menu">
               <button type="button" id="btn-title-continue" class="title-btn title-btn--primary hidden">Continue</button>
               <button type="button" id="btn-title-login" class="title-btn title-btn--primary">Login</button>
@@ -277,11 +284,11 @@
 
           <div id="menu-inner">
             <!-- Title area -->
-            <div id="menu-hero-row">
+            <div id="menu-hero-row" class="bl-panel bl-panel--hero">
               <div>
-                <p id="menu-eyebrow">FRUIT TD · LIVE ONLINE</p>
+                <p id="menu-eyebrow">FRUIT TD · HOLD THE WALL</p>
                 <h2 id="menu-title">Slice.<br>Hold the Wall.</h2>
-                <p id="menu-subtitle">High-speed tower defense with fruit-slashing action.</p>
+                <p id="menu-subtitle">Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.</p>
               </div>
               <div class="menu-status-col">
                 <span id="backend-status-pill" class="online-pill">🟢 Cloud Atlas Connected</span>
@@ -289,7 +296,7 @@
               </div>
             </div>
 
-            <div id="menu-announcement" class="menu-announcement-banner">Welcome Slicers! Daily bonus is live. Climb the Global Leaderboard!</div>
+            <div id="menu-announcement" class="menu-announcement-banner">WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.</div>
 
             <!-- Admin Button (Dashboard Only) -->
             <div id="menu-admin-row" style="margin-bottom: 1rem;">
@@ -303,7 +310,7 @@
             </div>
 
             <!-- Tabs -->
-            <div id="menu-tabs">
+            <div id="menu-tabs" class="bl-tab-bar">
               <button type="button" id="btn-dash-main-menu" class="menu-tab menu-tab--back">← Main Menu</button>
               <button data-page="play" class="menu-tab is-on">Play</button>
               <button data-page="profile" class="menu-tab">👤 Profile</button>
@@ -314,7 +321,7 @@
             </div>
 
             <!-- ── Play page ── -->
-            <section id="page-play" class="menu-page">
+            <section id="page-play" class="menu-page bl-play-shell">
               <p class="section-label">Mode</p>
               <div id="mode-pick"></div>
               <p class="section-label" style="margin-top:1.5rem">Who slices</p>

@@ -442,7 +442,13 @@ export class Hud {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `mode-btn${m.id === mode ? ' is-on' : ''}`;
-      btn.innerHTML = `<p class="font-black">${m.name}</p><p class="text-[11px] text-zinc-400">${m.blurb}</p>`;
+      const honesty =
+        m.id === 'ranked'
+          ? '<span class="mode-honesty-badge mode-honesty-badge--live">Ranked live</span>'
+          : m.guest
+            ? '<span class="mode-honesty-badge mode-honesty-badge--guest">Guest assist</span>'
+            : '';
+      btn.innerHTML = `<p class="font-black">${m.name}</p>${honesty}<p class="text-[11px] text-zinc-400">${m.blurb}</p>`;
       btn.addEventListener('click', () => this.onMode?.(m.id));
       box.appendChild(btn);
     }
