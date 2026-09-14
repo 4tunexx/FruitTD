@@ -12,15 +12,26 @@ import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { getCachedSteamState } from './steam';
 
 export const ADMIN_STEAM_ID = '76561198001993310';
-const ADMIN_TOKEN_KEY = 'fruit_td_admin_auth';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
+
+export interface VipTierRewards {
+  tier: 'bronze' | 'silver' | 'gold';
+  title: string;
+  price: number;
+  coinBonus: number;
+  xpBonus: number;
+  dailyCoins: number;
+  dailySp: number;
+  exclusiveSkins: string[];
+  description: string;
+}
 
 export interface AdminDailyReward {
   day: number;
   coins: number;
   skillPoints: number;
-  gems?: number; // P1-2
+  gems?: number;
   skinUnlock?: string;
   label: string;
   iconType: RewardIconType;
@@ -29,6 +40,7 @@ export interface AdminDailyReward {
 export interface AdminConfig {
   configKey: string;
   dailyRewards: AdminDailyReward[];
+  vipTiers: VipTierRewards[];
   menuConfig: {
     eyebrow: string;
     title: string;
@@ -47,6 +59,7 @@ export interface AdminConfig {
   badges: CatalogBadge[];
   ranks: RankTier[];
   slicers: CatalogSlicer[];
+  enemies: any[];
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -59,6 +72,11 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     { day: 5, coins: 300, skillPoints: 2, gems: 25, label: '300 Coins + 2 SP + 25 💎', iconType: 'gem' },
     { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 💎', iconType: 'chest' },
     { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 💎!', iconType: 'blade' },
+  ],
+  vipTiers: [
+    { tier: 'bronze', title: 'Bronze VIP', price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: '+10% coins, +5% XP, 25 daily coins' },
+    { tier: 'silver', title: 'Silver VIP', price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ['blade-silver-vip'], description: '+25% coins, +15% XP, 75 daily coins + 1 SP' },
+    { tier: 'gold', title: 'Gold VIP', price: 5000, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ['blade-gold-vip', 'wall-gold-vip'], description: '+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins' },
   ],
   menuConfig: {
     eyebrow: 'FRUIT TD · LIVE ONLINE',
@@ -78,6 +96,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   badges: DEFAULT_BADGES,
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
+  enemies: [],
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -86,6 +105,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     ...DEFAULT_ADMIN_CONFIG,
     ...src,
     dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG.dailyRewards,
+    vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...(src.menuConfig || {}) },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...(src.gameplayConfig || {}) },
     missions: structuredClone(Array.isArray(src.missions) && src.missions.length ? src.missions : DEFAULT_ADMIN_CONFIG.missions),
@@ -93,27 +113,13 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     badges: structuredClone(Array.isArray(src.badges) && src.badges.length ? src.badges : DEFAULT_ADMIN_CONFIG.badges),
     ranks: structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
+    enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
   };
-}
-
-let activePin: string = '';
-if (typeof localStorage !== 'undefined') {
-  activePin = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
 }
 
 export function isUserAdmin(): boolean {
   const steam = getCachedSteamState();
-  if (steam.linked && steam.steamId === ADMIN_STEAM_ID) {
-    return true;
-  }
-  return activePin === '1337';
-}
-
-export function setAdminPin(pin: string): void {
-  activePin = pin;
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(ADMIN_TOKEN_KEY, pin);
-  }
+  return steam.linked && steam.steamId === ADMIN_STEAM_ID;
 }
 
 function getAdminHeaders(): Record<string, string> {
@@ -123,9 +129,6 @@ function getAdminHeaders(): Record<string, string> {
   };
   if (steam.steamId) {
     headers['x-admin-steamid'] = steam.steamId;
-  }
-  if (activePin) {
-    headers['x-admin-pin'] = activePin;
   }
   return headers;
 }
