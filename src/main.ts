@@ -312,6 +312,7 @@ function selectHero(id: HeroId): void {
   save.hero = id;
   applyEquippedBlade();
   writeSave(save);
+  wall.setHero(id);
   hud.refreshHeroPick(id, save);
   sfx.select();
 }
@@ -484,6 +485,7 @@ function restart(): void {
   juice.reset();
   bank.reset();
   wall.reset();
+  wall.setHero(save.hero);
   sfx.stopAllLoops();
   state.running = true;
   const rules = modeRules(state.mode);
@@ -1018,6 +1020,7 @@ startBtn.addEventListener('click', async () => {
   persist();
   await Promise.all([sfx.unlock(), fruitAtlas.load()]);
   wall.applySkins();
+  wall.setHero(save.hero);
   wallSkinApply();
   applyEquippedBlade();
   restartMatch();

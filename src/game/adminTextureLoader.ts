@@ -1,10 +1,10 @@
 import { CanvasTexture, LinearFilter, SRGBColorSpace } from 'three';
-import { getAdminSprite } from '../ui/adminSprites';
+import { getAdminSprite, type AdminSpriteType } from '../ui/adminSprites';
 
 const textureCache = new Map<string, CanvasTexture | null>();
 const pendingLoads = new Map<string, ((tex: CanvasTexture | null) => void)[]>();
 
-export function getAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main'): CanvasTexture | null {
+export function getAdminTexture(type: AdminSpriteType): CanvasTexture | null {
   if (textureCache.has(type)) {
     return textureCache.get(type) || null;
   }
@@ -82,7 +82,7 @@ export function clearAdminTextureCache(): void {
   pendingLoads.clear();
 }
 
-export function refreshAdminTexture(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main'): void {
+export function refreshAdminTexture(type: AdminSpriteType): void {
   const old = textureCache.get(type);
   if (old) {
     old.dispose();

@@ -61,6 +61,8 @@ export function installSpriteUploads(): void {
   });
 }
 
-export function getAdminSprite(type: 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main' | 'hero-jiju' | 'hero-topfu' | 'hero-lagen' | 'hero-tripos' | 'hero-ki'): string | null {
+export type AdminSpriteType = 'enemy-normal' | 'enemy-explosive' | 'enemy-armored' | 'tower-main' | 'hero-jiju' | 'hero-topfu' | 'hero-lagen' | 'hero-tripos' | 'hero-ki';
+
+export function getAdminSprite(type: AdminSpriteType): string | null {
   return localStorage.getItem(SPRITE_KEYS[type]);
 }
