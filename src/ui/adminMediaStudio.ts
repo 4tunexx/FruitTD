@@ -1,6 +1,6 @@
 /**
  * Admin Media Studio — sprite sheet editor + sound bank (localStorage v1).
- * Runtime wiring of clips into 3D fruit meshes is deferred to a follow-up PR.
+ * Live clip playback for enemies is handled by src/game/studioRuntime.ts.
  */
 
 export const MEDIA_STUDIO_STORAGE_KEY = 'admin-media-studio-v1';
