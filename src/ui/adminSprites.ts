@@ -41,7 +41,6 @@ export function installSpriteUploads(): void {
         if (dataUrl) {
           localStorage.setItem(storageKey, dataUrl);
           loadStored();
-          
           refreshAdminTexture(id as any);
         }
       };
@@ -52,7 +51,6 @@ export function installSpriteUploads(): void {
       localStorage.removeItem(storageKey);
       input.value = '';
       loadStored();
-      
       refreshAdminTexture(id as any);
     });
     
