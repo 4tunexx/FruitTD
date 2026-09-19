@@ -43,6 +43,8 @@ export interface Fruit {
   alive: boolean; kind: FruitKind; enemyKind: EnemyKind; radius: number; group: Group; body: Mesh; hpBar: Mesh; hpBack: Mesh;
   squash: number; vel: Vector3; spin: Vector3; bob: number; hp: number; maxHp: number; dodgeX: number; dodgeZ: number;
   brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
+  /** Spawned by a Pod-Spawner death — never counted as a wave member. */
+  splitChild: boolean;
   /** Studio clip playback; inactive when no sheet/walk clip is saved. */
   studio: StudioAnimState;
 }
@@ -73,7 +75,7 @@ function makeFruit(): Fruit {
   return {
     alive: false, kind: 'lemon', enemyKind: 'normal', radius: 0.5, group, body, hpBar, hpBack,
     vel: new Vector3(), spin: new Vector3(), bob: 0, hp: 1, maxHp: 1, dodgeX: 0, dodgeZ: 0,
-    brittle: 0, impulseX: 0, impulseZ: 0, squash: 0, boss: false, volatileTriggered: false,
+    brittle: 0, impulseX: 0, impulseZ: 0, squash: 0, boss: false, volatileTriggered: false, splitChild: false,
     studio: createStudioAnimState('normal'),
   };
 }
@@ -161,7 +163,7 @@ export class FruitField {
   reset(): void {
     this.queue.length = 0; this.spawnCd = 0; this.activeState = null;
     for (const fruit of this.fruits) {
-      fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false;
+      fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false; fruit.splitChild = false;
       resetStudioAnimState(fruit.studio, 'normal'); fruit.group.visible = false;
     }
   }
@@ -189,6 +191,7 @@ export class FruitField {
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false;
+    idle.splitChild = false;
     resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind });
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.group.position.set(x, boss ? 1.05 : 0.7, z); idle.spin.set(0, 1.4 + Math.random(), 0);
@@ -231,8 +234,33 @@ export class FruitField {
   }
 
   kill(fruit: Fruit): void {
+    if (!fruit.alive) return;
+    const wasSplitter = fruit.enemyKind === 'splitter' && !fruit.splitChild;
+    const { x, y, z } = fruit.group.position;
     fruit.alive = false;
     fruit.group.visible = false;
+    if (wasSplitter) this.spawnSplitChildren(x, y, z);
+  }
+
+  /**
+   * Pod-Spawner death releases two smaller targets.
+   * Children are flagged `splitChild`, which (a) stops them splitting again —
+   * no infinite recursion — and (b) keeps them out of wave accounting so a
+   * perfect wave stays correctly detectable.
+   */
+  private spawnSplitChildren(x: number, y: number, z: number): void {
+    for (const offset of [-0.7, 0.7]) {
+      const child = this.spawn('strawberry', false, 'normal');
+      if (!child) continue;
+      child.splitChild = true;
+      child.group.position.set(x + offset, y + 0.15, z - 0.15);
+      child.radius *= 0.72;
+      child.hp = Math.max(1, Math.round(child.hp * 0.7));
+      child.maxHp = child.hp;
+      child.impulseX = offset * 2.4;
+      child.impulseZ = 1.2;
+      child.spin.set(0, 3.2, 0);
+    }
   }
 
   update(dt: number, state: GameState, onLeak: (fruit: Fruit) => void): void {

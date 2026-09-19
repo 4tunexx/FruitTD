@@ -5213,3 +5213,92 @@ body.is-playing .match-parallax,
   --parallax-y: 0px;
   --parallax-zoom: 1;
 }
+
+/* ═══════════════════════════════════════════
+   PHASE 1 — PROGRESSION UI
+   Hero XP bar, hero roster states, tower chip.
+   Colours come from the theme system (--ftd-*).
+══════════════════════════════════════════════ */
+.hud-xp-track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: 0.3rem;
+  border-radius: 99px;
+  background: var(--ftd-color-panel-secondary);
+  overflow: hidden;
+}
+.hud-xp-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--ftd-color-xp);
+  transition: width var(--ftd-speed-transition) var(--ftd-easing);
+}
+.hud-xp-track--max > i { background: var(--ftd-color-accent); }
+
+.hero-btn__state {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 99px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  vertical-align: middle;
+}
+.hero-btn__state--owned { color: var(--ftd-color-success); border: 1px solid var(--ftd-color-success); }
+.hero-btn__state--locked { color: var(--ftd-color-text-muted); border: 1px solid var(--ftd-color-border); }
+.hero-btn__state--buy { color: var(--ftd-color-coins); border: 1px solid var(--ftd-color-coins); }
+.hero-btn--locked { opacity: 0.6; }
+.hero-btn--purchasable { border-color: color-mix(in srgb, var(--ftd-color-coins) 45%, transparent); }
+.hero-btn__track {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: 0.3rem;
+  border-radius: 99px;
+  background: var(--ftd-color-panel-secondary);
+  overflow: hidden;
+}
+.hero-btn__track > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--ftd-color-xp);
+}
+
+.tower-progress-chip {
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+}
+.tower-progress-chip__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  color: var(--ftd-color-text-muted);
+}
+.tower-progress-chip__level { color: var(--ftd-color-primary); }
+.tower-progress-chip__track {
+  height: 4px;
+  margin-top: 0.3rem;
+  border-radius: 99px;
+  background: var(--ftd-color-panel-secondary);
+  overflow: hidden;
+}
+.tower-progress-chip__fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--ftd-color-primary);
+  transition: width var(--ftd-speed-transition) var(--ftd-easing);
+}
+.tower-progress-chip__reward {
+  margin-top: 0.25rem;
+  font-size: 9px;
+  color: var(--ftd-color-text-muted);
+}

@@ -6,7 +6,7 @@ import { GameRenderer } from './engine/renderer';
 import { fruitAtlas } from './game/atlas';
 import { Field } from './game/field';
 import { FRUIT_DEFS, FruitField, fruitFamily, type Fruit } from './game/fruits';
-import { HEROES, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
+import { HEROES, MAX_HERO_LEVEL, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
 import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
 import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
 import { findSlicer, hexToNumber } from './game/slicers';
@@ -14,13 +14,22 @@ import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
 import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
-import { addScore, awardPerfectWave, chargeSuper, createState, leakCost, resetState, toast } from './game/state';
+import { chargeSuper, createState, damageTower, isPerfectWave, leakCost, resetState, toast } from './game/state';
+import {
+  applyRewards,
+  calculateReward,
+  comboTiersBetween,
+  type ProgressionResult,
+  type RewardEvent,
+} from './game/progression';
+import { currentRewardModifiers } from './game/progression/modifiers';
+import type { ComboResetReason } from './game/progression/combo';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { BladeTrail } from './game/trail';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
-import { MAIN_INDEX, PADS, slotIndexAt, upgradeCost } from './game/world';
+import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
 import { BladeInput, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { Hud } from './ui/hud';
@@ -33,9 +42,11 @@ import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
 import { getTowerMilestoneBonuses } from './game/towerMilestones';
 import { navigation } from './game/navigation';
+import { canEquipHero, purchaseHeroAtomic } from './game/progression/heroStatus';
 import { heroCombatPerkMultiplier } from './game/heroPerkSave';
-import { vipTierPrice, vipTierPurchaseCoins, vipXpMultiplier } from './game/vipBonuses';
+import { vipTierPrice, vipTierPurchaseCoins } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
+import { updateTowerChip } from './ui/towerChip';
 import { initThemeSystem } from './ui/theme';
 import { installDesignMode } from './ui/design/designMode';
 import {
@@ -140,17 +151,20 @@ function emit(event: GameEvent): void {
   });
 }
 
-function resetCombo(_reason?: string): void {
+function resetCombo(_reason: ComboResetReason): void {
+  if (state.combo === 0 && state.comboTimer === 0) return;
   state.combo = 0;
   state.comboTimer = 0;
 }
 
-function getTowerProgressionBonuses(): { damageBonus: number; hpBonus: number } {
-  const tower = getTowerXpState();
-  const level = tower.level;
-  const damageBonus = Math.floor(level / 2);
-  const hpBonus = level >= 5 ? Math.floor((level - 4) * 0.5) : 0;
-  return { damageBonus, hpBonus };
+/**
+ * Account Main Tower level → combat damage bonus.
+ *
+ * Survivability milestones (Lv 4 / Lv 8) are applied as +max lives in
+ * `resetState`, so there is deliberately no second HP system here.
+ */
+function towerDamageBonus(): number {
+  return Math.floor(getTowerXpState().level / 2);
 }
 
 initAchievementsCache();
@@ -164,10 +178,33 @@ void loadLiveConfig().then(() => {
 fruits.onSpawn = (fruit) => {
   const enemy = enemyRule(fruit.enemyKind);
   if (enemy.kind === 'normal' || !enemy.warning) return;
-  toast(state, enemy.warning, 1.35);
+  // Explosives are a tower-defense decision, not a random bomb: give them a
+  // longer, louder callout so the player can plan the slice (§7).
+  if (enemy.kind === 'explosive') {
+    toast(state, `⚠ ${enemy.warning}`, 2.4);
+    sfx.enemyWarning();
+    renderer.impulseShake(0.25);
+  } else {
+    toast(state, enemy.warning, 1.35);
+  }
 };
 hud.mountMeta(save);
 hud.onHero = (id) => selectHero(id);
+hud.onToastRequest = (message) => toast(state, message, 2);
+hud.onHeroPurchase = (id) => {
+  const result = purchaseHeroAtomic(save, id);
+  if (!result.ok) {
+    toast(state, result.message ?? 'Purchase failed', 2.2);
+    sfx.denied();
+    return;
+  }
+  writeSave(save);
+  persist();
+  toast(state, `${heroDef(id).name} unlocked! -${(result.coinsSpent ?? 0).toLocaleString()} coins`, 2.6);
+  sfx.unlockItem();
+  hud.mountHeroes(save);
+  selectHero(id);
+};
 hud.onMode = (id) => setMode(id);
 hud.onBuySkin = (id) => buySkin(id);
 hud.onEquipItem = (id) => equipItem(id);
@@ -210,7 +247,10 @@ function applyEquippedBlade(): void {
 
 function persist(): void {
   save.hero = state.hero;
-  save.xp[state.hero] = state.heroXp;
+  // Hero XP is owned by the reward pipeline (applyRewards writes save.xp).
+  // persist() must never copy match state back over it, or a stale
+  // state.heroXp could silently roll saved progression backwards.
+  state.heroXp = save.xp[state.hero] ?? 0;
   save.highScore = Math.max(save.highScore, state.score);
   if (state.mode === 'ranked') save.rankedScore = Math.max(save.rankedScore, state.score);
   save.bestWave = Math.max(save.bestWave, state.wave);
@@ -396,6 +436,12 @@ function buySkill(id: SkillId): void {
 }
 
 function selectHero(id: HeroId): void {
+  // A player must never equip an unavailable hero (§4).
+  if (!canEquipHero(save, id)) {
+    toast(state, `${heroDef(id).name} is locked`, 2);
+    sfx.denied();
+    return;
+  }
   persist();
   state.hero = id;
   state.heroXp = save.xp[id] ?? 0;
@@ -408,19 +454,63 @@ function selectHero(id: HeroId): void {
   sfx.select();
 }
 
-function grantHeroXp(n: number): void {
-  const amount = Math.max(0, Math.round(n * vipXpMultiplier()));
-  state.heroXp += amount;
-  const next = heroXpToLevel(state.heroXp);
-  if (next > state.heroLevel) {
-    const gained = next - state.heroLevel;
-    state.heroLevel = next;
-    save.skillPoints += gained;
-    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 2.2);
+/**
+ * THE single entry point for gameplay rewards.
+ *
+ *   GAME EVENT → REWARD CALCULATION → PLAYER PROGRESSION → SAVE → UI FEEDBACK
+ *
+ * No other code path may grant hero XP, tower XP, coins or score.
+ */
+function award(event: RewardEvent): ProgressionResult {
+  const reward = calculateReward(event, currentRewardModifiers(state, save));
+
+  // Score and in-match currency live on the match state, not the save.
+  state.score += reward.score;
+  state.currency += Math.max(0, Math.round(reward.score * 0.6));
+
+  const result = applyRewards(save, reward, { heroId: state.hero });
+  state.heroXp = save.xp[state.hero] ?? 0;
+  state.towerXp = save.towerXp;
+  const towerState = getTowerXpState();
+  state.towerXpToNext = towerState.nextLevelXp;
+  state.towerXpProgress = towerState.progress;
+
+  announceProgression(result);
+  persist();
+  return result;
+}
+
+/** UI FEEDBACK step: level-ups, milestones and hero unlocks. */
+function announceProgression(result: ProgressionResult): void {
+  if (result.heroLeveledUp) {
+    const heroName = heroDef(result.heroId).name;
+    const parts = [`${heroName} Lv ${result.heroLevelAfter}`];
+    if (result.perkPointsGained > 0) {
+      parts.push(`+${result.perkPointsGained} perk point${result.perkPointsGained > 1 ? 's' : ''}`);
+    }
+    toast(state, parts.join('  '), 2.2);
     emit({ type: 'hero_level' });
     sfx.unlockItem();
+
+    for (const milestone of result.heroMilestones) {
+      toast(state, `${milestone.name.toUpperCase()} — ${milestone.reward}`, 2.6);
+    }
+    if (result.heroMaxed) {
+      toast(state, `${heroName} MAX MASTERY — Lv ${MAX_HERO_LEVEL}`, 3.2);
+    }
   }
-  persist();
+
+  for (const heroId of result.heroesUnlocked) {
+    toast(state, `NEW HERO UNLOCKED — ${heroDef(heroId).name}`, 3);
+    sfx.unlockItem();
+    hud.mountHeroes(save);
+  }
+
+  if (result.towerLeveledUp) {
+    for (const name of result.towerMilestoneNames) toast(state, `MAIN TOWER ${name}`, 2.6);
+    if (result.towerMaxed) toast(state, 'MAIN TOWER — MASTER FORTRESS (Lv 10)', 3.2);
+    sfx.unlockItem();
+  }
 }
 
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
@@ -442,14 +532,16 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul * towerJuiceMul));
   bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   
-  const enemy = enemyRule(fruit.enemyKind);
-  const baseScore = FRUIT_DEFS[fruit.kind].score * (fruit.boss ? 4 : 1);
-  const scoreReward = Math.round(baseScore * enemy.scoreMultiplier);
-  const baseXp = fruit.boss ? 4 : 1;
-  const xpReward = Math.round(baseXp * enemy.xpMultiplier);
-  
-  addScore(state, scoreReward);
-  grantHeroXp(xpReward);
+  // Central reward pipeline — special-enemy score/XP multipliers are applied
+  // inside calculateReward, so they always reach the economy.
+  const result = award({
+    type: fruit.boss ? 'boss_defeated' : fruit.enemyKind === 'normal' ? 'fruit_sliced' : 'special_enemy_killed',
+    baseScore: FRUIT_DEFS[fruit.kind].score,
+    enemyKind: fruit.enemyKind,
+    boss: !!fruit.boss,
+    combo: state.combo,
+  });
+  const scoreReward = result.scoreGained;
   const rules = modeRules(state.mode);
   chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
@@ -496,8 +588,8 @@ function maybeOver(): void {
   state.running = false;
   navigation.setState('GAME_OVER');
   save.games += 1;
-  save.coins += Math.max(2, Math.floor(state.score / 18));
-  persist();
+  resetCombo('match_end');
+  award({ type: 'game_over', score: state.score });
   sfx.gameOver();
   sfx.stopAllLoops();
 
@@ -576,7 +668,7 @@ function tryUpgrade(): void {
   if (!slot.filled) return;
   const cost = upgradeCost(slot.level);
   if (cost == null) {
-    toast(state, 'Already Lv 5');
+    toast(state, `Already Lv ${MAX_TOWER_LEVEL}`);
     return;
   }
   if (state.currency < cost) {
@@ -586,7 +678,7 @@ function tryUpgrade(): void {
   }
   state.currency -= cost;
   wall.upgradeSelected();
-  toast(state, `${slot.main ? 'Main' : slot.kind} is now Lv ${slot.level}/5`);
+  toast(state, `${slot.main ? 'Main' : slot.kind} is now Lv ${slot.level}/${MAX_TOWER_LEVEL}`);
   emit({ type: 'turret_upgrade' });
   sfx.unlockItem();
 }
@@ -718,12 +810,11 @@ function resolveSlash(slash: Slash): void {
       if (fruit.kind === 'bomb') {
         if (line.speed > 8 || state.hero === 'ki') {
           sfx.bombParry();
-          addScore(state, FRUIT_DEFS.bomb.score);
-          grantHeroXp(1);
+          award({ type: 'bomb_parry', baseScore: FRUIT_DEFS.bomb.score, combo: state.combo });
           emit({ type: 'bomb_parry' });
         } else {
           sfx.bombExplode();
-          state.lives -= 2;
+          damageTower(state, 2);
           toast(state, 'Bomb!');
           maybeOver();
         }
@@ -738,21 +829,16 @@ function resolveSlash(slash: Slash): void {
           fruit.impulseZ += swipe.z * 2.2;
         }
       }
-      const towerBonus = getTowerProgressionBonuses().damageBonus;
+      const towerBonus = towerDamageBonus();
       const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus);
       
-      if (fruit.enemyKind === 'explosive' && !killed && !fruit.volatileTriggered) {
-        const enemy = enemyRule(fruit.enemyKind);
-        const hitDamage = Math.ceil(enemy.towerDamageOnHit);
-        if (hitDamage > 0) {
-          state.lives -= hitDamage;
-          fruit.volatileTriggered = true;
-          toast(state, enemy.warning || `${enemy.label} HIT!`, 1.2);
-          renderer.impulseShake(0.6);
-          maybeOver();
-        }
+      // Explosive tower damage is applied once, inside FruitField.hurt().
+      if (fruit.enemyKind === 'explosive' && fruit.volatileTriggered && !killed) {
+        resetCombo('explosive_mistake');
+        renderer.impulseShake(0.6);
+        maybeOver();
       }
-      
+
       if (killed) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
@@ -768,7 +854,7 @@ function resolveSlash(slash: Slash): void {
     if (!gen) continue;
     hits += 1;
     juice.burst(px, py, pz, kind, swipe, 0.55);
-    addScore(state, 4 * gen);
+    award({ type: 'reslice', generation: gen, combo: state.combo });
     chargeSuper(state, 1.2 + save.skills.flow * 0.6);
     slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash);
     const screen = worldPct(px, py + 0.35, pz);
@@ -777,8 +863,19 @@ function resolveSlash(slash: Slash): void {
     emit({ type: 'reslice', amount: gen, fruitKind: kind, fruitFamily: fruitFamily(kind) });
   }
 
+  if (hits === 0) {
+    // A swing that connects with nothing breaks the chain (§8 "player misses").
+    resetCombo('miss');
+  }
+
   if (hits > 0) {
+    const comboBefore = state.combo;
     state.combo = state.hero === 'jiju' ? state.combo + hits : Math.max(1, state.combo) + hits;
+    // One-off bonus for each newly crossed combo tier (data-driven thresholds).
+    for (const tier of comboTiersBetween(comboBefore, state.combo)) {
+      award({ type: 'combo_milestone', combo: tier.combo });
+      toast(state, `${tier.label.toUpperCase()} x${tier.combo}`, 1.1);
+    }
     const comboEngineMul = heroCombatPerkMultiplier(state.hero, 'combo');
     state.comboTimer = 1.35 * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
@@ -1060,15 +1157,14 @@ function simulate(dt: number): void {
     const wasBoss = fruits.fruits.some(f => !f.alive && f.boss);
 
     // Perfect wave: every fruit killed (no leaks that wave)
-    const perfectReward = awardPerfectWave(state);
-    if (perfectReward > 0) {
-      toast(state, `Perfect wave! +${perfectReward}`, 1.4);
+    const perfect = isPerfectWave(state);
+    award({ type: 'wave_cleared', wave: state.wave });
+    if (perfect) {
+      const perfectResult = award({ type: 'perfect_wave', wave: state.wave });
+      toast(state, `Perfect wave! +${perfectResult.scoreGained}`, 1.4);
     }
 
     state.wave += 1;
-    const rules = modeRules(state.mode);
-    state.currency += Math.round((22 + state.wave * 6) * rules.currencyMul);
-    persist();
     
     if (wasBoss) {
       toast(state, `Level ${state.level} complete!`, 2);
@@ -1092,8 +1188,7 @@ function simulate(dt: number): void {
     const baseCost = leakCost(state, fruit.kind, fruit.boss);
     const towerGuardianMul = heroCombatPerkMultiplier(state.hero, 'tower');
     const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
-    state.lives -= leakDamage;
-    resetCombo('leak');
+    damageTower(state, leakDamage);
     sessionLeaks += 1;
     sfx.leak();
     if (fruit.boss) {
@@ -1114,7 +1209,7 @@ function simulate(dt: number): void {
     if (hit.impulseZ) hit.fruit.impulseZ += hit.impulseZ;
     if (hit.brittle) hit.fruit.brittle = Math.max(hit.fruit.brittle, 2.4);
     const swipe = new Vector3(0, 0.2, 1);
-    const towerBonus = getTowerProgressionBonuses().damageBonus;
+    const towerBonus = towerDamageBonus();
     const dmg = Math.round(hit.damage * (1 + save.skills.steel * 0.12) + towerBonus);
     if (fruits.hurt(hit.fruit, dmg)) {
       killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
@@ -1139,6 +1234,7 @@ function draw(): void {
 
 const loop = new GameLoop(simulate, draw, () => {
   hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, navigation.isInGame());
+  updateTowerChip();
 });
 hud.onPlace = (kind) => {
   if (navigation.canInteract() && state.running) tryPlace(kind);

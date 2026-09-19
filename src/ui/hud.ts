@@ -1,9 +1,9 @@
 import type { JuiceBank } from '../game/juice';
-import { HEROES, MAX_HERO_LEVEL, heroDef, xpForNext, type HeroId } from '../game/heroes';
+import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../game/heroes';
 import { HERO_PERKS } from '../game/heroProgression';
 import { getAvailableHeroPerkPoints, upgradeHeroPerk } from '../game/heroPerkSave';
 import { MODE_INFO, modeRules } from '../game/modes';
-import { WALL_SKINS, heroLevelFromSave, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
+import { WALL_SKINS, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
 import { findSlicer } from '../game/slicers';
 import { SKILLS, type SkillId } from '../game/skills';
 import type { GameState } from '../game/state';
@@ -52,6 +52,8 @@ import { fetchBadges, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getEnabledSlicers, getSlicers } from '../services/liveConfig';
 import { bootMenuParallax, syncMenuParallax } from './menuParallax';
 import { navigation } from '../game/navigation';
+import { getHeroXpState } from '../game/progression';
+import { getAllHeroStatuses } from '../game/progression/heroStatus';
 import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
 import { getRewardSvg } from './icons';
@@ -111,6 +113,8 @@ export class Hud {
 
   onPlace: ((kind: TurretKind) => void) | null = null;
   onHero: ((id: HeroId) => void) | null = null;
+  onHeroPurchase: ((id: HeroId) => void) | null = null;
+  onToastRequest: ((message: string) => void) | null = null;
   onMode: ((id: GameMode) => void) | null = null;
   onBuySkin: ((id: string) => void) | null = null;
   onEquipItem: ((id: string) => void) | null = null;
@@ -438,17 +442,50 @@ export class Hud {
     }
   }
 
+  /**
+   * Hero roster (§4): every hero shows OWNED / LOCKED / PURCHASE state, the
+   * unlock requirement, level and XP. Locked heroes cannot be equipped.
+   */
   mountHeroes(save: SaveData): void {
     this.heroPick.innerHTML = '';
-    for (const hero of HEROES) {
-      const lv = heroLevelFromSave(save, hero.id);
-      const xp = save.xp[hero.id] ?? 0;
+    for (const status of getAllHeroStatuses(save)) {
+      const hero = heroDef(status.heroId);
+      const xpState = getHeroXpState(save, status.heroId);
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.dataset.hero = hero.id;
-      btn.className = 'hero-btn';
-      btn.innerHTML = `<p class="text-sm font-black">${hero.name}</p><p class="text-[11px] text-zinc-400">${hero.title} · Lv ${lv}/${MAX_HERO_LEVEL} · ${xp} XP</p>`;
-      btn.addEventListener('click', () => this.onHero?.(hero.id));
+      btn.dataset.hero = status.heroId;
+      btn.className = `hero-btn hero-btn--${status.availability}`;
+
+      const stateLabel =
+        status.availability === 'owned'
+          ? '<span class="hero-btn__state hero-btn__state--owned">OWNED</span>'
+          : status.availability === 'purchasable'
+            ? '<span class="hero-btn__state hero-btn__state--buy">PURCHASE ONLY</span>'
+            : '<span class="hero-btn__state hero-btn__state--locked">LOCKED</span>';
+
+      const progress = status.owned
+        ? `Lv ${xpState.level}/${MAX_HERO_LEVEL}${xpState.maxed ? ' · MAX' : ''} · ${xpState.xp.toLocaleString()} XP`
+        : status.requirement;
+
+      const bar = status.owned
+        ? `<span class="hero-btn__track"><i style="width:${Math.round(xpState.progress * 100)}%"></i></span>`
+        : '';
+
+      btn.innerHTML =
+        `<p class="text-sm font-black">${hero.name} ${stateLabel}</p>` +
+        `<p class="text-[11px] text-zinc-400">${hero.title} · ${progress}</p>${bar}`;
+
+      btn.addEventListener('click', () => {
+        if (status.owned) {
+          this.onHero?.(status.heroId);
+          return;
+        }
+        if (status.availability === 'purchasable') {
+          this.onHeroPurchase?.(status.heroId);
+          return;
+        }
+        this.onToastRequest?.(`${hero.name} locked — ${status.requirement}`);
+      });
       this.heroPick.appendChild(btn);
     }
     this.refreshHeroPick(save.hero, save);
@@ -976,9 +1013,13 @@ export class Hud {
 
   refreshHeroPick(id: HeroId, save: SaveData): void {
     const hero = heroDef(id);
-    const lv = heroLevelFromSave(save, id);
+    const xpState = getHeroXpState(save, id);
     this.heroBlurb.innerHTML = `<b>${hero.name}</b> — ${hero.blurb}<br>Mouse: ${hero.mouse}<br>Touch: ${hero.touch}`;
-    this.saveLine.textContent = `Best ${save.highScore} · wave ${save.bestWave} · ${save.coins} coins · ${hero.name} Lv ${lv}`;
+    const levelText = xpState.maxed
+      ? `Lv ${MAX_HERO_LEVEL} MAX`
+      : `Lv ${xpState.level}/${MAX_HERO_LEVEL}`;
+    this.saveLine.textContent =
+      `Best ${save.highScore} · wave ${save.bestWave} · ${save.coins.toLocaleString()} coins · ${hero.name} ${levelText}`;
     for (const btn of this.heroPick.querySelectorAll('button')) {
       btn.classList.toggle('is-on', btn.dataset.hero === id);
     }
@@ -1001,8 +1042,14 @@ export class Hud {
     this.juice.textContent = `🍋${bank.yellow}  🍓${bank.pink}  🍊${bank.orange}  🥝${bank.green}`;
     this.points.textContent = points > 0 ? `✨ ${points} skill point${points !== 1 ? 's' : ''} available` : '';
     const hero = heroDef(state.hero);
-    const next = xpForNext(state.heroLevel);
-    this.hero.textContent = `${hero.name}  ·  Lv ${state.heroLevel}/${MAX_HERO_LEVEL}  ·  XP ${state.heroXp}/${next}`;
+    // Central hero XP state — never recomputed locally.
+    const xpState = getHeroXpState(this.currentSave ?? loadSave(), state.hero);
+    this.hero.innerHTML = xpState.maxed
+      ? `${hero.name}  ·  <b>Lv ${MAX_HERO_LEVEL} MAX MASTERY</b>` +
+        `<span class="hud-xp-track hud-xp-track--max"><i style="width:100%"></i></span>`
+      : `${hero.name}  ·  Lv ${xpState.level}/${MAX_HERO_LEVEL}  ·  ` +
+        `XP ${xpState.xpIntoLevel.toLocaleString()}/${xpState.xpForLevel.toLocaleString()}` +
+        `<span class="hud-xp-track"><i style="width:${Math.round(xpState.progress * 100)}%"></i></span>`;
     this.hpFill.style.width = `${Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100)}%`;
     if (state.combo >= 1) {
       this.combo.textContent = `× ${state.combo} COMBO`;

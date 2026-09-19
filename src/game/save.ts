@@ -2,6 +2,8 @@ import { HEROES, heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } fr
 import { SKILLS, emptySkills, type SkillId, type SkillMap } from './skills';
 import { getTowerProgression, syncTowerProgression } from './towerProgression';
 import { HERO_PERKS, type HeroPerkId } from './heroProgression';
+import { heroesUnlockedByJijuLevel } from './progression/heroMilestones';
+import { purchaseHeroAtomic } from './progression/heroStatus';
 
 const KEY = 'fruit-td-save-v1';
 const OLD_PERK_KEY = 'fruit-td-hero-perks-v1';
@@ -30,6 +32,14 @@ export interface SaveData {
   mode: GameMode;
   heroPerkRanks?: HeroPerkRanks;
   vipStatus?: 'none' | 'bronze' | 'silver' | 'gold'; // P1-2: VIP tier
+  /**
+   * Monotonic write counter. Spendable balances (coins, gems, skill points)
+   * merge by revision — last writer wins — instead of by max, which would let
+   * a player spend on one device and recover the balance from another (§9).
+   */
+  saveRevision?: number;
+  /** Wall-clock of the last local write, used to break revision ties. */
+  savedAt?: number;
 }
 
 function emptyXp(): Record<HeroId, number> { return { jiju:0, topfu:0, lagen:0, tripos:0, ki:0 }; }
@@ -59,6 +69,7 @@ export function defaultSave(): SaveData {
     highScore:0, rankedScore:0, bestWave:1, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
     skillPoints:0, skills:emptySkills(), ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
     heroPerkRanks:emptyPerkRanks(), vipStatus:'none',
+    saveRevision:0, savedAt:0,
   };
 }
 
@@ -100,6 +111,8 @@ export function sanitiseSave(data: SaveData): SaveData {
   if (data.bladeSkin === 'none') data.bladeSkin = '';
   if (data.wallSkin === 'none') data.wallSkin = '';
   if (!data.vipStatus || !['none','bronze','silver','gold'].includes(data.vipStatus)) data.vipStatus = 'none';
+  data.saveRevision = safeInt(data.saveRevision ?? 0, 0, 0, Number.MAX_SAFE_INTEGER);
+  data.savedAt = safeInt(data.savedAt ?? 0, 0, 0, Number.MAX_SAFE_INTEGER);
   
   if (!data.heroPerkRanks || typeof data.heroPerkRanks !== 'object') data.heroPerkRanks = emptyPerkRanks();
   for (const hero of HEROES) {
@@ -112,13 +125,17 @@ export function sanitiseSave(data: SaveData): SaveData {
   return data;
 }
 
-/** Unlocks are driven by the first hero's level. Premium heroes never auto-unlock. */
+/**
+ * Unlocks are driven by Master Jiju's level via the milestone table
+ * (single source of truth). Purchase-only heroes NEVER auto-unlock.
+ */
 export function syncHeroUnlocks(data: SaveData): SaveData {
   sanitiseSave(data);
-  const firstHeroLevel = heroXpToLevel(data.xp.jiju ?? 0);
+  const jijuLevel = heroXpToLevel(data.xp.jiju ?? 0);
   const owned = new Set<HeroId>(data.ownedHeroes?.length ? data.ownedHeroes : ['jiju']);
   owned.add('jiju');
-  for (const hero of HEROES) if (!hero.purchaseOnly && firstHeroLevel >= hero.unlockLevel) owned.add(hero.id);
+  for (const heroId of heroesUnlockedByJijuLevel(jijuLevel)) owned.add(heroId);
+  // A purchased hero stays owned; an unowned purchase-only hero never unlocks for free.
   data.ownedHeroes = HEROES.map((h) => h.id).filter((id) => owned.has(id));
   if (!data.ownedHeroes.includes(data.hero)) data.hero = 'jiju';
   return data;
@@ -133,11 +150,10 @@ export function canPurchaseHero(data: SaveData, id: HeroId): boolean {
   return Boolean(def?.purchaseOnly && !isHeroOwned(data,id) && def.purchaseCost && data.coins >= def.purchaseCost);
 }
 
+/** Atomic hero purchase + persist. Shares one implementation with the UI. */
 export function purchaseHero(data: SaveData, id: HeroId): boolean {
-  const def = HEROES.find((h) => h.id === id);
-  if (!def?.purchaseOnly || !def.purchaseCost || isHeroOwned(data,id) || data.coins < def.purchaseCost) return false;
-  data.coins -= def.purchaseCost;
-  data.ownedHeroes = [...new Set([...data.ownedHeroes, id])];
+  const result = purchaseHeroAtomic(data, id);
+  if (!result.ok) return false;
   writeSave(data);
   return true;
 }
@@ -189,12 +205,22 @@ export function loadSave(): SaveData {
   } catch { return defaultSave(); }
 }
 
+/**
+ * Incremented on every write. Hot paths (per-frame perk lookups) cache derived
+ * values against this instead of re-parsing the whole save each call.
+ */
+let saveEpoch = 0;
+export function getSaveEpoch(): number { return saveEpoch; }
+
 export function writeSave(data: SaveData): void {
+  saveEpoch++;
   try {
     syncHeroUnlocks(data);
     const tower = getTowerProgression();
     data.towerXp = tower.xp;
     data.towerLifetimeXp = tower.lifetimeXp;
+    data.saveRevision = Math.max(0, Number(data.saveRevision) || 0) + 1;
+    data.savedAt = Date.now();
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch { /* best effort */ }
 }
@@ -233,9 +259,32 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
     }
   }
 
-  const mergedCoins = Math.min(Math.max(local.coins, remote.coins ?? 0), MAX_COINS);
-  const mergedSkillPoints = Math.min(Math.max(local.skillPoints, remote.skillPoints ?? 0), MAX_SKILL_POINTS);
-  const mergedGems = Math.min(Math.max(local.gems ?? 0, remote.gems ?? 0), MAX_GEMS);
+  /**
+   * Spendable balances are AUTHORITATIVE, not monotonic: max-merging them would
+   * refund anything the player spent on another device. Whichever save was
+   * written most recently wins (§9).
+   */
+  const localRev = Math.max(0, Number(local.saveRevision) || 0);
+  const remoteRev = Math.max(0, Number(remote.saveRevision) || 0);
+  const localTime = Math.max(0, Number(local.savedAt) || 0);
+  const remoteTime = Math.max(0, Number(remote.savedAt) || 0);
+  const remoteIsNewer =
+    remoteRev > localRev || (remoteRev === localRev && remoteTime > localTime);
+  // With no revision data on either side (legacy saves) fall back to the
+  // safer-for-the-player maximum, since we cannot tell which is newer.
+  const legacy = localRev === 0 && remoteRev === 0 && localTime === 0 && remoteTime === 0;
+  const authoritative = (localValue: number, remoteValue: number, cap: number): number => {
+    const chosen = legacy
+      ? Math.max(localValue, remoteValue)
+      : remoteIsNewer
+        ? remoteValue
+        : localValue;
+    return Math.min(Math.max(0, chosen), cap);
+  };
+
+  const mergedCoins = authoritative(local.coins ?? 0, remote.coins ?? 0, MAX_COINS);
+  const mergedSkillPoints = authoritative(local.skillPoints ?? 0, remote.skillPoints ?? 0, MAX_SKILL_POINTS);
+  const mergedGems = authoritative(local.gems ?? 0, remote.gems ?? 0, MAX_GEMS);
   
   return syncHeroUnlocks({
     ...local,
@@ -261,6 +310,8 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
     wallSkin:remote.wallSkin||local.wallSkin,
     mode:remote.mode||local.mode,
     vipStatus: remote.vipStatus || local.vipStatus,
+    saveRevision: Math.max(localRev, remoteRev),
+    savedAt: Math.max(localTime, remoteTime),
   });
 }
 

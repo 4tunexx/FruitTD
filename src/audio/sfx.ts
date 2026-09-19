@@ -430,6 +430,11 @@ export class Sfx {
     this.play('powerup-deflect', { volume: 0.4 });
   }
 
+  /** Distinct callout when a dangerous special enemy spawns (§7). */
+  enemyWarning(): void {
+    this.play('time-beep', { volume: 0.32, interrupt: true });
+  }
+
   bombFuse(_active: boolean): void {}
 
   throwFruit(): void {}

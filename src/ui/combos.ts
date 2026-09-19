@@ -1,6 +1,5 @@
 import './gameFeel.css';
 import './slicerPreview';
-import './progressionUi';
 
 type Slot = 'hit' | 'streak' | 'reslice';
 
