@@ -768,6 +768,7 @@
               <button class="admin-tab-btn" data-tab="economy">Game Economy</button>
               <button class="admin-tab-btn" data-tab="content">Content (Fruits/Enemies/Waves)</button>
               <button class="admin-tab-btn" data-tab="leaderboard">Leaderboards</button>
+              <button class="admin-tab-btn" data-tab="design">Design</button>
             </div>
 
             <!-- Tab 1: Daily Rewards -->
@@ -1200,6 +1201,20 @@
             </div>
 
             <!-- Tab 2: Branding & Menus -->
+            <!-- DESIGN: themes, theme editor, assets, preview (single design system) -->
+            <div id="admin-tab-design" class="admin-panel-tab hidden">
+              <p class="text-xs text-slate-400 mb-3">
+                Themes, Theme Editor, Assets and Preview. All visual configuration lives in the FruitTD theme system
+                (<code>src/ui/theme</code>) and is exposed as <code>--ftd-*</code> CSS variables. Theme presets contain
+                visual data only — never progression, currency or game rules.
+              </p>
+              <div class="admin-form-col">
+                <button type="button" id="btn-admin-open-design" class="admin-btn-action">🎨 Open Design Mode (theme editor + screen previews)</button>
+                <p class="text-xs text-slate-400">Shortcut: <code>Ctrl+Shift+D</code> anywhere, or append <code>?design=1</code> to the URL.</p>
+                <div id="admin-design-inline"></div>
+              </div>
+            </div>
+
             <div id="admin-tab-branding" class="admin-panel-tab hidden">
               <p class="text-xs text-slate-400 mb-3">Change game titles, header eyebrows, subtext, and live player announcements.</p>
               <div class="admin-form-col">

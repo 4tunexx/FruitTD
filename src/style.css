@@ -1,28 +1,32 @@
 @import 'tailwindcss';
+@import './ui/theme/theme.css';
 
 /* ═══════════════════════════════════════════
    DESIGN TOKENS
+   Legacy tokens are now aliases of the FruitTD theme system.
+   Edit values in src/ui/theme/defaultTheme.ts (or the live Theme Editor),
+   never here. `--ftd-*` variables are defined in src/ui/theme/theme.css.
 ══════════════════════════════════════════════ */
 :root {
-  --bg: #050a0f;
-  --surface: rgba(255, 255, 255, 0.04);
-  --surface-hover: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.09);
-  --border-glow: rgba(163, 230, 53, 0.4);
-  --lime: #a3e635;
-  --lime-dark: #65a30d;
-  --amber: #fbbf24;
-  --rose: #fb7185;
-  --sky: #38bdf8;
-  --violet: #a78bfa;
-  --text: #f1f5f9;
+  --bg: var(--ftd-color-background);
+  --surface: var(--ftd-color-panel);
+  --surface-hover: var(--ftd-color-panel-secondary);
+  --border: var(--ftd-color-border);
+  --border-glow: color-mix(in srgb, var(--ftd-color-primary) 40%, transparent);
+  --lime: var(--ftd-color-primary);
+  --lime-dark: var(--ftd-color-secondary);
+  --amber: var(--ftd-color-accent);
+  --rose: var(--ftd-color-danger);
+  --sky: var(--ftd-color-xp);
+  --violet: var(--ftd-color-tower);
+  --text: var(--ftd-color-text);
   --text-muted: #64748b;
-  --text-dim: #94a3b8;
-  --radius-sm: 0.2rem;
-  --radius: 0.28rem;
-  --radius-lg: 0.35rem;
+  --text-dim: var(--ftd-color-text-muted);
+  --radius-sm: var(--ftd-radius-button);
+  --radius: var(--ftd-radius-card);
+  --radius-lg: var(--ftd-radius-panel);
   --sidebar-w: 280px;
-  --font: 'Outfit', system-ui, sans-serif;
+  --font: var(--ftd-font-body);
 }
 
 /* ═══════════════════════════════════════════

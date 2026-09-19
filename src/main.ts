@@ -36,6 +36,8 @@ import { navigation } from './game/navigation';
 import { heroCombatPerkMultiplier } from './game/heroPerkSave';
 import { vipTierPrice, vipTierPurchaseCoins, vipXpMultiplier } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
+import { initThemeSystem } from './ui/theme';
+import { installDesignMode } from './ui/design/designMode';
 import {
   BOSS_OVERLORD_STUDIO_KEY,
   bossStudioKey,
@@ -43,6 +45,9 @@ import {
   setStudioFxCallbacks,
 } from './game/studioRuntime';
 import { fireCreatorSlicerVfx, setCreatorVfxCallbacks } from './game/creatorVfx';
+
+// Theme + layout must be applied before any UI renders.
+initThemeSystem();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -150,6 +155,7 @@ function getTowerProgressionBonuses(): { damageBonus: number; hpBonus: number } 
 
 initAchievementsCache();
 installHudToggles();
+installDesignMode();
 void loadLiveConfig().then(() => {
   applyEquippedBlade();
   hud.mountShop(save);
