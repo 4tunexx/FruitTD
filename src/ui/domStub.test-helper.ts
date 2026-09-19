@@ -73,6 +73,25 @@ export class StubElement {
     this.children = [];
     this.text = v;
   }
+  /**
+   * Serialises this subtree. Good enough for assertions on rendered output
+   * (tags, classes, attributes, text) without pulling in a full DOM.
+   */
+  get innerHTML(): string {
+    if (!this.children.length) return escapeText(this.text);
+    return this.children.map((c) => c.outerHTML).join('');
+  }
+  set innerHTML(v: string) {
+    // Only clearing is supported; the UI code never injects markup strings here.
+    this.children = [];
+    this.text = v === '' ? '' : v;
+  }
+  get outerHTML(): string {
+    const attrs = Object.entries(this.attributes)
+      .map(([k, val]) => ` ${k}="${escapeText(String(val))}"`)
+      .join('');
+    return `<${this.tagName.toLowerCase()}${attrs}>${this.innerHTML}</${this.tagName.toLowerCase()}>`;
+  }
   get id(): string {
     return this.attributes.id ?? '';
   }
@@ -93,10 +112,22 @@ export class StubElement {
   getAttribute(name: string) {
     return this.attributes[name] ?? null;
   }
+  hasAttribute(name: string) {
+    return Object.prototype.hasOwnProperty.call(this.attributes, name);
+  }
+  removeAttribute(name: string) {
+    delete this.attributes[name];
+  }
   appendChild(node: StubElement) {
     node.parentElement = this;
     this.children.push(node);
     return node;
+  }
+  get firstChild(): StubElement | null {
+    return this.children[0] ?? null;
+  }
+  get lastChild(): StubElement | null {
+    return this.children[this.children.length - 1] ?? null;
   }
   removeChild(node: StubElement) {
     this.children = this.children.filter((c) => c !== node);
@@ -112,6 +143,7 @@ export class StubElement {
   }
   replaceChildren(...nodes: StubElement[]) {
     this.children = [];
+    this.text = '';
     nodes.forEach((n) => this.appendChild(n));
   }
   remove() {
@@ -146,7 +178,20 @@ export class StubElement {
   querySelector(selector: string): StubElement | null {
     return this.querySelectorAll(selector)[0] ?? null;
   }
+  /** Walks up the tree (including self) looking for a match. */
+  closest(selector: string): StubElement | null {
+    let node: StubElement | null = this;
+    while (node) {
+      if (matches(node, selector)) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
   focus() {}
+}
+
+function escapeText(value: string): string {
+  return String(value ?? '');
 }
 
 function matches(node: StubElement, selector: string): boolean {
@@ -196,6 +241,9 @@ export function installDomStub(): DomStub {
     addEventListener: (type: string, fn: Listener) => {
       docListeners.set(type, [...(docListeners.get(type) ?? []), fn]);
     },
+    removeEventListener: (type: string, fn: Listener) => {
+      docListeners.set(type, (docListeners.get(type) ?? []).filter((f) => f !== fn));
+    },
     dispatchEvent: (ev: any) => {
       (docListeners.get(ev.type) ?? []).forEach((fn) => fn(ev));
       return true;
@@ -209,6 +257,9 @@ export function installDomStub(): DomStub {
     history: { state: null, pushState: () => {}, back: () => {} },
     addEventListener: (type: string, fn: Listener) => {
       winListeners.set(type, [...(winListeners.get(type) ?? []), fn]);
+    },
+    removeEventListener: (type: string, fn: Listener) => {
+      winListeners.set(type, (winListeners.get(type) ?? []).filter((f) => f !== fn));
     },
     dispatchEvent: (ev: any) => {
       (winListeners.get(ev.type) ?? []).forEach((fn) => fn(ev));

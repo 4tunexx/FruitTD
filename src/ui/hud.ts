@@ -49,7 +49,7 @@ import {
 } from '../services/auth';
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
-import { loadLiveConfig, getLiveConfig, getEnabledSlicers, getSlicers } from '../services/liveConfig';
+import { loadLiveConfig, getLiveConfig, getSlicers } from '../services/liveConfig';
 import { bootMenuParallax, syncMenuParallax } from './menuParallax';
 import { navigation } from '../game/navigation';
 import { getHeroXpState } from '../game/progression';
@@ -175,8 +175,8 @@ export class Hud {
     this.checkDailyBonus();
     this.bootSuperLiquidCanvas();
     bootMenuParallax();
-    navigation.onChange((s) => {
-      const inMatch = s === 'PLAYING' || s === 'PAUSED' || s === 'GAME_OVER';
+    navigation.onChange(() => {
+      const inMatch = navigation.isInGame();
       document.body.classList.toggle('is-playing', inMatch);
       document.getElementById('app')?.classList.toggle('is-playing', inMatch);
       syncMenuParallax();
@@ -209,10 +209,16 @@ export class Hud {
       return;
     }
     this.setTitleVisible(false);
-    this.startGate.classList.toggle('hidden', !open);
     if (open) {
+      // Returning from a match lands on the Phase 2 main menu, not the
+      // legacy dashboard page (§2, §12).
+      this.startGate.classList.add('hidden');
+      navigation.setState('MAIN_MENU');
       this.showPause(false);
       this.checkDailyBonus();
+    } else {
+      this.startGate.classList.add('hidden');
+      document.getElementById('screen-main-menu')?.classList.add('hidden');
     }
   }
 
@@ -225,8 +231,11 @@ export class Hud {
     this.setTitleVisible(false);
     document.getElementById('title-settings')?.classList.add('hidden');
     document.getElementById('title-quit')?.classList.add('hidden');
-    this.startGate.classList.remove('hidden');
+    // The Phase 2 main menu is the lobby now; the legacy page stays mounted
+    // for quests/leaderboard/skills but is not what the player lands on (§2).
+    this.startGate.classList.add('hidden');
     this.showPage('play');
+    navigation.setState('MAIN_MENU');
     this.checkDailyBonus();
     void this.refreshMonthlyRank();
   }
@@ -274,6 +283,11 @@ export class Hud {
 
   returnToTitle(): void {
     this.startGate.classList.add('hidden');
+    // Unwind the screen stack so no game screen lingers behind the title.
+    navigation.reset('TITLE');
+    for (const host of document.querySelectorAll('.ftd-screen-host')) {
+      host.classList.add('hidden');
+    }
     this.setTitleVisible(true);
     this.refreshTitleButtons();
   }
@@ -511,67 +525,17 @@ export class Hud {
     this.modeLabel.textContent = modeRules(mode).name;
   }
 
+  /**
+   * Shop/inventory ITEM rendering moved to the dedicated screens (§6/§7).
+   * This only refreshes the currency + VIP widgets that still live on the
+   * lobby page — there is no second item renderer any more (§12).
+   */
   mountShop(save: SaveData): void {
     const coinEl = document.getElementById('shop-coins');
     if (coinEl) coinEl.textContent = `${save.coins} coins`;
-    
-    // P1-2: Show gems
     const gemEl = document.getElementById('shop-gems');
     if (gemEl) gemEl.textContent = `💎 ${save.gems || 0} gems`;
-    
-    // P1-2: Update VIP status
     this.updateVIPStatus(save);
-    
-    const box = document.getElementById('skin-shop');
-    if (!box) return;
-    box.innerHTML = '';
-
-    const slicers = getEnabledSlicers();
-    for (const slicer of slicers) {
-      const owned = save.ownedSkins.includes(slicer.id);
-      if (owned) continue;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'skin-btn';
-      btn.innerHTML = `
-        <div class="skin-btn-row">
-          <span class="skin-swatch" style="background:linear-gradient(135deg,${slicer.color},${slicer.glowColor})"></span>
-          <div>
-            <p class="font-black">${slicer.name}</p>
-            <p class="text-[11px] text-zinc-400">${slicer.blurb}</p>
-            <p class="text-[10px] text-zinc-500 mt-1">${slicer.rarity} · dmg ×${slicer.damageMul} · juice ×${slicer.juiceMul}${slicer.brittleBonus > 0 ? ` · brittle +${slicer.brittleBonus}s` : ''}</p>
-          </div>
-        </div>
-        <p class="skin-price">Buy ${slicer.cost} coins</p>`;
-      btn.addEventListener('click', () => this.onBuySkin?.(slicer.id));
-      box.appendChild(btn);
-    }
-
-    for (const wall of WALL_SKINS) {
-      const owned = save.ownedSkins.includes(wall.id);
-      if (owned) continue;
-      const hex = `#${wall.color.toString(16).padStart(6, '0')}`;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'skin-btn';
-      btn.innerHTML = `
-        <div class="skin-btn-row">
-          <span class="skin-swatch" style="background:${hex}"></span>
-          <div>
-            <p class="font-black">${wall.name}</p>
-            <p class="text-[11px] text-zinc-400">${wall.blurb}</p>
-          </div>
-        </div>
-        <p class="skin-price">Buy ${wall.cost} coins</p>`;
-      btn.addEventListener('click', () => this.onBuySkin?.(wall.id));
-      box.appendChild(btn);
-    }
-
-    if (!box.children.length) {
-      box.innerHTML = '<p class="text-[12px] text-zinc-500">You own everything currently for sale.</p>';
-    }
-
-    this.mountInventory(save);
   }
 
   // P1-2: VIP System
@@ -716,180 +680,11 @@ export class Hud {
     this.juiceLastChangeMs = performance.now();
     // Do not start a forever rAF — sync()/nudge starts it only while juice is changing
   }
-  mountInventory(save: SaveData): void {
-    const layout = document.getElementById('inventory-layout');
-    const box = document.getElementById('skin-inventory');
-    const loadout = document.getElementById('hero-loadout');
-    if (!box) return;
-    box.innerHTML = '';
-    if (loadout) loadout.innerHTML = '';
-    const allSlicers = getSlicers();
-    const lockedDefaults = new Set(['blade-default', 'wall-brick']);
+  /**
+   * The owned-items grid now lives in the Inventory screen (§7).
+   * `mountProfileInventory` below still renders the compact profile preview.
+   */
 
-    type InvItem = {
-      id: string;
-      isBlade: boolean;
-      isDefault: boolean;
-      name: string;
-      color: string;
-      glow: string;
-      sell: number;
-      eq: boolean;
-      fx?: string;
-    };
-
-    const items: InvItem[] = [];
-    for (const id of save.ownedSkins) {
-      const slicer = findSlicer(allSlicers, id) || findSlicer(getLiveConfig().slicers, id);
-      const wall = WALL_SKINS.find((w) => w.id === id);
-      if (!slicer && !wall) continue;
-      const isBlade = !!slicer;
-      const isDefault = lockedDefaults.has(id);
-      items.push({
-        id,
-        isBlade,
-        isDefault,
-        name: slicer?.name || wall!.name,
-        color: slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`,
-        glow: slicer?.glowColor || (slicer ? slicer.color : `#${wall!.color.toString(16).padStart(6, '0')}`),
-        sell: slicer?.sellValue ?? wall!.sellValue,
-        eq: isBlade ? save.bladeSkin === id : save.wallSkin === id,
-        fx: slicer?.fxStyle,
-      });
-    }
-
-    items.sort((a, b) => {
-      if (a.eq !== b.eq) return a.eq ? -1 : 1;
-      if (a.isDefault !== b.isDefault) return a.isDefault ? 1 : -1;
-      return a.name.localeCompare(b.name);
-    });
-
-    const byId = new Map(items.map((i) => [i.id, i]));
-    const bladeEq = !save.bladeSkin || save.bladeSkin === 'none' ? null : byId.get(save.bladeSkin) || null;
-    const wallEq = !save.wallSkin || save.wallSkin === 'none' ? null : byId.get(save.wallSkin) || null;
-
-    const renderSlot = (slot: 'blade' | 'wall', equipped: InvItem | null): HTMLElement => {
-      const el = document.createElement('div');
-      el.className = `loadout-slot loadout-slot--${slot}${equipped ? ' is-filled' : ' is-empty'}`;
-      el.dataset.slot = slot;
-      el.setAttribute('role', 'button');
-      el.tabIndex = 0;
-      if (equipped) {
-        el.innerHTML = `
-          <p class="loadout-slot__label">${slot === 'blade' ? 'Blade' : 'Wall'}</p>
-          <div class="loadout-slot__card">
-            <span class="skin-swatch inv-swatch" style="background:linear-gradient(135deg,${equipped.color},${equipped.glow})"></span>
-            <div>
-              <p class="font-black inv-card__name">${equipped.name}</p>
-              <p class="inv-card__meta">${equipped.isDefault ? 'Starter' : 'Equipped'}</p>
-            </div>
-          </div>
-          <button type="button" class="inv-btn inv-unequip loadout-unequip">Unequip</button>`;
-        el.querySelector('.loadout-unequip')?.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          this.onUnequipItem?.(equipped.id);
-        });
-      } else {
-        el.innerHTML = `
-          <p class="loadout-slot__label">${slot === 'blade' ? 'Blade' : 'Wall'}</p>
-          <div class="loadout-slot__empty">Empty</div>
-          <p class="loadout-slot__hint">Drop an item or Equip from grid</p>`;
-      }
-
-      const acceptDrop = (id: string) => {
-        const item = byId.get(id);
-        if (!item) return;
-        if (slot === 'blade' && !item.isBlade) return;
-        if (slot === 'wall' && item.isBlade) return;
-        this.onEquipItem?.(id);
-      };
-
-      el.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        el.classList.add('is-drop-target');
-      });
-      el.addEventListener('dragleave', () => el.classList.remove('is-drop-target'));
-      el.addEventListener('drop', (e) => {
-        e.preventDefault();
-        el.classList.remove('is-drop-target');
-        const id = e.dataTransfer?.getData('text/plain') || '';
-        if (id) acceptDrop(id);
-      });
-      return el;
-    };
-
-    if (loadout) {
-      const head = document.createElement('div');
-      head.className = 'hero-loadout__head';
-      head.innerHTML = `<h4>Hero Loadout</h4><p>Blade + Wall · drag or Equip</p>`;
-      loadout.appendChild(head);
-      loadout.appendChild(renderSlot('blade', bladeEq || null));
-      loadout.appendChild(renderSlot('wall', wallEq || null));
-    }
-
-    if (items.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'inv-empty-state';
-      empty.textContent = 'No owned items yet — buy blades & walls in Shop.';
-      box.appendChild(empty);
-    }
-
-    for (const item of items) {
-      const canRemove = !item.isDefault;
-      const status = `${item.isBlade ? 'Blade' : 'Wall'} · ${item.eq ? 'Equipped' : 'Owned'}${item.isDefault ? ' · Starter' : ''}${item.fx ? ` · ${item.fx}` : ''}`;
-
-      const card = document.createElement('div');
-      const kind = item.isBlade ? 'blade' : 'wall';
-      card.className = `inv-card inv-card--glass inv-card--draggable${item.eq ? ' is-on' : ''}${item.isDefault ? ' is-starter' : ' is-owned'}`;
-      card.draggable = true;
-      card.dataset.itemId = item.id;
-      card.dataset.kind = kind;
-      card.style.setProperty('--inv-i', String(box.querySelectorAll('.inv-card').length));
-      card.style.setProperty('--inv-c', item.color);
-      card.innerHTML = `
-        <div class="inv-card__glow" style="--inv-c:${item.color};--inv-g:${item.glow}"></div>
-        <div class="skin-btn-row">
-          <span class="skin-swatch inv-swatch" style="background:linear-gradient(135deg,${item.color},${item.glow})"></span>
-          <div class="flex-1">
-            <p class="font-black inv-card__name">${item.name}</p>
-            <p class="inv-card__meta">${status}</p>
-            <span class="inv-card__badge">${item.isDefault ? 'STARTER' : item.eq ? 'EQUIPPED' : 'OWNED'} · ${kind}</span>
-          </div>
-        </div>
-        <div class="inv-actions">
-          <button type="button" class="inv-btn inv-equip">${item.eq ? 'Unequip' : 'Equip'}</button>
-          <button type="button" class="inv-btn inv-sell" ${!canRemove || item.sell <= 0 ? 'disabled' : ''}>Sell ${item.sell}</button>
-          <button type="button" class="inv-btn inv-del" ${!canRemove ? 'disabled' : ''}>Delete</button>
-        </div>`;
-
-      card.addEventListener('dragstart', (e) => {
-        e.dataTransfer?.setData('text/plain', item.id);
-        e.dataTransfer!.effectAllowed = 'move';
-        card.classList.add('is-dragging');
-        layout?.classList.add('is-dragging-item');
-      });
-      card.addEventListener('dragend', () => {
-        card.classList.remove('is-dragging');
-        layout?.classList.remove('is-dragging-item');
-      });
-
-      card.querySelector('.inv-equip')?.addEventListener('click', () => {
-        if (item.eq) this.onUnequipItem?.(item.id);
-        else this.onEquipItem?.(item.id);
-      });
-      card.querySelector('.inv-sell')?.addEventListener('click', () => {
-        if (!canRemove || item.sell <= 0) return;
-        if (confirm(`Sell ${item.name} for ${item.sell} coins?`)) this.onSellItem?.(item.id);
-      });
-      card.querySelector('.inv-del')?.addEventListener('click', () => {
-        if (!canRemove) return;
-        if (confirm(`Delete ${item.name} permanently? No coins refunded.`)) this.onDeleteItem?.(item.id);
-      });
-      box.appendChild(card);
-    }
-
-    this.mountProfileInventory(save, items);
-  }
 
   private mountProfileInventory(
     save: SaveData,

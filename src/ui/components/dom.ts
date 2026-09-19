@@ -40,3 +40,16 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+/** Removes every child of a node. */
+export function clear(node: HTMLElement): void {
+  // replaceChildren() is the reliable one-shot clear; fall back to manual
+  // removal for environments (and test stubs) that do not implement it.
+  const anyNode = node as unknown as { replaceChildren?: () => void };
+  if (typeof anyNode.replaceChildren === 'function') {
+    anyNode.replaceChildren();
+    return;
+  }
+  while (node.lastChild) node.removeChild(node.lastChild);
+  node.innerHTML = '';
+}

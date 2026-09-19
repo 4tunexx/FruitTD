@@ -1,0 +1,1031 @@
+/* ════════════════════════════════════════════════════════════
+   FruitTD — PHASE 2 GAME UI
+   Main menu, dashboard, screens, shop, inventory, heroes, profile.
+
+   Everything here consumes --ftd-* theme variables (Phase 0), so a
+   theme swap restyles all of it without touching this file.
+   Direction: dark, premium, game-first. Large artwork, large targets,
+   strong hierarchy, minimal small text.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* Touch targets never go below this (§9). */
+  --ftd-tap: 44px;
+  --ftd-safe-top: env(safe-area-inset-top, 0px);
+  --ftd-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ftd-safe-left: env(safe-area-inset-left, 0px);
+  --ftd-safe-right: env(safe-area-inset-right, 0px);
+  --ftd-screen-max: 1440px;
+}
+
+/* ─────────────────── Screen container ─────────────────── */
+
+.ftd-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    calc(var(--ftd-safe-top) + 0.9rem)
+    calc(var(--ftd-safe-right) + 1rem)
+    calc(var(--ftd-safe-bottom) + 1.5rem)
+    calc(var(--ftd-safe-left) + 1rem);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--ftd-color-primary) 10%, transparent), transparent 70%),
+    var(--ftd-color-background);
+  color: var(--ftd-color-text);
+  animation: ftd-screen-in var(--ftd-speed-screen, 220ms) var(--ftd-easing, ease) both;
+}
+
+@keyframes ftd-screen-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ftd-screen__header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  max-width: var(--ftd-screen-max);
+  margin: 0 auto 1.25rem;
+  flex-wrap: wrap;
+}
+
+.ftd-screen__titles { flex: 1 1 auto; min-width: 0; }
+
+.ftd-screen__title {
+  margin: 0;
+  font-family: var(--ftd-font-heading);
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.ftd-screen__subtitle {
+  margin: 0.15rem 0 0;
+  color: var(--ftd-color-text-muted);
+  font-size: 0.9rem;
+}
+
+.ftd-screen__header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ftd-screen__back,
+.ftd-screen__home {
+  min-height: var(--ftd-tap);
+  min-width: var(--ftd-tap);
+}
+
+.ftd-screen__body {
+  width: 100%;
+  max-width: var(--ftd-screen-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ─────────────────── Main menu (§2) ─────────────────── */
+
+.ftd-mainmenu {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding:
+    calc(var(--ftd-safe-top) + 1rem)
+    calc(var(--ftd-safe-right) + 1.25rem)
+    calc(var(--ftd-safe-bottom) + 1.5rem)
+    calc(var(--ftd-safe-left) + 1.25rem);
+  color: var(--ftd-color-text);
+}
+
+.ftd-mainmenu__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  max-width: var(--ftd-screen-max);
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.ftd-mainmenu__utils { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+/* Compact identity strip */
+.ftd-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.9rem 0.5rem 0.5rem;
+  border-radius: 99px;
+  border: 1px solid var(--ftd-color-border);
+  background: color-mix(in srgb, var(--ftd-color-panel-secondary) 70%, transparent);
+  backdrop-filter: blur(var(--ftd-blur, 12px));
+}
+
+.ftd-identity__avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--ftd-color-primary);
+  background: var(--ftd-color-panel);
+}
+
+.ftd-identity__name {
+  margin: 0;
+  font-weight: 900;
+  font-size: 0.98rem;
+  line-height: 1.1;
+}
+
+.ftd-identity__meta {
+  margin: 0;
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-identity__rank { color: var(--ftd-color-accent); font-weight: 800; }
+
+.ftd-identity__coins {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-left: 0.7rem;
+  margin-left: 0.2rem;
+  border-left: 1px solid var(--ftd-color-border);
+  font-weight: 900;
+  color: var(--ftd-color-coins);
+}
+
+/* Centre stage */
+.ftd-mainmenu__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(260px, 0.8fr);
+  gap: 1.25rem;
+  align-items: stretch;
+  width: 100%;
+  max-width: var(--ftd-screen-max);
+  margin: 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ftd-playcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border-radius: var(--ftd-radius-panel);
+  border: 1px solid var(--ftd-color-border);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(800px 400px at 15% 0%, color-mix(in srgb, var(--ftd-color-primary) 22%, transparent), transparent 65%),
+    linear-gradient(135deg, color-mix(in srgb, var(--ftd-color-background) 92%, black), var(--ftd-color-background));
+  box-shadow: var(--ftd-shadow);
+}
+
+.ftd-playcard::after {
+  /* Angled sheen so the panel reads as game art, not a content card. */
+  content: '';
+  position: absolute;
+  inset: -40% -10% auto auto;
+  width: 60%; height: 180%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ftd-color-primary) 8%, transparent));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ftd-playcard__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.34em;
+  font-weight: 800;
+  color: var(--ftd-color-primary);
+}
+
+.ftd-playcard__title {
+  margin: 0;
+  font-family: var(--ftd-font-heading);
+  font-size: clamp(2.8rem, 9vw, 5.5rem);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+.ftd-playcard__title-accent {
+  color: var(--ftd-color-primary);
+  text-shadow: 0 0 34px color-mix(in srgb, var(--ftd-color-primary) 55%, transparent);
+}
+
+.ftd-playcard__tagline {
+  margin: 0 0 0.6rem;
+  max-width: 34ch;
+  color: var(--ftd-color-text-muted);
+  font-size: clamp(0.92rem, 1.6vw, 1.05rem);
+}
+
+.ftd-playcard__cta {
+  align-self: flex-start;
+  min-height: 64px;
+  padding: 0 clamp(2rem, 6vw, 4rem);
+  font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  border-radius: var(--ftd-radius-button);
+  animation: ftd-cta-pulse 3.2s var(--ftd-easing, ease) infinite;
+}
+
+@keyframes ftd-cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ftd-color-primary) 48%, transparent); }
+  50%      { box-shadow: 0 0 0 16px color-mix(in srgb, var(--ftd-color-primary) 0%, transparent); }
+}
+
+.ftd-playcard__mode {
+  margin: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.2em;
+  color: var(--ftd-color-text-muted);
+  font-weight: 700;
+}
+
+/* Current hero panel */
+.ftd-loadout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.25rem;
+  border-radius: var(--ftd-radius-panel);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+  backdrop-filter: blur(var(--ftd-blur, 12px));
+}
+
+.ftd-loadout__label {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.24em;
+  font-weight: 800;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-loadout__hero {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.ftd-loadout__title {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ftd-color-accent);
+}
+
+.ftd-loadout__bar,
+.ftd-profile-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--ftd-color-panel-secondary);
+  overflow: hidden;
+}
+
+.ftd-loadout__bar > i,
+.ftd-profile-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--ftd-color-xp), color-mix(in srgb, var(--ftd-color-xp) 55%, white));
+  transition: width var(--ftd-speed-transition) var(--ftd-easing);
+}
+
+.ftd-profile-bar--tower > i {
+  background: linear-gradient(90deg, var(--ftd-color-tower), color-mix(in srgb, var(--ftd-color-tower) 55%, white));
+}
+
+.ftd-loadout__xp,
+.ftd-loadout__tower {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-loadout__tower { color: var(--ftd-color-tower); font-weight: 700; }
+
+/* Secondary destination tiles */
+.ftd-mainmenu__nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--ftd-screen-max);
+  margin: 0 auto;
+}
+
+.ftd-navtile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-height: 92px;
+  padding: 0.9rem 1rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+  color: var(--ftd-color-text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform var(--ftd-speed-hover) var(--ftd-easing),
+    border-color var(--ftd-speed-hover) var(--ftd-easing),
+    background var(--ftd-speed-hover) var(--ftd-easing);
+}
+
+.ftd-navtile:hover,
+.ftd-navtile:focus-visible {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--ftd-color-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--ftd-color-primary) 9%, var(--ftd-color-panel));
+  outline: none;
+}
+
+.ftd-navtile:active { transform: translateY(0) scale(0.985); }
+
+.ftd-navtile__icon { font-size: 1.5rem; line-height: 1; }
+.ftd-navtile__label { font-weight: 900; font-size: 1.02rem; }
+.ftd-navtile__hint { font-size: 0.76rem; color: var(--ftd-color-text-muted); }
+
+/* ─────────────────── Lobby strip (§3) ─────────────────── */
+
+.ftd-lobby-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--ftd-screen-max);
+  margin: 0 auto;
+}
+
+.ftd-lobby-card {
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+}
+
+.ftd-lobby-card__label {
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-lobby-card__value { margin: 0; font-weight: 800; font-size: 1rem; }
+.ftd-lobby-card__hint { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--ftd-color-text-muted); }
+
+/* ─────────────────── Category tabs ─────────────────── */
+
+.ftd-catbar {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 0.2rem;
+}
+
+.ftd-catbar::-webkit-scrollbar { display: none; }
+
+.ftd-catbar__tab {
+  flex: 0 0 auto;
+  min-height: var(--ftd-tap);
+  padding: 0 1.1rem;
+  border-radius: 99px;
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+  color: var(--ftd-color-text-muted);
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--ftd-speed-hover) var(--ftd-easing);
+}
+
+.ftd-catbar__tab.is-active {
+  background: var(--ftd-color-primary);
+  border-color: var(--ftd-color-primary);
+  color: var(--ftd-color-background);
+}
+
+/* ─────────────────── Item grid / cards (§6, §7, §8) ─────────────────── */
+
+.ftd-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.9rem;
+}
+
+.ftd-item-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+  overflow: hidden;
+  transition:
+    transform var(--ftd-speed-hover) var(--ftd-easing),
+    border-color var(--ftd-speed-hover) var(--ftd-easing);
+}
+
+.ftd-item-card.is-clickable { cursor: pointer; }
+.ftd-item-card:hover { transform: translateY(-3px); }
+
+/* Rarity is a core game signal — make it visible at a glance. */
+.ftd-item-card--common    { --rarity: var(--ftd-color-text-muted); }
+.ftd-item-card--rare      { --rarity: var(--ftd-color-xp); }
+.ftd-item-card--epic      { --rarity: var(--ftd-color-tower); }
+.ftd-item-card--legendary { --rarity: var(--ftd-color-coins); }
+
+.ftd-item-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--rarity);
+}
+
+.ftd-item-card:hover { border-color: color-mix(in srgb, var(--rarity) 55%, transparent); }
+
+.ftd-item-card.is-equipped {
+  border-color: var(--ftd-color-success);
+  background: color-mix(in srgb, var(--ftd-color-success) 8%, var(--ftd-color-panel));
+}
+
+.ftd-item-card.is-unaffordable { opacity: 0.55; }
+
+.ftd-item-card__swatch {
+  height: 74px;
+  border-radius: calc(var(--ftd-radius-card) * 0.7);
+}
+
+.ftd-item-card__name { margin: 0; font-weight: 900; font-size: 1.02rem; }
+
+.ftd-item-card__rarity {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+  color: var(--rarity);
+}
+
+.ftd-item-card__desc {
+  margin: 0.2rem 0 0;
+  font-size: 0.84rem;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-item-card__stats {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ftd-item-card__stats li {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  background: var(--ftd-color-panel-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.ftd-item-card__stats li.is-positive { color: var(--ftd-color-success); }
+.ftd-item-card__stat-label { color: var(--ftd-color-text-muted); font-weight: 600; }
+
+.ftd-item-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.6rem;
+}
+
+.ftd-item-card__price {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-weight: 900;
+  color: var(--ftd-color-coins);
+}
+
+.ftd-item-card__equipped {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  font-weight: 900;
+  color: var(--ftd-color-success);
+}
+
+/* Blade preview (§8) */
+.ftd-blade-preview {
+  position: relative;
+  height: 74px;
+  border-radius: calc(var(--ftd-radius-card) * 0.7);
+  background:
+    radial-gradient(120% 90% at 50% 120%, color-mix(in srgb, var(--blade-glow) 26%, transparent), transparent 70%),
+    var(--ftd-color-panel-secondary);
+  overflow: hidden;
+}
+
+.ftd-blade-preview__trail {
+  position: absolute;
+  left: 8%; right: 8%; top: 50%;
+  height: calc(3px * var(--blade-width, 1));
+  transform: translateY(-50%) rotate(-14deg);
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--blade-color), transparent);
+  filter: blur(calc(1px + 2px * var(--blade-glow-strength, 0.4)));
+  opacity: calc(0.55 + 0.45 * var(--blade-glow-strength, 0.4));
+}
+
+.ftd-blade-preview__edge {
+  position: absolute;
+  left: 12%; right: 12%; top: 50%;
+  height: 2px;
+  transform: translateY(-50%) rotate(-14deg);
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, white, transparent);
+  opacity: 0.85;
+}
+
+.ftd-blade-preview__glint {
+  position: absolute;
+  top: 0; bottom: 0; left: -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, white 55%, transparent), transparent);
+  animation: ftd-glint 2.6s var(--ftd-easing, ease) infinite;
+}
+
+@keyframes ftd-glint {
+  0%   { left: -40%; }
+  60%  { left: 110%; }
+  100% { left: 110%; }
+}
+
+/* Equipped loadout strip */
+.ftd-loadout-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+}
+
+.ftd-loadout-slot {
+  display: flex;
+  flex-direction: column;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+  border-left: 3px solid var(--slot-color, var(--ftd-color-border));
+}
+
+.ftd-loadout-slot__label {
+  font-size: 0.64rem;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-loadout-slot__name { font-weight: 800; }
+
+/* ─────────────────── Hero screen (§5) ─────────────────── */
+
+.ftd-hero-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.75fr) minmax(0, 2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.ftd-hero-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ftd-hero-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-height: var(--ftd-tap);
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  border-left: 3px solid var(--hero-color, var(--ftd-color-border));
+  background: var(--ftd-color-panel);
+  color: var(--ftd-color-text);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--ftd-speed-hover) var(--ftd-easing);
+}
+
+.ftd-hero-tile:hover { transform: translateX(3px); }
+
+.ftd-hero-tile.is-selected {
+  background: color-mix(in srgb, var(--hero-color) 16%, var(--ftd-color-panel));
+  border-color: var(--hero-color);
+}
+
+.ftd-hero-tile.is-locked { opacity: 0.6; }
+.ftd-hero-tile__name { font-weight: 900; }
+.ftd-hero-tile__lv { font-size: 0.76rem; color: var(--ftd-color-text-muted); }
+
+.ftd-hero-state {
+  margin-top: 0.2rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 99px;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  font-weight: 900;
+  border: 1px solid currentColor;
+}
+
+.ftd-hero-state.is-owned  { color: var(--ftd-color-success); }
+.ftd-hero-state.is-locked { color: var(--ftd-color-text-muted); }
+.ftd-hero-state.is-buy    { color: var(--ftd-color-coins); }
+
+.ftd-hero-detail {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1.6fr);
+  grid-template-areas:
+    'art body'
+    'perks perks'
+    'actions actions';
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: var(--ftd-radius-panel);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+  animation: ftd-hero-in var(--ftd-speed-popup, 240ms) var(--ftd-easing) both;
+}
+
+@keyframes ftd-hero-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ftd-hero-detail__body { grid-area: body; }
+.ftd-hero-perks { grid-area: perks; }
+.ftd-hero-detail__actions { grid-area: actions; }
+
+.ftd-hero-art {
+  grid-area: art;
+  position: relative;
+  min-height: 210px;
+  border-radius: var(--ftd-radius-card);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--hero-color) 38%, transparent), transparent 68%),
+    linear-gradient(160deg, color-mix(in srgb, var(--hero-trail) 20%, transparent), var(--ftd-color-panel-secondary));
+}
+
+.ftd-hero-art__glow {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--hero-color) 45%, transparent), transparent 70%);
+  filter: blur(22px);
+  animation: ftd-hero-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes ftd-hero-breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.75; }
+  50%      { transform: scale(1.09); opacity: 1; }
+}
+
+.ftd-hero-art__initial {
+  position: relative;
+  font-family: var(--ftd-font-heading);
+  font-size: clamp(3.5rem, 9vw, 6rem);
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 6px 30px color-mix(in srgb, var(--hero-color) 80%, transparent);
+}
+
+.ftd-hero-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.ftd-hero-detail__name {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.ftd-hero-detail__title { margin: 0.1rem 0 0; color: var(--ftd-color-accent); font-weight: 700; }
+.ftd-hero-detail__blurb { margin: 0.4rem 0 0.8rem; color: var(--ftd-color-text-muted); }
+
+.ftd-hero-detail__level {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 0.88rem;
+}
+
+.ftd-hero-detail__xp { color: var(--ftd-color-text-muted); }
+
+.ftd-hero-detail__bar {
+  height: 10px;
+  margin-top: 0.3rem;
+  border-radius: 99px;
+  background: var(--ftd-color-panel-secondary);
+  overflow: hidden;
+}
+
+.ftd-hero-detail__bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--ftd-color-xp), color-mix(in srgb, var(--ftd-color-xp) 50%, white));
+  transition: width var(--ftd-speed-transition) var(--ftd-easing);
+}
+
+.ftd-hero-detail__milestone {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ftd-color-accent);
+}
+
+.ftd-hero-perks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.4rem;
+}
+
+.ftd-hero-perks__label {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-hero-perk {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: calc(var(--ftd-radius-card) * 0.6);
+  background: var(--ftd-color-panel-secondary);
+  font-size: 0.84rem;
+}
+
+.ftd-hero-perk.is-locked { opacity: 0.5; }
+.ftd-hero-perk__name { font-weight: 700; }
+.ftd-hero-perk__rank { color: var(--ftd-color-xp); font-weight: 800; }
+
+/* ─────────────────── Profile (§4) ─────────────────── */
+
+.ftd-profile-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.25rem;
+  border-radius: var(--ftd-radius-panel);
+  border: 1px solid var(--ftd-color-border);
+  background:
+    radial-gradient(600px 200px at 0% 0%, color-mix(in srgb, var(--rank-color) 20%, transparent), transparent 70%),
+    var(--ftd-color-panel);
+  flex-wrap: wrap;
+}
+
+.ftd-profile-banner__avatar {
+  width: 84px; height: 84px;
+  border-radius: 22px;
+  object-fit: cover;
+  border: 3px solid var(--rank-color, var(--ftd-color-primary));
+  background: var(--ftd-color-panel-secondary);
+}
+
+.ftd-profile-banner__name {
+  margin: 0;
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  font-weight: 900;
+}
+
+.ftd-profile-banner__badges {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.ftd-profile-rank,
+.ftd-profile-hero,
+.ftd-profile-vip {
+  padding: 0.18rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  border: 1px solid var(--ftd-color-border);
+}
+
+.ftd-profile-rank { color: var(--rank-color); border-color: var(--rank-color); }
+.ftd-profile-hero { color: var(--ftd-color-text-muted); }
+.ftd-profile-vip  { color: var(--ftd-color-coins); border-color: var(--ftd-color-coins); }
+
+.ftd-profile-banner__next {
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-profile-mastery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.ftd-profile-mastery__block {
+  padding: 1rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+}
+
+.ftd-profile-mastery__label {
+  margin: 0 0 0.2rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-profile-mastery__value { margin: 0 0 0.5rem; font-weight: 900; font-size: 1.05rem; }
+
+.ftd-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+}
+
+.ftd-stat {
+  padding: 0.85rem 1rem;
+  border-radius: var(--ftd-radius-card);
+  border: 1px solid var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+}
+
+.ftd-stat__label {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: var(--ftd-color-text-muted);
+}
+
+.ftd-stat__value {
+  margin: 0.2rem 0 0;
+  font-family: var(--ftd-font-number);
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.ftd-stat__hint { margin: 0; font-size: 0.74rem; color: var(--ftd-color-text-muted); }
+
+.ftd-profile-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ─────────────────── Empty state ─────────────────── */
+
+.ftd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  border-radius: var(--ftd-radius-panel);
+  border: 1px dashed var(--ftd-color-border);
+  background: var(--ftd-color-panel);
+}
+
+.ftd-empty__title { margin: 0; font-weight: 900; font-size: 1.1rem; }
+.ftd-empty__hint { margin: 0; color: var(--ftd-color-text-muted); font-size: 0.88rem; }
+
+/* ═════════════════ RESPONSIVE (§9) ═════════════════
+   Not "shrink the desktop": the layout re-flows per device. */
+
+/* Tablet — compress to a single column, keep panels large. */
+@media (max-width: 1024px) {
+  .ftd-mainmenu__stage { grid-template-columns: 1fr; }
+  .ftd-hero-layout { grid-template-columns: 1fr; }
+
+  /* Roster becomes a horizontal rail so the detail panel keeps the space. */
+  .ftd-hero-roster {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 0.3rem;
+  }
+  .ftd-hero-roster::-webkit-scrollbar { display: none; }
+  .ftd-hero-tile { flex: 0 0 auto; min-width: 140px; }
+}
+
+/* Phone — single column, bigger targets, no decorative overflow. */
+@media (max-width: 680px) {
+  .ftd-screen,
+  .ftd-mainmenu { padding-left: calc(var(--ftd-safe-left) + 0.85rem); padding-right: calc(var(--ftd-safe-right) + 0.85rem); }
+
+  .ftd-mainmenu__top { flex-direction: column; align-items: stretch; }
+  .ftd-identity { width: 100%; }
+  .ftd-mainmenu__utils { justify-content: space-between; }
+  .ftd-mainmenu__utils .ftd-btn { flex: 1 1 auto; min-height: var(--ftd-tap); }
+
+  .ftd-playcard { padding: 1.5rem 1.1rem; text-align: center; align-items: center; }
+  .ftd-playcard__tagline { max-width: none; }
+  .ftd-playcard__cta { align-self: stretch; width: 100%; }
+
+  .ftd-mainmenu__nav { grid-template-columns: repeat(2, 1fr); }
+  .ftd-navtile { min-height: 84px; }
+
+  .ftd-hero-detail {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'art' 'body' 'perks' 'actions';
+  }
+  .ftd-hero-art { min-height: 170px; }
+
+  .ftd-item-grid { grid-template-columns: 1fr; }
+
+  .ftd-screen__header { gap: 0.5rem; }
+  .ftd-screen__header-right { width: 100%; justify-content: space-between; }
+
+  .ftd-profile-banner { flex-direction: column; align-items: flex-start; text-align: left; }
+
+  /* Every interactive element clears the 44px touch minimum. */
+  .ftd-btn,
+  .ftd-catbar__tab,
+  .ftd-navtile,
+  .ftd-hero-tile { min-height: var(--ftd-tap); }
+}
+
+/* Very small phones — protect against horizontal overflow. */
+@media (max-width: 380px) {
+  .ftd-mainmenu__nav { grid-template-columns: 1fr; }
+  .ftd-playcard__title { font-size: 2.6rem; }
+}
+
+/* Nothing in the game UI may cause a horizontal scrollbar (§9). */
+.ftd-screen,
+.ftd-screen *,
+.ftd-mainmenu,
+.ftd-mainmenu * { max-width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ftd-screen,
+  .ftd-hero-detail,
+  .ftd-playcard__cta,
+  .ftd-hero-art__glow,
+  .ftd-blade-preview__glint { animation: none !important; }
+  .ftd-navtile:hover,
+  .ftd-item-card:hover,
+  .ftd-hero-tile:hover { transform: none; }
+}

@@ -20,6 +20,8 @@ export interface ButtonOptions {
   disabled?: boolean;
   type?: 'button' | 'submit';
   id?: string;
+  /** Extra classes appended after the generated ftd-* ones. */
+  class?: string;
   onClick?: (ev: MouseEvent) => void;
   children?: Child[];
 }
@@ -34,6 +36,7 @@ export function GameButton(opts: ButtonOptions = {}): HTMLButtonElement {
       `ftd-btn--${opts.size ?? 'md'}`,
       `ftd-tone-${opts.tone ?? 'default'}`,
       opts.block && 'ftd-btn--block',
+      opts.class,
     ),
     disabled: opts.disabled,
   });

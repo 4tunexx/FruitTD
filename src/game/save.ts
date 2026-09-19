@@ -19,6 +19,8 @@ export interface SaveData {
   highScore: number;
   rankedScore: number;
   bestWave: number;
+  /** Highest combo ever reached, for the profile screen. */
+  bestCombo: number;
   games: number;
   coins: number;
   gems: number; // P1-2: Premium currency
@@ -66,7 +68,7 @@ export function defaultAvatar(name: string): string {
 export function defaultSave(): SaveData {
   return {
     hero:'jiju', xp:emptyXp(), ownedHeroes:['jiju'], towerXp:0, towerLifetimeXp:0,
-    highScore:0, rankedScore:0, bestWave:1, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
+    highScore:0, rankedScore:0, bestWave:1, bestCombo:0, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
     skillPoints:0, skills:emptySkills(), ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
     heroPerkRanks:emptyPerkRanks(), vipStatus:'none',
     saveRevision:0, savedAt:0,
@@ -92,6 +94,7 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.highScore = safeInt(data.highScore, 0, 0, 100_000_000);
   data.rankedScore = safeInt(data.rankedScore, 0, 0, 100_000_000);
   data.bestWave = safeInt(data.bestWave, 1, 1, 9999);
+  data.bestCombo = safeInt(data.bestCombo, 0, 0, 100000);
   data.games = safeInt(data.games, 0, 0, 1_000_000);
   data.coins = safeInt(data.coins, 0, 0, MAX_COINS);
   data.gems = safeInt(data.gems ?? 0, 0, 0, MAX_GEMS);
@@ -299,6 +302,7 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
     highScore:Math.max(local.highScore,remote.highScore??0),
     rankedScore:Math.max(local.rankedScore,remote.rankedScore??0),
     bestWave:Math.max(local.bestWave,remote.bestWave??0),
+    bestCombo:Math.max(local.bestCombo??0,remote.bestCombo??0),
     games:Math.max(local.games,remote.games??0),
     coins: mergedCoins,
     gems: mergedGems,

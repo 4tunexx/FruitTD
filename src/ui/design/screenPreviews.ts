@@ -1,26 +1,32 @@
 /**
- * Screen mockups for Design Preview Mode.
+ * Design Preview Mode screens.
+ *
+ * Main menu / heroes / inventory / shop / profile render the REAL screen
+ * modules against a throwaway sample save, so the preview always matches the
+ * game. The remaining entries are still theme mockups.
  *
  * These are THEME/LAYOUT previews built purely from UI primitives and sample
  * data — they never read or mutate save data, progression or game state, so a
  * designer can open any screen without playing a match.
  */
 import { el } from '../components/dom';
+import { defaultSave, type SaveData } from '../../game/save';
+import { renderMainMenu } from '../screens/mainMenu';
+import { renderShop } from '../screens/shop';
+import { renderInventory } from '../screens/inventory';
+import { renderHeroScreen } from '../screens/heroes';
+import { renderProfile } from '../screens/profile';
 import {
-  GameAvatar,
   GameBadge,
   GameButton,
   GameCard,
   GameCurrency,
   GameHeader,
-  GameHeroCard,
-  GameItemCard,
   GamePanel,
   GameProgressBar,
   GameRankBadge,
   GameSection,
   GameTabs,
-  GameXPBar,
 } from '../components/primitives';
 import { getLayout } from '../theme/layout';
 import { renderThemePreview } from './themePreview';
@@ -54,22 +60,61 @@ export const PREVIEW_SCREENS: { id: PreviewScreenId; label: string }[] = [
   { id: 'popups', label: 'Popups' },
 ];
 
+/**
+ * Sample save used to preview the REAL screens without a match or a profile.
+ * It is a throwaway object: nothing here is written back to storage.
+ */
+function sampleSave(): SaveData {
+  const save = defaultSave();
+  save.nickname = 'Preview Slicer';
+  save.coins = 4200;
+  save.gems = 60;
+  save.highScore = 8400;
+  save.rankedScore = 5200;
+  save.bestWave = 14;
+  save.games = 42;
+  save.bestCombo = 31;
+  save.ownedSkins = ['blade-default', 'wall-brick', 'blade-gold'];
+  save.bladeSkin = 'blade-gold';
+  save.wallSkin = 'wall-brick';
+  return save;
+}
+
+const noop = () => undefined;
+
+/** Renders a real screen into a detached host (§8 Design Preview). */
+function realScreen(render: (root: HTMLElement, save: SaveData) => void): HTMLElement {
+  const host = el('div', { class: 'ftd-preview-host' });
+  try {
+    render(host, sampleSave());
+  } catch (err) {
+    host.appendChild(el('div', { class: 'ftd-empty', text: `Preview failed: ${String(err)}` }));
+  }
+  return host;
+}
+
 export function renderPreviewScreen(id: PreviewScreenId): HTMLElement {
   switch (id) {
     case 'components':
       return renderThemePreview();
+    // These preview the ACTUAL screens, so the preview can never drift from
+    // what the player sees (§12).
     case 'main-menu':
-      return mainMenu();
+      return realScreen((root, save) => renderMainMenu(root, save, { onPlay: noop }));
+    case 'hero':
+      return realScreen((root, save) =>
+        renderHeroScreen(root, save, { onEquip: noop, onBuy: noop }),
+      );
+    case 'inventory':
+      return realScreen((root, save) =>
+        renderInventory(root, save, { onEquip: noop, onSell: noop }),
+      );
+    case 'shop':
+      return realScreen((root, save) => renderShop(root, save, { onBuy: noop }));
+    case 'profile':
+      return realScreen((root, save) => renderProfile(root, save, { bestCombo: save.bestCombo }));
     case 'dashboard':
       return dashboard();
-    case 'hero':
-      return heroes();
-    case 'inventory':
-      return inventory();
-    case 'shop':
-      return shop();
-    case 'profile':
-      return profile();
     case 'missions':
       return missions();
     case 'achievements':
@@ -85,24 +130,6 @@ export function renderPreviewScreen(id: PreviewScreenId): HTMLElement {
   }
 }
 
-function mainMenu(): HTMLElement {
-  const cfg = getLayout().mainMenu;
-  return el('div', { class: 'ftd-screen ftd-stack', 'data-preview': 'main-menu' }, [
-    GamePanel({
-      variant: 'glass',
-      padding: 'lg',
-      children: [
-        el('p', { class: 'ftd-empty', text: `layout: ${cfg.layout} · logo: ${cfg.logoPosition} · nav: ${cfg.navigationStyle}` }),
-        el('h1', { class: 'ftd-header__title', text: 'FRUIT TD' }),
-        el('p', { class: 'ftd-header__sub', text: 'Slice. Hold the Wall.' }),
-        el('div', { class: 'ftd-row' }, [
-          GameButton({ label: cfg.primaryAction, tone: 'primary', size: 'lg' }),
-          ...cfg.secondaryActions.map((a) => GameButton({ label: a, variant: 'outline' })),
-        ]),
-      ],
-    }),
-  ]);
-}
 
 function dashboard(): HTMLElement {
   const cfg = getLayout().dashboard;
@@ -127,53 +154,9 @@ function dashboard(): HTMLElement {
   ]);
 }
 
-function heroes(): HTMLElement {
-  return el('div', { class: 'ftd-screen ftd-stack' }, [
-    GameHeader('Heroes', 'Pick your slicer'),
-    el('div', { class: 'ftd-grid' }, [
-      GameHeroCard({ name: 'Jiju', role: 'Blade Dancer', level: 12, selected: true }),
-      GameHeroCard({ name: 'Topfu', role: 'Guardian', level: 7 }),
-      GameHeroCard({ name: 'Lagen', role: 'Sniper', level: 3 }),
-      GameHeroCard({ name: 'Tripos', role: 'Locked', locked: true }),
-    ]),
-    GamePanel({ title: 'Hero progression', children: [GameXPBar(640, 1000, 12), GameProgressBar({ value: 3, max: 5, tone: 'tower', label: 'Perk points', showValue: true })] }),
-  ]);
-}
 
-function inventory(): HTMLElement {
-  return el('div', { class: 'ftd-screen ftd-stack' }, [
-    GameHeader('Inventory', 'Blades, walls and consumables'),
-    el('div', { class: 'ftd-grid' }, [
-      GameItemCard({ name: 'Gold Blade', rarity: 'Legendary', icon: '🗡️', owned: true }),
-      GameItemCard({ name: 'Melon Wall', rarity: 'Epic', icon: '🍉', owned: true }),
-      GameItemCard({ name: 'Juice Pack', rarity: 'Common', icon: '🧃', owned: true }),
-      GameItemCard({ name: 'Frost Blade', rarity: 'Rare', icon: '❄️' }),
-    ]),
-  ]);
-}
 
-function shop(): HTMLElement {
-  return el('div', { class: 'ftd-screen ftd-stack' }, [
-    GameHeader('Shop', 'Spend coins, not gameplay balance', [GameCurrency(12480, 'coins')]),
-    el('div', { class: 'ftd-grid' }, [
-      GameItemCard({ name: 'Gold Blade', rarity: 'Legendary', price: 1200, icon: '🗡️' }),
-      GameItemCard({ name: 'Neon Wall', rarity: 'Epic', price: 800, icon: '🧱' }),
-      GameItemCard({ name: 'VIP Bronze', rarity: 'Bundle', price: 500, icon: '👑' }),
-    ]),
-  ]);
-}
 
-function profile(): HTMLElement {
-  return el('div', { class: 'ftd-screen ftd-stack' }, [
-    el('div', { class: 'ftd-row' }, [GameAvatar('', 'Slicer', 'lg'), el('div', {}, [el('h2', { class: 'ftd-header__title', text: 'Slicer' }), GameRankBadge('Gold III')])]),
-    el('div', { class: 'ftd-grid' }, [
-      GameCard({ title: 'Best score', meta: '184,920', tone: 'accent' }),
-      GameCard({ title: 'Waves cleared', meta: '1,204', tone: 'primary' }),
-      GameCard({ title: 'Fruit sliced', meta: '92,113', tone: 'combo' }),
-    ]),
-    GamePanel({ title: 'Season progress', children: [GameProgressBar({ value: 72, max: 100, tone: 'xp', showValue: true })] }),
-  ]);
-}
 
 function missions(): HTMLElement {
   return el('div', { class: 'ftd-screen ftd-stack' }, [

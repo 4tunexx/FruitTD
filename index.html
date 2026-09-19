@@ -340,14 +340,15 @@
               </button>
             </div>
 
-            <!-- Tabs -->
+            <!-- Lobby nav — routes into the real screens, no duplicate pages (§12) -->
             <div id="menu-tabs" class="bl-tab-bar">
-              <button type="button" id="btn-dash-main-menu" class="menu-tab menu-tab--back">← Main Menu</button>
+              <button type="button" id="btn-dash-main-menu" class="menu-tab menu-tab--back" data-nav="home">← Main Menu</button>
               <button data-page="play" class="menu-tab is-on">Play</button>
-              <button data-page="profile" class="menu-tab">👤 Profile</button>
+              <button type="button" class="menu-tab" data-nav="PROFILE">👤 Profile</button>
               <button data-page="leaderboard" class="menu-tab">🏆 Leaderboard</button>
               <button data-page="quests" class="menu-tab">📜 Quests <span id="quests-alert" class="tab-badge hidden">!</span></button>
-              <button data-page="shop" class="menu-tab">🛒 Shop</button>
+              <button type="button" class="menu-tab" data-nav="SHOP">🛒 Shop</button>
+              <button type="button" class="menu-tab" data-nav="INVENTORY">🎒 Inventory</button>
               <button data-page="skills" class="menu-tab">⚡ Skills</button>
             </div>
 
@@ -514,19 +515,21 @@
               </div>
             </section>
 
-            <!-- ── Shop page ── -->
+            <!-- Shop & Inventory live in dedicated screens (§6/§7). This page
+                 only keeps the VIP + nickname controls that are not items. -->
             <section id="page-shop" class="menu-page hidden">
-              <p class="section-desc">Buy slicers &amp; walls, then manage what you own. Only one blade can be equipped at a time.</p>
               <div class="shop-top-row">
-                <div style="display: flex; gap: 1rem;">
+                <div style="display:flex; gap:1rem;">
                   <p id="shop-coins">0 coins</p>
-                  <p id="shop-gems" style="color: #60a5fa;">💎 0 gems</p>
+                  <p id="shop-gems" style="color:#60a5fa;">💎 0 gems</p>
                 </div>
                 <button id="btn-open-steam-shop" class="steam-link-btn">🎮 Link Steam (+500 Coins)</button>
               </div>
-              
-              <!-- P1-2: VIP Section -->
-              <div class="shop-section-head" style="margin-top: 1.5rem;">
+              <div class="play-actions-row" style="margin:1rem 0;">
+                <button type="button" class="play-btn" data-nav="SHOP">🛒 Open Shop</button>
+                <button type="button" class="bonus-btn" data-nav="INVENTORY">🎒 Open Inventory</button>
+              </div>
+              <div class="shop-section-head" style="margin-top:1.5rem;">
                 <h3>VIP Membership</h3>
                 <p class="section-desc">Premium benefits: bonus coins, exclusive items, priority support</p>
               </div>
@@ -540,20 +543,6 @@
                   <button id="btn-vip-silver" class="vip-tier-btn vip-silver">Silver VIP<br><small>250 💎</small></button>
                   <button id="btn-vip-gold" class="vip-tier-btn vip-gold">Gold VIP<br><small>500 💎</small></button>
                 </div>
-              </div>
-              
-              <div class="shop-section-head">
-                <h3>Shop</h3>
-                <p class="section-desc">Purchase items with coins.</p>
-              </div>
-              <div id="skin-shop"></div>
-              <div class="shop-section-head">
-                <h3>Inventory</h3>
-                <p class="section-desc">Grid of owned items · drag onto Blade / Wall slots · Equip / Unequip / Sell / Delete.</p>
-              </div>
-              <div id="inventory-layout" class="inventory-layout" data-branding-slot="inventory">
-                <div id="skin-inventory" class="inv-grid" aria-label="Owned items"></div>
-                <aside id="hero-loadout" class="hero-loadout" aria-label="Hero loadout slots"></aside>
               </div>
               <label class="name-label">
                 Nickname
@@ -574,6 +563,16 @@
             </section>
           </div>
         </div>
+
+        <!-- ═══════════════ PHASE 2 GAME SCREENS ═══════════════
+             Hosts rendered by src/ui/screens/*. The screen registry owns
+             their visibility — never toggle these by hand. -->
+        <div id="screen-main-menu" class="ftd-screen-host hidden" data-branding="menu"></div>
+        <div id="screen-heroes" class="ftd-screen-host hidden"></div>
+        <div id="screen-inventory" class="ftd-screen-host hidden"></div>
+        <div id="screen-shop" class="ftd-screen-host hidden"></div>
+        <div id="screen-profile" class="ftd-screen-host hidden"></div>
+        <div id="screen-coop" class="ftd-screen-host hidden"></div>
 
         <!-- ════════════════════════ MODALS ════════════════════════ -->
 

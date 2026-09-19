@@ -47,6 +47,8 @@ import { heroCombatPerkMultiplier } from './game/heroPerkSave';
 import { vipTierPrice, vipTierPurchaseCoins } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
 import { updateTowerChip } from './ui/towerChip';
+import { installGameScreens, refreshCurrentScreen } from './ui/screens';
+import { canSellItem } from './game/catalog';
 import { initThemeSystem } from './ui/theme';
 import { installDesignMode } from './ui/design/designMode';
 import {
@@ -254,6 +256,7 @@ function persist(): void {
   save.highScore = Math.max(save.highScore, state.score);
   if (state.mode === 'ranked') save.rankedScore = Math.max(save.rankedScore, state.score);
   save.bestWave = Math.max(save.bestWave, state.wave);
+  save.bestCombo = Math.max(save.bestCombo ?? 0, state.bestCombo ?? state.combo ?? 0);
   save.mode = state.mode;
   writeSave(save);
   syncCloudSave(save);
@@ -913,7 +916,7 @@ function worldPct(x: number, y: number, z: number): { nx: number; ny: number } {
 
 function setPaused(on: boolean): void {
   if (!navigation.isInGame() || !state.running) return;
-  navigation.setState(on ? 'PAUSED' : 'PLAYING');
+  navigation.setState(on ? 'PAUSED' : 'PLAY');
   hud.showPause(on);
   if (on) sfx.pause();
   else sfx.unpause();
@@ -927,7 +930,7 @@ function quitToMenu(): void {
   }
   
   persist();
-  navigation.setState('DASHBOARD');
+  navigation.setState('MAIN_MENU');
   state.running = false;
   wall.cancelMove();
   blade.consumeClick();
@@ -947,7 +950,7 @@ if (typeof window !== 'undefined') {
 
 function restartMatch(): void {
   hud.showPause(false);
-  navigation.setState('PLAYING');
+  navigation.setState('PLAY');
   document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showMenu(false);
   restart();
@@ -1247,15 +1250,13 @@ window.addEventListener('keydown', (e) => {
       document.getElementById('title-quit')?.classList.add('hidden');
       return;
     }
-    if (navigation.state === 'DASHBOARD') {
-      navigation.setState('TITLE');
-      hud.returnToTitle();
-      return;
-    }
-    if (navigation.state === 'TITLE') {
-      navigation.setState('DASHBOARD');
-      hud.showPage('play');
-      hud.showMenu(true);
+    // Menu screens: the screen registry's ESC handler owns BACK, so this
+    // branch only covers the title and in-match cases (§1).
+    if (!navigation.isInGame()) {
+      if (navigation.state === 'MAIN_MENU') {
+        navigation.setState('TITLE');
+        hud.returnToTitle();
+      }
       return;
     }
     if (!state.running) {
@@ -1283,7 +1284,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR' && navigation.isInGame() && !state.running) restartMatch();
   if (e.code.startsWith('Digit')) {
     const n = Number(e.code.slice(5));
-    if (n >= 1 && n <= 5 && navigation.state === 'DASHBOARD' && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
+    if (n >= 1 && n <= 5 && navigation.state === 'MAIN_MENU' && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
   }
 });
 
@@ -1310,8 +1311,8 @@ if (muteBtn) {
   });
 }
 
-startBtn.addEventListener('click', async () => {
-  startBtn.textContent = 'Slicing…';
+/** Shared launch path for every PLAY entry point (menu button, screens). */
+async function launchMatch(): Promise<void> {
   persist();
   await Promise.all([sfx.unlock(), fruitAtlas.load()]);
   wall.applySkins();
@@ -1319,7 +1320,78 @@ startBtn.addEventListener('click', async () => {
   wallSkinApply();
   applyEquippedBlade();
   restartMatch();
+}
+
+startBtn.addEventListener('click', async () => {
+  startBtn.textContent = 'Slicing…';
+  await launchMatch();
   startBtn.textContent = 'Play';
+});
+
+/* ═══════════════ PHASE 2 GAME SCREENS ═══════════════
+   Screens read the live save and route every mutation back through the
+   existing gameplay functions, so there is no second economy path. */
+installGameScreens({
+  getSave: () => save,
+  onPlay: () => void launchMatch(),
+  onQuit: () => document.getElementById('title-quit')?.classList.remove('hidden'),
+  onBuyItem: (id) => {
+    buySkin(id);
+    refreshCurrentScreen();
+  },
+  onEquipItem: (id) => {
+    equipItem(id);
+    refreshCurrentScreen();
+  },
+  onSellItem: (id) => {
+    // Re-check here too: the screen disables the button, but the guard is the
+    // rule, and the UI must never be the only thing enforcing it (§7).
+    const check = canSellItem(save, id);
+    if (!check.ok) {
+      toast(state, check.message ?? 'Cannot sell that.', 2.4);
+      sfx.denied();
+      return;
+    }
+    sellItem(id);
+    refreshCurrentScreen();
+  },
+  onEquipHero: (id) => {
+    selectHero(id);
+    refreshCurrentScreen();
+  },
+  onBuyHero: (id) => {
+    hud.onHeroPurchase?.(id);
+    refreshCurrentScreen();
+  },
+  getProfileStats: () => ({
+    bestCombo: save.bestCombo ?? 0,
+    season: 'Season 1',
+  }),
+  showLobbyPage: (page) => hud.showPage(page),
+});
+
+/**
+ * Leaving a live match must always be deliberate (§10). The guard runs for
+ * every navigation, so PLAY → anywhere is covered once, not per button.
+ */
+navigation.addGuard((change) => {
+  const leavingMatch =
+    (change.from === 'PLAY' || change.from === 'PAUSED') && change.to !== 'PAUSED' && change.to !== 'PLAY';
+  if (!leavingMatch || !state.running) return true;
+  return confirm('Leave this match?\n\nYour progress in this run will be lost.');
+});
+
+/** Keep the legacy lobby and the new main menu mutually exclusive. */
+navigation.onChange((change) => {
+  const gate = document.getElementById('hud-start');
+  const menu = document.getElementById('screen-main-menu');
+  if (change.to === 'MAIN_MENU') {
+    gate?.classList.add('hidden');
+    menu?.classList.remove('hidden');
+  } else if (menu && change.from === 'MAIN_MENU') {
+    // Overlays keep the menu mounted underneath; full screens replace it.
+    if (!navigation.isOverlay(change.to)) menu.classList.add('hidden');
+  }
 });
 
 loop.start();

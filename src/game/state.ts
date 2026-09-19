@@ -34,6 +34,8 @@ export interface GameState {
   heroXp: number;
   combo: number;
   comboTimer: number;
+  /** Peak combo this session; survives combo resets so it can be persisted. */
+  bestCombo: number;
   superJuice: number;
   mode: 'casual' | 'ranked' | 'coop' | 'arena';
 }
@@ -69,6 +71,7 @@ export function createState(): GameState {
     heroXp: 0,
     combo: 0,
     comboTimer: 0,
+    bestCombo: 0,
     superJuice: 0,
     mode: 'casual',
   };
@@ -98,7 +101,9 @@ export function createState(): GameState {
         return true;
       }
       if (property === 'combo') {
-        target.combo = Math.max(0, Math.floor(Number(value) || 0));
+        const next = Math.max(0, Math.floor(Number(value) || 0));
+        target.combo = next;
+        if (next > target.bestCombo) target.bestCombo = next;
         return true;
       }
       return Reflect.set(target, property, value, receiver);
@@ -112,9 +117,13 @@ export function resetState(state: GameState): void {
   const heroXp = state.heroXp;
   const tower = getTowerXpState();
   const mode = state.mode;
+  // Peak combo is a career stat, not a match stat — it must survive a restart
+  // so persist() can still record it after the state is rebuilt.
+  const bestCombo = state.bestCombo ?? 0;
   Object.assign(state, createState());
   state.hero = hero;
   state.heroXp = heroXp;
+  state.bestCombo = bestCombo;
   state.towerLevel = 1;
   state.towerXp = tower.xp;
   state.towerXpToNext = tower.nextLevelXp;
