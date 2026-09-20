@@ -23,7 +23,7 @@
     "@tailwindcss/vite": "^4.1.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.20.2",
+    "@types/node": "^26.5.1",
     "@types/three": "^0.170.0",
     "esbuild": "^0.25.9",
     "tailwindcss": "^4.1.13",
