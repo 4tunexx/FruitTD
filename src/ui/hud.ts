@@ -308,21 +308,33 @@ export class Hud {
   }
 
   private refreshTitleButtons(): void {
+    const tips = [
+      'Discover your story — slice and assess your character.',
+      'Explosive enemies damage your tower when sliced incorrectly — read the warning!',
+      'Chain combos for bonus coins and hero XP.',
+      'Upgrade your Main Tower to unlock powerful perks.',
+      'Level your hero to 100 for MAX MASTERY rewards.',
+      'Co-op unlocks when your hero reaches Level 25.',
+      'Splitter enemies spawn smaller waves — plan your defense.',
+    ];
     const user = getCachedAuthUser();
     const ready = this.canEnterDashboard();
     const continueBtn = document.getElementById('btn-title-continue');
     const loginBtn = document.getElementById('btn-title-login');
-    const registerBtn = document.getElementById('btn-title-register');
     const account = document.getElementById('title-account-line');
     continueBtn?.classList.toggle('hidden', !ready);
     loginBtn?.classList.toggle('hidden', ready);
-    registerBtn?.classList.toggle('hidden', ready);
     if (account) {
       if (user?.nickname || user?.username) {
-        account.textContent = `Signed in as ${user.steamPersona || user.nickname || user.username}`;
+        account.textContent = `Sign in as @${user.steamPersona || user.nickname || user.username}`;
       } else {
-        account.textContent = 'Not signed in';
+        account.textContent = 'Not signed in — click Start Game';
       }
+    }
+    // Rotate tip text
+    const tipEl = document.getElementById('title-tip-text');
+    if (tipEl) {
+      tipEl.textContent = tips[Math.floor(Math.random() * tips.length)];
     }
   }
 
@@ -332,7 +344,8 @@ export class Hud {
       else void this.gateAfterAuth(getCachedAuthUser());
     });
     document.getElementById('btn-title-login')?.addEventListener('click', () => this.openAuthModal('login'));
-    document.getElementById('btn-title-register')?.addEventListener('click', () => this.openAuthModal('register'));
+    // "Load Save" button — reuses btn-title-register id, opens login to restore cloud save
+    document.getElementById('btn-title-register')?.addEventListener('click', () => this.openAuthModal('login'));
     document.getElementById('btn-title-settings')?.addEventListener('click', () => {
       document.getElementById('title-settings')?.classList.remove('hidden');
     });

@@ -249,46 +249,119 @@
           <div class="bl-scanlines" aria-hidden="true"></div>
           <div class="bl-noise" aria-hidden="true"></div>
           <div class="title-particles" aria-hidden="true"></div>
-          <!-- Menu blobs for depth -->
+          <!-- City glow blobs -->
           <div class="menu-blob menu-blob--1" aria-hidden="true"></div>
           <div class="menu-blob menu-blob--2" aria-hidden="true"></div>
 
-          <div id="title-inner" class="bl-panel bl-panel--title">
-            <!-- Build tag -->
-            <p class="title-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
+          <!-- ── SPLIT LAYOUT: left panel + right hero art ── -->
+          <div id="title-layout">
 
-            <!-- Logo -->
-            <h1 class="title-logo" aria-label="Fruit TD — Slice. Hold the Wall.">
-              <span class="title-logo__outline">FRUIT<span class="title-logo__td">TD</span></span>
-              <span class="title-logo__sub">Slice. Hold the Wall.</span>
-            </h1>
+            <!-- LEFT: Glass panel with lore + menu -->
+            <div id="title-inner" class="bl-panel bl-panel--title">
+              <!-- Eyebrow -->
+              <p class="title-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
 
-            <!-- Lore snippet -->
-            <div class="title-lore-panel">
-              <p class="title-tagline">Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.</p>
+              <!-- Lore snippet -->
+              <div class="title-lore-panel">
+                <p class="title-tagline">Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.</p>
+              </div>
+
+              <!-- Menu buttons — chunky Borderlands bevel buttons -->
+              <nav id="title-menu" class="title-menu" aria-label="Main menu">
+                <button type="button" id="btn-title-login" class="title-btn title-btn--primary" aria-label="Start Game">
+                  <span class="title-btn__icon">▶</span>
+                  <span class="title-btn__text">Start Game</span>
+                </button>
+                <button type="button" id="btn-title-continue" class="title-btn hidden" aria-label="Continue game">
+                  <span class="title-btn__icon">⟳</span>
+                  <span class="title-btn__text">Continue</span>
+                </button>
+                <button type="button" id="btn-title-register" class="title-btn" aria-label="Load Save">
+                  <span class="title-btn__icon">💾</span>
+                  <span class="title-btn__text">Load Save</span>
+                </button>
+                <button type="button" id="btn-title-settings" class="title-btn" aria-label="Settings">
+                  <span class="title-btn__icon">⚙</span>
+                  <span class="title-btn__text">Settings</span>
+                </button>
+                <button type="button" id="btn-title-quit" class="title-btn title-btn--ghost" aria-label="Exit">
+                  <span class="title-btn__icon">✕</span>
+                  <span class="title-btn__text">Exit</span>
+                </button>
+              </nav>
+
+              <!-- Sign-in line at bottom of panel -->
+              <div class="title-signin-bar">
+                <p id="title-account-line" class="title-account">Not signed in</p>
+              </div>
             </div>
 
-            <!-- Menu buttons — game-style angled glass -->
-            <nav id="title-menu" class="title-menu" aria-label="Main menu">
-              <button type="button" id="btn-title-continue" class="title-btn title-btn--primary hidden" aria-label="Continue game">
-                ▶ Continue
-              </button>
-              <button type="button" id="btn-title-login" class="title-btn title-btn--primary" aria-label="Login">
-                ▶ Start Game / Login
-              </button>
-              <button type="button" id="btn-title-register" class="title-btn" aria-label="Register">
-                ⚙ Register
-              </button>
-              <button type="button" id="btn-title-settings" class="title-btn" aria-label="Settings">
-                ⚙ Settings
-              </button>
-              <button type="button" id="btn-title-quit" class="title-btn title-btn--ghost" aria-label="Quit">
-                ✕ Quit
-              </button>
-            </nav>
+            <!-- RIGHT: Logo + tower mascot + tip panel -->
+            <div id="title-right">
+              <!-- Large stacked FRUIT·TD logo -->
+              <h1 class="title-logo" aria-label="Fruit TD — Slice. Hold the Wall.">
+                <span class="title-logo__fruit">FRUIT</span>
+                <span class="title-logo__td">TD</span>
+              </h1>
 
-            <p id="title-account-line" class="title-account">Not signed in</p>
-          </div>
+              <!-- Tower mascot placeholder (SVG inline art) -->
+              <div class="title-mascot" aria-hidden="true">
+                <!-- Base platform rings -->
+                <svg class="title-mascot__svg" viewBox="0 0 220 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Tower body -->
+                  <rect x="75" y="110" width="70" height="120" rx="4" fill="#1a2a14" stroke="#4ade80" stroke-width="2.5"/>
+                  <rect x="75" y="110" width="70" height="120" rx="4" fill="url(#tgrd)" opacity="0.5"/>
+                  <!-- Tower door/window -->
+                  <rect x="97" y="170" width="26" height="38" rx="3" fill="#0a1a08" stroke="#22c55e" stroke-width="1.5"/>
+                  <rect x="97" y="170" width="26" height="38" rx="3" fill="#22c55e" opacity="0.08"/>
+                  <!-- Tower top block -->
+                  <rect x="65" y="78" width="90" height="38" rx="4" fill="#223318" stroke="#a3e635" stroke-width="2"/>
+                  <rect x="65" y="78" width="90" height="38" rx="4" fill="#a3e635" opacity="0.06"/>
+                  <!-- Top cap -->
+                  <rect x="80" y="54" width="60" height="28" rx="6" fill="#2d4a1a" stroke="#a3e635" stroke-width="2.5"/>
+                  <!-- Rotating ring -->
+                  <ellipse cx="110" cy="112" rx="44" ry="12" stroke="#4ade80" stroke-width="2" stroke-dasharray="8 4" fill="none" opacity="0.7"/>
+                  <!-- Gun barrel -->
+                  <rect x="106" y="20" width="8" height="36" rx="3" fill="#4ade80" opacity="0.8"/>
+                  <!-- Base platform -->
+                  <ellipse cx="110" cy="232" rx="56" ry="14" fill="#111e0a" stroke="#4ade80" stroke-width="1.5"/>
+                  <ellipse cx="110" cy="240" rx="66" ry="14" fill="#0d160a" stroke="#166534" stroke-width="1"/>
+                  <!-- Glow emanation -->
+                  <ellipse cx="110" cy="115" rx="28" ry="8" fill="#4ade80" opacity="0.18"/>
+                  <!-- Directional arrows -->
+                  <path d="M68 112 C52 112 46 128 52 138" stroke="#4ade80" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.6"/>
+                  <path d="M52 138 L46 132 M52 138 L58 134" stroke="#4ade80" stroke-width="2" fill="none" opacity="0.6"/>
+                  <path d="M152 112 C168 112 174 128 168 138" stroke="#4ade80" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.6"/>
+                  <path d="M168 138 L174 132 M168 138 L162 134" stroke="#4ade80" stroke-width="2" fill="none" opacity="0.6"/>
+                  <!-- Side slits/vents -->
+                  <rect x="76" y="130" width="10" height="3" rx="1" fill="#4ade80" opacity="0.5"/>
+                  <rect x="76" y="138" width="10" height="3" rx="1" fill="#4ade80" opacity="0.4"/>
+                  <rect x="76" y="146" width="10" height="3" rx="1" fill="#4ade80" opacity="0.35"/>
+                  <rect x="134" y="130" width="10" height="3" rx="1" fill="#4ade80" opacity="0.5"/>
+                  <rect x="134" y="138" width="10" height="3" rx="1" fill="#4ade80" opacity="0.4"/>
+                  <rect x="134" y="146" width="10" height="3" rx="1" fill="#4ade80" opacity="0.35"/>
+                  <defs>
+                    <linearGradient id="tgrd" x1="75" y1="110" x2="145" y2="230" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#a3e635" stop-opacity="0.12"/>
+                      <stop offset="100%" stop-color="#4ade80" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              <!-- Tip panel at bottom right -->
+              <div class="title-tip-panel" id="title-tip">
+                <div class="title-tip__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(74,222,128,0.15)" stroke="#4ade80" stroke-width="1.5"/><path d="M12 7v5m0 3v1" stroke="#4ade80" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
+                <div class="title-tip__body">
+                  <span class="title-tip__label">Tip:</span>
+                  <span class="title-tip__text" id="title-tip-text">Discover your story — slice and assess your character.</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- #title-layout -->
         </div>
 
         <div id="title-settings" class="hud-modal-backdrop hidden">
