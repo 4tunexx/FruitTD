@@ -245,32 +245,48 @@
 
         <!-- ════════════════════════ TITLE SCREEN ════════════════════════ -->
         <div id="title-screen" data-menu-surface="title" data-branding="menu">
-          <div class="menu-parallax" aria-hidden="true" data-parallax-root>
-            <div class="menu-parallax__bg" data-parallax-layer="bg"></div>
-            <div class="menu-parallax__mid" data-parallax-layer="mid"></div>
-            <div class="menu-parallax__logo" data-parallax-layer="logo" data-branding-logo></div>
-          </div>
-          <div class="menu-blob menu-blob--1" data-parallax-layer="blob"></div>
-          <div class="menu-blob menu-blob--2" data-parallax-layer="blob"></div>
-          <div class="menu-blob menu-blob--3" data-parallax-layer="blob"></div>
+          <!-- Atmospheric layers -->
           <div class="bl-scanlines" aria-hidden="true"></div>
           <div class="bl-noise" aria-hidden="true"></div>
+          <div class="title-particles" aria-hidden="true"></div>
+          <!-- Menu blobs for depth -->
+          <div class="menu-blob menu-blob--1" aria-hidden="true"></div>
+          <div class="menu-blob menu-blob--2" aria-hidden="true"></div>
+
           <div id="title-inner" class="bl-panel bl-panel--title">
+            <!-- Build tag -->
             <p class="title-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
-            <h1 class="title-logo">
+
+            <!-- Logo -->
+            <h1 class="title-logo" aria-label="Fruit TD — Slice. Hold the Wall.">
               <span class="title-logo__outline">FRUIT<span class="title-logo__td">TD</span></span>
               <span class="title-logo__sub">Slice. Hold the Wall.</span>
             </h1>
+
+            <!-- Lore snippet -->
             <div class="title-lore-panel">
               <p class="title-tagline">Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.</p>
             </div>
-            <div id="title-menu" class="title-menu">
-              <button type="button" id="btn-title-continue" class="title-btn title-btn--primary hidden">Continue</button>
-              <button type="button" id="btn-title-login" class="title-btn title-btn--primary">Login</button>
-              <button type="button" id="btn-title-register" class="title-btn">Register</button>
-              <button type="button" id="btn-title-settings" class="title-btn">Settings</button>
-              <button type="button" id="btn-title-quit" class="title-btn title-btn--ghost">Quit</button>
-            </div>
+
+            <!-- Menu buttons — game-style angled glass -->
+            <nav id="title-menu" class="title-menu" aria-label="Main menu">
+              <button type="button" id="btn-title-continue" class="title-btn title-btn--primary hidden" aria-label="Continue game">
+                ▶ Continue
+              </button>
+              <button type="button" id="btn-title-login" class="title-btn title-btn--primary" aria-label="Login">
+                ▶ Start Game / Login
+              </button>
+              <button type="button" id="btn-title-register" class="title-btn" aria-label="Register">
+                ⚙ Register
+              </button>
+              <button type="button" id="btn-title-settings" class="title-btn" aria-label="Settings">
+                ⚙ Settings
+              </button>
+              <button type="button" id="btn-title-quit" class="title-btn title-btn--ghost" aria-label="Quit">
+                ✕ Quit
+              </button>
+            </nav>
+
             <p id="title-account-line" class="title-account">Not signed in</p>
           </div>
         </div>
@@ -299,270 +315,341 @@
 
         <!-- ════════════════════════ DASHBOARD (after login) ════════════════════════ -->
         <div id="hud-start" class="hidden" data-menu-surface="dashboard" data-branding="menu">
-          <div class="menu-parallax" aria-hidden="true" data-parallax-root>
-            <div class="menu-parallax__bg" data-parallax-layer="bg"></div>
-            <div class="menu-parallax__mid" data-parallax-layer="mid"></div>
-            <div class="menu-parallax__logo" data-parallax-layer="logo" data-branding-logo></div>
-          </div>
-          <!-- Animated background blobs -->
-          <div class="menu-blob menu-blob--1" data-parallax-layer="blob"></div>
-          <div class="menu-blob menu-blob--2" data-parallax-layer="blob"></div>
-          <div class="menu-blob menu-blob--3" data-parallax-layer="blob"></div>
-          <div class="menu-blob menu-blob--4" data-parallax-layer="blob"></div>
-          <div class="menu-blob menu-blob--5" data-parallax-layer="blob"></div>
+          <!-- Atmospheric background elements -->
+          <div class="menu-blob menu-blob--1" aria-hidden="true"></div>
+          <div class="menu-blob menu-blob--2" aria-hidden="true"></div>
+          <div class="menu-blob menu-blob--3" aria-hidden="true"></div>
+          <div class="menu-blob menu-blob--4" aria-hidden="true"></div>
+          <div class="menu-blob menu-blob--5" aria-hidden="true"></div>
           <div class="bl-scanlines" aria-hidden="true"></div>
           <div class="bl-noise" aria-hidden="true"></div>
 
           <div id="menu-inner">
-            <!-- Title area -->
-            <div id="menu-hero-row" class="bl-panel bl-panel--hero">
-              <div>
-                <p id="menu-eyebrow">FRUIT TD · HOLD THE WALL</p>
-                <h2 id="menu-title">Slice.<br>Hold the Wall.</h2>
-                <p id="menu-subtitle">Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.</p>
+
+            <!-- ── TOP STATUS BAR ── -->
+            <header id="menu-topbar">
+              <div class="menu-topbar__logo">
+                <span class="menu-topbar__logo-text">FRUIT<span class="menu-topbar__logo-td">TD</span></span>
               </div>
-              <div class="menu-status-col">
-                <span id="backend-status-pill" class="online-pill">🟢 Cloud Atlas Connected</span>
-                <p id="save-line">Profile synced</p>
+              <div class="menu-topbar__currencies">
+                <span class="menu-topbar__currency menu-topbar__currency--xp" id="topbar-xp" title="Player XP">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="rgba(52,211,153,0.3)" stroke="#34d399" stroke-width="1.5"/><text x="12" y="16.5" text-anchor="middle" font-size="10" fill="#34d399" font-weight="900">XP</text></svg>
+                  <span id="topbar-xp-val">Lv 1</span>
+                </span>
+                <span class="menu-topbar__currency menu-topbar__currency--coins" id="topbar-coins" title="Coins">
+                  🪙 <span id="topbar-coins-val">0</span>
+                </span>
+                <span class="menu-topbar__currency menu-topbar__currency--gems" id="topbar-gems" title="Gems">
+                  💎 <span id="topbar-gems-val">0</span>
+                </span>
+                <span id="backend-status-pill" class="online-pill" style="margin-left:0.5rem;">🟢 Online</span>
               </div>
-            </div>
-
-            <div id="menu-announcement" class="menu-announcement-banner">WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.</div>
-
-            <!-- Admin Button (Dashboard Only) -->
-            <div id="menu-admin-row" style="margin-bottom: 1rem;">
-              <button id="btn-admin" class="chip-btn admin-chip" title="Admin Control Center (authenticated Steam account / F2)" style="font-size: 0.875rem; padding: 0.75rem 1.5rem;">
-                <svg class="chip-svg-icon admin-shield-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width: 1.25rem; height: 1.25rem;">
-                  <path d="M12 3L4.5 6.2V12.1C4.5 16.3 7.7 19.9 12 21.2C16.3 19.9 19.5 16.3 19.5 12.1V6.2L12 3Z" fill="#F59E0B" stroke="#FDE68A" stroke-width="1.5"/>
-                  <path d="M8.8 12.1L11 14.3L15.3 10" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                ADMIN CONTROL CENTER
-              </button>
-            </div>
-
-            <!-- Lobby nav — routes into the real screens, no duplicate pages (§12) -->
-            <div id="menu-tabs" class="bl-tab-bar">
-              <button type="button" id="btn-dash-main-menu" class="menu-tab menu-tab--back" data-nav="home">← Main Menu</button>
-              <button data-page="play" class="menu-tab is-on">Play</button>
-              <button type="button" class="menu-tab" data-nav="PROFILE">👤 Profile</button>
-              <button data-page="leaderboard" class="menu-tab">🏆 Leaderboard</button>
-              <button data-page="quests" class="menu-tab">📜 Quests <span id="quests-alert" class="tab-badge hidden">!</span></button>
-              <button type="button" class="menu-tab" data-nav="SHOP">🛒 Shop</button>
-              <button type="button" class="menu-tab" data-nav="INVENTORY">🎒 Inventory</button>
-              <button data-page="skills" class="menu-tab">⚡ Skills</button>
-            </div>
-
-            <!-- ── Play page ── -->
-            <section id="page-play" class="menu-page bl-play-shell">
-              <p class="section-label">Mode</p>
-              <div id="mode-pick"></div>
-              <p class="section-label" style="margin-top:1.5rem">Who slices</p>
-              <div id="hero-pick"></div>
-              <p id="hero-blurb"></p>
-              <div class="play-actions-row">
-                <button id="btn-start" class="play-btn">▶ Play</button>
-                <button id="btn-open-daily" class="bonus-btn">
-                  <svg class="chip-svg-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3" y="9" width="18" height="11" rx="2.5" fill="#F59E0B" stroke="#FDE68A" stroke-width="1.4"/>
-                    <path d="M3 10C3 6.8 7 5.2 12 5.2C17 5.2 21 6.8 21 10H3Z" fill="#FBBF24" stroke="#FDE68A" stroke-width="1.4"/>
-                    <rect x="10.4" y="9" width="3.2" height="5" rx="1.2" fill="#FEF3C7"/>
-                  </svg>
-                  Daily Bonus <span id="daily-btn-badge" class="badge-pulse">FREE</span>
-                </button>
-              </div>
-            </section>
-
-            <!-- ── Profile page ── -->
-            <section id="page-profile" class="menu-page hidden">
-              <div class="profile-hero-section">
-                <img id="profile-hero-avatar" class="profile-avatar-large" alt="Player Avatar" />
-                <div class="profile-hero-info">
-                  <h2 id="profile-hero-name" class="profile-name">Slicer</h2>
-                  <p id="profile-hero-rank" class="profile-rank-badge">Bronze</p>
-                  <span id="profile-hero-steam" class="steam-pill hidden">🎮 STEAM</span>
-                </div>
-              </div>
-
-              <div class="profile-stats-grid">
-                <div class="profile-stat-card">
-                  <span class="profile-stat-icon">🏆</span>
-                  <div>
-                    <p class="profile-stat-label">High Score</p>
-                    <p id="profile-high-score" class="profile-stat-value">0</p>
-                  </div>
-                </div>
-                <div class="profile-stat-card">
-                  <span class="profile-stat-icon">🌊</span>
-                  <div>
-                    <p class="profile-stat-label">Best Wave</p>
-                    <p id="profile-best-wave" class="profile-stat-value">1</p>
-                  </div>
-                </div>
-                <div class="profile-stat-card">
-                  <span class="profile-stat-icon">🎮</span>
-                  <div>
-                    <p class="profile-stat-label">Games Played</p>
-                    <p id="profile-games-played" class="profile-stat-value">0</p>
-                  </div>
-                </div>
-                <div class="profile-stat-card">
-                  <span class="profile-stat-icon">🪙</span>
-                  <div>
-                    <p class="profile-stat-label">Total Coins</p>
-                    <p id="profile-total-coins" class="profile-stat-value">0</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="profile-section">
-                <h3 class="profile-section-title">Achievements & Badges</h3>
-                <div id="profile-badges-summary" class="profile-badges-row">
-                  <p class="text-sm text-slate-400">Loading achievements...</p>
-                </div>
-              </div>
-
-              <div class="profile-section">
-                <h3 class="profile-section-title">Monthly Rank Progress</h3>
-                <div id="profile-rank-progress"></div>
-              </div>
-
-              <div class="profile-section">
-                <h3 class="profile-section-title">Inventory</h3>
-                <p class="section-desc">Owned blades &amp; walls. Manage loadout under <strong>Shop → Inventory</strong> (<code>#skin-inventory</code> + <code>#hero-loadout</code>).</p>
-                <div id="profile-inventory" class="profile-inventory"></div>
-              </div>
-            </section>
-
-            <!-- ── Leaderboard page ── -->
-            <section id="page-leaderboard" class="menu-page hidden">
-              <div class="leaderboard-header">
+              <div class="menu-topbar__player">
+                <img id="topbar-avatar" class="menu-topbar__avatar" alt="" />
                 <div>
-                  <h3 class="section-heading">Global Leaderboards</h3>
-                  <p class="section-desc">Real-time competitive high scores powered by MongoDB Atlas.</p>
+                  <div class="menu-topbar__name" id="topbar-name">Slicer</div>
+                  <div class="menu-topbar__level" id="topbar-level">Level 1</div>
+                  <div class="menu-topbar__xpbar"><div class="menu-topbar__xpbar-fill" id="topbar-xpbar" style="width:0%"></div></div>
                 </div>
-                <div id="lb-mode-filter" class="pill-filters">
-                  <button class="filter-pill is-active" data-mode="ranked">Ranked</button>
-                  <button class="filter-pill" data-mode="monthly">Monthly</button>
-                  <button class="filter-pill" data-mode="casual">Casual</button>
-                  <button class="filter-pill" data-mode="arena">Arena</button>
+              </div>
+              <div class="menu-topbar__actions">
+                <button id="btn-daily-chip" class="menu-topbar__action-btn" title="Daily Bonus" aria-label="Daily Bonus">
+                  🎁<span id="daily-chip-dot" class="alert-dot hidden"></span>
+                </button>
+                <button id="btn-mute-topbar" class="menu-topbar__action-btn" title="Mute/Unmute">🔊</button>
+                <button id="btn-settings-topbar" class="menu-topbar__action-btn" title="Settings" data-nav="SETTINGS">⚙</button>
+              </div>
+            </header>
+
+            <!-- ── LEFT NAVIGATION ── -->
+            <nav id="menu-leftnav" aria-label="Game navigation">
+              <span class="menu-nav-section-label">Main</span>
+              <button type="button" class="menu-navitem is-active" data-page="play" aria-label="Play">
+                <span class="menu-navitem__icon">▶</span>
+                <span class="menu-navitem__label">Play</span>
+              </button>
+              <button type="button" class="menu-navitem" data-nav="HEROES" aria-label="Heroes">
+                <span class="menu-navitem__icon">⚔</span>
+                <span class="menu-navitem__label">Heroes</span>
+              </button>
+              <button type="button" class="menu-navitem" data-nav="INVENTORY" aria-label="Loadout">
+                <span class="menu-navitem__icon">🛡</span>
+                <span class="menu-navitem__label">Loadout</span>
+              </button>
+
+              <div class="menu-nav-separator" role="separator"></div>
+              <span class="menu-nav-section-label">Store</span>
+
+              <button type="button" class="menu-navitem" data-nav="SHOP" aria-label="Shop">
+                <span class="menu-navitem__icon">🛒</span>
+                <span class="menu-navitem__label">Shop</span>
+              </button>
+              <button type="button" class="menu-navitem" data-nav="INVENTORY" aria-label="Inventory">
+                <span class="menu-navitem__icon">🎒</span>
+                <span class="menu-navitem__label">Inventory</span>
+              </button>
+
+              <div class="menu-nav-separator" role="separator"></div>
+              <span class="menu-nav-section-label">Progress</span>
+
+              <button type="button" class="menu-navitem" data-page="quests" aria-label="Missions">
+                <span class="menu-navitem__icon">📜</span>
+                <span class="menu-navitem__label">Missions</span>
+                <span id="quests-alert" class="menu-navitem__badge hidden">!</span>
+              </button>
+              <button type="button" class="menu-navitem" data-page="quests" aria-label="Achievements">
+                <span class="menu-navitem__icon">🏅</span>
+                <span class="menu-navitem__label">Achievements</span>
+              </button>
+              <button type="button" class="menu-navitem" data-page="leaderboard" aria-label="Ranked">
+                <span class="menu-navitem__icon">🏆</span>
+                <span class="menu-navitem__label">Ranked</span>
+              </button>
+              <button type="button" class="menu-navitem" data-nav="CO_OP" aria-label="Co-op">
+                <span class="menu-navitem__icon">👥</span>
+                <span class="menu-navitem__label">Co-op</span>
+              </button>
+
+              <div class="menu-nav-separator" role="separator"></div>
+
+              <button type="button" class="menu-navitem" data-nav="PROFILE" aria-label="Profile">
+                <span class="menu-navitem__icon">👤</span>
+                <span class="menu-navitem__label">Profile</span>
+              </button>
+              <button type="button" class="menu-navitem" data-page="skills" aria-label="Skills">
+                <span class="menu-navitem__icon">⚡</span>
+                <span class="menu-navitem__label">Skills</span>
+              </button>
+
+              <div class="menu-nav-separator" role="separator"></div>
+
+              <!-- Admin (only shown when authenticated) -->
+              <button id="btn-admin" class="menu-navitem" title="Admin (F2)" style="display:none;">
+                <span class="menu-navitem__icon">🛡</span>
+                <span class="menu-navitem__label">Admin</span>
+              </button>
+
+              <button type="button" id="btn-dash-main-menu" class="menu-navitem" data-nav="home" aria-label="Back to Main Menu">
+                <span class="menu-navitem__icon">←</span>
+                <span class="menu-navitem__label">Main Menu</span>
+              </button>
+            </nav>
+
+            <!-- ── CENTER WORLD / CONTENT AREA ── -->
+            <main id="menu-world">
+              <div id="menu-announcement" class="menu-announcement-banner hidden">WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot.</div>
+
+              <!-- ── Play page ── -->
+              <section id="page-play" class="menu-page">
+                <div id="menu-hero-row">
+                  <div>
+                    <p id="menu-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
+                    <h2 id="menu-title">Slice.<br>Hold the Wall.</h2>
+                    <p id="menu-subtitle">Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.</p>
+                  </div>
+                  <div class="menu-status-col">
+                    <p id="save-line">Profile synced</p>
+                  </div>
+                </div>
+                <p class="section-label">Select Mode</p>
+                <div id="mode-pick"></div>
+                <p class="section-label" style="margin-top:1rem">Who Slices</p>
+                <div id="hero-pick"></div>
+                <p id="hero-blurb"></p>
+              </section>
+
+              <!-- ── Leaderboard page ── -->
+              <section id="page-leaderboard" class="menu-page hidden">
+                <div class="leaderboard-header">
+                  <div>
+                    <h3 class="section-heading">Global Leaderboards</h3>
+                    <p class="section-desc">Real-time competitive high scores powered by MongoDB Atlas.</p>
+                  </div>
+                  <div id="lb-mode-filter" class="pill-filters">
+                    <button class="filter-pill is-active" data-mode="ranked">Ranked</button>
+                    <button class="filter-pill" data-mode="monthly">Monthly</button>
+                    <button class="filter-pill" data-mode="casual">Casual</button>
+                    <button class="filter-pill" data-mode="arena">Arena</button>
+                  </div>
+                </div>
+                <div class="lb-table-wrap">
+                  <div class="lb-head-row">
+                    <span class="lb-col-rank">#</span>
+                    <span class="lb-col-player">Slicer</span>
+                    <span class="lb-col-hero">Hero</span>
+                    <span class="lb-col-wave">Wave</span>
+                    <span class="lb-col-score">High Score</span>
+                  </div>
+                  <div id="lb-entries-list" class="lb-list">
+                    <div class="lb-loading">Loading live leaderboard...</div>
+                  </div>
+                </div>
+                <div id="lb-user-card" class="lb-user-rank-bar hidden">
+                  <span class="lb-rank-badge" id="lb-my-rank">#--</span>
+                  <span id="lb-my-name" class="font-bold">You</span>
+                  <span id="lb-my-wave" class="text-sm text-slate-300">Wave --</span>
+                  <span id="lb-my-score" class="lb-user-score">0 pts</span>
+                </div>
+              </section>
+
+              <!-- ── Quests & Achievements page ── -->
+              <section id="page-quests" class="menu-page hidden">
+                <div class="quests-subtabs">
+                  <button class="subtab is-active" data-sub="missions">Missions</button>
+                  <button class="subtab" data-sub="achievements">Achievements</button>
+                  <button class="subtab" data-sub="badges">Badges</button>
+                  <button class="subtab" data-sub="ranks">Monthly Ranks</button>
+                </div>
+                <div id="subpage-missions" class="quests-subcontent">
+                  <div class="quests-banner"><span>Daily resets at 00:00 UTC · Weekly and monthly climb with the season</span></div>
+                  <div id="missions-list" class="missions-grid"></div>
+                </div>
+                <div id="subpage-achievements" class="quests-subcontent hidden">
+                  <div class="achievements-stats-bar">
+                    <span id="ach-stats-text">Unlocked: 0 / 12</span>
+                    <span id="ach-claimable-text" class="text-emerald-400 font-bold"></span>
+                  </div>
+                  <div id="achievements-list" class="achievements-grid"></div>
+                </div>
+                <div id="subpage-badges" class="quests-subcontent hidden">
+                  <div class="quests-banner"><span>Unlock badges from play, ranks, and admin-created requirements</span></div>
+                  <div id="badges-stats-bar" class="achievements-stats-bar"><span id="badge-stats-text">Unlocked: 0</span></div>
+                  <div id="badges-list" class="badges-grid"></div>
+                </div>
+                <div id="subpage-ranks" class="quests-subcontent hidden">
+                  <div class="quests-banner"><span>Monthly Ranked score this UTC month. Tiers: Bronze → Grandmaster</span></div>
+                  <div id="rank-current-card" class="rank-current-card"></div>
+                  <div id="rank-tiers-list" class="rank-tiers-list"></div>
+                  <div id="rank-monthly-list" class="missions-grid"></div>
+                </div>
+              </section>
+
+              <!-- ── Shop shortcuts page ── -->
+              <section id="page-shop" class="menu-page hidden">
+                <div class="shop-top-row">
+                  <div style="display:flex; gap:1rem;">
+                    <p id="shop-coins">0 coins</p>
+                    <p id="shop-gems" style="color:#60a5fa;">💎 0 gems</p>
+                  </div>
+                  <button id="btn-open-steam-shop" class="steam-link-btn">🎮 Link Steam (+500 Coins)</button>
+                </div>
+                <div class="play-actions-row" style="margin:1rem 0;">
+                  <button type="button" class="play-btn" data-nav="SHOP">🛒 Open Shop</button>
+                  <button type="button" class="bonus-btn" data-nav="INVENTORY">🎒 Open Inventory</button>
+                </div>
+                <div class="shop-section-head" style="margin-top:1.5rem;">
+                  <h3>VIP Membership</h3>
+                  <p class="section-desc">Premium benefits: bonus coins, exclusive items, priority support</p>
+                </div>
+                <div id="vip-status-card" class="vip-status-card">
+                  <div class="vip-card-content">
+                    <p id="vip-current-status" class="vip-status-label">Status: Free Player</p>
+                    <p class="vip-benefit-text">Unlock VIP with gems for permanent bonuses!</p>
+                  </div>
+                  <div class="vip-tiers">
+                    <button id="btn-vip-bronze" class="vip-tier-btn vip-bronze">Bronze VIP<br><small>100 💎</small></button>
+                    <button id="btn-vip-silver" class="vip-tier-btn vip-silver">Silver VIP<br><small>250 💎</small></button>
+                    <button id="btn-vip-gold" class="vip-tier-btn vip-gold">Gold VIP<br><small>500 💎</small></button>
+                  </div>
+                </div>
+                <label class="name-label">Nickname<input id="name-input" maxlength="16" placeholder="Slicer" /></label>
+              </section>
+
+              <!-- ── Skills page ── -->
+              <section id="page-skills" class="menu-page hidden">
+                <p class="section-desc">Level your hero to earn skill points. Spend them here.</p>
+                <p id="skill-points">0 points</p>
+                <div id="skill-tree"></div>
+                <div style="margin-top:1.5rem; border-top: 1px solid rgba(163,230,53,0.1); padding-top:1.25rem;">
+                  <p class="section-desc">Hero Perks — unlock as you level up.</p>
+                  <div id="hero-perks-container"></div>
+                </div>
+              </section>
+            </main>
+
+            <!-- ── RIGHT PROGRESSION PANEL ── -->
+            <aside id="menu-rightstats" aria-label="Player progression">
+              <!-- Player card -->
+              <div class="menu-player-card">
+                <div class="menu-player-card__head">
+                  <img id="dash-avatar" class="menu-player-card__avatar" alt="" />
+                  <div>
+                    <div class="menu-player-card__name" id="dash-name">Slicer</div>
+                    <div class="menu-player-card__rank" id="dash-rank">Bronze</div>
+                  </div>
+                </div>
+                <!-- Hero XP -->
+                <div class="menu-stat-row">
+                  <span class="menu-stat-row__label">Selected Hero</span>
+                  <span class="menu-stat-row__value" id="dash-hero">Master Jiju</span>
+                  <div class="menu-stat-row__bar"><div class="menu-stat-row__bar-fill" id="dash-hero-xpbar" style="width:0%"></div></div>
+                  <span style="font-size:0.65rem;color:rgba(163,230,53,0.5);" id="dash-hero-level">Lv 1</span>
+                </div>
+                <!-- Tower XP -->
+                <div class="menu-stat-row">
+                  <span class="menu-stat-row__label">Main Tower</span>
+                  <span class="menu-stat-row__value" id="dash-tower">Base Tower</span>
+                  <div class="menu-stat-row__bar"><div class="menu-stat-row__bar-fill menu-stat-row__bar-fill--tower" id="dash-tower-xpbar" style="width:0%"></div></div>
+                  <span style="font-size:0.65rem;color:rgba(167,139,250,0.6);" id="dash-tower-level">Lv 1</span>
                 </div>
               </div>
 
-              <!-- Top List Table -->
-              <div class="lb-table-wrap">
-                <div class="lb-head-row">
-                  <span class="lb-col-rank">#</span>
-                  <span class="lb-col-player">Slicer</span>
-                  <span class="lb-col-hero">Hero</span>
-                  <span class="lb-col-wave">Wave</span>
-                  <span class="lb-col-score">High Score</span>
+              <div class="menu-rightstats__sep"></div>
+              <span class="menu-rightstats__label">Career Stats</span>
+
+              <div class="menu-mini-stats">
+                <div class="menu-mini-stat">
+                  <div class="menu-mini-stat__label">Best Wave</div>
+                  <div class="menu-mini-stat__value" id="dash-best-wave">—</div>
                 </div>
-                <div id="lb-entries-list" class="lb-list">
-                  <div class="lb-loading">Loading live leaderboard...</div>
+                <div class="menu-mini-stat">
+                  <div class="menu-mini-stat__label">High Score</div>
+                  <div class="menu-mini-stat__value" id="dash-high-score">—</div>
+                </div>
+                <div class="menu-mini-stat">
+                  <div class="menu-mini-stat__label">Games</div>
+                  <div class="menu-mini-stat__value" id="dash-games-played">0</div>
+                </div>
+                <div class="menu-mini-stat">
+                  <div class="menu-mini-stat__label">Coins</div>
+                  <div class="menu-mini-stat__value" id="dash-coins">0</div>
                 </div>
               </div>
 
-              <!-- User Rank Card -->
-              <div id="lb-user-card" class="lb-user-rank-bar hidden">
-                <span class="lb-rank-badge" id="lb-my-rank">#--</span>
-                <span id="lb-my-name" class="font-bold">You</span>
-                <span id="lb-my-wave" class="text-sm text-slate-300">Wave --</span>
-                <span id="lb-my-score" class="lb-user-score">0 pts</span>
-              </div>
-            </section>
+              <div class="menu-rightstats__sep"></div>
+              <span class="menu-rightstats__label">Daily Mission</span>
 
-            <!-- ── Quests & Achievements page ── -->
-            <section id="page-quests" class="menu-page hidden">
-              <div class="quests-subtabs">
-                <button class="subtab is-active" data-sub="missions">Missions</button>
-                <button class="subtab" data-sub="achievements">Achievements</button>
-                <button class="subtab" data-sub="badges">Badges</button>
-                <button class="subtab" data-sub="ranks">Monthly Ranks</button>
+              <div id="dash-daily-mission" style="font-size:0.78rem;color:rgba(200,220,190,0.7);line-height:1.5;padding:0.4rem 0;">
+                Loading missions...
               </div>
 
-              <div id="subpage-missions" class="quests-subcontent">
-                <div class="quests-banner">
-                  <span>Daily resets at 00:00 UTC · Weekly and monthly climb with the season</span>
-                </div>
-                <div id="missions-list" class="missions-grid"></div>
-              </div>
+              <!-- Daily bonus shortcut -->
+              <button id="btn-open-daily" class="menu-play-cta" style="padding:0.55rem 1rem;font-size:0.78rem;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));animation:none;box-shadow:inset 0 0 0 1px rgba(251,191,36,0.4),0 0 16px rgba(251,191,36,0.15);" aria-label="Daily Bonus">
+                🎁 Daily Bonus <span id="daily-btn-badge" class="badge-pulse">FREE</span>
+              </button>
+            </aside>
 
-              <div id="subpage-achievements" class="quests-subcontent hidden">
-                <div class="achievements-stats-bar">
-                  <span id="ach-stats-text">Unlocked: 0 / 12</span>
-                  <span id="ach-claimable-text" class="text-emerald-400 font-bold"></span>
-                </div>
-                <div id="achievements-list" class="achievements-grid"></div>
-              </div>
+            <!-- ── BOTTOM PLAY CTA ── -->
+            <footer id="menu-bottombar">
+              <button id="btn-start" class="menu-play-cta" aria-label="Play Now">
+                <span class="menu-play-cta__icon">▶</span>
+                <span>
+                  PLAY NOW
+                  <span class="menu-play-cta__mode" id="bottombar-mode">CASUAL · WAVE DEFENCE</span>
+                </span>
+              </button>
+            </footer>
 
-              <div id="subpage-badges" class="quests-subcontent hidden">
-                <div class="quests-banner">
-                  <span>Unlock badges from play, ranks, and admin-created requirements</span>
-                </div>
-                <div id="badges-stats-bar" class="achievements-stats-bar">
-                  <span id="badge-stats-text">Unlocked: 0</span>
-                </div>
-                <div id="badges-list" class="badges-grid"></div>
-              </div>
+            <!-- Hidden tab bar kept for JS compatibility (hidden visually) -->
+            <div id="menu-tabs" style="display:none;" aria-hidden="true">
+              <button data-page="play" class="menu-tab is-on">Play</button>
+              <button data-page="leaderboard" class="menu-tab">Leaderboard</button>
+              <button data-page="quests" class="menu-tab">Quests</button>
+              <button data-page="skills" class="menu-tab">Skills</button>
+            </div>
 
-              <div id="subpage-ranks" class="quests-subcontent hidden">
-                <div class="quests-banner">
-                  <span>Monthly Ranked score this UTC month. Tiers: Bronze, Silver, Gold, Platinum, Diamond, Master, Grandmaster</span>
-                </div>
-                <div id="rank-current-card" class="rank-current-card"></div>
-                <div id="rank-tiers-list" class="rank-tiers-list"></div>
-                <div id="rank-monthly-list" class="missions-grid"></div>
-              </div>
-            </section>
-
-            <!-- Shop & Inventory live in dedicated screens (§6/§7). This page
-                 only keeps the VIP + nickname controls that are not items. -->
-            <section id="page-shop" class="menu-page hidden">
-              <div class="shop-top-row">
-                <div style="display:flex; gap:1rem;">
-                  <p id="shop-coins">0 coins</p>
-                  <p id="shop-gems" style="color:#60a5fa;">💎 0 gems</p>
-                </div>
-                <button id="btn-open-steam-shop" class="steam-link-btn">🎮 Link Steam (+500 Coins)</button>
-              </div>
-              <div class="play-actions-row" style="margin:1rem 0;">
-                <button type="button" class="play-btn" data-nav="SHOP">🛒 Open Shop</button>
-                <button type="button" class="bonus-btn" data-nav="INVENTORY">🎒 Open Inventory</button>
-              </div>
-              <div class="shop-section-head" style="margin-top:1.5rem;">
-                <h3>VIP Membership</h3>
-                <p class="section-desc">Premium benefits: bonus coins, exclusive items, priority support</p>
-              </div>
-              <div id="vip-status-card" class="vip-status-card">
-                <div class="vip-card-content">
-                  <p id="vip-current-status" class="vip-status-label">Status: Free Player</p>
-                  <p class="vip-benefit-text">Unlock VIP with gems for permanent bonuses!</p>
-                </div>
-                <div class="vip-tiers">
-                  <button id="btn-vip-bronze" class="vip-tier-btn vip-bronze">Bronze VIP<br><small>100 💎</small></button>
-                  <button id="btn-vip-silver" class="vip-tier-btn vip-silver">Silver VIP<br><small>250 💎</small></button>
-                  <button id="btn-vip-gold" class="vip-tier-btn vip-gold">Gold VIP<br><small>500 💎</small></button>
-                </div>
-              </div>
-              <label class="name-label">
-                Nickname
-                <input id="name-input" maxlength="16" placeholder="Slicer" />
-              </label>
-            </section>
-
-            <!-- ── Skills page ── -->
-            <section id="page-skills" class="menu-page hidden">
-              <p class="section-desc">Level your hero to earn skill points. Spend them here.</p>
-              <p id="skill-points">0 points</p>
-              <div id="skill-tree"></div>
-              
-              <div class="mt-8 border-t border-slate-700 pt-6">
-                <p class="section-desc">Unlock hero perks as you level up. Upgrade perks to boost your hero's abilities.</p>
-                <div id="hero-perks-container"></div>
-              </div>
-            </section>
-          </div>
-        </div>
+          </div><!-- #menu-inner -->
+        </div><!-- #hud-start -->
 
         <!-- ═══════════════ PHASE 2 GAME SCREENS ═══════════════
              Hosts rendered by src/ui/screens/*. The screen registry owns

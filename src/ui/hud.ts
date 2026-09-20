@@ -1,5 +1,6 @@
 import type { JuiceBank } from '../game/juice';
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../game/heroes';
+import { getTowerXpState } from '../game/towerProgression';
 import { HERO_PERKS } from '../game/heroProgression';
 import { getAvailableHeroPerkPoints, upgradeHeroPerk } from '../game/heroPerkSave';
 import { MODE_INFO, modeRules } from '../game/modes';
@@ -143,12 +144,17 @@ export class Hud {
     this.superBtn.addEventListener('click', () => this.onSuper?.());
 
     // Navigation Tabs
-    document.querySelectorAll<HTMLButtonElement>('#menu-tabs [data-page]').forEach((btn) => {
+    // Wire both the legacy tab bar and the new left nav data-page buttons
+    document.querySelectorAll<HTMLButtonElement>('[data-page]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const page = btn.dataset.page || 'play';
         this.showPage(page);
         if (page === 'leaderboard') this.loadLeaderboard();
         if (page === 'quests') this.loadQuests();
+        // Update active state on left nav
+        document.querySelectorAll<HTMLButtonElement>('#menu-leftnav .menu-navitem[data-page]').forEach(n => {
+          n.classList.toggle('is-active', n.dataset.page === page);
+        });
       });
     });
 
@@ -337,6 +343,10 @@ export class Hud {
       document.getElementById('btn-mute')?.click();
       this.syncSettingsMuteLabel();
     });
+    document.getElementById('btn-mute-topbar')?.addEventListener('click', () => {
+      document.getElementById('btn-mute')?.click();
+      this.syncSettingsMuteLabel();
+    });
     document.getElementById('btn-settings-logout')?.addEventListener('click', async () => {
       await logoutAuth();
       document.getElementById('title-settings')?.classList.add('hidden');
@@ -419,7 +429,11 @@ export class Hud {
     document.querySelectorAll('#menu-tabs .menu-tab').forEach((btn) => {
       btn.classList.toggle('is-on', (btn as HTMLElement).dataset.page === page);
     });
-    
+    // Update left nav active state
+    document.querySelectorAll<HTMLButtonElement>('#menu-leftnav .menu-navitem[data-page]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.page === page);
+    });
+
     // P1-1: Load profile data when switching to profile page
     if (page === 'profile') {
       this.renderProfilePage();
@@ -439,20 +453,74 @@ export class Hud {
     const nameInput = document.getElementById('name-input') as HTMLInputElement | null;
     if (nameInput) nameInput.value = save.nickname;
     void this.refreshMonthlyRank();
+
+    // Populate new dashboard panel elements
+    this.updateDashboardPanels(save);
+  }
+
+  /** Populate the new game-style dashboard topbar and progression panels. */
+  private updateDashboardPanels(save: SaveData): void {
+    const hero = heroDef(save.hero);
+    const xp = getHeroXpState(save, save.hero);
+    const tower = getTowerXpState();
+
+    // Topbar
+    const setEl = (id: string, val: string) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    const setImg = (id: string, src: string) => { const e = document.getElementById(id) as HTMLImageElement | null; if (e) e.src = src; };
+    const setStyle = (id: string, prop: string, val: string) => { const e = document.getElementById(id) as HTMLElement | null; if (e) (e.style as unknown as Record<string, string>)[prop] = val; };
+
+    setImg('topbar-avatar', save.avatar);
+    setEl('topbar-name', save.nickname);
+    setEl('topbar-level', `Level ${xp.level}`);
+    setStyle('topbar-xpbar', 'width', `${Math.round(xp.progress * 100)}%`);
+    setEl('topbar-xp-val', `Lv ${xp.level}`);
+    setEl('topbar-coins-val', save.coins.toLocaleString());
+    setEl('topbar-gems-val', (save.gems || 0).toLocaleString());
+
+    // Right panel player card
+    setImg('dash-avatar', save.avatar);
+    setEl('dash-name', save.nickname);
+
+    // Hero
+    setEl('dash-hero', hero.name);
+    setEl('dash-hero-level', xp.maxed ? `Lv ${MAX_HERO_LEVEL} MAX` : `Lv ${xp.level}/${MAX_HERO_LEVEL}`);
+    setStyle('dash-hero-xpbar', 'width', `${Math.round(xp.progress * 100)}%`);
+
+    // Tower
+    setEl('dash-tower', `Base Tower`);
+    setEl('dash-tower-level', `Lv ${tower.level}/10`);
+    setStyle('dash-tower-xpbar', 'width', `${Math.round(tower.progress * 100)}%`);
+
+    // Career stats
+    setEl('dash-best-wave', save.bestWave > 0 ? String(save.bestWave) : '—');
+    setEl('dash-high-score', save.highScore > 0 ? save.highScore.toLocaleString() : '—');
+    setEl('dash-games-played', String(save.games || 0));
+    setEl('dash-coins', save.coins.toLocaleString());
+
+    // Bottombar mode
+    const modeEl = document.getElementById('bottombar-mode');
+    if (modeEl) modeEl.textContent = `${(save.mode || 'casual').toUpperCase()} · WAVE DEFENCE`;
   }
 
   async refreshMonthlyRank(): Promise<void> {
     const el = document.getElementById('player-rank');
+    const dashRank = document.getElementById('dash-rank');
     const data = await fetchMonthlyRank();
     const fallback = rankFromScore(0, getLiveConfig().ranks);
     const rank = data?.rank || fallback;
+    const title = data
+      ? `Monthly ${rank.title} · ${data.score.toLocaleString()} pts`
+      : `Monthly ${rank.title}`;
     if (el) {
       el.textContent = rank.title;
       el.style.color = rank.color;
       el.style.borderColor = rank.color;
-      el.title = data
-        ? `Monthly ${rank.title} · ${data.score.toLocaleString()} pts`
-        : `Monthly ${rank.title}`;
+      el.title = title;
+    }
+    if (dashRank) {
+      dashRank.textContent = rank.title;
+      dashRank.style.color = rank.color;
+      dashRank.title = title;
     }
   }
 

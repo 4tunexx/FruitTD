@@ -1,0 +1,3713 @@
+# FruitTD — PHASE 0
+## THEME EDITOR / UI DESIGN SYSTEM / LIVE DESIGN PREVIEW
+
+Repository:
+4tunexx/FruitTD
+
+IMPORTANT:
+
+Before changing anything, scan the entire repository.
+
+This is NOT a request to redesign the whole game yet.
+
+The goal is to create a clean UI/theme architecture that makes future visual redesigns easy.
+
+FruitTD will go through many visual design iterations.
+
+I need to be able to change:
+
+- main menu
+- dashboard/lobby
+- panels
+- popups
+- hero screen
+- inventory
+- shop
+- missions
+- achievements
+- profile
+- settings
+- game HUD
+- admin UI
+
+without having to rewrite the underlying game logic.
+
+==================================================
+1. CORE PRINCIPLE
+==================================================
+
+Separate:
+
+GAME LOGIC
+from
+UI LOGIC
+from
+THEME
+from
+LAYOUT
+
+Do NOT allow gameplay code to directly define large amounts of visual styling.
+
+For example, avoid:
+
+game logic
+→ manually creates random HTML
+→ inline styles
+→ hardcoded colours
+→ hardcoded panel dimensions
+
+Instead use:
+
+GAME DATA
+↓
+UI COMPONENT
+↓
+THEME
+↓
+LAYOUT
+↓
+SCREEN
+
+==================================================
+2. CREATE A CENTRAL THEME SYSTEM
+==================================================
+
+Create one central FruitTD theme configuration.
+
+It should control things such as:
+
+COLORS
+
+- primary
+- secondary
+- accent
+- background
+- panel
+- panel secondary
+- text
+- muted text
+- success
+- warning
+- danger
+- XP
+- coins
+- tower
+- combo
+
+TYPOGRAPHY
+
+- heading font
+- body font
+- number font
+- button font
+- font sizes
+- font weights
+
+SHAPES
+
+- panel radius
+- button radius
+- card radius
+- border width
+
+EFFECTS
+
+- shadow
+- glow
+- blur
+- opacity
+- panel transparency
+
+ANIMATION
+
+- transition speed
+- popup speed
+- hover speed
+- screen transition
+- reduced motion
+
+SPACING
+
+- small
+- medium
+- large
+- screen padding
+- panel padding
+- grid gap
+
+==================================================
+3. THEME FILE
+==================================================
+
+Create a single source of truth such as:
+
+src/ui/theme/
+
+or an equivalent clean architecture.
+
+Do not scatter theme variables across 20 unrelated files.
+
+Theme should be data-driven.
+
+Example concept:
+
+theme:
+{
+  name,
+  colors,
+  typography,
+  panels,
+  buttons,
+  cards,
+  spacing,
+  animation
+}
+
+The exact implementation is up to you after inspecting the existing architecture.
+
+==================================================
+4. CSS VARIABLES
+==================================================
+
+Expose theme values as CSS variables.
+
+Example:
+
+--ftd-color-primary
+--ftd-color-accent
+--ftd-color-background
+--ftd-color-panel
+--ftd-color-text
+--ftd-color-muted
+--ftd-color-danger
+
+etc.
+
+Components should consume these variables.
+
+Do NOT hardcode colours repeatedly.
+
+==================================================
+5. COMPONENT DESIGN SYSTEM
+==================================================
+
+Create reusable UI primitives.
+
+Examples:
+
+GameButton
+GamePanel
+GameCard
+GameModal
+GameTabs
+GameBadge
+GameProgressBar
+GameTooltip
+GameToast
+GameHeader
+GameFooter
+GameAvatar
+GameCurrency
+GameXPBar
+GameRankBadge
+GameHeroCard
+GameItemCard
+GameSection
+
+The exact component architecture must match the existing project.
+
+Do not create React components if the current application architecture does not use React.
+
+Use the existing technology appropriately.
+
+==================================================
+6. SCREENS VS PANELS
+==================================================
+
+IMPORTANT:
+
+Do not assume every screen needs to be a completely separate webpage.
+
+FruitTD should support different presentation styles.
+
+A screen can be:
+
+FULL SCREEN
+- Main Menu
+- Play Lobby
+- Hero Selection
+
+OVERLAY
+- Profile
+- Missions
+- Achievements
+- Inventory
+
+MODAL
+- Confirm purchase
+- Hero unlock
+- Settings
+- Item details
+
+DRAWER
+- Mobile navigation
+- Secondary information
+
+IN-GAME PANEL
+- Tower information
+- Hero XP
+- Combo
+- Wave information
+
+The navigation system should understand these as different UI layers.
+
+==================================================
+7. MAIN MENU LAYOUT SYSTEM
+==================================================
+
+Do not hardcode one permanent Main Menu design.
+
+Create a Main Menu layout configuration.
+
+For example:
+
+mainMenu:
+{
+  layout: "hero-focus",
+  background: "...",
+  logoPosition: "...",
+  primaryAction: "...",
+  secondaryActions: "...",
+  playerPanel: "...",
+  navigationStyle: "..."
+}
+
+The exact schema is up to you.
+
+The important part:
+
+Changing the layout should NOT require rewriting gameplay.
+
+==================================================
+8. DASHBOARD / LOBBY LAYOUT
+==================================================
+
+Do the same for the player lobby.
+
+Possible layouts:
+
+hero-focus
+tower-focus
+compact
+cinematic
+split
+grid
+
+We do NOT need to implement five completely different designs now.
+
+We need an architecture that makes experimenting with different designs easy later.
+
+==================================================
+9. POPUP / MODAL SYSTEM
+==================================================
+
+Create one reusable modal/overlay system.
+
+Requirements:
+
+OPEN
+CLOSE
+BACK
+ESC
+CLICK OUTSIDE
+MOBILE BACK
+
+Animations:
+
+fade
+scale
+slide
+none
+
+The modal system should support:
+
+small
+medium
+large
+fullscreen-mobile
+
+Do not create a separate modal implementation for Shop, Heroes, Inventory, etc.
+
+==================================================
+10. DESIGN PREVIEW MODE
+==================================================
+
+Create an internal development/design mode.
+
+It should allow developers/admins to preview:
+
+Main Menu
+Dashboard
+Hero screen
+Inventory
+Shop
+Profile
+Missions
+Achievements
+Settings
+Popups
+
+without needing to play an entire match.
+
+This is extremely important for future UI work.
+
+==================================================
+11. LIVE THEME EDITOR
+==================================================
+
+Create a Theme Editor available in development/admin mode.
+
+Allow changing:
+
+Primary colour
+Accent colour
+Background
+Panel colour
+Text colour
+Border colour
+Button style
+Panel style
+Corner radius
+Shadow
+Glow
+Typography scale
+Spacing
+Animation speed
+
+Changes should update the preview immediately.
+
+DO NOT require rebuilding the application just to preview theme values.
+
+==================================================
+12. THEME PRESETS
+==================================================
+
+Support saved theme presets.
+
+Example:
+
+FruitTD Default
+Dark Arena
+Clean Competitive
+Neon
+Classic
+Custom
+
+The names are examples only.
+
+Admin/developer can create a new preset.
+
+A theme preset must contain only visual configuration.
+
+It must NOT contain:
+
+player progression
+coins
+XP
+hero ownership
+rank
+game rules
+
+==================================================
+13. IMPORT / EXPORT
+==================================================
+
+Add theme export/import.
+
+Preferred format:
+
+JSON
+
+Example concept:
+
+fruitTdTheme.json
+
+This allows us to:
+
+EXPORT
+↓
+edit/share
+↓
+IMPORT
+↓
+preview
+
+Validate imported themes.
+
+Never execute arbitrary JavaScript from a theme file.
+
+Theme files must only contain safe data.
+
+==================================================
+14. ASSET UPLOADER
+==================================================
+
+Create a theme asset system.
+
+Allow controlled replacement of:
+
+logo
+background
+panel background
+button image if supported
+hero artwork
+menu artwork
+icons
+UI decorative assets
+
+Do NOT allow arbitrary paths to be injected into the application.
+
+Use the existing asset/API infrastructure.
+
+If the project already has Cloudinary or another asset system, integrate with that rather than creating another storage system.
+
+==================================================
+15. RESPONSIVE THEME
+==================================================
+
+Theme/layout must support:
+
+desktop
+tablet
+mobile
+
+Do not simply shrink desktop UI.
+
+Allow responsive layout rules.
+
+For example:
+
+desktop:
+large hero artwork
+
+mobile:
+smaller hero artwork
+stacked buttons
+
+==================================================
+16. THEME PREVIEW
+==================================================
+
+Create a Theme Preview screen.
+
+It should show all important UI components at once:
+
+buttons
+panels
+cards
+tabs
+progress bars
+XP
+coins
+rank
+hero cards
+item cards
+modal
+toast
+navigation
+
+This becomes our UI testing playground.
+
+==================================================
+17. ADMIN INTEGRATION
+==================================================
+
+Later the Admin Control Center should contain:
+
+DESIGN
+  Themes
+  Theme Editor
+  Assets
+  Preview
+
+Do NOT implement a second unrelated design system.
+
+==================================================
+18. FUTURE LAYOUT EXPERIMENTATION
+==================================================
+
+The architecture must make it easy for a developer to say:
+
+"Make the Main Menu angled."
+
+or:
+
+"Move the logo to the right."
+
+or:
+
+"Turn the dashboard into a full-screen lobby."
+
+or:
+
+"Make Heroes a popup."
+
+or:
+
+"Make Inventory a fullscreen mobile panel."
+
+or:
+
+"Change the entire colour scheme."
+
+These changes should primarily happen in:
+
+theme configuration
+layout configuration
+UI components
+
+NOT inside:
+
+game logic
+save system
+combat
+progression
+networking
+
+==================================================
+19. DO NOT OVERENGINEER
+==================================================
+
+Do NOT build a huge visual editor like Unreal Engine.
+
+This is a lightweight game UI design system.
+
+Priorities:
+
+1. Central theme
+2. Reusable components
+3. Screen/layout separation
+4. Modal system
+5. Live preview
+6. Theme presets
+7. Import/export
+8. Asset management
+
+==================================================
+20. MIGRATION
+==================================================
+
+Inspect the existing UI.
+
+Move existing:
+
+hardcoded colours
+hardcoded spacing
+hardcoded panel styles
+hardcoded buttons
+hardcoded modal styles
+
+into the new system where practical.
+
+Do not break working gameplay.
+
+Do not rewrite the whole UI unnecessarily.
+
+==================================================
+21. TEST
+==================================================
+
+Test:
+
+- theme loading
+- default fallback
+- invalid theme
+- import
+- export
+- responsive layouts
+- modal open/close
+- mobile navigation
+- preview
+- asset loading
+
+Run:
+
+npm test
+
+npm run build
+
+Fix all failures.
+
+==================================================
+DEFINITION OF DONE
+==================================================
+
+A developer should be able to change the visual identity of FruitTD without touching gameplay systems.
+
+We should be able to redesign:
+
+MAIN MENU
+DASHBOARD
+HEROES
+SHOP
+INVENTORY
+PROFILE
+MISSIONS
+POPUPS
+ADMIN
+
+without rewriting the underlying game.
+
+The system must make future UI experimentation FAST.
+
+DO NOT commit until the entire phase is complete.
+
+ONE PHASE = ONE COMMIT.
+
+# FruitTD — PHASE 1
+
+## CORE GAMEPLAY, PROGRESSION, HEROES, MAIN TOWER & ECONOMY
+
+You are working directly inside the existing FruitTD repository.
+
+Repository:
+`4tunexx/FruitTD`
+
+IMPORTANT:
+
+* Scan the ENTIRE repository before changing anything.
+* Do not blindly rewrite existing systems.
+* Reuse working systems where possible.
+* Do not create duplicate systems.
+* Do not leave temporary compatibility hacks when the real system can be fixed properly.
+* Do not create small commits for every file.
+* This phase must be delivered as ONE coherent implementation.
+* Do not remove working multiplayer/rank/admin foundations just because they are incomplete.
+* Do not claim a feature is complete until it is actually wired into gameplay and persistence.
+
+==================================================
+
+1. HERO PROGRESSION — LEVEL 1 TO 100
+   ==================================================
+
+Heroes must have a proper long-term progression system.
+
+Current intended heroes:
+
+Master Jiju
+
+* Starter hero
+* Always available
+* Level 1–100
+
+Topfu
+
+* Unlock automatically when Master Jiju reaches level 10
+
+Lagen
+
+* Unlock automatically when Master Jiju reaches level 25
+
+Tripos
+
+* Never automatically unlocked
+* Purchase-only hero
+* Cost must come from one central configurable value
+
+Master Ki
+
+* Never automatically unlocked
+* Purchase-only hero
+* Cost must come from one central configurable value
+
+Requirements:
+
+* Hero maximum level = 100.
+* XP must persist after reload.
+* XP must persist after logout/login if cloud save exists.
+* XP must never silently reset.
+* XP must be assigned to the correct hero.
+* Changing hero must not transfer XP.
+* Every hero has its own XP.
+* Level must always be derived from XP using one central progression function.
+* Remove old Lv 5 assumptions from actual logic, not only the UI.
+* Search the entire repo for old `/5`, `MAX_LEVEL = 5`, `>= 5`, etc. and determine whether each occurrence is legitimate or legacy.
+* Do NOT use UI regex hacks as the permanent solution.
+
+Add:
+
+* XP bar
+* current level
+* XP to next level
+* max-level state
+* level-up event
+* level-up animation/toast
+* reward notification
+* hero mastery state
+
+Level 100 should feel like a real achievement.
+
+==================================================
+2. HERO REWARDS
+===============
+
+Make levels meaningful.
+
+Do not simply give XP with no reason to care.
+
+Create milestone rewards such as:
+
+Level 5:
+
+* cosmetic/effect unlock
+
+Level 10:
+
+* Hero perk
+* Topfu unlock
+
+Level 20:
+
+* cosmetic reward
+
+Level 25:
+
+* Lagen unlock
+
+Level 30:
+
+* Hero perk
+
+Level 40:
+
+* cosmetic reward
+
+Level 50:
+
+* Hero perk
+
+Level 60:
+
+* cosmetic reward
+
+Level 75:
+
+* major hero perk
+
+Level 90:
+
+* mastery cosmetic
+
+Level 100:
+
+* MAX MASTERY reward
+
+Make these data-driven.
+
+Do not hardcode milestone behaviour into random UI files.
+
+==================================================
+3. HERO PERKS
+=============
+
+The existing hero perk foundation must become a real gameplay system.
+
+Players should have reasons to continue levelling heroes.
+
+Examples:
+
+* Combo bonus
+* Juice generation
+* Slash power
+* Super charge
+* Tower defence bonus
+* Special enemy bonus
+* XP bonus
+* Reslice bonus
+
+Do not make perks massively overpowered.
+
+Make perk values configurable.
+
+Make sure perks actually affect gameplay.
+
+If skill points are used:
+
+* persist them
+* display them
+* spend them safely
+* prevent negative values
+* prevent duplicate purchases
+* prevent client-side invalid upgrades
+
+==================================================
+4. HERO UNLOCK SYSTEM
+=====================
+
+Locked heroes must look like locked heroes.
+
+Hero screen must clearly show:
+
+OWNED
+LOCKED
+UNLOCK REQUIREMENT
+PURCHASE PRICE
+CURRENT LEVEL
+XP
+EQUIP
+
+Example:
+
+TOPFU
+UNLOCKED
+Master Jiju Lv 10
+
+LAGEN
+LOCKED
+Reach Master Jiju Lv 25
+
+TRIPOS
+PURCHASE ONLY
+1,800 Coins
+
+MASTER KI
+PURCHASE ONLY
+3,000 Coins
+
+A player must never accidentally equip an unavailable hero.
+
+Purchasing a hero must atomically:
+
+* check price
+* check ownership
+* subtract coins
+* add hero
+* save
+* update UI
+
+==================================================
+5. MAIN TOWER — LEVEL 1 TO 10
+=============================
+
+Main Tower must be a proper progression system.
+
+Maximum = Level 10.
+
+Each level must have a meaningful reward.
+
+Use the existing tower milestone foundation where appropriate.
+
+Example progression:
+
+Lv 1
+Starter Fortress
+
+Lv 2
++starting defence
+
+Lv 3
+Juice Core
+
+Lv 4
++maximum tower health
+
+Lv 5
+Defence speed
+
+Lv 6
+Combo/Tower reward
+
+Lv 7
+Emergency/Last Stand bonus
+
+Lv 8
+additional survivability
+
+Lv 9
+Tower XP bonus
+
+Lv 10
+Master Fortress / permanent mastery reward
+
+Requirements:
+
+* Tower XP persists.
+* Tower level derives from Tower XP.
+* XP is awarded from actual gameplay.
+* No XP duplication from repeated UI events.
+* No XP loss on reload.
+* Level-up feedback.
+* Max-level state.
+* Correct XP bar.
+* Tower upgrades must affect gameplay where their reward says they do.
+
+==================================================
+6. MATCH REWARDS
+================
+
+Create one central reward pipeline.
+
+Gameplay should produce:
+
+* Hero XP
+* Tower XP
+* Coins
+* Score
+* Combo rewards
+* mission progress
+* achievement progress
+
+Do NOT have five different systems independently awarding the same thing.
+
+Create a clear flow:
+
+GAME EVENT
+↓
+REWARD CALCULATION
+↓
+PLAYER PROGRESSION
+↓
+SAVE
+↓
+UI FEEDBACK
+
+Events may include:
+
+* fruit sliced
+* special enemy killed
+* combo achieved
+* wave cleared
+* perfect wave
+* boss defeated
+* tower damaged
+* match completed
+* game over
+
+==================================================
+7. SPECIAL ENEMIES
+==================
+
+Finish the special enemy system.
+
+Existing concepts include:
+
+Normal
+Explosive
+Armored
+Splitter
+Swift
+
+Make sure they actually behave differently.
+
+EXPLOSIVE:
+
+This is important.
+
+The player must understand:
+
+"This enemy is dangerous to slice."
+
+It should have:
+
+* warning visual
+* distinctive colour/effect
+* warning text
+* different sound
+* tower damage consequence
+* clear safe/unsafe interaction
+
+Do not make it feel like a random Fruit Ninja bomb.
+
+This is a tower-defense decision.
+
+Example:
+
+EXPLOSIVE ENEMY APPROACHING
+
+Slice correctly → reward
+
+Hit incorrectly → Main Tower damage
+
+Let it through → Main Tower damage
+
+SPLITTER:
+
+When killed:
+
+* spawn smaller enemies
+* prevent infinite recursive splitting
+* preserve wave accounting correctly
+
+ARMORED:
+
+* more HP
+* slower
+* visually distinct
+* rewarding to kill
+
+SWIFT:
+
+* faster
+* lower HP
+* reaction challenge
+
+All special enemy reward multipliers must actually reach the reward system.
+
+==================================================
+8. COMBO SYSTEM
+===============
+
+Make combos meaningful.
+
+Combo should influence:
+
+* score
+* rewards
+* visual feedback
+* hero perks where appropriate
+
+Combo must reset when:
+
+* player misses
+* bomb/explosive mistake occurs
+* tower takes relevant damage
+* match ends
+
+Avoid accidental combo resets.
+
+Make combo thresholds data-driven.
+
+==================================================
+9. SAVE INTEGRITY
+=================
+
+Audit:
+
+* local save
+* cloud save
+* merge logic
+* migration
+* duplicate rewards
+* race conditions
+
+Never use unsafe "max everything" merging for values that should be authoritative.
+
+Test:
+
+1. Play
+2. gain XP
+3. gain coins
+4. unlock hero
+5. upgrade tower
+6. reload
+7. verify everything
+8. cloud save
+9. reload cloud save
+10. verify everything
+
+==================================================
+10. TESTS
+=========
+
+Add automated tests for:
+
+* Hero XP
+* level 1
+* level 10
+* level 25
+* level 50
+* level 100
+* XP overflow
+* hero ownership
+* hero purchase
+* locked hero protection
+* Tower levels 1–10
+* tower XP
+* milestone rewards
+* reward calculation
+* explosive enemy
+* splitter
+* save/load
+* migration
+
+Run:
+
+npm test
+
+npm run build
+
+Fix every failure.
+
+==================================================
+DEFINITION OF DONE
+==================
+
+Phase 1 is NOT complete if:
+
+* hero can still get stuck at Lv 5
+* hero XP disappears
+* tower is still capped at Lv 5
+* rewards are duplicated
+* locked heroes can be equipped
+* special enemy multipliers don't work
+* combo behaviour is inconsistent
+* save/load loses progression
+* build fails
+* tests fail
+* old progression code still secretly overrides the new system
+
+Finish the system properly before moving on.
+
+# FruitTD — PHASE 2
+
+## REAL GAME UI, MAIN MENU, DASHBOARD, PROFILE, SHOP & INVENTORY
+
+Scan the entire current repository first.
+
+Do not redesign FruitTD as a website.
+
+FruitTD must look and behave like an actual game launcher/lobby.
+
+The visual direction should be:
+
+* dark
+* premium
+* game-first
+* large artwork
+* large buttons
+* strong hierarchy
+* animated panels
+* readable on phone
+* minimal small text
+* no corporate dashboard feeling
+
+Use the existing Fruit TD visual identity.
+
+==================================================
+
+1. NAVIGATION ARCHITECTURE
+   ==================================================
+
+Create one proper navigation controller.
+
+States should include:
+
+TITLE
+MAIN_MENU
+PLAY
+PAUSED
+GAME_OVER
+PROFILE
+HEROES
+INVENTORY
+SHOP
+MISSIONS
+ACHIEVEMENTS
+RANKED
+CO_OP
+CREATOR
+SETTINGS
+ADMIN
+
+Do not let individual buttons directly manipulate random DOM visibility.
+
+Every screen must have:
+
+OPEN
+CLOSE
+BACK
+HOME
+
+behaviour.
+
+Back must always work.
+
+Mobile back behaviour must work.
+
+ESC must work on desktop where appropriate.
+
+==================================================
+2. MAIN MENU
+============
+
+Create a proper game main menu.
+
+NOT:
+
+sidebar full of website cards.
+
+Instead:
+
+Large central/angled game presentation.
+
+Primary:
+
+PLAY
+
+Secondary:
+
+HEROES
+INVENTORY
+SHOP
+MISSIONS
+RANKED
+CO-OP
+PROFILE
+
+Small:
+
+SETTINGS
+NEWS
+QUIT / LOGOUT
+
+Show player identity:
+
+avatar
+nickname
+level
+rank
+coins
+
+But keep it compact.
+
+The player should immediately know:
+
+"Press PLAY."
+
+==================================================
+3. DASHBOARD
+============
+
+Replace the current website-style dashboard.
+
+It should feel like a game lobby.
+
+Suggested layout:
+
+TOP:
+player profile + level + coins + rank
+
+CENTER:
+large PLAY panel
+
+LEFT/SECONDARY:
+current hero
+hero XP
+tower level
+next unlock
+
+BOTTOM:
+daily missions
+recent achievement
+season/rank information
+
+Optional side panels:
+
+NEWS
+EVENT
+SEASON
+
+Do not fill the screen with boxes.
+
+Use large visual panels instead.
+
+==================================================
+4. PLAYER PROFILE
+=================
+
+Create a real profile screen.
+
+Show:
+
+avatar
+nickname
+account level
+rank
+main hero
+hero mastery
+tower level
+highest wave
+highest score
+games played
+best combo
+achievements
+season information
+
+Profile should feel like a game profile.
+
+==================================================
+5. HERO SCREEN
+==============
+
+Create a proper hero selection screen.
+
+Large hero artwork.
+
+Hero name.
+
+Level 1–100.
+
+XP bar.
+
+Abilities/perks.
+
+Unlock state.
+
+Buttons:
+
+EQUIP
+LOCKED
+BUY
+
+When selecting a hero:
+
+* animate selection
+* update preview
+* show stats
+* show level
+* show XP
+* show next milestone
+
+Locked heroes should have a clear visual lock.
+
+==================================================
+6. SHOP
+=======
+
+Shop and inventory MUST be separate.
+
+SHOP means:
+
+"Things available to buy."
+
+INVENTORY means:
+
+"Things I own."
+
+Never mix the two.
+
+Shop categories:
+
+SLICERS
+WALLS
+EFFECTS
+COSMETICS
+HEROES
+SPECIAL
+
+Each item needs:
+
+image/preview
+name
+rarity
+price
+description
+owned state
+
+Buying:
+
+SHOP
+↓
+payment
+↓
+INVENTORY
+
+Never:
+
+SHOP
+↓
+equipped automatically
+
+unless explicitly intended.
+
+==================================================
+7. INVENTORY
+============
+
+Inventory must only contain owned items.
+
+Sections:
+
+SLICERS
+WALLS
+EFFECTS
+COSMETICS
+HEROES
+
+Each item:
+
+EQUIP
+EQUIPPED
+SELL
+DETAILS
+
+Inventory must be persisted.
+
+Equipped item must persist.
+
+Selling must remove ownership.
+
+Cannot sell currently equipped item unless another valid item is equipped first.
+
+==================================================
+8. SLICER PRESENTATION
+======================
+
+Slicers are an important part of the game identity.
+
+Make them feel valuable.
+
+Show:
+
+blade shape
+colour
+trail
+glow
+glint
+FX
+rarity
+damage modifier
+juice modifier
+brittle modifier
+
+When selecting:
+
+animate the blade.
+
+When equipping:
+
+show an equip animation.
+
+==================================================
+9. RESPONSIVE DESIGN
+====================
+
+Desktop:
+
+large cinematic layout.
+
+Tablet:
+
+compressed layout.
+
+Phone:
+
+single-column game UI.
+
+No horizontal overflow.
+
+No tiny buttons.
+
+No text outside viewport.
+
+Respect:
+
+safe-area-inset-top
+safe-area-inset-bottom
+
+Touch targets minimum ~44px.
+
+Test:
+
+iPhone-sized viewport
+small Android
+tablet
+desktop
+
+==================================================
+10. BACK/HOME
+=============
+
+Every screen must have a visible or predictable Back button.
+
+During gameplay:
+
+MAIN MENU
+
+must work.
+
+When returning:
+
+pause/confirm if needed.
+
+Never lose an active match silently.
+
+==================================================
+11. ANIMATION
+=============
+
+Use subtle game-like animation:
+
+panel slide
+scale
+fade
+hover
+selected glow
+button press
+hero transition
+shop purchase
+unlock
+
+Do not overanimate.
+
+==================================================
+12. CLEANUP
+===========
+
+Remove legacy duplicate UI systems.
+
+Do not leave:
+
+duplicate inventory
+duplicate shop
+duplicate hero selectors
+duplicate navigation
+duplicate dashboard
+
+There must be one source of truth.
+
+==================================================
+DEFINITION OF DONE
+==================
+
+Open the game and pretend you are a brand new player.
+
+You should immediately understand:
+
+WHO AM I?
+WHAT HERO DO I HAVE?
+WHAT LEVEL AM I?
+WHAT CAN I UNLOCK?
+WHAT CAN I BUY?
+WHAT DO I OWN?
+WHERE DO I PLAY?
+
+And most importantly:
+
+IT MUST LOOK LIKE A GAME, NOT A WEBSITE.
+
+Run build/tests before finishing.
+
+# FruitTD — PHASE 3
+
+## SLICING, COMBAT, FRUIT ASSETS, FX, COMBOS & GAME FEEL
+
+Scan the entire repository and understand the current slicing pipeline before changing it.
+
+FruitTD must feel fast, responsive and satisfying.
+
+Reference quality:
+
+* Fruit Ninja-level responsiveness
+* modern mobile game feedback
+* tower-defense danger
+* FruitTD's own identity
+
+DO NOT clone Fruit Ninja.
+
+==================================================
+
+1. SLASH INPUT
+   ==================================================
+
+Audit the complete input pipeline:
+
+pointer
+touch
+mouse
+slash queue
+ray/segment detection
+fruit collision
+damage
+combo
+FX
+
+Current implementation coalesces slash samples.
+
+Replace this where appropriate with a reliable multi-segment slash system.
+
+A fast swipe must not:
+
+* miss fruit between samples
+* hit the wrong fruit
+* double-hit the same fruit
+* produce inconsistent results between mouse and touch
+
+Use stable hit IDs per slash.
+
+One fruit should not receive multiple unintended damage events from one swipe.
+
+==================================================
+2. SLICER HIT DETECTION
+=======================
+
+Improve hit detection.
+
+Consider:
+
+* blade width
+* movement speed
+* fruit radius
+* swipe angle
+* distance
+* touch tolerance
+* hero modifiers
+
+Make touch controls slightly forgiving without making them unfair.
+
+Fast swipes should feel powerful.
+
+Slow accidental movements should not randomly slice everything.
+
+==================================================
+3. FRUIT TEXTURES
+=================
+
+AUDIT EVERY FRUIT.
+
+Current atlas coordinates have historically been a source of misalignment.
+
+Inspect:
+
+* atlas
+* UVs
+* crop coordinates
+* fruit definitions
+* sprite/model dimensions
+* texture orientation
+* scale
+* pivot
+* rotation
+
+Create one reliable fruit asset definition.
+
+Every fruit must have:
+
+* correct texture
+* correct alignment
+* correct scale
+* correct centre
+* correct collision radius
+
+No fruit should appear:
+
+* stretched
+* offset
+* clipped
+* rotated incorrectly
+* using another fruit's texture
+
+Test every fruit individually.
+
+==================================================
+4. FRUIT FAMILY CONSISTENCY
+===========================
+
+Check:
+
+apple
+banana
+watermelon
+orange
+strawberry
+etc.
+
+Each fruit should have consistent:
+
+spawn scale
+hit radius
+juice effect
+splash
+slice debris
+sound
+score
+
+==================================================
+5. SLICE FEEDBACK
+=================
+
+Every successful hit should have:
+
+* slash FX
+* fruit reaction
+* juice/splash
+* small impact
+* sound
+* score feedback
+
+But avoid excessive effects that destroy visibility.
+
+==================================================
+6. COMBO FEEDBACK
+=================
+
+Create escalating feedback.
+
+1 hit:
+SLICE!
+
+2:
+DOUBLE SLICE!
+
+3:
+TRIPLE SLICE!
+
+5+:
+MULTISLICER!
+
+10+:
+ULTRASLICE!
+
+25+:
+UNSTOPPABLE!
+
+50+:
+GODLIKE CUT!
+
+Text should:
+
+* pop in
+* briefly enlarge
+* hold
+* slowly fade
+* slide right
+
+Do not instantly disappear.
+
+The current requested feel is roughly:
+
+POP → HOLD → FADE → SLIDE RIGHT
+
+==================================================
+7. SCORE FEEDBACK
+=================
+
+Show score numbers near hit location where appropriate.
+
+Example:
+
++25
++40
+CRITICAL
++100 COMBO
+
+Use different emphasis for:
+
+normal
+critical
+special enemy
+boss
+reslice
+
+==================================================
+8. SPECIAL ENEMY PRESENTATION
+=============================
+
+Explosive:
+
+warning pulse
+warning sound
+danger outline
+different hit effect
+
+Armored:
+
+armour impact
+heavy sound
+small hit reaction
+
+Swift:
+
+motion streak
+fast movement
+
+Splitter:
+
+crack/split effect
+children launching out
+
+Boss:
+
+large readable health state
+phase indication
+impact feedback
+
+==================================================
+9. EXPLOSIVE ENEMY
+==================
+
+Make the decision clear.
+
+Player should immediately understand:
+
+"This thing can hurt my Main Tower."
+
+Do not let the danger depend only on tiny text.
+
+Use:
+
+* colour
+* animation
+* sound
+* warning
+* tower reaction
+
+==================================================
+10. RESLICING
+=============
+
+Reslicing should feel rewarding.
+
+Second cut:
+
+extra juice
+extra score
+combo contribution
+stronger FX
+
+Prevent abuse/infinite farming.
+
+==================================================
+11. HERO FEEL
+=============
+
+Each hero must feel different.
+
+Jiju:
+balanced
+
+Topfu:
+brittle / combo style
+
+Lagen:
+longer slash
+
+Tripos:
+multi-line slash
+
+Master Ki:
+special/high-power behaviour
+
+Do not make heroes only stat multipliers.
+
+Each should have a recognisable play style.
+
+==================================================
+12. MOBILE
+==========
+
+Touch slicing must feel as good as desktop.
+
+Test:
+
+one finger
+fast swipe
+short swipe
+diagonal
+edge of screen
+slow movement
+multi-hit swipe
+
+Prevent browser scrolling during gameplay.
+
+==================================================
+13. PERFORMANCE
+===============
+
+FX must not create thousands of DOM elements.
+
+Use pooling where appropriate.
+
+Avoid unnecessary allocations inside the game loop.
+
+Check:
+
+fruit count
+particles
+debris
+slash FX
+audio
+render loop
+
+Mobile must remain playable.
+
+==================================================
+14. AUDIO
+=========
+
+Audit:
+
+slash
+hit
+fruit slice
+bomb
+enemy
+combo
+level up
+tower damage
+wave clear
+boss
+
+Audio should escalate slightly with intensity.
+
+Do not spam sounds every frame.
+
+==================================================
+DEFINITION OF DONE
+==================
+
+Play 10 waves.
+
+It should feel:
+
+FAST
+CLEAR
+RESPONSIVE
+JUICY
+DANGEROUS
+REWARDING
+
+Not:
+
+STIFF
+RANDOM
+LAGGY
+CLUTTERED
+WEBSITE-LIKE
+
+Run build/tests.
+
+# FruitTD — PHASE 4
+
+## ADMIN CONTROL CENTER, SLICER CREATOR, CONTENT TOOLS & LIVE INSPECTION
+
+Scan the entire repository before changing the admin system.
+
+There must be ONE admin system.
+
+Do not create a second admin dashboard.
+
+==================================================
+
+1. ADMIN SECURITY
+   ==================================================
+
+Audit all admin access.
+
+Admin status must be determined server-side/authenticated.
+
+Never trust:
+
+* hidden buttons
+* localStorage admin flags
+* client-only permissions
+* hardcoded Steam IDs
+* URL parameters
+
+Remove any hardcoded administrator identity from UI.
+
+Client should only display admin controls after validated permission.
+
+Server must validate sensitive mutations.
+
+==================================================
+2. ADMIN HOME
+=============
+
+Create a proper Admin Control Center.
+
+Sections:
+
+OVERVIEW
+PLAYERS
+CONTENT
+SLICERS
+FRUITS
+ENEMIES
+WAVES
+MISSIONS
+ACHIEVEMENTS
+BADGES
+RANKS
+SHOP
+ECONOMY
+ANNOUNCEMENTS
+GAME CONFIG
+LOGS
+
+Keep it practical.
+
+Do not make it look like the player dashboard.
+
+==================================================
+3. ADMIN OVERVIEW
+=================
+
+Show:
+
+players
+active games
+recent registrations
+content changes
+shop items
+enabled slicers
+recent errors
+economy statistics
+server/API status
+
+Only show data that actually exists.
+
+==================================================
+4. SLICER CREATOR
+=================
+
+The slicer creator must become a proper editor.
+
+Fields:
+
+name
+ID
+rarity
+price
+enabled
+trail width
+colour
+glow colour
+glow strength
+glint
+FX style
+damage modifier
+juice modifier
+brittle modifier
+description
+
+Add validation.
+
+Examples:
+
+price >= 0
+damage multiplier within safe range
+colour valid
+name required
+ID unique
+
+==================================================
+5. LIVE SLICER INSPECTION
+=========================
+
+This is CRITICAL.
+
+Admin must be able to edit a slicer and immediately see:
+
+blade
+trail
+glow
+glint
+FX
+colour
+width
+speed
+impact style
+
+Create a live preview.
+
+But do not stop at a static preview.
+
+Add:
+
+TEST SLASH
+
+button.
+
+When clicked:
+
+show an actual simulated slash.
+
+Also add:
+
+TEST HIT
+
+TEST CRITICAL
+TEST COMBO
+TEST EQUIP
+
+The admin should be able to see what the slicer actually feels like.
+
+If possible, use the real game's FX pipeline instead of making a completely separate fake renderer.
+
+==================================================
+6. SLICER SAVE FLOW
+===================
+
+Admin edits:
+
+Draft
+
+↓
+Preview
+
+↓
+Save Draft
+
+↓
+Publish
+
+Published slicer appears in Shop.
+
+Draft must NOT automatically appear in Shop.
+
+Add:
+
+DRAFT
+PUBLISHED
+DISABLED
+
+states.
+
+==================================================
+7. SHOP CATALOG
+===============
+
+Admin can:
+
+create
+edit
+enable
+disable
+change price
+change rarity
+change description
+publish
+unpublish
+
+Never delete an item in a way that destroys existing player ownership.
+
+If a slicer is removed from Shop:
+
+Existing owners keep it.
+
+==================================================
+8. WAVE CREATOR
+===============
+
+Create/edit waves.
+
+Allow:
+
+enemy type
+fruit type
+count
+spawn timing
+boss
+difficulty
+special enemy chance
+
+Preview wave composition.
+
+Validate:
+
+invalid enemy
+negative count
+impossible values
+duplicate IDs
+
+==================================================
+9. ENEMY CONFIG
+===============
+
+Admin should be able to configure:
+
+HP
+speed
+score multiplier
+XP multiplier
+tower damage
+spawn chance
+visual ID
+sound ID
+
+Do not allow unsafe arbitrary code.
+
+Data only.
+
+==================================================
+10. MISSIONS
+============
+
+Admin editor for:
+
+daily missions
+weekly missions
+season missions
+hero missions
+
+Fields:
+
+name
+description
+requirement
+reward
+XP
+coins
+duration
+enabled
+
+Preview mission before publishing.
+
+==================================================
+11. ACHIEVEMENTS & BADGES
+=========================
+
+Admin can:
+
+create
+edit
+enable
+disable
+change reward
+change requirement
+
+No duplicate IDs.
+
+Existing player achievement progress must not break if the text changes.
+
+==================================================
+12. RANKS
+=========
+
+Admin can configure:
+
+rank name
+threshold
+badge
+season availability
+
+Do not allow invalid overlapping ranges.
+
+==================================================
+13. ECONOMY SAFETY
+==================
+
+Admin changes to:
+
+prices
+rewards
+XP
+coins
+
+must be logged.
+
+Do not let a bad config create infinite rewards.
+
+Add sane server-side limits.
+
+==================================================
+14. CONFIG VERSIONING
+=====================
+
+Whenever possible:
+
+draft
+publish
+version
+rollback
+
+Admin should be able to undo a bad content change.
+
+==================================================
+15. AUDIT LOG
+=============
+
+Record:
+
+admin
+action
+object
+old value
+new value
+timestamp
+
+Examples:
+
+"Admin changed slicer price"
+
+"Admin disabled slicer"
+
+"Admin changed enemy XP"
+
+==================================================
+16. MOBILE ADMIN
+================
+
+Admin doesn't need every desktop feature on mobile, but it must remain usable.
+
+No broken horizontal tables.
+
+Use cards/drawers where needed.
+
+==================================================
+DEFINITION OF DONE
+==================
+
+Admin can:
+
+create slicer
+preview slicer
+test slicer
+save draft
+publish slicer
+see it in shop
+buy it as player
+see it in inventory
+equip it
+use it in gameplay
+
+Admin can also safely edit waves, missions, achievements and economy.
+
+All sensitive actions are permission-checked server-side.
+
+Run tests/build.
+
+# FruitTD — PHASE 5
+
+## FINAL POLISH, MOBILE, PERFORMANCE, CO-OP/RANKED & QA
+
+This is the final polish phase.
+
+Scan the entire repository first.
+
+Do not add random features just to increase the feature count.
+
+The objective is:
+
+MAKE FRUIT TD FEEL LIKE A REAL FINISHED GAME.
+
+==================================================
+
+1. FULL GAME FLOW
+   ==================================================
+
+Test the entire player journey:
+
+Landing
+↓
+Login/Auth
+↓
+Main Menu
+↓
+Dashboard/Lobby
+↓
+Hero selection
+↓
+Inventory
+↓
+Shop
+↓
+Play
+↓
+Wave
+↓
+XP
+↓
+Coins
+↓
+Tower progression
+↓
+Hero progression
+↓
+Game Over
+↓
+Rewards
+↓
+Main Menu
+
+There must be no dead ends.
+
+Every screen must have a way back.
+
+==================================================
+2. FIRST-TIME PLAYER
+====================
+
+Pretend you have never played FruitTD.
+
+You should understand within seconds:
+
+WHAT IS THIS?
+WHAT DO I DO?
+WHAT IS MY TOWER?
+WHO IS MY HERO?
+HOW DO I PLAY?
+HOW DO I GET STRONGER?
+
+Add lightweight onboarding only where needed.
+
+Do not create a huge tutorial.
+
+==================================================
+3. GAME FEEL POLISH
+===================
+
+Polish:
+
+buttons
+transitions
+hit effects
+combo effects
+level-up
+hero unlock
+tower upgrade
+shop purchase
+equip
+sell
+wave clear
+boss
+game over
+
+Use consistent:
+
+timing
+sound
+motion
+spacing
+typography
+
+==================================================
+4. MOBILE QA
+============
+
+Test at:
+
+320px
+360px
+375px
+390px
+414px
+768px
+1024px
+desktop
+
+Check:
+
+menus
+buttons
+canvas
+HUD
+sidebar
+hero cards
+inventory
+shop
+admin
+slicer creator
+modals
+keyboard-free navigation
+
+No:
+
+horizontal scrolling
+cut-off text
+buttons behind safe areas
+tiny controls
+overlapping HUD
+unreachable buttons
+
+==================================================
+5. TOUCH GAMEPLAY
+=================
+
+Test:
+
+single-finger slash
+fast slash
+slow slash
+diagonal
+multi-hit
+bomb interaction
+super ability
+
+Prevent:
+
+scrolling
+browser gestures
+double-trigger
+accidental clicks
+
+==================================================
+6. PERFORMANCE
+==============
+
+Profile the game.
+
+Look for:
+
+large allocations in update()
+DOM creation during gameplay
+unbounded arrays
+particle leaks
+event listener leaks
+texture duplication
+audio leaks
+unnecessary rendering
+large localStorage writes
+
+The main game loop must stay lightweight.
+
+==================================================
+7. ASSET AUDIT
+==============
+
+Find:
+
+unused textures
+broken images
+missing images
+wrong paths
+duplicate assets
+incorrect atlas coordinates
+unused audio
+broken models
+
+Every visible asset must load correctly.
+
+No console errors.
+
+==================================================
+8. ERROR HANDLING
+=================
+
+Test:
+
+offline
+API failure
+cloud save failure
+invalid save
+old save migration
+missing asset
+invalid admin config
+expired session
+
+Game should fail gracefully.
+
+Never destroy local progress because cloud save failed.
+
+==================================================
+9. CO-OP FOUNDATION
+===================
+
+FruitTD is intended to become a multiplayer/co-op tower defence game.
+
+Audit existing multiplayer/ranked foundations.
+
+Do NOT fake multiplayer.
+
+If networking is not yet production-ready:
+
+* keep architecture clean
+* define match state
+* define player state
+* define authoritative rewards
+* define tower state
+* define enemy state
+* define event synchronization
+
+Prepare the system for:
+
+2-player co-op
+team tower health
+shared waves
+individual heroes
+individual XP
+team rewards
+revive/help mechanics
+
+==================================================
+10. RANKED FOUNDATION
+=====================
+
+Keep ranked separate from casual progression.
+
+Define cleanly:
+
+rank
+rating/MMR
+season
+placement
+match result
+leaderboard
+
+Do not allow casual score to directly become competitive MMR unless explicitly designed.
+
+==================================================
+11. SECURITY
+============
+
+Final audit:
+
+admin
+auth
+save
+economy
+purchase
+hero unlock
+XP
+coins
+rank
+leaderboards
+
+Never trust the browser for important rewards.
+
+Server validates:
+
+purchase
+currency
+XP where server-backed
+rank result
+admin action
+
+==================================================
+12. ACCESSIBILITY
+=================
+
+Add where practical:
+
+reduced motion
+readable contrast
+clear warnings
+large touch targets
+keyboard navigation for menus
+focus states
+audio-independent visual feedback
+
+==================================================
+13. CONSOLE CLEANUP
+===================
+
+Production gameplay must not produce:
+
+uncaught exceptions
+repeated warnings
+missing texture errors
+failed network loops
+duplicate event listeners
+
+==================================================
+14. FINAL TEST MATRIX
+=====================
+
+Test:
+
+NEW PLAYER
+RETURNING PLAYER
+MAX HERO
+LOCKED HERO
+PURCHASE HERO
+MAX TOWER
+SHOP
+INVENTORY
+SLICER
+SPECIAL ENEMY
+BOSS
+GAME OVER
+SAVE/LOAD
+MOBILE
+DESKTOP
+OFFLINE
+API FAILURE
+ADMIN
+CO-OP FOUNDATION
+RANKED FOUNDATION
+
+==================================================
+15. BUILD
+=========
+
+Run:
+
+npm test
+
+npm run build
+
+Fix every failure.
+
+Do not leave "known harmless" errors without explaining exactly why they are harmless.
+
+==================================================
+16. FINAL CLEANUP
+=================
+
+Remove:
+
+temporary hacks
+duplicate systems
+unused imports
+dead code
+legacy `/5` progression assumptions
+duplicate shop catalogues
+old dashboard workarounds
+debug UI
+hardcoded admin identities
+stale feature flags
+
+Update documentation to reflect what actually exists.
+
+Do not document planned features as completed.
+
+==================================================
+FINAL DEFINITION OF DONE
+========================
+
+FruitTD should feel like:
+
+A REAL GAME
+
+not:
+
+A WEBSITE
+A PROTOTYPE
+A COLLECTION OF MENUS
+A TECH DEMO
+
+The player should have:
+
+A reason to play
+A reason to level heroes
+A reason to unlock heroes
+A reason to upgrade the tower
+A reason to collect slicers
+A reason to improve combos
+A reason to return tomorrow
+
+The code should have:
+
+one navigation system
+one save system
+one reward pipeline
+one shop/inventory ownership model
+one admin system
+one progression model
+
+No duplicate competing systems.
+
+Build and test everything before declaring Phase 5 complete.
+
+# FruitTD — Slicer / Blade VFX Overhaul
+
+## IMPORTANT
+
+Do not just change colours, glow values or CSS.
+
+The current slicer visual implementation is fundamentally wrong for the intended game feel.
+
+I inspected the current implementation and found:
+
+* `src/game/slashfx.ts` uses `RingGeometry`, creating circular hit effects.
+* `src/game/trail.ts` uses Three.js `Line` objects for the blade trail.
+* `src/input/blade.ts` records multiple swipe samples but `consumeSlash()` collapses the entire swipe into one `first → last` line.
+* The current slicer system therefore looks more like glowing circles/lines than a proper game blade.
+* `src/ui/slicerPreview.ts` currently previews the slicer using DOM/CSS and also needs to be upgraded to represent the real in-game effect more accurately.
+
+The target is NOT to copy Fruit Ninja's exact assets.
+
+The target is the same general quality of blade feedback:
+
+**smooth → sharp → tapered → curved → fast → satisfying → readable**
+
+FruitTD must have its own visual identity.
+
+---
+
+# 1. REMOVE THE CIRCULAR SLASH LOOK
+
+The existing `RingGeometry` hit flash in:
+
+`src/game/slashfx.ts`
+
+must NOT be the primary slice effect.
+
+Do not make the blade look like:
+
+* circles
+* rings
+* bubbles
+* glowing discs
+* circular shockwaves
+* simple neon lines
+
+A small impact burst can still exist as a secondary hit effect, but the main slicer visual must clearly read as a **blade cutting through the screen**.
+
+---
+
+# 2. BUILD A REAL BLADE RIBBON
+
+Replace the current simple Line-based trail with a proper dynamic ribbon/trail mesh.
+
+The blade should be generated from the actual swipe history.
+
+Conceptually:
+
+POINT 1
+\       taper
+____
+________
+____
+\
+
+The trail needs:
+
+* multiple historical points
+* smooth interpolation
+* rounded/continuous curve
+* variable width
+* tapered front and rear
+* alpha fading
+* short lifetime
+* no gaps at high swipe speed
+* no visible polygon/jagged stepping
+
+Use a dynamic BufferGeometry / ribbon mesh or equivalent Three.js implementation.
+
+Do NOT use hundreds of individual sprites.
+
+The trail should be performant.
+
+---
+
+# 3. TRACK THE ENTIRE SWIPE
+
+The current `BladeInput.consumeSlash()` is a major part of the problem.
+
+It currently takes the first and last points and effectively turns a curved swipe into one large straight segment.
+
+Fix this.
+
+The system needs to preserve the swipe path.
+
+Instead of:
+
+first → last
+
+use:
+
+P0 → P1 → P2 → P3 → P4 → P5 → ...
+
+Then smooth/interpolate those points before rendering.
+
+The gameplay hit detection and the visual trail should both understand the actual swipe path.
+
+Do not sacrifice gameplay collision accuracy.
+
+---
+
+# 4. SEPARATE INPUT FROM VISUAL TRAIL
+
+Create a clean separation:
+
+### BladeInput
+
+Responsible for:
+
+* pointer/touch tracking
+* raw movement samples
+* swipe segments
+* velocity
+* charge
+* pointer type
+
+### BladeTrail
+
+Responsible for:
+
+* visual history
+* smoothing
+* ribbon generation
+* tapering
+* fading
+* glow
+* slicer style
+
+### SlashFx
+
+Responsible for:
+
+* hit spark
+* fruit impact
+* juice burst
+* critical hit effect
+* special enemy impact
+
+This should prevent the current situation where one simple visual object is expected to represent everything.
+
+---
+
+# 5. MAKE THE TRAIL LOOK LIKE A BLADE
+
+The visual shape should have at least three layers.
+
+## Layer 1 — Core
+
+Very bright, thin central blade edge.
+
+Example:
+
+white / pale version of slicer colour
+
+It should be sharp and readable.
+
+## Layer 2 — Main blade body
+
+A wider tapered ribbon following the swipe.
+
+Uses the slicer's primary colour.
+
+## Layer 3 — Soft glow
+
+A wider, lower-opacity version behind the blade.
+
+Uses `glowColor`.
+
+The result should visually read as:
+
+bright sharp edge
++
+coloured blade body
++
+soft energy glow
+
+NOT:
+
+blue line
++
+blue line
++
+circle
+
+---
+
+# 6. TAPER THE TRAIL
+
+The blade should NOT have the same width from beginning to end.
+
+Use something similar to:
+
+START
+0% width
+
+→
+
+15%
+medium
+
+→
+
+40%
+full width
+
+→
+
+70%
+medium
+
+→
+
+100%
+tiny/faded
+
+This creates a proper sword/blade movement impression.
+
+The leading edge should remain sharper/brighter.
+
+The oldest points should disappear quickly.
+
+---
+
+# 7. SMOOTH THE MOVEMENT
+
+Do not simply draw the raw pointer coordinates.
+
+Use interpolation / smoothing.
+
+Possible approaches:
+
+* Catmull-Rom interpolation
+* cubic interpolation
+* moving average
+* resampling by distance
+* Hermite interpolation
+
+Choose the method that gives the cleanest result at 60 FPS.
+
+The important thing is:
+
+FAST SWIPE:
+
+must remain smooth.
+
+SLOW SWIPE:
+
+must remain smooth.
+
+CURVED SWIPE:
+
+must remain curved.
+
+SMALL SWIPE:
+
+must not create ugly spikes.
+
+---
+
+# 8. PREVENT TRAIL GAPS
+
+This is extremely important on mobile.
+
+If the player moves:
+
+P1 ---------------------------- P2
+
+the trail must fill the entire distance.
+
+Never render only one point per pointer event.
+
+Resample/interpolate long distances so the ribbon remains continuous.
+
+The visual result should never have:
+
+* broken segments
+* dotted trail
+* gaps
+* disconnected pieces
+* sudden jumps
+
+---
+
+# 9. TRAIL LIFETIME
+
+The blade trail should feel fast.
+
+Target approximately:
+
+0.15–0.35 seconds
+
+for the visible trail.
+
+Do not make it hang around for 1+ seconds.
+
+The trail should:
+
+APPEAR FAST
+→
+BRIGHT
+→
+TAPER
+→
+FADE
+→
+DISAPPEAR
+
+The player should feel like they physically swung a blade through the scene.
+
+---
+
+# 10. VELOCITY RESPONSE
+
+Blade width and brightness should respond to swipe speed.
+
+Slow movement:
+
+* thinner
+* lower glow
+* less dramatic
+
+Fast movement:
+
+* slightly wider
+* brighter
+* stronger glow
+* stronger spark emission
+
+Do not make fast movement ridiculously thick.
+
+Keep it controlled.
+
+---
+
+# 11. CURVED SLASHES
+
+A major requirement.
+
+If the player makes:
+
+/
+
+then the blade should look like:
+
+/
+
+If they make:
+
+)
+
+the trail should look like:
+
+)
+
+If they make:
+
+S
+
+the trail should visually follow the S curve.
+
+Do NOT flatten the entire swipe into one straight line.
+
+---
+
+# 12. HIT EFFECT
+
+Keep an impact effect, but completely change its role.
+
+Current:
+
+`RingGeometry`
+
+should no longer be the main hit visual.
+
+Instead create a directional slice impact.
+
+When a fruit is hit:
+
+* tiny bright cut flash
+* 3–8 small sparks
+* juice particles
+* directional streaks
+* tiny impact burst
+* optional micro screen shake
+* optional very short hit-stop
+
+The particles should travel primarily along the slash direction and slightly outward.
+
+They should NOT form a perfect circle.
+
+---
+
+# 13. FRUIT SLICE EFFECT
+
+When a fruit is successfully cut:
+
+1. blade passes through fruit
+2. tiny bright cut flash
+3. fruit halves separate
+4. juice sprays outward
+5. 2–8 tiny droplets/sparks
+6. score/combo feedback appears
+7. blade continues naturally
+
+The visual should make the player feel that the blade actually cut the fruit.
+
+---
+
+# 14. SPECIAL SLICERS
+
+The existing `CatalogSlicer.fxStyle` system should remain.
+
+Current styles:
+
+* solid
+* spark
+* plasma
+* ember
+* frost
+
+But make the styles visually meaningful.
+
+### solid
+
+Clean sharp blade.
+
+* white core
+* primary colour body
+* subtle glow
+
+### spark
+
+Blade plus tiny travelling sparks.
+
+### plasma
+
+Energy-like ribbon.
+
+* stronger glow
+* slightly wider edge
+* animated energy streaks
+
+### ember
+
+Blade leaves tiny hot particles behind.
+
+### frost
+
+Blade leaves short icy particles/crystals.
+
+Do not create five completely different rendering systems.
+
+Use the same core blade ribbon and modify:
+
+* colour
+* glow
+* width
+* particles
+* animation
+* secondary effects
+
+---
+
+# 15. SLICER ATTRIBUTES MUST ACTUALLY MATTER
+
+The admin-created values must directly affect the real in-game VFX.
+
+Existing properties include:
+
+* `color`
+* `glowColor`
+* `fxStyle`
+* `trailWidth`
+* `glow`
+* `glint`
+
+Make sure changing these produces an obvious but controlled difference.
+
+For example:
+
+`trailWidth`
+
+changes ribbon thickness.
+
+`glow`
+
+changes glow intensity.
+
+`glint`
+
+changes spark/glint density.
+
+`color`
+
+changes the main blade.
+
+`glowColor`
+
+changes the secondary glow.
+
+`fxStyle`
+
+changes the secondary VFX behaviour.
+
+Do not leave configuration values as decorative database fields.
+
+---
+
+# 16. ADMIN LIVE SLICER INSPECTION
+
+Upgrade:
+
+`src/ui/slicerPreview.ts`
+
+The current DOM preview is not enough.
+
+The admin needs to see the REAL slicer behaviour.
+
+Create a small isolated Three.js preview scene or reusable preview renderer.
+
+It should have:
+
+* dark game-like background
+* blade test area
+* fruit target
+* swipe path
+* animated blade trail
+* hit effect
+* particles
+* glow
+* combo simulation
+
+Buttons:
+
+`TEST SLASH`
+
+`TEST CURVE`
+
+`TEST FAST`
+
+`TEST SLOW`
+
+`TEST HIT`
+
+`TEST COMBO`
+
+`RESET`
+
+Changing any slicer property should update the preview immediately.
+
+The preview should use the same blade renderer as the real game.
+
+IMPORTANT:
+
+Do NOT maintain two separate visual implementations.
+
+If the game blade renderer changes, the admin preview should automatically show the same result.
+
+---
+
+# 17. COMBO VISUALS
+
+The blade should become slightly more impressive as combo increases.
+
+Do not simply make everything bigger.
+
+Example:
+
+Combo 1–4:
+normal blade
+
+Combo 5–9:
+slightly stronger glow
+
+Combo 10–19:
+extra particles
+
+Combo 20–29:
+stronger trail accent
+
+Combo 30+:
+special streak particles / colour pulse
+
+Keep this subtle.
+
+The actual slicer identity must remain visible.
+
+---
+
+# 18. HIT STOP
+
+Add a very short impact pause for successful important hits.
+
+Approximately:
+
+20–50ms
+
+Only on meaningful hits.
+
+Do NOT freeze the game on every tiny event.
+
+Possible:
+
+normal hit:
+very tiny pause
+
+multi-hit:
+slightly stronger
+
+critical:
+stronger
+
+boss:
+stronger
+
+This is part of making the slice feel powerful.
+
+---
+
+# 19. SCREEN SHAKE
+
+Use the existing renderer impulse/shake system.
+
+Do not add huge camera shaking.
+
+Example:
+
+normal:
+very small
+
+multi-hit:
+small
+
+boss:
+medium
+
+explosive:
+strong warning shake
+
+The game should remain readable.
+
+---
+
+# 20. SOUND SYNCHRONISATION
+
+The blade visual and audio should happen together.
+
+Slash:
+
+SWISH
+
+Hit:
+
+CUT / SPLAT
+
+Multi-hit:
+
+stronger layered feedback
+
+High combo:
+
+slightly stronger pitch/variation
+
+Do not spam identical sounds without variation.
+
+---
+
+# 21. MOBILE
+
+This must work equally well with:
+
+* mouse
+* touchscreen
+* phone
+* tablet
+
+Touch swipes must not produce a different ugly trail.
+
+The visual renderer should receive the same normalized swipe path regardless of input device.
+
+Test:
+
+* slow finger drag
+* fast finger swipe
+* diagonal swipe
+* curved swipe
+* short swipe
+* long swipe
+* repeated rapid swipes
+
+---
+
+# 22. PERFORMANCE
+
+Do NOT create/destroy large numbers of Three.js objects every frame.
+
+Use:
+
+* object pooling
+* reusable BufferGeometry
+* reusable materials
+* fixed particle pools
+* fixed trail buffers
+
+The blade trail should remain smooth at 60 FPS.
+
+Especially test mobile.
+
+Avoid unnecessary allocations inside:
+
+`update()`
+
+`sync()`
+
+`resolveSlash()`
+
+and pointer movement.
+
+---
+
+# 23. IMPORTANT GAMEPLAY REQUIREMENT
+
+Do not break the actual slicing mechanics while changing the visuals.
+
+The following must continue working:
+
+* fruit hit detection
+* multiple fruit hits
+* reslicing
+* hero-specific slash behaviour
+* Tripos multi-line attack
+* Lagen extended slash
+* Topfu behaviour
+* bomb/explosive enemies
+* combo system
+* score
+* XP
+* juice
+* slicer damage modifiers
+* brittle bonus
+* special enemies
+
+Visual improvement must not silently change gameplay balance.
+
+---
+
+# 24. DO NOT FAKE THE SLICER
+
+Do not solve this with:
+
+* CSS-only blade
+* HTML overlay
+* a giant transparent PNG
+* a circle sprite
+* a rotating ring
+* a single Line object
+* hundreds of DOM elements
+
+This is a Three.js game.
+
+Use proper Three.js rendering.
+
+---
+
+# 25. TARGET VISUAL
+
+The final result should feel like:
+
+PLAYER SWIPES
+
+→ sharp blade appears immediately
+
+→ blade follows exact hand/mouse movement
+
+→ smooth curved ribbon
+
+→ bright central edge
+
+→ coloured body
+
+→ soft glow
+
+→ tiny particles
+
+→ fruit is hit
+
+→ sharp cut flash
+
+→ juice/slice particles
+
+→ fruit halves fly apart
+
+→ combo text appears
+
+→ trail rapidly fades
+
+The whole sequence should feel like one connected action.
+
+NOT:
+
+PLAYER SWIPES
+
+→ neon line
+
+→ circle appears
+
+→ circle disappears
+
+---
+
+# 26. CODE QUALITY
+
+Before implementing, inspect the complete existing systems:
+
+* `src/input/blade.ts`
+* `src/game/trail.ts`
+* `src/game/slashfx.ts`
+* `src/game/slicer.ts`
+* `src/game/slicers.ts`
+* `src/game/fruits.ts`
+* `src/main.ts`
+* renderer/camera code
+* combo system
+* Slicer Creator/admin code
+* `src/ui/slicerPreview.ts`
+
+Do not blindly replace files.
+
+Understand how the existing systems communicate first.
+
+Avoid duplicate blade systems.
+
+Create one reusable blade VFX implementation.
+
+---
+
+# 27. TEST CHECKLIST
+
+Before finishing:
+
+### Visual
+
+* [ ] Straight swipe looks smooth
+* [ ] Curved swipe looks smooth
+* [ ] Fast swipe has no gaps
+* [ ] Slow swipe looks clean
+* [ ] Trail tapers
+* [ ] Trail fades naturally
+* [ ] Glow is soft
+* [ ] Core is sharp
+* [ ] No circular main slash
+* [ ] No ugly polygon edges
+* [ ] No flickering
+* [ ] No trail popping
+
+### Gameplay
+
+* [ ] Fruits still slice correctly
+* [ ] Multi-hit works
+* [ ] Reslice works
+* [ ] Bombs work
+* [ ] Explosive enemies work
+* [ ] Hero abilities work
+* [ ] Combo works
+* [ ] XP works
+* [ ] Slicer damage works
+
+### Admin
+
+* [ ] Slicer editor updates live preview
+* [ ] Width changes visually
+* [ ] Glow changes visually
+* [ ] Colour changes visually
+* [ ] FX style changes visually
+* [ ] Glint changes visually
+* [ ] TEST SLASH works
+* [ ] TEST CURVE works
+* [ ] TEST HIT works
+* [ ] RESET works
+
+### Mobile
+
+* [ ] Touch swipe smooth
+* [ ] Fast touch swipe has no gaps
+* [ ] Curved touch swipe works
+* [ ] No accidental page scrolling
+* [ ] No excessive GPU usage
+
+---
+
+# 28. FINAL REQUIREMENT
+
+Do not consider this task complete because the code compiles.
+
+The success criteria is visual.
+
+Open the game and actually inspect the blade.
+
+If it still looks like a:
+
+* line
+* circle
+* ring
+* generic neon trail
+
+then continue improving it.
+
+The finished slicer should immediately read as a **real game blade cutting through the arena**, with a smooth tapered ribbon and satisfying impact FX.
+
+Run the full build and tests after implementation.
+
+Do not create multiple tiny commits.
+
+Treat this as ONE coherent Slicer / Blade VFX overhaul commit.
