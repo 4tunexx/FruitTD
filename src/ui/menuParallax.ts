@@ -33,8 +33,7 @@ function menusVisible(): boolean {
 /** Only when title or dashboard is showing — never during PLAYING/PAUSED. */
 function shouldRun(): boolean {
   if (reducedMotion()) return false;
-  const nav = navigation.state;
-  if (nav === 'PLAYING' || nav === 'PAUSED') return false;
+  if (navigation.isInGame()) return false;
   return menusVisible();
 }
 

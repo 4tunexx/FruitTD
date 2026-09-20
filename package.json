@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build && node scripts/bundle-api.mjs",
     "build:api": "node scripts/bundle-api.mjs",
     "preview": "vite preview",
-    "test": "tsx --test \"server/**/*.test.ts\" \"src/**/*.test.ts\""
+    "test": "node scripts/test-runner.mjs"
   },
   "dependencies": {
     "cors": "^2.8.6",

@@ -11,7 +11,7 @@ import type { SpawnItem, WavePlan } from './waves';
 export const CREATOR_WAVES_STORAGE_KEY = 'fruittd-creator-waves-v1';
 
 export const FRUIT_KIND_OPTIONS: FruitKind[] = [
-  'lemon', 'orange', 'banana', 'strawberry', 'kiwi', 'pineapple', 'watermelon', 'bomb',
+  'lemon', 'orange', 'banana', 'strawberry', 'kiwi', 'pineapple', 'watermelon', 'bomb', 'apple',
 ];
 
 export const ENEMY_KIND_OPTIONS: { kind: EnemyKind; label: string }[] = [

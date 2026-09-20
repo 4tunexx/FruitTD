@@ -1,19 +1,10 @@
 import './gameFeel.css';
 import './slicerPreview';
-import './progressionUi';
+import { COMBAT_COMBO_STREAKS } from '../game/progression/combo';
 
 type Slot = 'hit' | 'streak' | 'reslice';
 
-const STREAKS = [
-  { n: 2, title: 'DOUBLE SLICE!' },
-  { n: 3, title: 'TRIPLE SLICE!' },
-  { n: 5, title: 'MULTISLICER!' },
-  { n: 8, title: 'ULTRASLICE!' },
-  { n: 15, title: 'UNSTOPPABLE!' },
-  { n: 20, title: 'MEGASLICER!' },
-  { n: 30, title: 'MONSTERSLICER!' },
-  { n: 50, title: 'GODLIKE CUT!' },
-];
+export const STREAKS = COMBAT_COMBO_STREAKS;
 
 const LIVE_WINDOW = 2.85;
 const STACK_MAX = 3;
@@ -100,9 +91,19 @@ export class ComboFx {
     if (n <= 0) return;
     this.window = LIVE_WINDOW;
     this.setMeter(combo);
-    this.push('hit', `${n > 1 ? `+${n} HITS` : 'SLICE!'} · x${combo}`, comboColor(combo), 'hit-pop');
-    if (n >= 3) {
-      this.push('streak', `${n}X MULTISLICE!`, comboColor(combo), 'streak-pop');
+
+    let title = 'SLICE!';
+    if (combo >= 50 || n >= 50) title = 'GODLIKE CUT!';
+    else if (combo >= 25 || n >= 25) title = 'UNSTOPPABLE!';
+    else if (combo >= 10 || n >= 10) title = 'ULTRASLICE!';
+    else if (combo >= 5 || n >= 5) title = 'MULTISLICER!';
+    else if (n === 3 || combo >= 3) title = 'TRIPLE SLICE!';
+    else if (n === 2 || combo >= 2) title = 'DOUBLE SLICE!';
+
+    const sub = combo > 1 ? ` · x${combo}` : '';
+    this.push('hit', `${title}${sub}`, comboColor(combo), 'hit-pop');
+    if (n >= 2 || combo >= 5) {
+      this.push('streak', title, comboColor(combo), 'streak-pop');
     }
     this.maybeFocus(combo);
   }

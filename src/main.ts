@@ -6,23 +6,33 @@ import { GameRenderer } from './engine/renderer';
 import { fruitAtlas } from './game/atlas';
 import { Field } from './game/field';
 import { FRUIT_DEFS, FruitField, fruitFamily, type Fruit } from './game/fruits';
-import { HEROES, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
+import { HEROES, MAX_HERO_LEVEL, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
 import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
 import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
 import { findSlicer, hexToNumber } from './game/slicers';
 import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
-import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
+import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
-import { addScore, awardPerfectWave, chargeSuper, createState, leakCost, resetState, toast } from './game/state';
+import { chargeSuper, createState, damageTower, isPerfectWave, leakCost, resetState, toast } from './game/state';
+import {
+  applyRewards,
+  calculateReward,
+  comboTiersBetween,
+  type ProgressionResult,
+  type RewardEvent,
+} from './game/progression';
+import { currentRewardModifiers } from './game/progression/modifiers';
+import type { ComboResetReason } from './game/progression/combo';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { BladeTrail } from './game/trail';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
-import { MAIN_INDEX, PADS, slotIndexAt, upgradeCost } from './game/world';
-import { BladeInput, type Slash } from './input/blade';
+import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
+import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
+import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
 import { submitScore, syncCloudSave, fetchCloudSave } from './services/api';
 import { initAchievementsCache } from './services/achievements';
@@ -33,9 +43,15 @@ import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
 import { getTowerMilestoneBonuses } from './game/towerMilestones';
 import { navigation } from './game/navigation';
+import { canEquipHero, purchaseHeroAtomic } from './game/progression/heroStatus';
 import { heroCombatPerkMultiplier } from './game/heroPerkSave';
-import { vipTierPrice, vipTierPurchaseCoins, vipXpMultiplier } from './game/vipBonuses';
+import { vipTierPrice, vipTierPurchaseCoins } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
+import { updateTowerChip } from './ui/towerChip';
+import { installGameScreens, refreshCurrentScreen } from './ui/screens';
+import { canSellItem } from './game/catalog';
+import { initThemeSystem } from './ui/theme';
+import { installDesignMode } from './ui/design/designMode';
 import {
   BOSS_OVERLORD_STUDIO_KEY,
   bossStudioKey,
@@ -43,6 +59,9 @@ import {
   setStudioFxCallbacks,
 } from './game/studioRuntime';
 import { fireCreatorSlicerVfx, setCreatorVfxCallbacks } from './game/creatorVfx';
+
+// Theme + layout must be applied before any UI renders.
+initThemeSystem();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -135,21 +154,25 @@ function emit(event: GameEvent): void {
   });
 }
 
-function resetCombo(_reason?: string): void {
+function resetCombo(_reason: ComboResetReason): void {
+  if (state.combo === 0 && state.comboTimer === 0) return;
   state.combo = 0;
   state.comboTimer = 0;
 }
 
-function getTowerProgressionBonuses(): { damageBonus: number; hpBonus: number } {
-  const tower = getTowerXpState();
-  const level = tower.level;
-  const damageBonus = Math.floor(level / 2);
-  const hpBonus = level >= 5 ? Math.floor((level - 4) * 0.5) : 0;
-  return { damageBonus, hpBonus };
+/**
+ * Account Main Tower level → combat damage bonus.
+ *
+ * Survivability milestones (Lv 4 / Lv 8) are applied as +max lives in
+ * `resetState`, so there is deliberately no second HP system here.
+ */
+function towerDamageBonus(): number {
+  return Math.floor(getTowerXpState().level / 2);
 }
 
 initAchievementsCache();
 installHudToggles();
+installDesignMode();
 void loadLiveConfig().then(() => {
   applyEquippedBlade();
   hud.mountShop(save);
@@ -158,10 +181,33 @@ void loadLiveConfig().then(() => {
 fruits.onSpawn = (fruit) => {
   const enemy = enemyRule(fruit.enemyKind);
   if (enemy.kind === 'normal' || !enemy.warning) return;
-  toast(state, enemy.warning, 1.35);
+  // Explosives are a tower-defense decision, not a random bomb: give them a
+  // longer, louder callout so the player can plan the slice (§7).
+  if (enemy.kind === 'explosive') {
+    toast(state, `⚠ ${enemy.warning}`, 2.4);
+    sfx.enemyWarning();
+    renderer.impulseShake(0.25);
+  } else {
+    toast(state, enemy.warning, 1.35);
+  }
 };
 hud.mountMeta(save);
 hud.onHero = (id) => selectHero(id);
+hud.onToastRequest = (message) => toast(state, message, 2);
+hud.onHeroPurchase = (id) => {
+  const result = purchaseHeroAtomic(save, id);
+  if (!result.ok) {
+    toast(state, result.message ?? 'Purchase failed', 2.2);
+    sfx.denied();
+    return;
+  }
+  writeSave(save);
+  persist();
+  toast(state, `${heroDef(id).name} unlocked! -${(result.coinsSpent ?? 0).toLocaleString()} coins`, 2.6);
+  sfx.unlockItem();
+  hud.mountHeroes(save);
+  selectHero(id);
+};
 hud.onMode = (id) => setMode(id);
 hud.onBuySkin = (id) => buySkin(id);
 hud.onEquipItem = (id) => equipItem(id);
@@ -204,10 +250,14 @@ function applyEquippedBlade(): void {
 
 function persist(): void {
   save.hero = state.hero;
-  save.xp[state.hero] = state.heroXp;
+  // Hero XP is owned by the reward pipeline (applyRewards writes save.xp).
+  // persist() must never copy match state back over it, or a stale
+  // state.heroXp could silently roll saved progression backwards.
+  state.heroXp = save.xp[state.hero] ?? 0;
   save.highScore = Math.max(save.highScore, state.score);
   if (state.mode === 'ranked') save.rankedScore = Math.max(save.rankedScore, state.score);
   save.bestWave = Math.max(save.bestWave, state.wave);
+  save.bestCombo = Math.max(save.bestCombo ?? 0, state.bestCombo ?? state.combo ?? 0);
   save.mode = state.mode;
   writeSave(save);
   syncCloudSave(save);
@@ -390,6 +440,12 @@ function buySkill(id: SkillId): void {
 }
 
 function selectHero(id: HeroId): void {
+  // A player must never equip an unavailable hero (§4).
+  if (!canEquipHero(save, id)) {
+    toast(state, `${heroDef(id).name} is locked`, 2);
+    sfx.denied();
+    return;
+  }
   persist();
   state.hero = id;
   state.heroXp = save.xp[id] ?? 0;
@@ -402,19 +458,63 @@ function selectHero(id: HeroId): void {
   sfx.select();
 }
 
-function grantHeroXp(n: number): void {
-  const amount = Math.max(0, Math.round(n * vipXpMultiplier()));
-  state.heroXp += amount;
-  const next = heroXpToLevel(state.heroXp);
-  if (next > state.heroLevel) {
-    const gained = next - state.heroLevel;
-    state.heroLevel = next;
-    save.skillPoints += gained;
-    toast(state, `${heroDef(state.hero).name} Lv ${next}  +${gained} skill point${gained > 1 ? 's' : ''}`, 2.2);
+/**
+ * THE single entry point for gameplay rewards.
+ *
+ *   GAME EVENT → REWARD CALCULATION → PLAYER PROGRESSION → SAVE → UI FEEDBACK
+ *
+ * No other code path may grant hero XP, tower XP, coins or score.
+ */
+function award(event: RewardEvent): ProgressionResult {
+  const reward = calculateReward(event, currentRewardModifiers(state, save));
+
+  // Score and in-match currency live on the match state, not the save.
+  state.score += reward.score;
+  state.currency += Math.max(0, Math.round(reward.score * 0.6));
+
+  const result = applyRewards(save, reward, { heroId: state.hero });
+  state.heroXp = save.xp[state.hero] ?? 0;
+  state.towerXp = save.towerXp;
+  const towerState = getTowerXpState();
+  state.towerXpToNext = towerState.nextLevelXp;
+  state.towerXpProgress = towerState.progress;
+
+  announceProgression(result);
+  persist();
+  return result;
+}
+
+/** UI FEEDBACK step: level-ups, milestones and hero unlocks. */
+function announceProgression(result: ProgressionResult): void {
+  if (result.heroLeveledUp) {
+    const heroName = heroDef(result.heroId).name;
+    const parts = [`${heroName} Lv ${result.heroLevelAfter}`];
+    if (result.perkPointsGained > 0) {
+      parts.push(`+${result.perkPointsGained} perk point${result.perkPointsGained > 1 ? 's' : ''}`);
+    }
+    toast(state, parts.join('  '), 2.2);
     emit({ type: 'hero_level' });
     sfx.unlockItem();
+
+    for (const milestone of result.heroMilestones) {
+      toast(state, `${milestone.name.toUpperCase()} — ${milestone.reward}`, 2.6);
+    }
+    if (result.heroMaxed) {
+      toast(state, `${heroName} MAX MASTERY — Lv ${MAX_HERO_LEVEL}`, 3.2);
+    }
   }
-  persist();
+
+  for (const heroId of result.heroesUnlocked) {
+    toast(state, `NEW HERO UNLOCKED — ${heroDef(heroId).name}`, 3);
+    sfx.unlockItem();
+    hud.mountHeroes(save);
+  }
+
+  if (result.towerLeveledUp) {
+    for (const name of result.towerMilestoneNames) toast(state, `MAIN TOWER ${name}`, 2.6);
+    if (result.towerMaxed) toast(state, 'MAIN TOWER — MASTER FORTRESS (Lv 10)', 3.2);
+    sfx.unlockItem();
+  }
 }
 
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
@@ -436,14 +536,27 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul * towerJuiceMul));
   bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   
-  const enemy = enemyRule(fruit.enemyKind);
-  const baseScore = FRUIT_DEFS[fruit.kind].score * (fruit.boss ? 4 : 1);
-  const scoreReward = Math.round(baseScore * enemy.scoreMultiplier);
-  const baseXp = fruit.boss ? 4 : 1;
-  const xpReward = Math.round(baseXp * enemy.xpMultiplier);
-  
-  addScore(state, scoreReward);
-  grantHeroXp(xpReward);
+  // Central reward pipeline — special-enemy score/XP multipliers are applied
+  // inside calculateReward, so they always reach the economy.
+  const result = award({
+    type: fruit.boss ? 'boss_defeated' : fruit.enemyKind === 'normal' ? 'fruit_sliced' : 'special_enemy_killed',
+    baseScore: FRUIT_DEFS[fruit.kind].score,
+    enemyKind: fruit.enemyKind,
+    boss: !!fruit.boss,
+    combo: state.combo,
+  });
+  const scoreReward = result.scoreGained;
+  const scr = worldPct(fruit.group.position.x, fruit.group.position.y + 0.35, fruit.group.position.z);
+  if (fruit.boss) {
+    floatingScore.spawn(`+${scoreReward} OVERLORD`, scr.nx, scr.ny, 'boss');
+    renderer.impulseShake(1.4);
+  } else if (fruit.enemyKind !== 'normal') {
+    const enemyData = enemyRule(fruit.enemyKind);
+    floatingScore.spawn(`+${scoreReward} ${enemyData.label.toUpperCase()}`, scr.nx, scr.ny, 'special');
+  } else {
+    floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'normal');
+  }
+
   const rules = modeRules(state.mode);
   chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
@@ -490,8 +603,8 @@ function maybeOver(): void {
   state.running = false;
   navigation.setState('GAME_OVER');
   save.games += 1;
-  save.coins += Math.max(2, Math.floor(state.score / 18));
-  persist();
+  resetCombo('match_end');
+  award({ type: 'game_over', score: state.score });
   sfx.gameOver();
   sfx.stopAllLoops();
 
@@ -570,7 +683,7 @@ function tryUpgrade(): void {
   if (!slot.filled) return;
   const cost = upgradeCost(slot.level);
   if (cost == null) {
-    toast(state, 'Already Lv 5');
+    toast(state, `Already Lv ${MAX_TOWER_LEVEL}`);
     return;
   }
   if (state.currency < cost) {
@@ -580,7 +693,7 @@ function tryUpgrade(): void {
   }
   state.currency -= cost;
   wall.upgradeSelected();
-  toast(state, `${slot.main ? 'Main' : slot.kind} is now Lv ${slot.level}/5`);
+  toast(state, `${slot.main ? 'Main' : slot.kind} is now Lv ${slot.level}/${MAX_TOWER_LEVEL}`);
   emit({ type: 'turret_upgrade' });
   sfx.unlockItem();
 }
@@ -603,6 +716,7 @@ function restart(): void {
   bank.add('pink', rules.pink);
   bank.add('orange', rules.orange);
   combos.reset();
+  floatingScore.reset();
   wall.cancelMove();
   guestCd = 1.6;
   totalFruitsSliced = 0;
@@ -642,8 +756,10 @@ function slashLines(slash: Slash): Slash[] {
     const s = touch ? 0.62 : 0.4;
     for (const side of [-1, 1]) {
       lines.push({
+        id: slash.id,
         from: slash.from.clone().add(new Vector3(px * s * side, 0, pz * s * side)),
         to: slash.to.clone().add(new Vector3(px * s * side, 0, pz * s * side)),
+        segments: slash.segments,
         speed: slash.speed,
         charge: slash.charge,
         pointer: slash.pointer,
@@ -654,12 +770,23 @@ function slashLines(slash: Slash): Slash[] {
 }
 
 function resolveSlash(slash: Slash): void {
+  // Filter accidental slow drags — fast swipes feel powerful and deliberate
+  if (slash.speed < MIN_SLICE_SPEED) {
+    return;
+  }
+
   const hero = heroDef(state.hero);
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
   const slicerFx = equippedSlicer();
   const critChance = (heroCombatPerkMultiplier(state.hero, 'critical') - 1) * 0.15;
   const isCrit = Math.random() < critChance;
+
+  // Ki spiritual charge cleave bonus
+  if (state.hero === 'ki' && slash.charge > 0.4) {
+    renderer.impulseShake(0.85);
+    sfx.boost();
+  }
 
   // Equipped blade juice on EVERY slash (not only fruit hits)
   const slashMid = {
@@ -690,12 +817,18 @@ function resolveSlash(slash: Slash): void {
   if (swipe.lengthSq() < 0.0001) swipe.set(1, 0, 0);
   else swipe.normalize();
 
+  // Stable hit tracking per stroke: a fruit or half cannot be hit multiple times by one swipe
+  const hitFruits = new Set<Fruit>();
   const cutBits = new Set<typeof debris.halves[number]>();
+
   for (const line of slashLines(slash)) {
     fruits.dodgeSlash(line);
     for (const fruit of fruits.fruits) {
-      if (!fruit.alive) continue;
-      if (!segmentHitsFruit(line.from, line.to, fruit, radius).hit) continue;
+      if (!fruit.alive || hitFruits.has(fruit)) continue;
+      const res = strokeHitsFruit(line, fruit, radius);
+      if (!res.hit) continue;
+
+      hitFruits.add(fruit);
       hits += 1;
       const hitPos = {
         x: fruit.group.position.x,
@@ -710,49 +843,62 @@ function resolveSlash(slash: Slash): void {
         /* Creator VFX must never break combat */
       }
       if (fruit.kind === 'bomb') {
-        if (line.speed > 8 || state.hero === 'ki') {
+        if (line.speed > 7.5 || state.hero === 'ki') {
           sfx.bombParry();
-          addScore(state, FRUIT_DEFS.bomb.score);
-          grantHeroXp(1);
+          award({ type: 'bomb_parry', baseScore: FRUIT_DEFS.bomb.score, combo: state.combo });
+          const scr = worldPct(hitPos.x, hitPos.y + 0.35, hitPos.z);
+          floatingScore.spawn('PARRY! +55', scr.nx, scr.ny, 'critical');
           emit({ type: 'bomb_parry' });
         } else {
           sfx.bombExplode();
-          state.lives -= 2;
+          damageTower(state, 2);
           toast(state, 'Bomb!');
           maybeOver();
         }
         fruits.kill(fruit);
         continue;
       }
+      if (fruit.enemyKind === 'armored') {
+        sfx.armorHit();
+      }
       if (state.hero === 'topfu' || brittleBonus > 0) {
         const base = state.hero === 'topfu' ? (pointer === 'touch' ? 2.8 : 2.1) : 0;
         fruit.brittle = Math.max(fruit.brittle, base + brittleBonus);
         if (state.hero === 'topfu') {
-          fruit.impulseX += swipe.x * 2.2;
-          fruit.impulseZ += swipe.z * 2.2;
+          fruit.impulseX += swipe.x * 2.4;
+          fruit.impulseZ += swipe.z * 2.4;
+          // Topfu splash: apply brittle to nearby fruits
+          const fx = fruit.group.position.x;
+          const fz = fruit.group.position.z;
+          for (const other of fruits.fruits) {
+            if (!other.alive || other === fruit) continue;
+            if (Math.hypot(other.group.position.x - fx, other.group.position.z - fz) < 1.8) {
+              other.brittle = Math.max(other.brittle, 2.2);
+              other.impulseX += swipe.x * 1.5;
+              other.impulseZ += swipe.z * 1.5;
+            }
+          }
         }
       }
-      const towerBonus = getTowerProgressionBonuses().damageBonus;
+      const towerBonus = towerDamageBonus();
       const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus);
       
-      if (fruit.enemyKind === 'explosive' && !killed && !fruit.volatileTriggered) {
-        const enemy = enemyRule(fruit.enemyKind);
-        const hitDamage = Math.ceil(enemy.towerDamageOnHit);
-        if (hitDamage > 0) {
-          state.lives -= hitDamage;
-          fruit.volatileTriggered = true;
-          toast(state, enemy.warning || `${enemy.label} HIT!`, 1.2);
-          renderer.impulseShake(0.6);
-          maybeOver();
-        }
+      // Explosive tower damage is applied once, inside FruitField.hurt().
+      if (fruit.enemyKind === 'explosive' && fruit.volatileTriggered && !killed) {
+        resetCombo('explosive_mistake');
+        renderer.impulseShake(0.85);
+        sfx.bombExplode();
+        maybeOver();
       }
-      
+
       if (killed) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
-      if (segmentHitsHalf(line.from, line.to, bit, radius * 0.35)) cutBits.add(bit);
+      if (cutBits.has(bit)) continue;
+      if (strokeHitsHalf(line, bit, radius * 0.35)) cutBits.add(bit);
     }
   }
+
   for (const bit of cutBits) {
     const px = bit.group.position.x;
     const py = bit.group.position.y;
@@ -761,20 +907,42 @@ function resolveSlash(slash: Slash): void {
     const gen = debris.reslice(bit, swipe, swipe);
     if (!gen) continue;
     hits += 1;
-    juice.burst(px, py, pz, kind, swipe, 0.55);
-    addScore(state, 4 * gen);
-    chargeSuper(state, 1.2 + save.skills.flow * 0.6);
+    const isSecondCut = gen >= 2;
+    const juiceGain = isSecondCut ? 3 : 1;
+    bank.add(juiceHueFromKind(kind), juiceGain);
+    juice.burst(px, py, pz, kind, swipe, isSecondCut ? 1.3 : 0.65);
+    const resliceAward = award({ type: 'reslice', generation: gen, combo: state.combo });
+    chargeSuper(state, (1.2 + save.skills.flow * 0.6) * (isSecondCut ? 1.6 : 1));
     slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash);
     const screen = worldPct(px, py + 0.35, pz);
     combos.onReslice(gen, screen.nx, screen.ny);
-    sfx.slice(kind, 2, false);
+    if (isSecondCut) {
+      state.comboTimer = Math.max(state.comboTimer + 0.4, 1.45);
+      floatingScore.spawn(`RESLICE II +${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
+      sfx.slice(kind, Math.max(3, state.combo), false);
+    } else {
+      floatingScore.spawn(`RESLICE +${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
+      sfx.slice(kind, 2, false);
+    }
     emit({ type: 'reslice', amount: gen, fruitKind: kind, fruitFamily: fruitFamily(kind) });
   }
 
+  if (hits === 0) {
+    // A swing that connects with nothing breaks the chain (§8 "player misses").
+    resetCombo('miss');
+  }
+
   if (hits > 0) {
+    const comboBefore = state.combo;
     state.combo = state.hero === 'jiju' ? state.combo + hits : Math.max(1, state.combo) + hits;
+    // One-off bonus for each newly crossed combo tier (data-driven thresholds).
+    for (const tier of comboTiersBetween(comboBefore, state.combo)) {
+      award({ type: 'combo_milestone', combo: tier.combo });
+      toast(state, `${tier.label.toUpperCase()} x${tier.combo}`, 1.1);
+      floatingScore.spawn(`+${tier.combo * 10} COMBO!`, 50, 36, 'combo');
+    }
     const comboEngineMul = heroCombatPerkMultiplier(state.hero, 'combo');
-    state.comboTimer = 1.35 * comboEngineMul;
+    state.comboTimer = (state.hero === 'jiju' ? 1.65 : 1.35) * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
     renderer.impulseShake(hero.shake * (1 + Math.min(0.8, slash.charge)));
@@ -810,7 +978,7 @@ function worldPct(x: number, y: number, z: number): { nx: number; ny: number } {
 
 function setPaused(on: boolean): void {
   if (!navigation.isInGame() || !state.running) return;
-  navigation.setState(on ? 'PAUSED' : 'PLAYING');
+  navigation.setState(on ? 'PAUSED' : 'PLAY');
   hud.showPause(on);
   if (on) sfx.pause();
   else sfx.unpause();
@@ -824,7 +992,7 @@ function quitToMenu(): void {
   }
   
   persist();
-  navigation.setState('DASHBOARD');
+  navigation.setState('MAIN_MENU');
   state.running = false;
   wall.cancelMove();
   blade.consumeClick();
@@ -834,6 +1002,7 @@ function quitToMenu(): void {
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
+  floatingScore.reset();
   sfx.pause();
   sfx.stopAllLoops();
 }
@@ -844,7 +1013,7 @@ if (typeof window !== 'undefined') {
 
 function restartMatch(): void {
   hud.showPause(false);
-  navigation.setState('PLAYING');
+  navigation.setState('PLAY');
   document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showMenu(false);
   restart();
@@ -906,8 +1075,10 @@ function tickGuest(dt: number): void {
   const z = best.group.position.z;
   slashFx.spawn(x, z, 0x93c5fd);
   resolveSlash({
+    id: 0,
     from: new Vector3(x - 0.95, 0, z),
     to: new Vector3(x + 0.95, 0, z),
+    segments: [],
     speed: 11,
     charge: 0.28,
     pointer: 'mouse',
@@ -1054,15 +1225,14 @@ function simulate(dt: number): void {
     const wasBoss = fruits.fruits.some(f => !f.alive && f.boss);
 
     // Perfect wave: every fruit killed (no leaks that wave)
-    const perfectReward = awardPerfectWave(state);
-    if (perfectReward > 0) {
-      toast(state, `Perfect wave! +${perfectReward}`, 1.4);
+    const perfect = isPerfectWave(state);
+    award({ type: 'wave_cleared', wave: state.wave });
+    if (perfect) {
+      const perfectResult = award({ type: 'perfect_wave', wave: state.wave });
+      toast(state, `Perfect wave! +${perfectResult.scoreGained}`, 1.4);
     }
 
     state.wave += 1;
-    const rules = modeRules(state.mode);
-    state.currency += Math.round((22 + state.wave * 6) * rules.currencyMul);
-    persist();
     
     if (wasBoss) {
       toast(state, `Level ${state.level} complete!`, 2);
@@ -1086,8 +1256,7 @@ function simulate(dt: number): void {
     const baseCost = leakCost(state, fruit.kind, fruit.boss);
     const towerGuardianMul = heroCombatPerkMultiplier(state.hero, 'tower');
     const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
-    state.lives -= leakDamage;
-    resetCombo('leak');
+    damageTower(state, leakDamage);
     sessionLeaks += 1;
     sfx.leak();
     if (fruit.boss) {
@@ -1108,7 +1277,7 @@ function simulate(dt: number): void {
     if (hit.impulseZ) hit.fruit.impulseZ += hit.impulseZ;
     if (hit.brittle) hit.fruit.brittle = Math.max(hit.fruit.brittle, 2.4);
     const swipe = new Vector3(0, 0.2, 1);
-    const towerBonus = getTowerProgressionBonuses().damageBonus;
+    const towerBonus = towerDamageBonus();
     const dmg = Math.round(hit.damage * (1 + save.skills.steel * 0.12) + towerBonus);
     if (fruits.hurt(hit.fruit, dmg)) {
       killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
@@ -1120,6 +1289,7 @@ function simulate(dt: number): void {
   debris.update(dt);
   slashFx.update(dt);
   combos.update(dt);
+  floatingScore.update(dt);
   renderer.update(dt);
   blade.fadeTrail();
   trail.sync(blade.trail);
@@ -1133,6 +1303,7 @@ function draw(): void {
 
 const loop = new GameLoop(simulate, draw, () => {
   hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, navigation.isInGame());
+  updateTowerChip();
 });
 hud.onPlace = (kind) => {
   if (navigation.canInteract() && state.running) tryPlace(kind);
@@ -1145,15 +1316,13 @@ window.addEventListener('keydown', (e) => {
       document.getElementById('title-quit')?.classList.add('hidden');
       return;
     }
-    if (navigation.state === 'DASHBOARD') {
-      navigation.setState('TITLE');
-      hud.returnToTitle();
-      return;
-    }
-    if (navigation.state === 'TITLE') {
-      navigation.setState('DASHBOARD');
-      hud.showPage('play');
-      hud.showMenu(true);
+    // Menu screens: the screen registry's ESC handler owns BACK, so this
+    // branch only covers the title and in-match cases (§1).
+    if (!navigation.isInGame()) {
+      if (navigation.state === 'MAIN_MENU') {
+        navigation.setState('TITLE');
+        hud.returnToTitle();
+      }
       return;
     }
     if (!state.running) {
@@ -1181,7 +1350,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR' && navigation.isInGame() && !state.running) restartMatch();
   if (e.code.startsWith('Digit')) {
     const n = Number(e.code.slice(5));
-    if (n >= 1 && n <= 5 && navigation.state === 'DASHBOARD' && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
+    if (n >= 1 && n <= 5 && navigation.state === 'MAIN_MENU' && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
   }
 });
 
@@ -1208,8 +1377,8 @@ if (muteBtn) {
   });
 }
 
-startBtn.addEventListener('click', async () => {
-  startBtn.textContent = 'Slicing…';
+/** Shared launch path for every PLAY entry point (menu button, screens). */
+async function launchMatch(): Promise<void> {
   persist();
   await Promise.all([sfx.unlock(), fruitAtlas.load()]);
   wall.applySkins();
@@ -1217,7 +1386,78 @@ startBtn.addEventListener('click', async () => {
   wallSkinApply();
   applyEquippedBlade();
   restartMatch();
+}
+
+startBtn.addEventListener('click', async () => {
+  startBtn.textContent = 'Slicing…';
+  await launchMatch();
   startBtn.textContent = 'Play';
+});
+
+/* ═══════════════ PHASE 2 GAME SCREENS ═══════════════
+   Screens read the live save and route every mutation back through the
+   existing gameplay functions, so there is no second economy path. */
+installGameScreens({
+  getSave: () => save,
+  onPlay: () => void launchMatch(),
+  onQuit: () => document.getElementById('title-quit')?.classList.remove('hidden'),
+  onBuyItem: (id) => {
+    buySkin(id);
+    refreshCurrentScreen();
+  },
+  onEquipItem: (id) => {
+    equipItem(id);
+    refreshCurrentScreen();
+  },
+  onSellItem: (id) => {
+    // Re-check here too: the screen disables the button, but the guard is the
+    // rule, and the UI must never be the only thing enforcing it (§7).
+    const check = canSellItem(save, id);
+    if (!check.ok) {
+      toast(state, check.message ?? 'Cannot sell that.', 2.4);
+      sfx.denied();
+      return;
+    }
+    sellItem(id);
+    refreshCurrentScreen();
+  },
+  onEquipHero: (id) => {
+    selectHero(id);
+    refreshCurrentScreen();
+  },
+  onBuyHero: (id) => {
+    hud.onHeroPurchase?.(id);
+    refreshCurrentScreen();
+  },
+  getProfileStats: () => ({
+    bestCombo: save.bestCombo ?? 0,
+    season: 'Season 1',
+  }),
+  showLobbyPage: (page) => hud.showPage(page),
+});
+
+/**
+ * Leaving a live match must always be deliberate (§10). The guard runs for
+ * every navigation, so PLAY → anywhere is covered once, not per button.
+ */
+navigation.addGuard((change) => {
+  const leavingMatch =
+    (change.from === 'PLAY' || change.from === 'PAUSED') && change.to !== 'PAUSED' && change.to !== 'PLAY';
+  if (!leavingMatch || !state.running) return true;
+  return confirm('Leave this match?\n\nYour progress in this run will be lost.');
+});
+
+/** Keep the legacy lobby and the new main menu mutually exclusive. */
+navigation.onChange((change) => {
+  const gate = document.getElementById('hud-start');
+  const menu = document.getElementById('screen-main-menu');
+  if (change.to === 'MAIN_MENU') {
+    gate?.classList.add('hidden');
+    menu?.classList.remove('hidden');
+  } else if (menu && change.from === 'MAIN_MENU') {
+    // Overlays keep the menu mounted underneath; full screens replace it.
+    if (!navigation.isOverlay(change.to)) menu.classList.add('hidden');
+  }
 });
 
 loop.start();

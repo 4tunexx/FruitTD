@@ -6,6 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Allow sandbox/tunnel preview hosts (e.g. *.e2b.app) during development.
+    allowedHosts: ['.e2b.app', 'localhost'],
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

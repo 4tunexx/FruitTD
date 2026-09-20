@@ -1,0 +1,93 @@
+import { THEME_SCHEMA_VERSION, type Theme } from './types';
+
+/**
+ * The single source of truth for FruitTD's default visual identity.
+ * Values mirror the legacy hardcoded tokens that used to live in style.css.
+ */
+export const DEFAULT_THEME: Theme = {
+  id: 'fruittd-default',
+  name: 'FruitTD Default',
+  version: THEME_SCHEMA_VERSION,
+  colors: {
+    primary: '#a3e635',
+    secondary: '#65a30d',
+    accent: '#fbbf24',
+    background: '#050a0f',
+    panel: 'rgba(255, 255, 255, 0.04)',
+    panelSecondary: 'rgba(255, 255, 255, 0.07)',
+    border: 'rgba(255, 255, 255, 0.09)',
+    text: '#f1f5f9',
+    textMuted: '#94a3b8',
+    success: '#3ad15c',
+    warning: '#fbbf24',
+    danger: '#fb7185',
+    xp: '#38bdf8',
+    coins: '#fbbf24',
+    tower: '#a78bfa',
+    combo: '#ff4d6d',
+  },
+  typography: {
+    headingFont: "'Outfit', system-ui, sans-serif",
+    bodyFont: "'Outfit', system-ui, sans-serif",
+    numberFont: "'Outfit', system-ui, sans-serif",
+    buttonFont: "'Outfit', system-ui, sans-serif",
+    scale: 1,
+    sizes: {
+      xs: '0.7rem',
+      sm: '0.8rem',
+      md: '0.95rem',
+      lg: '1.15rem',
+      xl: '1.5rem',
+      display: '2.6rem',
+    },
+    weights: { body: 500, heading: 800, button: 700, number: 800 },
+  },
+  shapes: {
+    panelRadius: '0.35rem',
+    buttonRadius: '0.28rem',
+    cardRadius: '0.3rem',
+    borderWidth: '1px',
+  },
+  effects: {
+    shadow: '0 18px 40px rgba(0, 0, 0, 0.45)',
+    shadowSoft: '0 6px 18px rgba(0, 0, 0, 0.3)',
+    glow: '0 0 18px rgba(163, 230, 53, 0.45)',
+    blur: '12px',
+    panelOpacity: 1,
+    mutedOpacity: 0.62,
+    backdropOpacity: 0.72,
+  },
+  animation: {
+    transitionSpeed: 180,
+    popupSpeed: 220,
+    hoverSpeed: 120,
+    screenTransition: 300,
+    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    reducedMotion: false,
+  },
+  spacing: {
+    xs: '0.25rem',
+    sm: '0.5rem',
+    md: '0.85rem',
+    lg: '1.35rem',
+    xl: '2rem',
+    screenPadding: '1.25rem',
+    panelPadding: '1rem',
+    gridGap: '0.75rem',
+  },
+  surfaces: {
+    buttonStyle: 'solid',
+    panelStyle: 'glass',
+    uppercaseLabels: true,
+  },
+  assets: {
+    logo: '',
+    background: '',
+    panelBackground: '',
+    buttonImage: '',
+    heroArtwork: '',
+    menuArtwork: '',
+    favicon: '',
+    decor: '',
+  },
+};

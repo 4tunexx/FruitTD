@@ -27,8 +27,10 @@ import { installSpriteUploads } from './adminSprites';
 import { installMediaStudio } from './adminMediaStudio';
 import { installCreatorWaveBoard } from './creatorWaveBoard';
 import { installCreatorSlicerVfx } from './creatorSlicerVfx';
+import { openDesignMode } from './design/designMode';
+import { renderThemeEditor } from './design/themeEditor';
 
-type AdminTab = 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
+type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -97,6 +99,9 @@ export class AdminController {
         }
       });
     });
+
+    // DESIGN tab → shared theme system (no second design system)
+    document.getElementById('btn-admin-open-design')?.addEventListener('click', () => openDesignMode());
 
     // Save Config Button
     document.getElementById('btn-admin-save')?.addEventListener('click', () => this.saveCurrentConfig());
@@ -175,6 +180,15 @@ export class AdminController {
       el.classList.add('hidden');
     }
     document.getElementById(`admin-tab-${this.activeTab}`)?.classList.remove('hidden');
+    if (this.activeTab === 'design') this.renderDesignTab();
+  }
+
+  /** Embeds the live Theme Editor inside Admin → Design. */
+  private renderDesignTab(): void {
+    const host = document.getElementById('admin-design-inline');
+    if (!host || host.dataset.ready === '1') return;
+    host.dataset.ready = '1';
+    host.appendChild(renderThemeEditor());
   }
 
   private async loadConfig(): Promise<void> {

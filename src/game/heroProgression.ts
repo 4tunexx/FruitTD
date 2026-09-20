@@ -31,19 +31,35 @@ export function heroPerkRank(level: number, perk: HeroPerkDef): number {
 }
 
 /**
+ * Per-rank perk tuning. Values are deliberately modest so perks stay
+ * meaningful without being overpowered, and live in one configurable table.
+ */
+export const HERO_PERK_VALUES: Record<HeroPerkId, { perRank: number; mode: 'bonus' | 'reduction'; floor?: number }> = {
+  combo: { perRank: 0.08, mode: 'bonus' },
+  juice: { perRank: 0.10, mode: 'bonus' },
+  tower: { perRank: 0.10, mode: 'reduction', floor: 0.7 },
+  critical: { perRank: 0.06, mode: 'bonus' },
+  survival: { perRank: 0.12, mode: 'bonus' },
+};
+
+/** Admin/live-config hook for perk tuning. */
+export function setHeroPerkValue(id: HeroPerkId, perRank: number): void {
+  const entry = HERO_PERK_VALUES[id];
+  if (entry) entry.perRank = Math.max(0, Number(perRank) || 0);
+}
+
+/**
  * Combat multiplier from an explicit perk rank.
- * Rank 0 stays neutral (1× / no tower leak reduction).
+ * Rank 0 stays neutral (1x / no tower leak reduction).
  */
 export function heroPerkMultiplier(id: HeroPerkId, rank: number): number {
   const safeRank = Math.max(0, Math.floor(Number(rank) || 0));
-  if (safeRank <= 0) return 1;
-  switch (id) {
-    case 'combo': return 1 + safeRank * 0.08;
-    case 'juice': return 1 + safeRank * 0.10;
-    case 'tower': return Math.max(0.7, 1 - safeRank * 0.10);
-    case 'critical': return 1 + safeRank * 0.06;
-    case 'survival': return 1 + safeRank * 0.12;
+  const cfg = HERO_PERK_VALUES[id];
+  if (safeRank <= 0 || !cfg) return 1;
+  if (cfg.mode === 'reduction') {
+    return Math.max(cfg.floor ?? 0, 1 - safeRank * cfg.perRank);
   }
+  return 1 + safeRank * cfg.perRank;
 }
 
 export function heroMasteryReward(level: number): string | null {

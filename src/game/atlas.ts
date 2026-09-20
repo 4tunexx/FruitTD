@@ -1,8 +1,9 @@
 import { CanvasTexture, SRGBColorSpace } from 'three';
-import atlasUrl from '../assets/fruit-atlas.jpg';
+
+const atlasUrl = new URL('../assets/fruit-atlas.jpg', import.meta.url).href;
 
 const COLS = 8;
-const ROWS = 5;
+const ROWS = 4;
 
 export class FruitAtlas {
   private img: HTMLImageElement | null = null;

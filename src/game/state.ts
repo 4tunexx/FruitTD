@@ -1,10 +1,11 @@
 import { getScoreMultiplier, getStartLivesScale, getStartMoneyScale, getSuperChargeMultiplier } from '../services/liveConfig';
 import { heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } from './heroes';
 import { modeRules } from './modes';
+import type { ComboResetReason } from './progression/combo';
 import { MAX_LIVES } from './world';
-import { getTowerXpState, grantTowerXp } from './towerProgression';
+import { getTowerXpState } from './towerProgression';
 import { getTowerMilestoneBonuses } from './towerMilestones';
-import { vipCoinMultiplier } from './vipBonuses';
+import { comboMultiplier } from './progression/combo';
 
 export interface GameState {
   score: number;
@@ -33,6 +34,8 @@ export interface GameState {
   heroXp: number;
   combo: number;
   comboTimer: number;
+  /** Peak combo this session; survives combo resets so it can be persisted. */
+  bestCombo: number;
   superJuice: number;
   mode: 'casual' | 'ranked' | 'coop' | 'arena';
 }
@@ -68,6 +71,7 @@ export function createState(): GameState {
     heroXp: 0,
     combo: 0,
     comboTimer: 0,
+    bestCombo: 0,
     superJuice: 0,
     mode: 'casual',
   };
@@ -97,13 +101,14 @@ export function createState(): GameState {
         return true;
       }
       if (property === 'combo') {
-        target.combo = Math.max(0, Math.floor(Number(value) || 0));
+        const next = Math.max(0, Math.floor(Number(value) || 0));
+        target.combo = next;
+        if (next > target.bestCombo) target.bestCombo = next;
         return true;
       }
       return Reflect.set(target, property, value, receiver);
     },
   });
-  if (typeof window !== 'undefined') (window as Window & { __fruitTdState?: GameState }).__fruitTdState = state;
   return state;
 }
 
@@ -112,9 +117,13 @@ export function resetState(state: GameState): void {
   const heroXp = state.heroXp;
   const tower = getTowerXpState();
   const mode = state.mode;
+  // Peak combo is a career stat, not a match stat — it must survive a restart
+  // so persist() can still record it after the state is rebuilt.
+  const bestCombo = state.bestCombo ?? 0;
   Object.assign(state, createState());
   state.hero = hero;
   state.heroXp = heroXp;
+  state.bestCombo = bestCombo;
   state.towerLevel = 1;
   state.towerXp = tower.xp;
   state.towerXpToNext = tower.nextLevelXp;
@@ -143,40 +152,44 @@ export function damageTower(state: GameState, amount: number): number {
   return actual;
 }
 
-function resetCombo(state: GameState, _reason?: string): void {
+function resetCombo(state: GameState, _reason: ComboResetReason): void {
   state.combo = 0;
   state.comboTimer = 0;
 }
 
-export function awardPerfectWave(state: GameState): number {
-  if (state.waveKilled <= 0 || state.waveTotal <= 0 || state.waveKilled < state.waveTotal) return 0;
-  const tower = getTowerXpState();
-  const bonuses = getTowerMilestoneBonuses(tower.level);
-  const reward = Math.max(4, Math.round((3 + state.wave * 0.75) * bonuses.perfectWaveXpMultiplier));
-  state.currency += reward;
-  const towerState = grantTowerXp(reward);
-  state.towerXp = towerState.xp;
-  state.towerXpToNext = towerState.nextLevelXp;
-  state.towerXpProgress = towerState.progress;
-  return reward;
+/**
+ * True when every spawned target in the wave was destroyed.
+ * `waveKilled` counts only spawned wave members — splitter children are
+ * excluded so a perfect wave stays accurately detectable (§7).
+ */
+export function isPerfectWave(state: GameState): boolean {
+  return state.waveTotal > 0 && state.waveKilled >= state.waveTotal;
 }
 
+/** @deprecated Superseded by the central reward pipeline (progression/rewards). */
+export function awardPerfectWave(state: GameState): number {
+  if (!isPerfectWave(state)) return 0;
+  const tower = getTowerXpState();
+  const bonuses = getTowerMilestoneBonuses(tower.level);
+  return Math.max(4, Math.round((3 + state.wave * 0.75) * bonuses.perfectWaveXpMultiplier));
+}
+
+/**
+ * Score-only helper for non-reward score adjustments.
+ *
+ * Coins/hero XP/tower XP are NOT granted here — that is exclusively the job of
+ * the central reward pipeline, which prevents the double-awarding that used to
+ * happen when addScore and grantHeroXp both ran for one event.
+ */
 export function addScore(state: GameState, base: number): void {
-  const rules = modeRules(state.mode);
   const scoreMul = getScoreMultiplier();
   const tower = getTowerXpState();
   const bonuses = getTowerMilestoneBonuses(tower.level);
-  const comboMul = 1 + Math.min(2.5, Math.max(0, state.combo) * 0.08 * bonuses.comboRewardMultiplier);
+  const comboMul = comboMultiplier(state.combo, bonuses.comboRewardMultiplier);
   const lastStandMul =
     state.lives <= Math.ceil(state.maxLives * 0.25) ? bonuses.lastStandRewardMultiplier : 1;
-  const vipMul = vipCoinMultiplier();
-  const rewarded = Math.max(0, Math.round(base * comboMul * lastStandMul * vipMul));
+  const rewarded = Math.max(0, Math.round(base * comboMul * lastStandMul));
   state.score += Math.round(rewarded * scoreMul);
-  state.currency += Math.max(2, Math.round(rewarded * 0.6 * rules.currencyMul));
-  const towerState = grantTowerXp(Math.max(1, Math.round(rewarded / 6)));
-  state.towerXp = towerState.xp;
-  state.towerXpToNext = towerState.nextLevelXp;
-  state.towerXpProgress = towerState.progress;
 }
 
 export function chargeSuper(state: GameState, amount: number): void {
@@ -188,13 +201,3 @@ export function toast(state: GameState, message: string, seconds = 1.8): void {
   state.toastTimer = seconds;
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('fruit-td-miss', () => {
-    const s = (window as Window & { __fruitTdState?: GameState }).__fruitTdState;
-    if (s) resetCombo(s, 'miss');
-  });
-  window.addEventListener('fruit-td-bomb-hit', () => {
-    const s = (window as Window & { __fruitTdState?: GameState }).__fruitTdState;
-    if (s) resetCombo(s, 'bomb');
-  });
-}

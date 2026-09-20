@@ -409,17 +409,53 @@ export class Sfx {
     else this.playBank(BANKS.swipe, { volume: 0.42, rate: 0.94 + Math.random() * 0.12 });
   }
 
-  slice(_kind: FruitKind, _combo: number, _blitz = false): void {
+  slice(kind: FruitKind, combo = 1, _blitz = false): void {
     const now = performance.now();
-    if (now - this.lastSliceAt < 100) return;
+    if (now - this.lastSliceAt < 60) return;
     this.lastSliceAt = now;
-    this.playBank(BANKS.cleanSlice, { volume: 0.42, rate: 0.97 + Math.random() * 0.06, interrupt: true });
+
+    // Pitch & volume escalation with combo intensity
+    const pitchScale = Math.min(1.35, 0.96 + Math.min(20, combo) * 0.015);
+    const volume = Math.min(0.62, 0.40 + Math.min(15, combo) * 0.012);
+
+    // Primary clean slice blade cut
+    this.playBank(BANKS.cleanSlice, { volume, rate: pitchScale * (0.97 + Math.random() * 0.06), interrupt: false });
+
+    // Fruit family specific juicy impact
+    if (kind === 'watermelon') {
+      this.playBank(BANKS.melonImpact, { volume: 0.45, rate: pitchScale });
+    } else if (kind === 'strawberry' || kind === 'kiwi') {
+      this.playBank(BANKS.berryImpact, { volume: 0.38, rate: pitchScale });
+    } else if (kind === 'apple') {
+      this.play('Impact-Apple', { volume: 0.42, rate: pitchScale });
+    } else if (kind === 'banana') {
+      this.play('Impact-Banana', { volume: 0.4, rate: pitchScale });
+    } else if (kind === 'pineapple') {
+      this.play('Impact-Pineapple', { volume: 0.42, rate: pitchScale });
+    } else if (kind === 'orange') {
+      this.play('Impact-Orange', { volume: 0.4, rate: pitchScale });
+    } else if (kind === 'lemon') {
+      this.playBank(BANKS.lemonImpact, { volume: 0.38, rate: pitchScale });
+    }
+
+    if (combo >= 5 && Math.random() < 0.45) {
+      this.playBank(BANKS.pulp, { volume: 0.24 });
+    }
   }
 
   combo(combo: number, _blitz = false): void {
     if (combo < 2) return;
     const idx = Math.min(BANKS.combo.length - 1, combo - 2);
-    this.play(BANKS.combo[idx], { volume: 0.42, interrupt: true });
+    const rate = Math.min(1.28, 1.0 + (combo - 2) * 0.015);
+    this.play(BANKS.combo[idx], { volume: Math.min(0.55, 0.42 + combo * 0.008), rate, interrupt: true });
+  }
+
+  armorHit(): void {
+    this.play('bamboo-impact-4', { volume: 0.48, rate: 0.88 });
+  }
+
+  bossHit(): void {
+    this.play('Critical', { volume: 0.52, rate: 0.95 });
   }
 
   bombExplode(): void {
@@ -428,6 +464,11 @@ export class Sfx {
 
   bombParry(): void {
     this.play('powerup-deflect', { volume: 0.4 });
+  }
+
+  /** Distinct callout when a dangerous special enemy spawns (§7). */
+  enemyWarning(): void {
+    this.play('time-beep', { volume: 0.32, interrupt: true });
   }
 
   bombFuse(_active: boolean): void {}

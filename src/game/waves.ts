@@ -1,5 +1,4 @@
 import type { FruitKind } from './fruits';
-import './enemyRuntime';
 import { enemyRule, specialEnemyForWave, type EnemyKind } from './enemies';
 import { modeRules } from './modes';
 import type { GameMode } from './save';

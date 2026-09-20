@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import { HERO_PERKS, heroPerkMultiplier, heroPerkRank } from './heroProgression';
 import { heroCombatPerkMultiplier, heroPerkRank as spentPerkRank } from './heroPerkSave';
 import { getTowerMilestoneBonuses, TOWER_MILESTONES } from './towerMilestones';
-import { createState, addScore, awardPerfectWave, resetState } from './state';
+import { createState, addScore, awardPerfectWave, isPerfectWave, resetState } from './state';
 import { MAX_HERO_LEVEL, heroXpForLevel } from './heroes';
 import { enemyReward, enemyXpReward, specialEnemyForWave } from './enemies';
 import { writeSave, loadSave } from './save';
@@ -69,19 +69,32 @@ test('tower milestone bonuses accumulate juice, fire rate, combo, last stand', (
   assert.ok(mid.maxLives >= 1);
 });
 
-test('awardPerfectWave pays only when the wave is fully cleared', () => {
+test('perfect wave is detected only when the wave is fully cleared', () => {
   localStorage.clear();
   const state = createState();
   state.wave = 3;
   state.waveTotal = 5;
   state.waveKilled = 4;
+  assert.equal(isPerfectWave(state), false);
   assert.equal(awardPerfectWave(state), 0);
 
   state.waveKilled = 5;
-  const before = state.currency;
-  const reward = awardPerfectWave(state);
-  assert.ok(reward > 0);
-  assert.equal(state.currency, before + reward);
+  assert.equal(isPerfectWave(state), true);
+  assert.ok(awardPerfectWave(state) > 0);
+});
+
+test('awardPerfectWave is a pure calculation and grants nothing itself', () => {
+  localStorage.clear();
+  const state = createState();
+  state.wave = 3;
+  state.waveTotal = 2;
+  state.waveKilled = 2;
+  const currencyBefore = state.currency;
+  const scoreBefore = state.score;
+  awardPerfectWave(state);
+  // Granting is exclusively the job of the central reward pipeline.
+  assert.equal(state.currency, currencyBefore);
+  assert.equal(state.score, scoreBefore);
 });
 
 test('resetState applies starting/max lives from tower milestones', () => {
