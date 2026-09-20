@@ -58,6 +58,13 @@ function swatch(item: CatalogItem): HTMLElement {
   return node;
 }
 
+function slotLabel(item: CatalogItem): string | null {
+  if (item.slot === 'blade') return 'BLADE';
+  if (item.slot === 'wall') return 'WALL';
+  if (item.slot === 'hero') return 'HERO';
+  return null;
+}
+
 export function renderItemCard(
   item: CatalogItem,
   state: ItemCardState,
@@ -77,7 +84,10 @@ export function renderItemCard(
 
   const info = el('div', { class: 'ftd-item-card__info' }, [
     el('p', { class: 'ftd-item-card__name', text: item.name }),
-    el('p', { class: 'ftd-item-card__rarity', text: item.rarity.toUpperCase() }),
+    el('div', { class: 'ftd-item-card__meta' }, [
+      el('p', { class: 'ftd-item-card__rarity', text: item.rarity.toUpperCase() }),
+      slotLabel(item) ? el('span', { class: 'ftd-item-card__slot', text: slotLabel(item)! }) : null,
+    ]),
     el('p', { class: 'ftd-item-card__desc', text: item.description }),
   ]);
 
@@ -115,7 +125,7 @@ export function renderItemCard(
     );
   } else {
     if (state.equipped) {
-      footer.appendChild(el('span', { class: 'ftd-item-card__equipped', text: 'EQUIPPED' }));
+      footer.appendChild(el('span', { class: 'ftd-item-card__equipped', text: `${slotLabel(item) ?? 'ITEM'} EQUIPPED` }));
     } else if (item.slot) {
       footer.appendChild(
         GameButton({

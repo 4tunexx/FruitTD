@@ -49,6 +49,7 @@ export type ScreenId =
   | 'missions'
   | 'achievements'
   | 'profile'
+  | 'news'
   | 'settings'
   | 'hud'
   | 'admin'
@@ -97,6 +98,7 @@ export const DEFAULT_LAYOUT: LayoutConfig = {
     missions: { kind: 'overlay', responsive: { mobile: 'fullscreen' }, size: 'md', animation: 'slide' },
     achievements: { kind: 'overlay', responsive: { mobile: 'fullscreen' }, size: 'md', animation: 'slide' },
     profile: { kind: 'overlay', responsive: { mobile: 'fullscreen' }, size: 'md', animation: 'fade' },
+    news: { kind: 'overlay', responsive: { mobile: 'fullscreen' }, size: 'md', animation: 'slide' },
     settings: { kind: 'modal', size: 'sm', animation: 'scale' },
     hud: { kind: 'panel', animation: 'none' },
     admin: { kind: 'modal', size: 'full', animation: 'fade' },

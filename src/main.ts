@@ -96,7 +96,7 @@ state.hero = save.hero;
 state.heroXp = save.xp[save.hero] ?? 0;
 state.heroLevel = heroXpToLevel(state.heroXp);
 const sfx = new Sfx();
-const hud = new Hud();
+const hud = new Hud(sfx);
 const field = new Field();
 const fruits = new FruitField((g) => renderer.scene.add(g));
 const debris = new SliceDebris((g) => renderer.scene.add(g));
@@ -238,6 +238,7 @@ void fetchCloudSave().then((remote) => {
   state.heroLevel = heroXpToLevel(state.heroXp);
   hud.mountMeta(save);
   applyEquippedBlade();
+  refreshCurrentScreen();
 });
 function equippedSlicer() {
   return findSlicer(getSlicers(), save.bladeSkin) || findSlicer(getEnabledSlicers(), save.bladeSkin);
@@ -1401,6 +1402,10 @@ installGameScreens({
   getSave: () => save,
   onPlay: () => void launchMatch(),
   onQuit: () => document.getElementById('title-quit')?.classList.remove('hidden'),
+  onToggleSound: () => document.getElementById('btn-mute')?.click(),
+  onLogout: () => void hud.logoutToTitle(),
+  onOpenDaily: () => document.getElementById('btn-daily-chip')?.click(),
+  onAdmin: () => hud.openAdmin(),
   onBuyItem: (id) => {
     buySkin(id);
     refreshCurrentScreen();

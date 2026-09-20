@@ -13,6 +13,8 @@ import { renderShop } from './shop';
 import { renderInventory } from './inventory';
 import { renderHeroScreen } from './heroes';
 import { renderProfile, type ProfileStats } from './profile';
+import { renderNews } from './news';
+import { renderSettings } from './settings';
 import { screenShell, emptyState } from './shell';
 import { navigation, type NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
@@ -23,7 +25,10 @@ export interface ScreenHostCallbacks {
   getSave: () => SaveData;
   onPlay: () => void;
   onQuit?: () => void;
-  onNews?: () => void;
+  onToggleSound: () => void;
+  onLogout: () => void;
+  onOpenDaily: () => void;
+  onAdmin?: () => void;
   onBuyItem: (id: string) => void;
   onEquipItem: (id: string) => void;
   onSellItem: (id: string) => void;
@@ -58,7 +63,7 @@ function renderFor(state: NavState): void {
         const menuCb: MainMenuCallbacks = {
           onPlay: callbacks.onPlay,
           onQuit: callbacks.onQuit,
-          onNews: callbacks.onNews,
+          onAdmin: callbacks.onAdmin,
           lobbyStrip: callbacks.lobbyStrip,
         };
         renderMainMenu(root, save, menuCb);
@@ -95,6 +100,16 @@ function renderFor(state: NavState): void {
       if (root) renderProfile(root, save, callbacks.getProfileStats?.() ?? {});
       break;
     }
+    case 'NEWS': {
+      const root = host('screen-news');
+      if (root) renderNews(root, save, callbacks.onOpenDaily);
+      break;
+    }
+    case 'SETTINGS': {
+      const root = host('screen-settings');
+      if (root) renderSettings(root, save, { onToggleSound: callbacks.onToggleSound, onLogout: callbacks.onLogout });
+      break;
+    }
     // MISSIONS / ACHIEVEMENTS / RANKED reuse the existing lobby pages and their
     // working logic rather than duplicating them into new screens (§12).
     case 'CO_OP': {
@@ -120,6 +135,8 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
     { id: 'INVENTORY', elementId: 'screen-inventory', overlay: true },
     { id: 'SHOP', elementId: 'screen-shop', overlay: true },
     { id: 'PROFILE', elementId: 'screen-profile', overlay: true },
+    { id: 'NEWS', elementId: 'screen-news', overlay: true },
+    { id: 'SETTINGS', elementId: 'screen-settings', overlay: true },
     { id: 'CO_OP', elementId: 'screen-coop', overlay: true },
   ];
 

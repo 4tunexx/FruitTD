@@ -26,6 +26,7 @@ export type NavState =
   | 'ACHIEVEMENTS'
   | 'RANKED'
   | 'CO_OP'
+  | 'NEWS'
   | 'CREATOR'
   | 'SETTINGS'
   | 'ADMIN';
@@ -40,6 +41,7 @@ export const OVERLAY_STATES: readonly NavState[] = [
   'ACHIEVEMENTS',
   'RANKED',
   'CO_OP',
+  'NEWS',
   'CREATOR',
   'SETTINGS',
   'ADMIN',

@@ -59,6 +59,8 @@ import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
 import { getRewardSvg } from './icons';
 import { AdminController } from './admin';
+import type { Sfx } from '../audio/sfx';
+import { isUserAdmin } from '../services/admin';
 
 export class Hud {
   private readonly score = document.getElementById('hud-score')!;
@@ -111,6 +113,12 @@ export class Hud {
   private lastJuicePct = -1;
   private juiceLastChangeMs = 0;
   private readonly adminController: AdminController;
+  private titleStoryTimer: number | null = null;
+  private readonly titleStory = document.querySelector<HTMLElement>('.title-tagline')?.textContent?.trim() ?? '';
+  private modalPointer: { id: number; x: number; y: number; modal: HTMLElement } | null = null;
+  private titleSlicePointer: { id: number; x: number; y: number; logoHit: boolean } | null = null;
+  private titleSliceCount = 0;
+  private titleSliceResetTimer: number | null = null;
 
   onPlace: ((kind: TurretKind) => void) | null = null;
   onHero: ((id: HeroId) => void) | null = null;
@@ -128,7 +136,7 @@ export class Hud {
   onSaveUpdate: ((save: SaveData) => void) | null = null;
   onBuyVIP: ((tier: 'bronze' | 'silver' | 'gold') => void) | null = null; // P1-2
 
-  constructor() {
+  constructor(private readonly sfx?: Sfx) {
     this.place.classList.add('hidden');
     this.shop.classList.add('hidden');
 
@@ -181,6 +189,8 @@ export class Hud {
     this.checkDailyBonus();
     this.bootSuperLiquidCanvas();
     bootMenuParallax();
+    this.refreshTitleButtons();
+    this.playTitleStory();
     navigation.onChange(() => {
       const inMatch = navigation.isInGame();
       document.body.classList.toggle('is-playing', inMatch);
@@ -303,8 +313,42 @@ export class Hud {
     return !!title && !title.classList.contains('hidden');
   }
 
+  async logoutToTitle(): Promise<void> {
+    await logoutAuth();
+    this.returnToTitle();
+  }
+
+  openAdmin(): void {
+    if (isUserAdmin()) void this.adminController.open();
+  }
+
   private setTitleVisible(open: boolean): void {
-    document.getElementById('title-screen')?.classList.toggle('hidden', !open);
+    const title = document.getElementById('title-screen');
+    title?.classList.toggle('hidden', !open);
+    if (open) this.playTitleStory();
+  }
+
+  /** Replays the world briefing each time the player returns to the title. */
+  private playTitleStory(): void {
+    const story = document.querySelector<HTMLElement>('.title-tagline');
+    if (!story || !this.titleStory) return;
+    if (this.titleStoryTimer !== null) window.clearTimeout(this.titleStoryTimer);
+    story.textContent = '';
+    story.classList.remove('is-typing');
+    void story.offsetWidth;
+    story.classList.add('is-typing');
+
+    let index = 0;
+    const writeNext = () => {
+      story.textContent = this.titleStory.slice(0, index++);
+      if (index <= this.titleStory.length) {
+        this.titleStoryTimer = window.setTimeout(writeNext, 12);
+      } else {
+        this.titleStoryTimer = null;
+        story.classList.remove('is-typing');
+      }
+    };
+    writeNext();
   }
 
   private refreshTitleButtons(): void {
@@ -339,6 +383,26 @@ export class Hud {
   }
 
   private initTitleScreen(): void {
+    const title = document.getElementById('title-screen');
+    const logo = document.querySelector<HTMLElement>('.title-logo');
+    const titleButtons = document.querySelectorAll<HTMLButtonElement>('#title-menu .title-btn');
+    for (const button of titleButtons) {
+      button.addEventListener('pointerenter', () => this.sfx?.cursorMove());
+      button.addEventListener('click', () => this.sfx?.select());
+    }
+    logo?.addEventListener('pointerenter', () => this.sfx?.shopHover());
+    title?.addEventListener('pointermove', (event) => {
+      const rect = title.getBoundingClientRect();
+      const pointerX = (event.clientX - rect.left) / rect.width - 0.5;
+      const pointerY = (event.clientY - rect.top) / rect.height - 0.5;
+      title.style.setProperty('--title-bg-x', `${(-pointerX * 56).toFixed(1)}px`);
+      title.style.setProperty('--title-bg-y', `${(-pointerY * 38).toFixed(1)}px`);
+      title.style.setProperty('--title-bg-scale', `${(1.04 + Math.abs(pointerX) * 0.035 + Math.abs(pointerY) * 0.02).toFixed(3)}`);
+      title.style.setProperty('--title-world-x', `${(-pointerX * 9).toFixed(1)}px`);
+      title.style.setProperty('--title-world-y', `${(-pointerY * 6).toFixed(1)}px`);
+      title.style.setProperty('--title-world-scale', `${(1.004 + Math.abs(pointerX) * 0.008 + Math.abs(pointerY) * 0.005).toFixed(3)}`);
+    });
+    this.installTitleSliceInteraction(title, logo);
     document.getElementById('btn-title-continue')?.addEventListener('click', () => {
       if (this.canEnterDashboard()) this.enterDashboard();
       else void this.gateAfterAuth(getCachedAuthUser());
@@ -376,6 +440,98 @@ export class Hud {
       this.returnToTitle();
     });
     this.syncSettingsMuteLabel();
+  }
+
+  /** Decorative title-only slash target. It never feeds gameplay rewards or save data. */
+  private installTitleSliceInteraction(title: HTMLElement | null, logo: HTMLElement | null): void {
+    if (!title || !logo) return;
+    const control = (target: EventTarget | null) => target instanceof Element && !!target.closest('button, input, select, textarea, a');
+    const hitLogo = (startX: number, startY: number, endX: number, endY: number) => {
+      const rect = logo.getBoundingClientRect();
+      const pad = 16;
+      return !(
+        Math.max(startX, endX) < rect.left - pad ||
+        Math.min(startX, endX) > rect.right + pad ||
+        Math.max(startY, endY) < rect.top - pad ||
+        Math.min(startY, endY) > rect.bottom + pad
+      );
+    };
+
+    title.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || control(event.target)) return;
+      event.preventDefault();
+      this.titleSlicePointer = { id: event.pointerId, x: event.clientX, y: event.clientY, logoHit: false };
+      title.setPointerCapture?.(event.pointerId);
+    });
+    title.addEventListener('pointermove', (event) => {
+      const stroke = this.titleSlicePointer;
+      if (!stroke || stroke.id !== event.pointerId) return;
+      const distance = Math.hypot(event.clientX - stroke.x, event.clientY - stroke.y);
+      if (distance < 18) return;
+      event.preventDefault();
+      const logoHit = !stroke.logoHit && hitLogo(stroke.x, stroke.y, event.clientX, event.clientY);
+      this.spawnTitleSlash(title, stroke.x, stroke.y, event.clientX, event.clientY, logoHit);
+      if (logoHit) {
+        stroke.logoHit = true;
+        this.titleSliceCount++;
+        if (this.titleSliceResetTimer !== null) window.clearTimeout(this.titleSliceResetTimer);
+        this.titleSliceResetTimer = window.setTimeout(() => { this.titleSliceCount = 0; }, 1800);
+        this.sfx?.swipe(false);
+        this.sfx?.slice('watermelon', Math.min(10, this.titleSliceCount));
+        if (this.titleSliceCount > 1) this.sfx?.combo(this.titleSliceCount);
+        logo.classList.remove('is-sliced');
+        void logo.offsetWidth;
+        logo.classList.add('is-sliced');
+        this.spawnTitleLogoImpact(title, logo);
+      }
+      stroke.x = event.clientX;
+      stroke.y = event.clientY;
+    });
+    const endStroke = (event: PointerEvent) => {
+      if (this.titleSlicePointer?.id === event.pointerId) this.titleSlicePointer = null;
+    };
+    title.addEventListener('pointerup', endStroke);
+    title.addEventListener('pointercancel', endStroke);
+  }
+
+  private spawnTitleSlash(title: HTMLElement, startX: number, startY: number, endX: number, endY: number, logoHit: boolean): void {
+    const bounds = title.getBoundingClientRect();
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const length = Math.hypot(dx, dy);
+    const trail = document.createElement('i');
+    trail.className = `title-slice-trail${logoHit ? ' is-hit' : ''}`;
+    trail.style.left = `${startX - bounds.left}px`;
+    trail.style.top = `${startY - bounds.top}px`;
+    trail.style.width = `${length}px`;
+    trail.style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg)`;
+    title.appendChild(trail);
+    window.setTimeout(() => trail.remove(), 260);
+
+    if (!logoHit) return;
+    const bonus = document.createElement('div');
+    bonus.className = 'title-slice-bonus';
+    bonus.textContent = this.titleSliceCount > 1 ? `LOGO SLICE x${this.titleSliceCount}` : '+25 LOGO HIT';
+    bonus.style.left = `${endX - bounds.left}px`;
+    bonus.style.top = `${endY - bounds.top}px`;
+    title.appendChild(bonus);
+    window.setTimeout(() => bonus.remove(), 850);
+  }
+
+  private spawnTitleLogoImpact(title: HTMLElement, logo: HTMLElement): void {
+    const titleRect = title.getBoundingClientRect();
+    const logoRect = logo.getBoundingClientRect();
+    const impact = document.createElement('div');
+    impact.className = 'title-logo-impact';
+    impact.style.left = `${logoRect.left - titleRect.left + logoRect.width * 0.5}px`;
+    impact.style.top = `${logoRect.top - titleRect.top + logoRect.height * 0.53}px`;
+    for (let index = 0; index < 6; index++) {
+      const spark = document.createElement('i');
+      spark.style.setProperty('--spark-angle', `${index * 60 + Math.random() * 20 - 10}deg`);
+      impact.appendChild(spark);
+    }
+    title.appendChild(impact);
+    window.setTimeout(() => impact.remove(), 520);
   }
 
   private authMode: 'login' | 'register' = 'login';
@@ -1672,6 +1828,7 @@ export class Hud {
   // MODAL EVENT LISTENERS
   // ══════════════════════════════════════════════════════════════════════════
   private initModals(): void {
+    this.installModalDismissGestures();
     // Daily Modal Triggers
     document.getElementById('btn-daily-chip')?.addEventListener('click', () => this.openDailyModal());
     document.getElementById('btn-open-daily')?.addEventListener('click', () => this.openDailyModal());
@@ -1855,5 +2012,47 @@ export class Hud {
     document.getElementById('btn-vip-bronze')?.addEventListener('click', () => this.onBuyVIP?.('bronze'));
     document.getElementById('btn-vip-silver')?.addEventListener('click', () => this.onBuyVIP?.('silver'));
     document.getElementById('btn-vip-gold')?.addEventListener('click', () => this.onBuyVIP?.('gold'));
+  }
+
+  /** One outside-click/swipe dismissal path for every markup-backed popup. */
+  private installModalDismissGestures(): void {
+    const dismiss = (modal: HTMLElement) => {
+      if (modal.classList.contains('hidden') || modal.classList.contains('is-dismissing')) return;
+      modal.classList.add('is-dismissing');
+      this.sfx?.rotate();
+      window.setTimeout(() => {
+        if (modal.id === 'modal-daily') this.stopDailyCountdown();
+        modal.classList.remove('is-dismissing');
+        modal.classList.add('hidden');
+      }, 150);
+    };
+
+    document.querySelectorAll<HTMLElement>('.hud-modal-backdrop').forEach((modal) => {
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) dismiss(modal);
+      });
+      modal.addEventListener('pointerdown', (event) => {
+        if (event.target !== modal) return;
+        this.modalPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, modal };
+        modal.setPointerCapture?.(event.pointerId);
+      });
+      modal.addEventListener('pointerup', (event) => {
+        const start = this.modalPointer;
+        this.modalPointer = null;
+        if (!start || start.id !== event.pointerId || start.modal !== modal) return;
+        const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+        if (distance >= 70) dismiss(modal);
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      const modal = [...document.querySelectorAll<HTMLElement>('.hud-modal-backdrop')]
+        .reverse()
+        .find((entry) => !entry.classList.contains('hidden'));
+      if (!modal) return;
+      event.preventDefault();
+      dismiss(modal);
+    });
   }
 }

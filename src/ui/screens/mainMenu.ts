@@ -9,6 +9,8 @@
 import { el, clear } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { openScreen } from './registry';
+import { createElement, Backpack, Coins, Gem, Medal, ScrollText, ShoppingCart, Swords, Trophy, UserRound, UsersRound } from 'lucide';
+import { isUserAdmin } from '../../services/admin';
 import { heroDef, MAX_HERO_LEVEL } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
 import { rankFromScore } from '../../game/requirements';
@@ -19,7 +21,7 @@ import type { NavState } from '../../game/navigation';
 export interface MainMenuCallbacks {
   onPlay: () => void;
   onQuit?: () => void;
-  onNews?: () => void;
+  onAdmin?: () => void;
   /** Optional lobby row (daily missions, latest achievement, season). */
   lobbyStrip?: () => HTMLElement | null;
 }
@@ -27,19 +29,26 @@ export interface MainMenuCallbacks {
 interface MenuDestination {
   id: NavState;
   label: string;
-  icon: string;
+  icon: typeof Swords;
   hint: string;
 }
 
 const DESTINATIONS: MenuDestination[] = [
-  { id: 'HEROES', label: 'Heroes', icon: '🗡', hint: 'Pick your slicer' },
-  { id: 'INVENTORY', label: 'Inventory', icon: '🎒', hint: 'Gear you own' },
-  { id: 'SHOP', label: 'Shop', icon: '🛒', hint: 'Blades & walls' },
-  { id: 'MISSIONS', label: 'Missions', icon: '📜', hint: 'Daily rewards' },
-  { id: 'RANKED', label: 'Ranked', icon: '🏆', hint: 'Climb the ladder' },
-  { id: 'CO_OP', label: 'Co-op', icon: '👥', hint: 'Defend together' },
-  { id: 'PROFILE', label: 'Profile', icon: '👤', hint: 'Your record' },
+  { id: 'HEROES', label: 'Heroes', icon: Swords, hint: 'Pick your slicer' },
+  { id: 'INVENTORY', label: 'Inventory', icon: Backpack, hint: 'Gear you own' },
+  { id: 'SHOP', label: 'Shop', icon: ShoppingCart, hint: 'Blades & walls' },
+  { id: 'MISSIONS', label: 'Missions', icon: ScrollText, hint: 'Daily rewards' },
+  { id: 'ACHIEVEMENTS', label: 'Achievements', icon: Medal, hint: 'Career marks' },
+  { id: 'RANKED', label: 'Ranked', icon: Trophy, hint: 'Climb the ladder' },
+  { id: 'CO_OP', label: 'Co-op', icon: UsersRound, hint: 'Defend together' },
+  { id: 'PROFILE', label: 'Profile', icon: UserRound, hint: 'Your record' },
 ];
+
+function icon(node: typeof Swords, className: string): HTMLElement | SVGElement {
+  // The app uses Lucide SVGs; the lightweight Node test DOM has no SVG factory.
+  if (typeof document.createElementNS !== 'function') return el('span', { class: className, 'aria-hidden': 'true' });
+  return createElement(node, { class: className, width: 18, height: 18, 'aria-hidden': 'true' });
+}
 
 /** Compact identity strip: who am I, what level, how rich (§2, DoD). */
 export function playerIdentity(save: SaveData): HTMLElement {
@@ -64,8 +73,12 @@ export function playerIdentity(save: SaveData): HTMLElement {
       ]),
     ]),
     el('div', { class: 'ftd-identity__coins' }, [
-      el('span', { class: 'ftd-identity__coin-icon', text: '🪙', 'aria-hidden': 'true' }),
+      icon(Coins, 'ftd-identity__currency-icon'),
       el('span', { class: 'ftd-identity__coin-value', text: save.coins.toLocaleString() }),
+    ]),
+    el('div', { class: 'ftd-identity__gems', title: 'Gems' }, [
+      icon(Gem, 'ftd-identity__currency-icon'),
+      el('span', { class: 'ftd-identity__gem-value', text: save.gems.toLocaleString() }),
     ]),
   ]);
 }
@@ -77,19 +90,23 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
   const tower = getTowerXpState();
+  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
 
   // ── Top bar: identity + small utilities ──
   root.appendChild(
     el('header', { class: 'ftd-mainmenu__top' }, [
       playerIdentity(save),
       el('div', { class: 'ftd-mainmenu__utils' }, [
-        GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => cb.onNews?.() }),
+        GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
         GameButton({
           label: 'Settings',
           variant: 'ghost',
           size: 'sm',
           onClick: () => openScreen('SETTINGS'),
         }),
+        ...(isUserAdmin() && cb.onAdmin
+          ? [GameButton({ label: 'Admin', variant: 'ghost', size: 'sm', onClick: cb.onAdmin })]
+          : []),
         GameButton({
           label: 'Quit',
           variant: 'ghost',
@@ -128,7 +145,7 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
   // ── Current loadout, so a new player sees who they are playing as ──
   stage.appendChild(
     el('aside', { class: 'ftd-loadout' }, [
-      el('p', { class: 'ftd-loadout__label', text: 'YOUR HERO' }),
+      el('p', { class: 'ftd-loadout__label', text: 'ACTIVE OPERATIVE' }),
       el('p', { class: 'ftd-loadout__hero', text: hero.name }),
       el('p', { class: 'ftd-loadout__title', text: hero.title }),
       el('div', { class: 'ftd-loadout__bar' }, [
@@ -148,6 +165,24 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
         block: true,
         onClick: () => openScreen('HEROES'),
       }),
+      el('div', { class: 'ftd-loadout__career', 'aria-label': 'Career progression' }, [
+        el('div', { class: 'ftd-loadout__stat' }, [
+          el('span', { text: 'RANK' }),
+          el('strong', { text: rank.title }),
+        ]),
+        el('div', { class: 'ftd-loadout__stat' }, [
+          el('span', { text: 'BEST WAVE' }),
+          el('strong', { text: String(save.bestWave) }),
+        ]),
+        el('div', { class: 'ftd-loadout__stat' }, [
+          el('span', { text: 'HIGH SCORE' }),
+          el('strong', { text: save.highScore.toLocaleString() }),
+        ]),
+        el('div', { class: 'ftd-loadout__stat' }, [
+          el('span', { text: 'MATCHES' }),
+          el('strong', { text: String(save.games) }),
+        ]),
+      ]),
     ]),
   );
 
@@ -161,7 +196,7 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
       type: 'button',
       'data-nav': dest.id,
     }, [
-      el('span', { class: 'ftd-navtile__icon', text: dest.icon, 'aria-hidden': 'true' }),
+      icon(dest.icon, 'ftd-navtile__icon'),
       el('span', { class: 'ftd-navtile__label', text: dest.label }),
       el('span', { class: 'ftd-navtile__hint', text: dest.hint }),
     ]);
