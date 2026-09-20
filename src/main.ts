@@ -12,7 +12,7 @@ import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMo
 import { findSlicer, hexToNumber } from './game/slicers';
 import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
-import { segmentHitsFruit, segmentHitsHalf, SliceDebris } from './game/slicer';
+import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
 import { chargeSuper, createState, damageTower, isPerfectWave, leakCost, resetState, toast } from './game/state';
 import {
@@ -30,8 +30,9 @@ import { BladeTrail } from './game/trail';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
 import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
-import { BladeInput, type Slash } from './input/blade';
+import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
+import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
 import { submitScore, syncCloudSave, fetchCloudSave } from './services/api';
 import { initAchievementsCache } from './services/achievements';
@@ -545,6 +546,17 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
     combo: state.combo,
   });
   const scoreReward = result.scoreGained;
+  const scr = worldPct(fruit.group.position.x, fruit.group.position.y + 0.35, fruit.group.position.z);
+  if (fruit.boss) {
+    floatingScore.spawn(`+${scoreReward} OVERLORD`, scr.nx, scr.ny, 'boss');
+    renderer.impulseShake(1.4);
+  } else if (fruit.enemyKind !== 'normal') {
+    const enemyData = enemyRule(fruit.enemyKind);
+    floatingScore.spawn(`+${scoreReward} ${enemyData.label.toUpperCase()}`, scr.nx, scr.ny, 'special');
+  } else {
+    floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'normal');
+  }
+
   const rules = modeRules(state.mode);
   chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
@@ -704,6 +716,7 @@ function restart(): void {
   bank.add('pink', rules.pink);
   bank.add('orange', rules.orange);
   combos.reset();
+  floatingScore.reset();
   wall.cancelMove();
   guestCd = 1.6;
   totalFruitsSliced = 0;
@@ -743,8 +756,10 @@ function slashLines(slash: Slash): Slash[] {
     const s = touch ? 0.62 : 0.4;
     for (const side of [-1, 1]) {
       lines.push({
+        id: slash.id,
         from: slash.from.clone().add(new Vector3(px * s * side, 0, pz * s * side)),
         to: slash.to.clone().add(new Vector3(px * s * side, 0, pz * s * side)),
+        segments: slash.segments,
         speed: slash.speed,
         charge: slash.charge,
         pointer: slash.pointer,
@@ -755,12 +770,23 @@ function slashLines(slash: Slash): Slash[] {
 }
 
 function resolveSlash(slash: Slash): void {
+  // Filter accidental slow drags — fast swipes feel powerful and deliberate
+  if (slash.speed < MIN_SLICE_SPEED) {
+    return;
+  }
+
   const hero = heroDef(state.hero);
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
   const slicerFx = equippedSlicer();
   const critChance = (heroCombatPerkMultiplier(state.hero, 'critical') - 1) * 0.15;
   const isCrit = Math.random() < critChance;
+
+  // Ki spiritual charge cleave bonus
+  if (state.hero === 'ki' && slash.charge > 0.4) {
+    renderer.impulseShake(0.85);
+    sfx.boost();
+  }
 
   // Equipped blade juice on EVERY slash (not only fruit hits)
   const slashMid = {
@@ -791,12 +817,18 @@ function resolveSlash(slash: Slash): void {
   if (swipe.lengthSq() < 0.0001) swipe.set(1, 0, 0);
   else swipe.normalize();
 
+  // Stable hit tracking per stroke: a fruit or half cannot be hit multiple times by one swipe
+  const hitFruits = new Set<Fruit>();
   const cutBits = new Set<typeof debris.halves[number]>();
+
   for (const line of slashLines(slash)) {
     fruits.dodgeSlash(line);
     for (const fruit of fruits.fruits) {
-      if (!fruit.alive) continue;
-      if (!segmentHitsFruit(line.from, line.to, fruit, radius).hit) continue;
+      if (!fruit.alive || hitFruits.has(fruit)) continue;
+      const res = strokeHitsFruit(line, fruit, radius);
+      if (!res.hit) continue;
+
+      hitFruits.add(fruit);
       hits += 1;
       const hitPos = {
         x: fruit.group.position.x,
@@ -811,9 +843,11 @@ function resolveSlash(slash: Slash): void {
         /* Creator VFX must never break combat */
       }
       if (fruit.kind === 'bomb') {
-        if (line.speed > 8 || state.hero === 'ki') {
+        if (line.speed > 7.5 || state.hero === 'ki') {
           sfx.bombParry();
           award({ type: 'bomb_parry', baseScore: FRUIT_DEFS.bomb.score, combo: state.combo });
+          const scr = worldPct(hitPos.x, hitPos.y + 0.35, hitPos.z);
+          floatingScore.spawn('PARRY! +55', scr.nx, scr.ny, 'critical');
           emit({ type: 'bomb_parry' });
         } else {
           sfx.bombExplode();
@@ -824,12 +858,26 @@ function resolveSlash(slash: Slash): void {
         fruits.kill(fruit);
         continue;
       }
+      if (fruit.enemyKind === 'armored') {
+        sfx.armorHit();
+      }
       if (state.hero === 'topfu' || brittleBonus > 0) {
         const base = state.hero === 'topfu' ? (pointer === 'touch' ? 2.8 : 2.1) : 0;
         fruit.brittle = Math.max(fruit.brittle, base + brittleBonus);
         if (state.hero === 'topfu') {
-          fruit.impulseX += swipe.x * 2.2;
-          fruit.impulseZ += swipe.z * 2.2;
+          fruit.impulseX += swipe.x * 2.4;
+          fruit.impulseZ += swipe.z * 2.4;
+          // Topfu splash: apply brittle to nearby fruits
+          const fx = fruit.group.position.x;
+          const fz = fruit.group.position.z;
+          for (const other of fruits.fruits) {
+            if (!other.alive || other === fruit) continue;
+            if (Math.hypot(other.group.position.x - fx, other.group.position.z - fz) < 1.8) {
+              other.brittle = Math.max(other.brittle, 2.2);
+              other.impulseX += swipe.x * 1.5;
+              other.impulseZ += swipe.z * 1.5;
+            }
+          }
         }
       }
       const towerBonus = towerDamageBonus();
@@ -838,16 +886,19 @@ function resolveSlash(slash: Slash): void {
       // Explosive tower damage is applied once, inside FruitField.hurt().
       if (fruit.enemyKind === 'explosive' && fruit.volatileTriggered && !killed) {
         resetCombo('explosive_mistake');
-        renderer.impulseShake(0.6);
+        renderer.impulseShake(0.85);
+        sfx.bombExplode();
         maybeOver();
       }
 
       if (killed) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
-      if (segmentHitsHalf(line.from, line.to, bit, radius * 0.35)) cutBits.add(bit);
+      if (cutBits.has(bit)) continue;
+      if (strokeHitsHalf(line, bit, radius * 0.35)) cutBits.add(bit);
     }
   }
+
   for (const bit of cutBits) {
     const px = bit.group.position.x;
     const py = bit.group.position.y;
@@ -856,13 +907,23 @@ function resolveSlash(slash: Slash): void {
     const gen = debris.reslice(bit, swipe, swipe);
     if (!gen) continue;
     hits += 1;
-    juice.burst(px, py, pz, kind, swipe, 0.55);
-    award({ type: 'reslice', generation: gen, combo: state.combo });
-    chargeSuper(state, 1.2 + save.skills.flow * 0.6);
+    const isSecondCut = gen >= 2;
+    const juiceGain = isSecondCut ? 3 : 1;
+    bank.add(juiceHueFromKind(kind), juiceGain);
+    juice.burst(px, py, pz, kind, swipe, isSecondCut ? 1.3 : 0.65);
+    const resliceAward = award({ type: 'reslice', generation: gen, combo: state.combo });
+    chargeSuper(state, (1.2 + save.skills.flow * 0.6) * (isSecondCut ? 1.6 : 1));
     slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash);
     const screen = worldPct(px, py + 0.35, pz);
     combos.onReslice(gen, screen.nx, screen.ny);
-    sfx.slice(kind, 2, false);
+    if (isSecondCut) {
+      state.comboTimer = Math.max(state.comboTimer + 0.4, 1.45);
+      floatingScore.spawn(`RESLICE II +${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
+      sfx.slice(kind, Math.max(3, state.combo), false);
+    } else {
+      floatingScore.spawn(`RESLICE +${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
+      sfx.slice(kind, 2, false);
+    }
     emit({ type: 'reslice', amount: gen, fruitKind: kind, fruitFamily: fruitFamily(kind) });
   }
 
@@ -878,9 +939,10 @@ function resolveSlash(slash: Slash): void {
     for (const tier of comboTiersBetween(comboBefore, state.combo)) {
       award({ type: 'combo_milestone', combo: tier.combo });
       toast(state, `${tier.label.toUpperCase()} x${tier.combo}`, 1.1);
+      floatingScore.spawn(`+${tier.combo * 10} COMBO!`, 50, 36, 'combo');
     }
     const comboEngineMul = heroCombatPerkMultiplier(state.hero, 'combo');
-    state.comboTimer = 1.35 * comboEngineMul;
+    state.comboTimer = (state.hero === 'jiju' ? 1.65 : 1.35) * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
     renderer.impulseShake(hero.shake * (1 + Math.min(0.8, slash.charge)));
@@ -940,6 +1002,7 @@ function quitToMenu(): void {
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
+  floatingScore.reset();
   sfx.pause();
   sfx.stopAllLoops();
 }
@@ -1012,8 +1075,10 @@ function tickGuest(dt: number): void {
   const z = best.group.position.z;
   slashFx.spawn(x, z, 0x93c5fd);
   resolveSlash({
+    id: 0,
     from: new Vector3(x - 0.95, 0, z),
     to: new Vector3(x + 0.95, 0, z),
+    segments: [],
     speed: 11,
     charge: 0.28,
     pointer: 'mouse',
@@ -1224,6 +1289,7 @@ function simulate(dt: number): void {
   debris.update(dt);
   slashFx.update(dt);
   combos.update(dt);
+  floatingScore.update(dt);
   renderer.update(dt);
   blade.fadeTrail();
   trail.sync(blade.trail);

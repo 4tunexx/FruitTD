@@ -52,7 +52,7 @@ export function classifyJuice(r: number, g: number, b: number): JuiceHue {
 export function juiceHueFromKind(kind: FruitKind): JuiceHue {
   if (kind === 'orange') return 'orange';
   if (kind === 'lemon' || kind === 'banana' || kind === 'pineapple') return 'yellow';
-  if (kind === 'watermelon' || kind === 'strawberry') return 'pink';
+  if (kind === 'watermelon' || kind === 'strawberry' || kind === 'apple') return 'pink';
   return 'green';
 }
 

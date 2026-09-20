@@ -22,6 +22,21 @@ export const COMBO_TIERS: ComboTier[] = [
   { combo: 50, label: 'Unstoppable', bonusScore: 600, bonusHeroXp: 12, colour: '#38bdf8' },
 ];
 
+export interface CombatComboStreak {
+  n: number;
+  title: string;
+}
+
+export const COMBAT_COMBO_STREAKS: CombatComboStreak[] = [
+  { n: 1, title: 'SLICE!' },
+  { n: 2, title: 'DOUBLE SLICE!' },
+  { n: 3, title: 'TRIPLE SLICE!' },
+  { n: 5, title: 'MULTISLICER!' },
+  { n: 10, title: 'ULTRASLICE!' },
+  { n: 25, title: 'UNSTOPPABLE!' },
+  { n: 50, title: 'GODLIKE CUT!' },
+];
+
 /** Score/reward scaling per combo point. Capped so combos stay fair. */
 export const COMBO_SCALING = {
   perCombo: 0.08,

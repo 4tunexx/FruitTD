@@ -205,6 +205,8 @@ export class SliceDebris {
   }
 }
 
+import type { Slash } from '../input/blade';
+
 export function segmentHitsFruit(
   a: Vector3,
   b: Vector3,
@@ -225,14 +227,31 @@ export function segmentHitsFruit(
   const cx = a.x + abx * t - p.x;
   const cy = a.y + aby * t - p.y;
   const cz = a.z + abz * t - p.z;
-  const dist2 = cx * cx + cy * cy + cz * cz;
-  const r = fruit.radius + 0.08 + extra;
-  if (dist2 > r * r) return { hit: false, normal: new Vector3(1, 0, 0) };
+  const distXZ2 = cx * cx + cz * cz;
+  const distY = Math.abs(cy);
+  const r = fruit.radius + 0.12 + extra;
+  if (distXZ2 > r * r || distY > r + 0.6) return { hit: false, normal: new Vector3(1, 0, 0) };
   const swipe = new Vector3(abx, aby, abz);
   const normal = new Vector3().crossVectors(swipe, new Vector3(0, 1, 0));
   if (normal.lengthSq() < 0.0001) normal.set(1, 0, 0);
   else normal.normalize();
   return { hit: true, normal };
+}
+
+export function strokeHitsFruit(
+  slash: Slash,
+  fruit: Fruit,
+  extra = 0,
+): { hit: boolean; normal: Vector3; hitSegment?: { from: Vector3; to: Vector3 } } {
+  if (slash.segments && slash.segments.length > 0) {
+    for (const seg of slash.segments) {
+      const res = segmentHitsFruit(seg.from, seg.to, fruit, extra);
+      if (res.hit) return { hit: true, normal: res.normal, hitSegment: seg };
+    }
+    return { hit: false, normal: new Vector3(1, 0, 0) };
+  }
+  const res = segmentHitsFruit(slash.from, slash.to, fruit, extra);
+  return { hit: res.hit, normal: res.normal, hitSegment: slash };
 }
 
 export function segmentHitsHalf(a: Vector3, b: Vector3, half: Half, extra = 0): boolean {
@@ -248,6 +267,21 @@ export function segmentHitsHalf(a: Vector3, b: Vector3, half: Half, extra = 0): 
   t = Math.max(0, Math.min(1, t));
   const dx = a.x + abx * t - p.x;
   const dz = a.z + abz * t - p.z;
-  const r = half.radius + 0.16 + extra;
+  const r = half.radius + 0.18 + extra;
   return dx * dx + dz * dz <= r * r;
+}
+
+export function strokeHitsHalf(
+  slash: Slash,
+  half: Half,
+  extra = 0,
+): boolean {
+  if (!half.alive || half.gen >= MAX_RESLICE) return false;
+  if (slash.segments && slash.segments.length > 0) {
+    for (const seg of slash.segments) {
+      if (segmentHitsHalf(seg.from, seg.to, half, extra)) return true;
+    }
+    return false;
+  }
+  return segmentHitsHalf(slash.from, slash.to, half, extra);
 }

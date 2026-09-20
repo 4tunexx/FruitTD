@@ -104,13 +104,12 @@
 }
 
 @keyframes fruitTdComboIn {
-  0% { opacity: 0; transform: translate(-50%, 34px) scale(0.55) rotate(-5deg); }
-  10% { opacity: 1; transform: translate(-50%, -7px) scale(1.22) rotate(1deg); }
-  18% { opacity: 1; transform: translate(-50%, 0) scale(1.02) rotate(0); }
-  62% { opacity: 1; transform: translate(-50%, 2px) scale(1); }
-  78% { opacity: 0.9; transform: translate(-50%, 4px) scale(0.99); }
-  92% { opacity: 0.45; transform: translate(calc(-50% + 40px), 8px) scale(0.94); }
-  100% { opacity: 0; transform: translate(calc(-50% + 90px), 12px) scale(0.88) rotate(2deg); }
+  0% { opacity: 0; transform: translate(-50%, 28px) scale(0.6) rotate(-3deg); }
+  14% { opacity: 1; transform: translate(-50%, -6px) scale(1.28) rotate(1deg); }
+  24% { opacity: 1; transform: translate(-50%, 0) scale(1.0) rotate(0); }
+  62% { opacity: 1; transform: translate(-50%, 0) scale(1.0); }
+  82% { opacity: 0.85; transform: translate(calc(-50% + 40px), 2px) scale(0.98); }
+  100% { opacity: 0; transform: translate(calc(-50% + 120px), 6px) scale(0.9) rotate(2deg); }
 }
 @keyframes fruitTdComboSwap {
   0% { opacity: 0.2; transform: translate(-50%, 0) scale(0.72); }
@@ -295,6 +294,71 @@
 @keyframes fruitTdDangerPulse {
   from { transform: scale(0.99); filter: brightness(1); }
   to { transform: scale(1.015); filter: brightness(1.18); }
+}
+
+/* ═══════════════════════════════════════════
+   FLOATING SCORE POPUPS
+══════════════════════════════════════════════ */
+.floating-score-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 15;
+}
+
+.floating-score-item {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 1000;
+  font-style: italic;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 12px currentColor;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+  transition: opacity 0.08s ease-out;
+}
+
+.floating-score-item.is-idle {
+  display: none;
+}
+
+.score-type-normal {
+  color: #fef08a;
+  font-size: clamp(1.15rem, 2.6vw, 1.65rem);
+}
+
+.score-type-critical {
+  color: #facc15;
+  font-size: clamp(1.45rem, 3.4vw, 2.2rem);
+  text-shadow: 0 0 16px #facc15, 0 3px 6px #000;
+  letter-spacing: 0.04em;
+}
+
+.score-type-special {
+  color: #c084fc;
+  font-size: clamp(1.35rem, 3vw, 1.95rem);
+  text-shadow: 0 0 14px #a855f7, 0 3px 6px #000;
+}
+
+.score-type-boss {
+  color: #f43f5e;
+  font-size: clamp(1.65rem, 4vw, 2.5rem);
+  text-shadow: 0 0 22px #e11d48, 0 4px 8px #000;
+  letter-spacing: 0.06em;
+}
+
+.score-type-reslice {
+  color: #4ade80;
+  font-size: clamp(1.25rem, 2.8vw, 1.8rem);
+  text-shadow: 0 0 14px #22c55e, 0 3px 6px #000;
+}
+
+.score-type-combo {
+  color: #38bdf8;
+  font-size: clamp(1.35rem, 3vw, 1.95rem);
+  text-shadow: 0 0 14px #0284c7, 0 3px 6px #000;
 }
 
 @media (max-width: 860px) {
