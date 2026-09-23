@@ -15,6 +15,7 @@ export type ItemCardMode = 'shop' | 'inventory';
 export interface ItemCardActions {
   onBuy?: (id: string) => void;
   onEquip?: (id: string) => void;
+  onUnequip?: (id: string) => void;
   onSell?: (id: string) => void;
   onDetails?: (item: CatalogItem) => void;
 }
@@ -78,6 +79,7 @@ export function renderItemCard(
       state.mode === 'shop' && !state.affordable ? 'is-unaffordable' : '',
     ].filter(Boolean).join(' '),
     'data-item-id': item.id,
+    'data-testid': `${state.mode}-item-${item.id}`,
   });
 
   card.appendChild(swatch(item));
@@ -126,6 +128,11 @@ export function renderItemCard(
   } else {
     if (state.equipped) {
       footer.appendChild(el('span', { class: 'ftd-item-card__equipped', text: `${slotLabel(item) ?? 'ITEM'} EQUIPPED` }));
+      if (actions.onUnequip && (item.slot === 'blade' || item.slot === 'wall')) {
+        const unequip = GameButton({ label: 'Unequip', variant: 'outline', size: 'sm', onClick: () => actions.onUnequip?.(item.id) });
+        unequip.dataset.testid = `inventory-unequip-${item.id}`;
+        footer.appendChild(unequip);
+      }
     } else if (item.slot) {
       footer.appendChild(
         GameButton({

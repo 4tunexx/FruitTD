@@ -11,6 +11,7 @@ import { badgesRouter } from './routes/badges';
 import { authRouter } from './routes/auth';
 import { getDb } from './db';
 import { rateLimit } from './rateLimit';
+import { safeInput } from './validation';
 
 export function createApp() {
   const app = express();
@@ -25,6 +26,13 @@ export function createApp() {
   }));
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
+  app.use((req, res, next) => {
+    if (!safeInput(req.body) || !safeInput(req.query)) {
+      res.status(400).json({ success: false, error: 'Invalid request fields' });
+      return;
+    }
+    next();
+  });
 
   app.use((req, _res, next) => {
     if (req.path.startsWith('/api')) {

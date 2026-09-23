@@ -11,6 +11,7 @@ import {
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
 import { resolveRequestUser } from '../auth';
+import { validId } from '../validation';
 
 export const adminRouter = Router();
 
@@ -258,7 +259,7 @@ adminRouter.post('/reset-daily', async (req: Request, res: Response) => {
 
   try {
     const { userId } = req.body;
-    if (!userId) {
+    if (!validId(userId)) {
       return res.status(400).json({ success: false, error: 'userId is required' });
     }
 

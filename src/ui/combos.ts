@@ -6,8 +6,7 @@ type Slot = 'hit' | 'streak' | 'reslice';
 
 export const STREAKS = COMBAT_COMBO_STREAKS;
 
-const LIVE_WINDOW = 2.85;
-const STACK_MAX = 3;
+const LIVE_WINDOW = 1.1;
 
 type Floater = {
   el: HTMLElement;
@@ -28,29 +27,30 @@ export class ComboFx {
   private readonly nameEl: HTMLElement;
   private readonly avEl: HTMLImageElement;
   private readonly comboMeter: HTMLElement;
+  private readonly rail: HTMLElement;
   private readonly stacks: Record<Slot, Floater[]> = { hit: [], streak: [], reslice: [] };
   private window = 0;
   private kills = 0;
-  private lastTier = 0;
   private lastFocusAt = 0;
+  private bonusScore = 0;
 
   constructor() {
     this.layer = document.getElementById('combo-layer')!;
     this.nameEl = document.getElementById('player-name')!;
     this.avEl = document.getElementById('player-avatar') as HTMLImageElement;
+    this.nameEl.dataset.testid = 'combat-player-name';
+    this.avEl.dataset.testid = 'combat-player-avatar';
+    this.rail = document.createElement('div');
+    this.rail.className = 'combat-feedback';
+    this.rail.dataset.testid = 'combat-feedback';
+    this.layer.appendChild(this.rail);
     this.comboMeter = document.createElement('div');
     this.comboMeter.className = 'combo-meter is-idle';
+    this.comboMeter.dataset.testid = 'combat-combo-meter';
     this.comboMeter.innerHTML =
-      '<span class="combo-meter__label">COMBO</span><strong class="combo-meter__value">x0</strong>';
+      '<span class="combo-meter__label" data-testid="combat-combo-label">CHAIN</span><strong class="combo-meter__value" data-testid="combat-combo-count">×0</strong><i class="combo-meter__timer" data-testid="combat-combo-timer" aria-hidden="true"></i>';
     this.comboMeter.setAttribute('aria-hidden', 'true');
-    this.layer.appendChild(this.comboMeter);
-
-    if (!document.getElementById('combo-focus-vignette')) {
-      const vig = document.createElement('div');
-      vig.id = 'combo-focus-vignette';
-      vig.setAttribute('aria-hidden', 'true');
-      this.layer.appendChild(vig);
-    }
+    this.rail.appendChild(this.comboMeter);
   }
 
   setPlayer(name: string, avatar: string) {
@@ -61,26 +61,27 @@ export class ComboFx {
   reset() {
     this.window = 0;
     this.kills = 0;
-    this.lastTier = 0;
+    this.bonusScore = 0;
+    this.lastFocusAt = 0;
     this.setMeter(0);
     this.clearStacks();
     this.setFocus(0, 0);
   }
 
-  update(dt: number) {
+  update(dt: number, combo = 0, remaining = 0) {
+    this.setMeter(combo);
+    this.comboMeter.style.setProperty('--combo-time', String(Math.max(0, Math.min(1, remaining / 1.65))));
     if (this.window > 0) {
       this.window -= dt;
       if (this.window <= 0) {
         this.kills = 0;
-        this.lastTier = 0;
-        this.setMeter(0);
+        this.bonusScore = 0;
       }
     }
     for (const slot of Object.keys(this.stacks) as Slot[]) {
       const list = this.stacks[slot];
       for (const f of list) f.age += dt;
-      // Cull fully faded floaters (animation ~2.6s + stack hold)
-      while (list.length && list[list.length - 1]!.age > 3.2) {
+      while (list.length && list[list.length - 1]!.age > 0.85) {
         const old = list.pop()!;
         old.el.remove();
       }
@@ -89,52 +90,41 @@ export class ComboFx {
 
   onHits(n: number, combo: number) {
     if (n <= 0) return;
-    this.window = LIVE_WINDOW;
     this.setMeter(combo);
-
-    let title = 'SLICE!';
-    if (combo >= 50 || n >= 50) title = 'GODLIKE CUT!';
-    else if (combo >= 25 || n >= 25) title = 'UNSTOPPABLE!';
-    else if (combo >= 10 || n >= 10) title = 'ULTRASLICE!';
-    else if (combo >= 5 || n >= 5) title = 'MULTISLICER!';
-    else if (n === 3 || combo >= 3) title = 'TRIPLE SLICE!';
-    else if (n === 2 || combo >= 2) title = 'DOUBLE SLICE!';
-
-    const sub = combo > 1 ? ` · x${combo}` : '';
-    this.push('hit', `${title}${sub}`, comboColor(combo), 'hit-pop');
-    if (n >= 2 || combo >= 5) {
-      this.push('streak', title, comboColor(combo), 'streak-pop');
-    }
+    // Hits advance the one chain meter. They are not kills and need no banner.
     this.maybeFocus(combo);
   }
 
-  onReslice(n: number, nx?: number, ny?: number) {
+  onReslice(n: number, _nx?: number, _ny?: number) {
     if (n <= 0) return;
-    this.push('reslice', `RESLICE x${n}`, n >= 2 ? '#4ade80' : '#86efac', 'reslice-pop', nx, ny);
+    if (this.kills < 2 && this.bonusScore === 0) {
+      this.push('reslice', n >= 2 ? 'RESLICE II' : 'RESLICE', 'var(--ftd-color-success)', 'combat-feedback__notice');
+    }
   }
 
   onKills(n: number) {
     if (n <= 0) return;
     this.window = LIVE_WINDOW;
     this.kills += n;
-    let title = '';
-    let tier = 0;
-    for (const s of STREAKS) {
-      if (this.kills >= s.n) {
-        title = s.title;
-        tier = s.n;
-      }
-    }
-    if (title && tier > this.lastTier) {
-      this.lastTier = tier;
-      this.push('streak', title, comboColor(this.kills), 'streak-pop');
-      this.maybeFocus(Math.max(tier, this.kills));
-    }
+    if (this.kills >= 2) this.showSummary();
+  }
+
+  onMilestone(score: number): void {
+    this.window = LIVE_WINDOW;
+    this.bonusScore += Math.max(0, Math.round(score));
+    this.showSummary();
+  }
+
+  private showSummary(): void {
+    const killText = this.kills >= 2 ? `${this.kills} KILLS` : '';
+    const bonusText = this.bonusScore ? `CHAIN +${this.bonusScore}` : '';
+    this.push('streak', [killText, bonusText].filter(Boolean).join(' · '), 'var(--ftd-color-primary)', 'combat-feedback__notice');
   }
 
   private setMeter(combo: number) {
     const value = this.comboMeter.querySelector('.combo-meter__value');
-    if (value) value.textContent = `x${Math.max(0, combo)}`;
+    if (value) value.textContent = `×${Math.max(0, combo)}`;
+    this.comboMeter.dataset.combo = String(Math.max(0, combo));
     const idle = combo <= 0;
     this.comboMeter.classList.toggle('is-idle', idle);
     this.comboMeter.classList.toggle('is-hidden', idle);
@@ -144,63 +134,39 @@ export class ComboFx {
   }
 
   private maybeFocus(combo: number) {
-    if (combo < 8) return;
+    if (combo < 12 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const now = performance.now();
-    if (now - this.lastFocusAt < 280) return;
+    if (now - this.lastFocusAt < 1000) return;
     this.lastFocusAt = now;
-    const intensity = combo >= 12 ? 1 : 0.55;
+    const intensity = combo >= 25 ? 0.16 : 0.08;
     this.setFocus(intensity, combo);
     const detail: ComboFocusDetail = { intensity, combo };
     onComboFocus?.(detail);
     window.dispatchEvent(new CustomEvent('fruittd-combo-focus', { detail }));
   }
 
-  private setFocus(intensity: number, combo: number) {
+  private setFocus(_intensity: number, _combo: number) {
     const vig = document.getElementById('combo-focus-vignette');
     if (!vig) return;
-    if (intensity <= 0) {
-      vig.classList.remove('is-on', 'is-hot', 'is-super');
-      return;
-    }
-    vig.classList.add('is-on');
-    vig.classList.toggle('is-hot', combo >= 8 && combo < 12);
-    vig.classList.toggle('is-super', combo >= 12);
-    // Auto clear after a beat so it pulses with combos
-    window.setTimeout(() => {
-      if (!this.comboMeter.classList.contains('is-super-hot') && !this.comboMeter.classList.contains('is-hot')) {
-        vig.classList.remove('is-on', 'is-hot', 'is-super');
-      } else if (combo < 8) {
-        vig.classList.remove('is-on', 'is-hot', 'is-super');
-      }
-    }, 900);
+    // Never blur/darken enemies because the player is doing well.
+    vig.classList.remove('is-on', 'is-hot', 'is-super');
   }
 
-  private push(slot: Slot, text: string, color: string, cls: string, nx?: number, ny?: number) {
-    const list = this.stacks[slot];
-    // Shift existing floaters up the stack
-    for (let i = 0; i < list.length; i++) {
-      const f = list[i]!;
-      const depth = i + 1;
-      f.el.classList.remove('is-stack-0', 'is-stack-1', 'is-stack-2');
-      f.el.classList.add(`is-stack-${Math.min(depth, 2)}`, 'is-stacked');
-      f.el.classList.remove('is-live', 'is-swap');
+  private push(_slot: Slot, text: string, color: string, _cls: string) {
+    // One shared, reusable notification: no hit/streak/reslice stacks.
+    const list = this.stacks.streak;
+    let current = list[0];
+    if (!current) {
+      const el = document.createElement('div');
+      el.dataset.testid = 'combat-feedback-notice';
+      el.className = 'combat-feedback__notice';
+      this.rail.appendChild(el);
+      current = { el, age: 0 };
+      list.push(current);
     }
-
-    const el = document.createElement('div');
-    el.className = `${cls} is-live is-stack-0`;
-    el.textContent = text;
-    el.style.color = color;
-    if (nx != null && ny != null) {
-      el.style.left = `${nx}%`;
-      el.style.top = `${ny}%`;
-    }
-    this.layer.appendChild(el);
-    list.unshift({ el, age: 0 });
-
-    while (list.length > STACK_MAX) {
-      const old = list.pop()!;
-      old.el.remove();
-    }
+    current.age = 0;
+    current.el.textContent = text;
+    current.el.style.color = color;
   }
 
   private clearStacks() {
@@ -211,13 +177,3 @@ export class ComboFx {
   }
 }
 
-function comboColor(n: number) {
-  if (n >= 50) return '#f8fafc';
-  if (n >= 30) return '#ef4444';
-  if (n >= 20) return '#f97316';
-  if (n >= 12) return '#ef4444';
-  if (n >= 8) return '#f97316';
-  if (n >= 5) return '#fbbf24';
-  if (n >= 3) return '#34d399';
-  return '#93c5fd';
-}

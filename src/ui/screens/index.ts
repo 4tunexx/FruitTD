@@ -19,6 +19,7 @@ import { screenShell, emptyState } from './shell';
 import { navigation, type NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
 import type { HeroId } from '../../game/heroes';
+import { loadLiveConfig } from '../../services/liveConfig';
 
 export interface ScreenHostCallbacks {
   /** Latest save — read fresh on every render so screens never show stale data. */
@@ -31,6 +32,7 @@ export interface ScreenHostCallbacks {
   onAdmin?: () => void;
   onBuyItem: (id: string) => void;
   onEquipItem: (id: string) => void;
+  onUnequipItem?: (id: string) => void;
   onSellItem: (id: string) => void;
   onEquipHero: (id: HeroId) => void;
   onBuyHero: (id: HeroId) => void;
@@ -85,6 +87,7 @@ function renderFor(state: NavState): void {
       if (root) {
         renderInventory(root, save, {
           onEquip: callbacks.onEquipItem,
+          onUnequip: callbacks.onUnequipItem,
           onSell: callbacks.onSellItem,
         });
       }
@@ -146,7 +149,12 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
       elementId: def.elementId,
       overlay: def.overlay,
       // Render on entry so a screen always shows current data.
-      onEnter: () => renderFor(def.id),
+      onEnter: () => {
+        renderFor(def.id);
+        if (def.id === 'SHOP') void loadLiveConfig(true).then(() => {
+          if (navigation.state === 'SHOP') renderFor('SHOP');
+        });
+      },
     });
   }
 
@@ -156,20 +164,24 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
     { id: 'ACHIEVEMENTS', page: 'profile' },
     { id: 'RANKED', page: 'leaderboard' },
   ];
-  for (const { id, page } of legacyPages) {
+  for (const { id } of legacyPages) {
     registerScreen({
       id,
       overlay: true,
-      setVisible: (visible) => {
-        const gate = document.getElementById('hud-start');
-        if (!gate) return;
-        gate.classList.toggle('hidden', !visible);
-        if (visible) cb.showLobbyPage?.(page);
-      },
+      // A shared host must have one owner, not competing per-screen hide callbacks.
+      setVisible: () => undefined,
     });
   }
 
   installScreenRouter();
+  const showLegacy = (state: NavState) => {
+    const selected = legacyPages.find((entry) => entry.id === state);
+    const gate = host('hud-start');
+    gate?.classList.toggle('hidden', !selected);
+    if (selected) cb.showLobbyPage?.(selected.page);
+  };
+  navigation.onChange((change) => showLegacy(change.to));
+  showLegacy(navigation.state);
   installNavLinks();
   installEscHandler();
   navigation.installHistoryIntegration();

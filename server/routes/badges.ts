@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getCollection, BadgeDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
+import { validProgressUpdates } from '../validation';
 
 export const badgesRouter = Router();
 
@@ -47,7 +48,7 @@ badgesRouter.get('/', async (req: Request, res: Response) => {
 badgesRouter.post('/progress', async (req: Request, res: Response) => {
   try {
     const { updates } = req.body;
-    if (!Array.isArray(updates)) {
+    if (!validProgressUpdates(updates, 'badgeId')) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
     const user = await resolveRequestUser(req);
@@ -78,7 +79,7 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
         { userId, badgeId: def.id },
         {
           $set: {
-            progress: currentProgress,
+            progress: Math.min(maxProgress, currentProgress),
             maxProgress,
             unlocked,
             unlockedAt: unlocked && !existing?.unlocked ? new Date() : existing?.unlockedAt,

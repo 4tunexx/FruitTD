@@ -544,6 +544,10 @@ export class Hud {
     const submit = document.getElementById('btn-auth-email-submit');
     const err = document.getElementById('auth-email-error');
     const steamBtn = document.getElementById('btn-auth-open-steam');
+    const switchBtn = document.getElementById('btn-auth-switch');
+    if (switchBtn) switchBtn.textContent = mode === 'login' ? 'New here? Create an account' : 'Already have an account? Sign in';
+    const password = document.getElementById('auth-password') as HTMLInputElement | null;
+    if (password) password.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
     if (title) title.textContent = mode === 'login' ? 'Login' : 'Register';
     if (sub) {
       sub.textContent =
@@ -1870,6 +1874,10 @@ export class Hud {
 
     document.getElementById('btn-close-auth')?.addEventListener('click', () => {
       document.getElementById('modal-auth')?.classList.add('hidden');
+    });
+    document.getElementById('btn-auth-switch')?.addEventListener('click', () => {
+      const submit = document.getElementById('btn-auth-email-submit') as HTMLButtonElement | null;
+      if (!submit?.disabled) this.openAuthModal(this.authMode === 'login' ? 'register' : 'login');
     });
     document.getElementById('btn-auth-open-steam')?.addEventListener('click', () => {
       document.getElementById('modal-auth')?.classList.add('hidden');

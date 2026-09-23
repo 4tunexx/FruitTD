@@ -122,8 +122,11 @@ export class NavigationController {
   setState(next: NavState): boolean {
     if (this.current === next) return false;
     // Moving to a base state clears anything stacked above it.
+    const previousStack = this.stack;
     this.stack = [];
-    return this.commit(next, 'set');
+    if (this.commit(next, 'set')) return true;
+    this.stack = previousStack;
+    return false;
   }
 
   /** Pushes a screen on top of the current one. BACK will return here. */

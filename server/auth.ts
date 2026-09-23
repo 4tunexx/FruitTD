@@ -109,7 +109,6 @@ export async function deliverVerifyCode(
   email: string,
   code: string
 ): Promise<{ previewCode?: string; emailed?: boolean; error?: string }> {
-  console.log(`[auth] Email verify code for ${email}: ${code}`);
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return { previewCode: code };

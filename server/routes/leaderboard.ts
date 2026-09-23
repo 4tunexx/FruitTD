@@ -3,6 +3,7 @@ import { getCollection, LeaderboardDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { monthlyLeaderboardMode, rankFromScore } from '../../src/game/requirements';
 import { resolveRequestUser } from '../auth';
+import { boundedInteger } from '../validation';
 
 export const leaderboardRouter = Router();
 
@@ -37,8 +38,9 @@ leaderboardRouter.get('/monthly-rank', async (req: Request, res: Response) => {
 // GET /api/leaderboard?mode=ranked&limit=50&userId=xxx
 leaderboardRouter.get('/', async (req: Request, res: Response) => {
   try {
+    if (req.query.mode !== undefined && (typeof req.query.mode !== 'string' || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req.query.mode))) return res.status(400).json({ success: false, error: 'Invalid mode' });
     const mode = resolveMode((req.query.mode as string) || 'ranked');
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const limit = Math.max(1, Math.min(parseInt(String(req.query.limit)) || 50, 100));
     const userId = (await resolveRequestUser(req))?.userId;
 
     const col = await getCollection<LeaderboardDoc>('leaderboards');
@@ -115,6 +117,10 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       fruitsSliced,
       maxCombo,
     } = req.body;
+    if (mode !== undefined && !['casual', 'ranked', 'coop', 'arena'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
+    if (hero !== undefined && !['jiju', 'topfu', 'lagen', 'tripos', 'ki'].includes(hero)) return res.status(400).json({ success: false, error: 'Invalid hero' });
+    if ((wave !== undefined && !boundedInteger(wave, 1000, 1)) || (fruitsSliced !== undefined && !boundedInteger(fruitsSliced, 100_000)) || (maxCombo !== undefined && !boundedInteger(maxCombo, 5000))) return res.status(400).json({ success: false, error: 'Invalid match counters' });
+    if ((nickname !== undefined && (typeof nickname !== 'string' || nickname.length > 64)) || (avatar !== undefined && (typeof avatar !== 'string' || avatar.length > 900_000))) return res.status(400).json({ success: false, error: 'Invalid profile fields' });
 
     if (typeof score !== 'number' || !Number.isFinite(score) || score < 0) {
       return res.status(400).json({ success: false, error: 'Invalid score submission payload' });

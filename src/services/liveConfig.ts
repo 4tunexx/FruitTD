@@ -126,8 +126,8 @@ export function setLiveConfig(config: AdminConfig): void {
   setLiveWavesConfig(cached.waves);
 }
 
-export async function loadLiveConfig(): Promise<AdminConfig> {
-  if (!loadPromise) {
+export async function loadLiveConfig(force = false): Promise<AdminConfig> {
+  if (force || !loadPromise) {
     loadPromise = fetchAdminConfig().then((config) => {
       if (config) setLiveConfig(mergeAdminConfig(config));
       return cached;

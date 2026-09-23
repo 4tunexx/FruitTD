@@ -76,7 +76,7 @@
       <div class="boot-bar"><i></i></div>
     </div>
     <div id="app">
-      <canvas id="game-canvas"></canvas>
+      <canvas id="game-canvas" data-testid="combat-canvas" aria-label="Tower defense battlefield"></canvas>
 
       <!-- ═══════════════════════════════════════════ HUD ═══════════════════════════════════════════ -->
       <div id="hud">
@@ -136,7 +136,7 @@
         <div id="combo-focus-vignette" aria-hidden="true"></div>
 
         <!-- Combo pop layer -->
-        <div id="combo-layer"></div>
+        <div id="combo-layer" data-testid="combat-overlay"></div>
 
         <button type="button" id="btn-sidebar-toggle" class="sidebar-toggle" aria-label="Open build menu" aria-expanded="false">
           <span class="sidebar-toggle-icon" aria-hidden="true">⚔</span>
@@ -152,7 +152,7 @@
             <div>
               <p id="sidebar-label">Fruit TD</p>
               <h1 id="sidebar-title">Wall Defense</h1>
-              <p id="hud-hero">Master Jiju · Lv 1/100</p>
+              <p id="hud-hero" data-testid="combat-hero-progression">Master Jiju · Lv 1/100</p>
             </div>
           </div>
 
@@ -160,19 +160,19 @@
           <div id="stats-grid">
             <div class="stat-card">
               <p class="stat-label">Score</p>
-              <p id="hud-score" class="stat-value">0</p>
+              <p id="hud-score" class="stat-value" data-testid="combat-score">0</p>
             </div>
             <div class="stat-card">
               <p class="stat-label">Money</p>
-              <p id="hud-currency" class="stat-value">$140</p>
+              <p id="hud-currency" class="stat-value" data-testid="combat-currency">$140</p>
             </div>
             <div class="stat-card stat-card--lives">
               <p class="stat-label">Lives</p>
-              <p id="hud-lives" class="stat-value">15</p>
+              <p id="hud-lives" class="stat-value" data-testid="combat-lives">15</p>
             </div>
             <div class="stat-card">
               <p class="stat-label">Wave</p>
-              <p id="hud-wave" class="stat-value">1</p>
+              <p id="hud-wave" class="stat-value" data-testid="combat-wave">1</p>
             </div>
           </div>
 
@@ -182,7 +182,7 @@
             <div id="hp-track">
               <div id="hud-hp-fill"></div>
             </div>
-            <p id="hud-combo"></p>
+            <p id="hud-combo" data-testid="combat-sidebar-combo"></p>
           </div>
 
           <!-- Wave progress bar -->
@@ -228,7 +228,7 @@
         </aside>
 
         <!-- ════ Toast Container ════ -->
-        <div id="hud-toast"></div>
+        <div id="hud-toast" data-testid="combat-toast"></div>
         <div id="achievement-toasts"></div>
 
         <!-- P1-4: Boss Letterbox Intro -->
@@ -771,13 +771,13 @@
         </div>
 
         <!-- Auth: Login / Register -->
-        <div id="modal-auth" class="hud-modal-backdrop hidden">
+        <div id="modal-auth" class="hud-modal-backdrop hidden" data-testid="auth-modal">
           <div class="modal-card modal-card--auth">
-            <button type="button" id="btn-close-auth" class="modal-close-btn">&times;</button>
+            <button type="button" id="btn-close-auth" class="modal-close-btn" data-testid="auth-close" aria-label="Close sign in">&times;</button>
             <div class="auth-hero">
               <div class="auth-fruit" aria-hidden="true">🍉</div>
               <p class="auth-eyebrow">Fruit TD</p>
-              <h2 id="auth-modal-title" class="modal-title">Login</h2>
+              <h2 id="auth-modal-title" class="modal-title" data-testid="auth-title">Login</h2>
               <p id="auth-modal-sub" class="modal-sub">Sign in with Steam or your email.</p>
             </div>
 
@@ -790,15 +790,16 @@
             <form id="auth-email-form" class="auth-form" autocomplete="on">
               <label class="auth-field">
                 <span>Email</span>
-                <input id="auth-email" type="email" required placeholder="you@email.com" autocomplete="email" />
+                <input id="auth-email" data-testid="auth-email" type="email" required placeholder="you@email.com" autocomplete="email" />
               </label>
               <label class="auth-field">
                 <span>Password</span>
-                <input id="auth-password" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="current-password" />
+                <input id="auth-password" data-testid="auth-password" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="current-password" />
               </label>
-              <div id="auth-email-error" class="steam-error hidden"></div>
-              <button type="submit" id="btn-auth-email-submit" class="auth-primary-btn">Continue</button>
+              <div id="auth-email-error" data-testid="auth-error" role="alert" class="steam-error hidden"></div>
+              <button type="submit" id="btn-auth-email-submit" data-testid="auth-submit" class="auth-primary-btn">Continue</button>
             </form>
+            <button type="button" id="btn-auth-switch" data-testid="auth-switch-mode" class="auth-mode-switch">New here? Create an account</button>
           </div>
         </div>
 

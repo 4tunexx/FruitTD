@@ -44,6 +44,10 @@ export class BladeInput {
   lastCharge = 0;
   private strokeSerial = 0;
   private currentStrokeId = 0;
+  private activePointer: number | null = null;
+  private endedStroke: number | null = null;
+  private trailIdleTime = 0;
+  private freshTrail = false;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -65,7 +69,8 @@ export class BladeInput {
     canvas.style.touchAction = 'none';
 
     window.addEventListener('pointerup', (e) => this.onUp(e));
-    window.addEventListener('pointercancel', (e) => this.onUp(e));
+    window.addEventListener('pointercancel', () => this.reset());
+    window.addEventListener('blur', () => this.reset());
   }
 
   private kind(e: PointerEvent): PointerKind {
@@ -100,6 +105,9 @@ export class BladeInput {
     this.lastPointer = this.kind(e);
     this.panning = e.button === 1 || e.button === 2 || e.shiftKey || this.pointers.size >= 2;
     if (this.panning) {
+      this.pendingSegments.length = 0;
+      this.trail.length = 0;
+      this.activePointer = null;
       let ax = 0;
       let ay = 0;
       let count = 0;
@@ -114,12 +122,15 @@ export class BladeInput {
       return;
     }
     if (e.button !== 0) return;
+    this.activePointer = e.pointerId;
+    this.canvas.setPointerCapture?.(e.pointerId);
     this.lastX = e.clientX;
     this.lastY = e.clientY;
     this.down = true;
     const now = performance.now();
     this.downAt = now;
     this.lastSampleTime = now;
+    this.trailIdleTime = 0;
     this.currentStrokeId = ++this.strokeSerial;
     this.samples.length = 0;
     this.pendingSegments.length = 0;
@@ -144,6 +155,7 @@ export class BladeInput {
       this.view.pan(-dx * 0.028, dy * 0.028);
       return;
     }
+    if (!this.down || e.pointerId !== this.activePointer) return;
     const p = this.project(e.clientX, e.clientY);
     if (!p) return;
     this.trail.push(p.clone());
@@ -151,6 +163,8 @@ export class BladeInput {
     if (!this.down) return;
 
     const now = performance.now();
+    this.trailIdleTime = 0;
+    this.freshTrail = true;
     const previous = this.samples[this.samples.length - 1];
     if (previous) {
       this.queueSegment(previous, p, now);
@@ -162,6 +176,12 @@ export class BladeInput {
 
   private onUp(e: PointerEvent): void {
     this.pointers.delete(e.pointerId);
+    if (e.pointerId !== this.activePointer) {
+      this.panning = this.pointers.size >= 2;
+      return;
+    }
+    this.endedStroke = this.currentStrokeId;
+    this.activePointer = null;
     if (this.down) {
       this.lastCharge = (performance.now() - this.downAt) / 1000;
     }
@@ -217,7 +237,35 @@ export class BladeInput {
     return c;
   }
 
-  fadeTrail(): void {
-    if (!this.down && this.trail.length) this.trail.shift();
+  consumeStrokeEnd(): number | null {
+    const id = this.endedStroke;
+    this.endedStroke = null;
+    return id;
+  }
+
+  reset(): void {
+    this.down = false;
+    this.panning = false;
+    this.activePointer = null;
+    this.endedStroke = null;
+    this.pointers.clear();
+    this.samples.length = 0;
+    this.pendingSegments.length = 0;
+    this.trail.length = 0;
+    this.lastClick = null;
+    this.lastSlash = null;
+    this.trailIdleTime = 0;
+    this.freshTrail = false;
+  }
+
+  fadeTrail(dt = 1 / 60): void {
+    // Give newly received samples a render opportunity even on slow frames.
+    // Wall-clock expiry could erase a two-point swipe before it was ever drawn.
+    if (this.freshTrail) {
+      this.freshTrail = false;
+      return;
+    }
+    this.trailIdleTime += Math.max(0, dt);
+    if (this.trailIdleTime > (this.down ? 0.065 : 0.045) && this.trail.length) this.trail.shift();
   }
 }

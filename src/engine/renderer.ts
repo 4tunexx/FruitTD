@@ -14,8 +14,17 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ARENA_W } from '../game/world';
 
 const CLEAR = new Color(0x4a5f3e);
+
+/** Preserve all spawn lanes at default zoom, including narrow portrait screens. */
+export function arenaFrustum(width: number, height: number, zoomHeight = 20) {
+  const aspect = Math.max(1, width) / Math.max(1, height);
+  const viewHeight = Math.max(20, (ARENA_W + 2) / aspect) * (zoomHeight / 20);
+  const viewWidth = viewHeight * aspect;
+  return { left: -viewWidth / 2, right: viewWidth / 2, top: viewHeight / 2, bottom: -viewHeight / 2 };
+}
 
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
@@ -90,12 +99,7 @@ export class GameRenderer {
     const h = window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
-    const aspect = w / h;
-    const viewW = this.viewH * aspect;
-    this.camera.left = -viewW / 2;
-    this.camera.right = viewW / 2;
-    this.camera.top = this.viewH / 2;
-    this.camera.bottom = -this.viewH / 2;
+    Object.assign(this.camera, arenaFrustum(w, h, this.viewH));
     this.camera.updateProjectionMatrix();
   }
 

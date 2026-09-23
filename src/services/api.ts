@@ -85,6 +85,7 @@ export function getUserId(): string {
 
 // Generic fetcher with fallback tolerance
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T | null> {
+  if (/^\/api\/(profile|missions|achievements|daily|badges)(?:[/?]|$)/.test(endpoint) && !getAuthToken()) return null;
   try {
     const res = await fetch(endpoint, {
       ...options,
@@ -317,11 +318,24 @@ export async function fetchCloudSave(): Promise<Record<string, any> | null> {
   return res && res.success ? res.saveData : null;
 }
 
-export async function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
-  const userId = getUserId();
-  const res = await apiRequest<{ success: boolean }>('/api/profile/sync', {
-    method: 'POST',
-    body: JSON.stringify({ userId, saveData }),
-  });
-  return !!res?.success;
+let pendingSave: { userId: string; saveData: Record<string, any> } | null = null;
+let syncInFlight: Promise<boolean> | null = null;
+
+export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
+  if (!getAuthToken()) return Promise.resolve(false);
+  pendingSave = { userId: getUserId(), saveData: structuredClone(saveData) };
+  if (!syncInFlight) {
+    syncInFlight = (async () => {
+      let success = true;
+      while (pendingSave) {
+        const snapshot = pendingSave;
+        pendingSave = null;
+        if (snapshot.userId !== getUserId() || !getAuthToken()) continue;
+        const res = await apiRequest<{ success: boolean }>('/api/profile/sync', { method: 'POST', body: JSON.stringify(snapshot) });
+        success = Boolean(res?.success) && success;
+      }
+      return success;
+    })().finally(() => { syncInFlight = null; });
+  }
+  return syncInFlight;
 }

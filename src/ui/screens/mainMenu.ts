@@ -141,6 +141,7 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
     el('p', { class: 'ftd-playcard__mode', text: `Mode · ${save.mode.toUpperCase()}` }),
   ]);
   stage.appendChild(playPanel);
+  playPanel.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'combat-play-button');
 
   // ── Current loadout, so a new player sees who they are playing as ──
   stage.appendChild(

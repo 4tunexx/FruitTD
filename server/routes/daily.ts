@@ -119,7 +119,7 @@ dailyRouter.post('/claim', async (req: Request, res: Response) => {
     const reward = activeRewards[newStreak - 1] || activeRewards[0];
 
     await col.updateOne(
-      { userId },
+      { userId, lastClaimDate: { $ne: todayStr } },
       {
         $set: {
           streak: newStreak,
@@ -139,6 +139,7 @@ dailyRouter.post('/claim', async (req: Request, res: Response) => {
       reward,
     });
   } catch (err: any) {
+    if (err?.code === 11000) return res.status(400).json({ success: false, error: 'Daily bonus already claimed for today' });
     console.error('Error claiming daily bonus:', err);
     res.status(500).json({ success: false, error: err.message });
   }

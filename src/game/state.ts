@@ -27,6 +27,7 @@ export interface GameState {
   waveClearTimer: number;
   waveTotal: number;
   waveKilled: number;
+  waveLeaks: number;
   bossIntro: boolean;
   bossIntroTimer: number;
   hero: HeroId;
@@ -64,6 +65,7 @@ export function createState(): GameState {
     waveClearTimer: 2.5,
     waveTotal: 0,
     waveKilled: 0,
+    waveLeaks: 0,
     bossIntro: false,
     bossIntroTimer: 0,
     hero: 'jiju',
@@ -163,7 +165,12 @@ function resetCombo(state: GameState, _reason: ComboResetReason): void {
  * excluded so a perfect wave stays accurately detectable (§7).
  */
 export function isPerfectWave(state: GameState): boolean {
-  return state.waveTotal > 0 && state.waveKilled >= state.waveTotal;
+  return state.waveTotal > 0 && state.waveKilled === state.waveTotal && state.waveLeaks === 0;
+}
+
+/** Only original wave members count; child kills still earn their normal rewards. */
+export function recordWaveKill(state: GameState, splitChild = false): void {
+  if (!splitChild) state.waveKilled += 1;
 }
 
 /** @deprecated Superseded by the central reward pipeline (progression/rewards). */

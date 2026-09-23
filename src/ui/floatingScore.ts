@@ -13,12 +13,13 @@ interface FloatingNode {
   x: number;
   y: number;
   vy: number;
+  amount: number;
 }
 
 export class FloatingScoreManager {
   private container: HTMLElement | null = null;
   private readonly pool: FloatingNode[] = [];
-  private readonly POOL_SIZE = 24;
+  private readonly POOL_SIZE = 4;
 
   constructor() {
     this.ensureContainer();
@@ -34,6 +35,7 @@ export class FloatingScoreManager {
       el = document.createElement('div');
       el.id = 'floating-score-layer';
       el.className = 'floating-score-layer';
+      el.dataset.testid = 'combat-score-layer';
       el.setAttribute('aria-hidden', 'true');
       parent.appendChild(el);
     }
@@ -43,6 +45,7 @@ export class FloatingScoreManager {
       for (let i = 0; i < this.POOL_SIZE; i++) {
         const item = document.createElement('div');
         item.className = 'floating-score-item is-idle';
+        item.dataset.testid = `combat-score-tick-${i}`;
         el.appendChild(item);
         this.pool.push({
           el: item,
@@ -52,6 +55,7 @@ export class FloatingScoreManager {
           x: 50,
           y: 50,
           vy: -32,
+          amount: 0,
         });
       }
     }
@@ -60,15 +64,24 @@ export class FloatingScoreManager {
 
   spawn(text: string, nx: number, ny: number, type: FloatingScoreType = 'normal'): void {
     this.ensureContainer();
-    const node = this.pool.find((n) => !n.active) || this.pool[0];
+    if (![nx, ny].every(Number.isFinite)) return;
+    const amount = /^\+(\d+)$/.exec(text)?.[1];
+    const nearby = amount && this.pool.find((n) => n.active && n.maxLife - n.life < 0.16 && n.amount > 0 && Math.abs(n.x - nx) < 10 && Math.abs(n.y - (ny - 3)) < 7);
+    if (nearby) {
+      nearby.amount += Number(amount);
+      nearby.el.textContent = `+${nearby.amount}`;
+      return;
+    }
+    const node = this.pool.find((n) => !n.active);
     if (!node) return;
 
     node.active = true;
-    node.maxLife = type === 'boss' || type === 'critical' ? 1.15 : 0.85;
+    node.maxLife = type === 'boss' ? 0.7 : 0.55;
     node.life = node.maxLife;
-    node.x = Math.max(8, Math.min(92, nx + (Math.random() - 0.5) * 4));
-    node.y = Math.max(12, Math.min(88, ny + (Math.random() - 0.5) * 3));
-    node.vy = type === 'boss' ? -22 : -36;
+    node.x = Math.max(10, Math.min(90, nx));
+    node.y = Math.max(16, Math.min(82, ny - 3));
+    node.vy = -3;
+    node.amount = Number(amount) || 0;
 
     const el = node.el;
     el.className = `floating-score-item is-active score-type-${type}`;
@@ -76,7 +89,7 @@ export class FloatingScoreManager {
     el.style.left = `${node.x}%`;
     el.style.top = `${node.y}%`;
     el.style.opacity = '1';
-    el.style.transform = 'translate(-50%, -50%) scale(1.15)';
+    el.style.transform = 'translate(-50%, -50%)';
   }
 
   update(dt: number): void {
@@ -94,18 +107,7 @@ export class FloatingScoreManager {
       node.y += node.vy * dt * (1 - progress * 0.4);
       node.el.style.top = `${node.y}%`;
 
-      if (progress < 0.2) {
-        const t = progress / 0.2;
-        node.el.style.transform = `translate(-50%, -50%) scale(${1 + t * 0.25})`;
-        node.el.style.opacity = '1';
-      } else if (progress > 0.6) {
-        const fade = (1 - progress) / 0.4;
-        node.el.style.opacity = `${Math.max(0, fade)}`;
-        node.el.style.transform = `translate(-50%, -50%) scale(${1.25 - (progress - 0.6) * 0.35})`;
-      } else {
-        node.el.style.opacity = '1';
-        node.el.style.transform = 'translate(-50%, -50%) scale(1.25)';
-      }
+      node.el.style.opacity = `${Math.min(1, Math.max(0, (1 - progress) / 0.55))}`;
     }
   }
 

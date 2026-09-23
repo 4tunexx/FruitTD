@@ -47,6 +47,8 @@ export interface Fruit {
   brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
   /** Spawned by a Pod-Spawner death — never counted as a wave member. */
   splitChild: boolean;
+  /** Generation distinguishes two occupants of the same pooled object. */
+  spawnSerial?: number;
   /** Studio clip playback; inactive when no sheet/walk clip is saved. */
   studio: StudioAnimState;
 }
@@ -172,6 +174,9 @@ export class FruitField {
   private spawnGap = 0.7;
   private hpScale = 1;
   private activeState: GameState | null = null;
+  private serial = 0;
+  private readonly retired = new Set<Fruit>();
+  private readonly pendingChildren: Array<{ x: number; y: number; z: number; offset: number }> = [];
   onSpawn: ((fruit: Fruit) => void) | null = null;
 
   constructor(private readonly sceneAdd: (group: Group) => void) {
@@ -184,10 +189,12 @@ export class FruitField {
 
   get aliveCount(): number { return this.fruits.reduce((n, f) => n + (f.alive ? 1 : 0), 0); }
   get queueLength(): number { return this.queue.length; }
-  get waveBusy(): boolean { return this.queue.length > 0 || this.aliveCount > 0; }
+  get waveBusy(): boolean { return this.queue.length > 0 || this.pendingChildren.length > 0 || this.aliveCount > 0; }
 
   reset(): void {
     this.queue.length = 0; this.spawnCd = 0; this.activeState = null;
+    this.retired.clear();
+    this.pendingChildren.length = 0;
     for (const fruit of this.fruits) {
       fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false; fruit.splitChild = false;
       resetStudioAnimState(fruit.studio, 'normal'); fruit.group.visible = false;
@@ -199,9 +206,10 @@ export class FruitField {
   }
 
   spawn(kind: FruitKind, boss = false, enemyKind: EnemyKind = 'normal'): Fruit | null {
-    // Skip fruits still playing a death clip so the pool does not steal their mesh.
-    const idle = this.fruits.find((f) => !f.alive);
+    // Keep killed objects stable until synchronous reward/debris/leak consumers finish.
+    const idle = this.fruits.find((f) => !f.alive && !this.retired.has(f));
     if (!idle) return null;
+    idle.spawnSerial = ++this.serial;
     const def = FRUIT_DEFS[kind];
     const enemy = ENEMY_RULES[enemyKind] || ENEMY_RULES.normal;
     const gate = (Math.random() * 5) | 0;
@@ -261,15 +269,16 @@ export class FruitField {
     return false;
   }
 
-  kill(fruit: Fruit): void {
+  kill(fruit: Fruit, split = true): void {
     if (!fruit.alive) return;
     const wasSplitter = fruit.enemyKind === 'splitter' && !fruit.splitChild;
     const { x, y, z } = fruit.group.position;
+    this.retired.add(fruit);
     fruit.alive = false;
     fruit.hazardRing.visible = false;
     fruit.armorRing.visible = false;
     fruit.group.visible = false;
-    if (wasSplitter) this.spawnSplitChildren(x, y, z);
+    if (wasSplitter && split) this.spawnSplitChildren(x, y, z);
   }
 
   /**
@@ -280,8 +289,17 @@ export class FruitField {
    */
   private spawnSplitChildren(x: number, y: number, z: number): void {
     for (const offset of [-0.7, 0.7]) {
+      this.pendingChildren.push({ x, y, z, offset });
+    }
+    this.flushSplitChildren();
+  }
+
+  private flushSplitChildren(): void {
+    while (this.pendingChildren.length) {
+      const { x, y, z, offset } = this.pendingChildren[0];
       const child = this.spawn('strawberry', false, 'normal');
-      if (!child) continue;
+      if (!child) break;
+      this.pendingChildren.shift();
       child.splitChild = true;
       child.group.position.set(x + offset, y + 0.15, z - 0.15);
       child.radius *= 0.72;
@@ -294,13 +312,15 @@ export class FruitField {
   }
 
   update(dt: number, state: GameState, onLeak: (fruit: Fruit) => void): void {
+    this.retired.clear();
+    this.flushSplitChildren();
     this.activeState = state;
     if (this.queue.length > 0) {
       this.spawnCd -= dt;
       if (this.spawnCd <= 0) {
         this.spawnCd = this.spawnGap;
-        const next = this.queue.shift();
-        if (next) this.spawn(next.kind, next.boss, next.enemy ?? 'normal');
+        const next = this.queue[0];
+        if (next && this.spawn(next.kind, next.boss, next.enemy ?? 'normal')) this.queue.shift();
       }
     }
 
@@ -318,7 +338,7 @@ export class FruitField {
       fruit.group.position.x += moveX * dt;
       fruit.group.position.z += moveZ * dt;
       fruit.group.position.x = Math.max(-hw, Math.min(hw, fruit.group.position.x)); fruit.group.position.z = Math.min(top, fruit.group.position.z);
-      if (fruit.group.position.z <= LEAK_Z) { this.kill(fruit); onLeak(fruit); continue; }
+      if (fruit.group.position.z <= LEAK_Z) { this.kill(fruit, false); onLeak(fruit); continue; }
       fruit.squash = Math.max(0, fruit.squash - dt);
       const squash = fruit.squash > 0 ? 1 - fruit.squash * 1.4 : 1;
       const def = FRUIT_DEFS[fruit.kind];

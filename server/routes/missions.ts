@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getCollection, MissionDoc } from '../db';
 import { getMonthKey, loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
+import { validProgressUpdates } from '../validation';
 
 export const missionsRouter = Router();
 
@@ -75,7 +76,7 @@ missionsRouter.get('/', async (req: Request, res: Response) => {
 missionsRouter.post('/progress', async (req: Request, res: Response) => {
   try {
     const { updates } = req.body;
-    if (!Array.isArray(updates)) {
+    if (!validProgressUpdates(updates, 'missionId')) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
     const user = await resolveRequestUser(req);
@@ -104,12 +105,12 @@ missionsRouter.post('/progress', async (req: Request, res: Response) => {
         { userId, missionId: def.id, dayKey: activeKey },
         {
           $set: {
-            progress: currentProgress,
+            progress: Math.min(goal, currentProgress),
             goal,
             completed: currentProgress >= goal,
-            claimed: existing?.claimed ?? false,
             updatedAt: new Date(),
           },
+          $setOnInsert: { claimed: false },
         },
         { upsert: true }
       );
@@ -145,7 +146,8 @@ missionsRouter.post('/claim', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
     }
 
-    await col.updateOne({ _id: existing._id }, { $set: { claimed: true, updatedAt: new Date() } });
+    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: new Date() } });
+    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
 
     res.json({
       success: true,

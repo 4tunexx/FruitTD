@@ -416,8 +416,7 @@ async function publishToLive(): Promise<void> {
     window.dispatchEvent(new CustomEvent('fruittd-slicers-published', { detail: slicers }));
     status(res.message || 'Published slicer overrides to live admin config', true);
   } else {
-    setLiveConfig({ ...live, slicers } as AdminConfig);
-    status(`Published locally (server: ${res.error || 'failed'}). Live play uses local override.`, false);
+    status(`Publish failed: ${res.error || 'server unavailable'}. Draft kept locally; nothing was published to players.`, false);
   }
 }
 

@@ -23,6 +23,7 @@ export interface Half {
   kind: FruitKind;
   gen: number;
   radius: number;
+  spawnSerial?: number;
 }
 
 const TEMPLATE = new SphereGeometry(1, 20, 14);
@@ -81,6 +82,7 @@ function deformHalf(mesh: Mesh, radius: number, normal: Vector3, side: number): 
 
 export class SliceDebris {
   readonly halves: Half[] = [];
+  private serial = 0;
 
   constructor(private readonly sceneAdd: (g: Group) => void) {
     for (let i = 0; i < 56; i++) {
@@ -131,6 +133,7 @@ export class SliceDebris {
       const half = this.halves.find((h) => !h.alive);
       if (!half) continue;
       half.alive = true;
+      half.spawnSerial = ++this.serial;
       half.kind = kind;
       half.gen = gen;
       half.radius = radius;

@@ -1,163 +1,55 @@
-#combo-layer .hit-pop,
-#combo-layer .streak-pop,
-#combo-layer .reslice-pop {
+/* A single status rail above the arena. No combat banners over targets. */
+.auth-mode-switch { display: block; width: 100%; padding: 12px 8px; margin-top: 10px; background: transparent; border: 0; color: var(--ftd-color-primary); font: inherit; font-size: 13px; cursor: pointer; transition: opacity 120ms ease; }
+.auth-mode-switch:hover { opacity: 0.8; }
+.auth-mode-switch:focus-visible { outline: 2px solid var(--ftd-color-primary); outline-offset: 2px; }
+.combat-feedback {
   position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 22px);
   left: 50%;
-  top: 28%;
-  width: max-content;
-  max-width: 90vw;
-  text-align: center;
-  white-space: pre-line;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.65), 0 0 18px currentColor;
-  font-weight: 1000;
-  font-style: italic;
-  line-height: 0.95;
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
-  pointer-events: none;
-  transform-origin: center;
-  transition: transform 0.28s cubic-bezier(0.16, 1.2, 0.3, 1), opacity 0.28s ease, filter 0.28s ease;
-}
-#combo-layer .hit-pop { font-size: clamp(2rem, 5vw, 4.4rem); }
-#combo-layer .streak-pop {
-  top: 40%;
-  font-size: clamp(1.7rem, 4.2vw, 3.8rem);
-  text-transform: uppercase;
-}
-#combo-layer .reslice-pop { font-size: clamp(1rem, 2.4vw, 2rem); }
-
-.combo-meter {
-  position: absolute;
-  left: 50%;
-  top: 8%;
-  transform: translateX(-50%) scale(1);
+  transform: translateX(-50%);
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  padding: 0.35rem 0.85rem;
-  border-radius: 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(5, 10, 15, 0.48);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  box-shadow: 0 5px 22px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  opacity: 1;
-  transition: transform 0.16s cubic-bezier(0.16, 1.4, 0.3, 1), opacity 0.22s ease, box-shadow 0.18s ease, visibility 0.22s;
-}
-.combo-meter.is-idle,
-.combo-meter.is-hidden {
-  opacity: 0;
-  visibility: hidden;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  min-height: 30px;
   pointer-events: none;
-  transform: translateX(-50%) scale(0.86);
+  font-family: var(--ftd-font-number);
+  letter-spacing: 0;
 }
-.combo-meter__label {
-  font-size: 0.62rem;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.65);
+.combo-meter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 4px 9px;
+  border-radius: 3px;
+  background: var(--ftd-color-background);
+  border: 1px solid var(--ftd-color-border);
+  color: var(--ftd-color-text);
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: opacity 120ms ease;
 }
-.combo-meter__value {
-  font-size: clamp(1rem, 2.5vw, 1.65rem);
-  font-weight: 1000;
-  color: #f8fafc;
-  font-style: italic;
+.combo-meter.is-idle, .combo-meter.is-hidden { opacity: 0; visibility: hidden; }
+.combo-meter__label { font-size: 10px; font-weight: 600; color: var(--ftd-color-text-muted); }
+.combo-meter__value { font-size: 16px; font-weight: 800; min-width: 24px; font-variant-numeric: tabular-nums; }
+.combo-meter__timer { position: absolute; left: 0; bottom: 0; width: 100%; height: 2px; background: var(--ftd-color-primary); transform: scaleX(var(--combo-time, 0)); transform-origin: left; }
+.combo-meter.is-hot .combo-meter__value { color: var(--ftd-color-primary); }
+.combo-meter.is-super-hot .combo-meter__value { color: var(--ftd-color-warning); }
+.combat-feedback__notice {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  max-width: 200px;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px #000;
+  animation: combatNoticeIn 120ms ease-out;
 }
-.combo-meter.is-hot {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) scale(1.08);
-  box-shadow: 0 0 28px rgba(251, 191, 36, 0.25);
-}
-.combo-meter.is-super-hot {
-  transform: translateX(-50%) scale(1.16);
-  box-shadow: 0 0 34px rgba(239, 68, 68, 0.35);
-}
-
-/* Primary floater — longer hold before fade */
-#combo-layer .is-live.is-stack-0 {
-  animation: fruitTdComboIn 2.65s cubic-bezier(0.16, 0.9, 0.3, 1) both;
-}
-#combo-layer .is-swap {
-  animation: fruitTdComboSwap 0.34s cubic-bezier(0.16, 1.3, 0.3, 1) both;
-}
-
-/* Stacked history: slide up, shrink, fade */
-#combo-layer .is-stacked.is-stack-1 {
-  animation: none;
-  opacity: 0.55;
-  filter: blur(0.4px) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
-  transform: translate(-50%, -2.6rem) scale(0.72);
-  z-index: 1;
-}
-#combo-layer .is-stacked.is-stack-2 {
-  animation: none;
-  opacity: 0.28;
-  filter: blur(1px) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
-  transform: translate(-50%, -4.6rem) scale(0.55);
-  z-index: 0;
-}
-#combo-layer .streak-pop.is-stacked.is-stack-1 {
-  transform: translate(-50%, calc(-2.6rem + 12%)) scale(0.72);
-}
-#combo-layer .streak-pop.is-stacked.is-stack-2 {
-  transform: translate(-50%, calc(-4.6rem + 12%)) scale(0.55);
-}
-
-@keyframes fruitTdComboIn {
-  0% { opacity: 0; transform: translate(-50%, 28px) scale(0.6) rotate(-3deg); }
-  14% { opacity: 1; transform: translate(-50%, -6px) scale(1.28) rotate(1deg); }
-  24% { opacity: 1; transform: translate(-50%, 0) scale(1.0) rotate(0); }
-  62% { opacity: 1; transform: translate(-50%, 0) scale(1.0); }
-  82% { opacity: 0.85; transform: translate(calc(-50% + 40px), 2px) scale(0.98); }
-  100% { opacity: 0; transform: translate(calc(-50% + 120px), 6px) scale(0.9) rotate(2deg); }
-}
-@keyframes fruitTdComboSwap {
-  0% { opacity: 0.2; transform: translate(-50%, 0) scale(0.72); }
-  45% { opacity: 1; transform: translate(-50%, -2px) scale(1.16); }
-  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-}
-
-/* Combo focus edge vignette */
-#combo-focus-vignette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 7;
-  opacity: 0;
-  transition: opacity 0.28s ease;
-  background:
-    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.35) 100%),
-    radial-gradient(ellipse at 50% 0%, rgba(251, 191, 36, 0.12), transparent 55%),
-    radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.1), transparent 50%);
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
-  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.45);
-}
-#combo-focus-vignette.is-on {
-  opacity: 1;
-  animation: comboFocusPulse 0.9s ease-out both;
-}
-#combo-focus-vignette.is-hot {
-  background:
-    radial-gradient(ellipse at center, transparent 38%, rgba(0, 0, 0, 0.42) 100%),
-    radial-gradient(ellipse at 50% 20%, rgba(249, 115, 22, 0.22), transparent 55%);
-  backdrop-filter: blur(1.5px);
-  -webkit-backdrop-filter: blur(1.5px);
-}
-#combo-focus-vignette.is-super {
-  background:
-    radial-gradient(ellipse at center, transparent 32%, rgba(0, 0, 0, 0.5) 100%),
-    radial-gradient(ellipse at 50% 15%, rgba(239, 68, 68, 0.28), transparent 55%),
-    radial-gradient(ellipse at 50% 100%, rgba(251, 191, 36, 0.18), transparent 45%);
-  backdrop-filter: blur(2.5px);
-  -webkit-backdrop-filter: blur(2.5px);
-  box-shadow: inset 0 0 120px rgba(239, 68, 68, 0.35);
-}
-@keyframes comboFocusPulse {
-  0% { opacity: 0; }
-  25% { opacity: 1; }
-  100% { opacity: 0.55; }
-}
+@keyframes combatNoticeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+#combo-focus-vignette { display: none; }
+body[data-ftd-screen='PAUSED'] #combo-layer,
+body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
 
 .menu-page button,
 #hud-start button,
@@ -310,10 +202,12 @@
 .floating-score-item {
   position: absolute;
   pointer-events: none;
-  font-weight: 1000;
-  font-style: italic;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 12px currentColor;
+  font-weight: 700;
+  font-family: var(--ftd-font-number);
+  text-shadow: 0 1px 3px #000;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  max-width: 90px;
   white-space: nowrap;
   user-select: none;
   line-height: 1;
@@ -325,56 +219,47 @@
 }
 
 .score-type-normal {
-  color: #fef08a;
-  font-size: clamp(1.15rem, 2.6vw, 1.65rem);
+  color: var(--ftd-color-text);
+  font-size: 13px;
 }
 
 .score-type-critical {
-  color: #facc15;
-  font-size: clamp(1.45rem, 3.4vw, 2.2rem);
-  text-shadow: 0 0 16px #facc15, 0 3px 6px #000;
-  letter-spacing: 0.04em;
+  color: var(--ftd-color-warning);
+  font-size: 15px;
 }
 
 .score-type-special {
-  color: #c084fc;
-  font-size: clamp(1.35rem, 3vw, 1.95rem);
-  text-shadow: 0 0 14px #a855f7, 0 3px 6px #000;
+  color: var(--ftd-color-primary);
+  font-size: 14px;
 }
 
 .score-type-boss {
-  color: #f43f5e;
-  font-size: clamp(1.65rem, 4vw, 2.5rem);
-  text-shadow: 0 0 22px #e11d48, 0 4px 8px #000;
-  letter-spacing: 0.06em;
+  color: var(--ftd-color-danger);
+  font-size: 16px;
 }
 
 .score-type-reslice {
-  color: #4ade80;
-  font-size: clamp(1.25rem, 2.8vw, 1.8rem);
-  text-shadow: 0 0 14px #22c55e, 0 3px 6px #000;
+  color: var(--ftd-color-success);
+  font-size: 12px;
 }
 
 .score-type-combo {
-  color: #38bdf8;
-  font-size: clamp(1.35rem, 3vw, 1.95rem);
-  text-shadow: 0 0 14px #0284c7, 0 3px 6px #000;
+  color: var(--ftd-color-xp);
+  font-size: 13px;
 }
 
 @media (max-width: 860px) {
   .menu-page button,
   #hud-start button,
   .modal button { min-height: 46px; }
-  #combo-layer .hit-pop { font-size: clamp(2rem, 12vw, 3.6rem); }
-  #combo-layer .streak-pop { font-size: clamp(1.45rem, 9vw, 2.8rem); }
-  .combo-meter { top: 11%; }
+  .combat-feedback { top: calc(env(safe-area-inset-top, 0px) + 88px); gap: 8px; }
+  .combo-meter__value { font-size: 14px; }
+  .combat-feedback__notice { font-size: 11px; max-width: 160px; }
   .slicer-live-preview { min-height: 150px; }
   .tower-progress-chip { padding: 7px 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #combo-layer .is-live,
-  #combo-layer .is-swap,
-  #combo-layer .is-stacked,
+  .combat-feedback__notice,
   .fruit-td-danger,
   .fruit-td-volatile,
   .slicer-live-blade,

@@ -14,7 +14,7 @@ import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
 import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
-import { chargeSuper, createState, damageTower, isPerfectWave, leakCost, resetState, toast } from './game/state';
+import { chargeSuper, createState, damageTower, isPerfectWave, leakCost, recordWaveKill, resetState, toast } from './game/state';
 import {
   applyRewards,
   calculateReward,
@@ -27,6 +27,8 @@ import type { ComboResetReason } from './game/progression/combo';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { BladeTrail } from './game/trail';
+import { StrokeContacts } from './game/strokeContacts';
+import { installCombatDiagnostics } from './game/combatDiagnostics';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
 import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
@@ -107,12 +109,15 @@ const blade = new BladeInput(canvas, renderer.camera, renderer);
 const trail = new BladeTrail();
 const slashFx = new SlashFx();
 const combos = new ComboFx();
+const playerContacts = new StrokeContacts();
+const guestContacts = new StrokeContacts();
+let guestStrokeId = 0;
 applyEquippedBlade();
 state.mode = save.mode;
 combos.setPlayer(save.nickname, save.avatar);
 
 setComboFocusHandler(({ intensity }) => {
-  renderer.impulseShake(0.55 + intensity * 1.25);
+  renderer.impulseShake(intensity * 0.6);
 });
 
 renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks, slashFx.group);
@@ -142,6 +147,7 @@ let guestCd = 1.6;
 let totalFruitsSliced = 0;
 let sessionMaxCombo = 0;
 let sessionLeaks = 0;
+let rewardSavePending = false;
 
 function emit(event: GameEvent): void {
   void reportGameEvent({
@@ -158,6 +164,7 @@ function resetCombo(_reason: ComboResetReason): void {
   if (state.combo === 0 && state.comboTimer === 0) return;
   state.combo = 0;
   state.comboTimer = 0;
+  combos.reset();
 }
 
 /**
@@ -250,6 +257,7 @@ function applyEquippedBlade(): void {
 }
 
 function persist(): void {
+  rewardSavePending = false;
   save.hero = state.hero;
   // Hero XP is owned by the reward pipeline (applyRewards writes save.xp).
   // persist() must never copy match state back over it, or a stale
@@ -262,9 +270,11 @@ function persist(): void {
   save.mode = state.mode;
   writeSave(save);
   syncCloudSave(save);
-  hud.refreshHeroPick(state.hero, save);
-  hud.mountShop(save);
-  hud.mountSkills(save);
+  if (!navigation.isInGame()) {
+    hud.refreshHeroPick(state.hero, save);
+    hud.mountShop(save);
+    hud.mountSkills(save);
+  }
 }
 
 function setMode(id: GameMode): void {
@@ -481,7 +491,8 @@ function award(event: RewardEvent): ProgressionResult {
   state.towerXpProgress = towerState.progress;
 
   announceProgression(result);
-  persist();
+  // Multiple contacts in a frame share one persistence/UI boundary.
+  rewardSavePending = true;
   return result;
 }
 
@@ -519,7 +530,8 @@ function announceProgression(result: ProgressionResult): void {
 }
 
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
-  debris.spawnPair(fruit, swipe, new Vector3(0, 0, 1));
+  const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
+  debris.spawnPair(fruit, swipe, cutNormal);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
@@ -549,11 +561,10 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   const scoreReward = result.scoreGained;
   const scr = worldPct(fruit.group.position.x, fruit.group.position.y + 0.35, fruit.group.position.z);
   if (fruit.boss) {
-    floatingScore.spawn(`+${scoreReward} OVERLORD`, scr.nx, scr.ny, 'boss');
+    floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'boss');
     renderer.impulseShake(1.4);
   } else if (fruit.enemyKind !== 'normal') {
-    const enemyData = enemyRule(fruit.enemyKind);
-    floatingScore.spawn(`+${scoreReward} ${enemyData.label.toUpperCase()}`, scr.nx, scr.ny, 'special');
+    floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'special');
   } else {
     floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'normal');
   }
@@ -563,7 +574,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
   if (state.combo >= 2) sfx.combo(state.combo);
   combos.onKills(1);
-  state.waveKilled += 1;
+  recordWaveKill(state, fruit.splitChild);
   totalFruitsSliced += 1;
   if (fruitFamily(fruit.kind) === 'melon') renderer.impulseShake(1.15);
 
@@ -606,6 +617,7 @@ function maybeOver(): void {
   save.games += 1;
   resetCombo('match_end');
   award({ type: 'game_over', score: state.score });
+  persist();
   sfx.gameOver();
   sfx.stopAllLoops();
 
@@ -718,6 +730,11 @@ function restart(): void {
   bank.add('orange', rules.orange);
   combos.reset();
   floatingScore.reset();
+  slashFx.reset();
+  trail.reset();
+  blade.reset();
+  playerContacts.reset();
+  guestContacts.reset();
   wall.cancelMove();
   guestCd = 1.6;
   totalFruitsSliced = 0;
@@ -776,6 +793,10 @@ function resolveSlash(slash: Slash): void {
     return;
   }
 
+  const contacts = slash.id < 0 ? guestContacts : playerContacts;
+  contacts.begin(slash.id, debris.halves);
+  const livesBefore = state.lives;
+
   const hero = heroDef(state.hero);
   const pointer = slash.pointer;
   const radius = heroHitRadius(state.hero, pointer) + save.skills.reach * 0.08;
@@ -789,14 +810,13 @@ function resolveSlash(slash: Slash): void {
     sfx.boost();
   }
 
-  // Equipped blade juice on EVERY slash (not only fruit hits)
+  // The trail follows the gesture; directional flashes mark actual contacts only.
   const slashMid = {
     x: (slash.from.x + slash.to.x) * 0.5,
     y: (slash.from.y + slash.to.y) * 0.5,
     z: (slash.from.z + slash.to.z) * 0.5,
   };
   const bladeColor = hexToNumber(slicerFx?.color || '', hero.trail);
-  slashFx.spawn(slashMid.x, slashMid.z, bladeColor);
   try {
     fireCreatorSlicerVfx(slicerFx?.id, 'onSlash', slashMid);
     if (isCrit) fireCreatorSlicerVfx(slicerFx?.id, 'onCrit', slashMid);
@@ -819,24 +839,27 @@ function resolveSlash(slash: Slash): void {
   else swipe.normalize();
 
   // Stable hit tracking per stroke: a fruit or half cannot be hit multiple times by one swipe
-  const hitFruits = new Set<Fruit>();
   const cutBits = new Set<typeof debris.halves[number]>();
 
   for (const line of slashLines(slash)) {
+    if (!state.running) break;
     fruits.dodgeSlash(line);
     for (const fruit of fruits.fruits) {
-      if (!fruit.alive || hitFruits.has(fruit)) continue;
+      if (!state.running) break;
+      if (!fruit.alive || contacts.has(fruit)) continue;
       const res = strokeHitsFruit(line, fruit, radius);
       if (!res.hit) continue;
 
-      hitFruits.add(fruit);
-      hits += 1;
+      contacts.add(fruit);
       const hitPos = {
         x: fruit.group.position.x,
         y: fruit.group.position.y,
         z: fruit.group.position.z,
       };
-      slashFx.spawn(hitPos.x, hitPos.z, hexToNumber(slicerFx?.color || '', hero.trail));
+      const segment = res.hitSegment ?? line;
+      const hitDx = segment.to.x - segment.from.x;
+      const hitDz = segment.to.z - segment.from.z;
+      slashFx.spawn(hitPos.x, hitPos.z, bladeColor, hitDx, hitDz, fruit.radius * 1.6);
       try {
         fireCreatorSlicerVfx(slicerFx?.id, 'onSlash', hitPos);
         if (isCrit) fireCreatorSlicerVfx(slicerFx?.id, 'onCrit', hitPos);
@@ -846,19 +869,23 @@ function resolveSlash(slash: Slash): void {
       if (fruit.kind === 'bomb') {
         if (line.speed > 7.5 || state.hero === 'ki') {
           sfx.bombParry();
-          award({ type: 'bomb_parry', baseScore: FRUIT_DEFS.bomb.score, combo: state.combo });
+          const parry = award({ type: 'bomb_parry', baseScore: FRUIT_DEFS.bomb.score, combo: state.combo });
           const scr = worldPct(hitPos.x, hitPos.y + 0.35, hitPos.z);
-          floatingScore.spawn('PARRY! +55', scr.nx, scr.ny, 'critical');
+          floatingScore.spawn(`+${parry.scoreGained}`, scr.nx, scr.ny, 'critical');
+          hits += 1;
+          recordWaveKill(state, fruit.splitChild);
           emit({ type: 'bomb_parry' });
         } else {
           sfx.bombExplode();
           damageTower(state, 2);
+          state.waveLeaks += 1;
           toast(state, 'Bomb!');
           maybeOver();
         }
         fruits.kill(fruit);
         continue;
       }
+      hits += 1;
       if (fruit.enemyKind === 'armored') {
         sfx.armorHit();
       }
@@ -883,29 +910,33 @@ function resolveSlash(slash: Slash): void {
       }
       const towerBonus = towerDamageBonus();
       const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus);
+      if (killed) killFruit(fruit, swipe);
       
       // Explosive tower damage is applied once, inside FruitField.hurt().
-      if (fruit.enemyKind === 'explosive' && fruit.volatileTriggered && !killed) {
+      if (fruit.enemyKind === 'explosive' && state.lives < livesBefore) {
         resetCombo('explosive_mistake');
         renderer.impulseShake(0.85);
         sfx.bombExplode();
         maybeOver();
       }
 
-      if (killed) killFruit(fruit, swipe);
     }
     for (const bit of debris.halves) {
-      if (cutBits.has(bit)) continue;
-      if (strokeHitsHalf(line, bit, radius * 0.35)) cutBits.add(bit);
+      if (cutBits.has(bit) || !contacts.canReslice(bit) || contacts.has(bit)) continue;
+      if (strokeHitsHalf(line, bit, radius * 0.35)) {
+        cutBits.add(bit);
+        contacts.add(bit);
+      }
     }
   }
 
   for (const bit of cutBits) {
+    if (!state.running) break;
     const px = bit.group.position.x;
     const py = bit.group.position.y;
     const pz = bit.group.position.z;
     const kind = bit.kind;
-    const gen = debris.reslice(bit, swipe, swipe);
+    const gen = debris.reslice(bit, swipe, new Vector3(-swipe.z, 0, swipe.x));
     if (!gen) continue;
     hits += 1;
     const isSecondCut = gen >= 2;
@@ -914,39 +945,33 @@ function resolveSlash(slash: Slash): void {
     juice.burst(px, py, pz, kind, swipe, isSecondCut ? 1.3 : 0.65);
     const resliceAward = award({ type: 'reslice', generation: gen, combo: state.combo });
     chargeSuper(state, (1.2 + save.skills.flow * 0.6) * (isSecondCut ? 1.6 : 1));
-    slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash);
+    slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash, swipe.x, swipe.z, 0.6);
     const screen = worldPct(px, py + 0.35, pz);
     combos.onReslice(gen, screen.nx, screen.ny);
     if (isSecondCut) {
       state.comboTimer = Math.max(state.comboTimer + 0.4, 1.45);
-      floatingScore.spawn(`RESLICE II +${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
+      floatingScore.spawn(`+${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
       sfx.slice(kind, Math.max(3, state.combo), false);
     } else {
-      floatingScore.spawn(`RESLICE +${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
+      floatingScore.spawn(`+${resliceAward.scoreGained}`, screen.nx, screen.ny, 'reslice');
       sfx.slice(kind, 2, false);
     }
     emit({ type: 'reslice', amount: gen, fruitKind: kind, fruitFamily: fruitFamily(kind) });
   }
 
-  if (hits === 0) {
-    // A swing that connects with nothing breaks the chain (§8 "player misses").
-    resetCombo('miss');
-  }
-
-  if (hits > 0) {
+  if (hits > 0 && state.lives === livesBefore && state.running) {
     const comboBefore = state.combo;
-    state.combo = state.hero === 'jiju' ? state.combo + hits : Math.max(1, state.combo) + hits;
+    state.combo += hits;
     // One-off bonus for each newly crossed combo tier (data-driven thresholds).
     for (const tier of comboTiersBetween(comboBefore, state.combo)) {
-      award({ type: 'combo_milestone', combo: tier.combo });
-      toast(state, `${tier.label.toUpperCase()} x${tier.combo}`, 1.1);
-      floatingScore.spawn(`+${tier.combo * 10} COMBO!`, 50, 36, 'combo');
+      const bonus = award({ type: 'combo_milestone', combo: tier.combo });
+      combos.onMilestone(bonus.scoreGained);
     }
     const comboEngineMul = heroCombatPerkMultiplier(state.hero, 'combo');
     state.comboTimer = (state.hero === 'jiju' ? 1.65 : 1.35) * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
-    renderer.impulseShake(hero.shake * (1 + Math.min(0.8, slash.charge)));
+    renderer.impulseShake(hero.shake * 0.35);
     emit({ type: 'combo', combo: state.combo });
   }
 }
@@ -981,19 +1006,20 @@ function setPaused(on: boolean): void {
   if (!navigation.isInGame() || !state.running) return;
   navigation.setState(on ? 'PAUSED' : 'PLAY');
   hud.showPause(on);
+  if (on) {
+    blade.reset();
+    trail.reset();
+    slashFx.reset();
+    playerContacts.reset();
+  }
   if (on) sfx.pause();
   else sfx.unpause();
 }
 
 function quitToMenu(): void {
-  // P0-2: Confirm before leaving mid-match
-  if (navigation.isInGame() && state.running) {
-    const confirmed = confirm('Leave this match?\n\nYour progress will be lost.');
-    if (!confirmed) return;
-  }
-  
+  // The navigation guard owns the single confirmation; respect cancellation.
+  if (navigation.state !== 'MAIN_MENU' && !navigation.setState('MAIN_MENU')) return;
   persist();
-  navigation.setState('MAIN_MENU');
   state.running = false;
   wall.cancelMove();
   blade.consumeClick();
@@ -1004,6 +1030,10 @@ function quitToMenu(): void {
   hud.showMenu(true);
   hud.mountMeta(save);
   floatingScore.reset();
+  combos.reset();
+  slashFx.reset();
+  trail.reset();
+  blade.reset();
   sfx.pause();
   sfx.stopAllLoops();
 }
@@ -1076,7 +1106,7 @@ function tickGuest(dt: number): void {
   const z = best.group.position.z;
   slashFx.spawn(x, z, 0x93c5fd);
   resolveSlash({
-    id: 0,
+    id: --guestStrokeId,
     from: new Vector3(x - 0.95, 0, z),
     to: new Vector3(x + 0.95, 0, z),
     segments: [],
@@ -1124,6 +1154,7 @@ function kiPulse(x: number, z: number): void {
     if (!fruit.alive) continue;
     if (Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z) > r) continue;
     if (fruit.kind === 'bomb') {
+      recordWaveKill(state, fruit.splitChild);
       fruits.kill(fruit);
       continue;
     }
@@ -1135,6 +1166,7 @@ function simulate(dt: number): void {
   if (!navigation.isPlaying() || !state.running) {
     blade.consumeClick();
     blade.consumeSlash();
+    blade.consumeStrokeEnd();
     if (navigation.isPaused()) {
       renderer.update(dt);
       blade.fadeTrail();
@@ -1181,6 +1213,8 @@ function simulate(dt: number): void {
     sfx.swipe(false);
     resolveSlash(slash);
   }
+  const finishedStroke = blade.consumeStrokeEnd();
+  if (finishedStroke != null && playerContacts.missed(finishedStroke)) resetCombo('miss');
 
   if (state.bossIntro) {
     if (state.bossIntroTimer === 2.5) {
@@ -1195,6 +1229,7 @@ function simulate(dt: number): void {
       const plan = planBossWave(state.wave, state.mode, state.level);
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
+      state.waveLeaks = 0;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
       toast(state, plan.subtitle ? `${plan.title} — ${plan.subtitle}` : plan.title, 1.8);
       sfx.wave();
@@ -1208,6 +1243,7 @@ function simulate(dt: number): void {
       const plan = planWave(state.wave, state.mode, state.level, currentWaveInLevel, totalWavesInLevel);
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
+      state.waveLeaks = 0;
       state.wavesInLevel = totalWavesInLevel;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
       
@@ -1233,6 +1269,7 @@ function simulate(dt: number): void {
       toast(state, `Perfect wave! +${perfectResult.scoreGained}`, 1.4);
     }
 
+    const clearedWave = state.wave;
     state.wave += 1;
     
     if (wasBoss) {
@@ -1249,7 +1286,7 @@ function simulate(dt: number): void {
       }
     }
     
-    emit({ type: 'wave_clear', wave: state.wave, lives: state.lives, maxLives: state.maxLives });
+    emit({ type: 'wave_clear', wave: clearedWave, lives: state.lives, maxLives: state.maxLives });
   }
 
   fruits.update(dt, state, (fruit) => {
@@ -1259,6 +1296,7 @@ function simulate(dt: number): void {
     const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
     damageTower(state, leakDamage);
     sessionLeaks += 1;
+    state.waveLeaks += 1;
     sfx.leak();
     if (fruit.boss) {
       toast(state, 'Overlord hit the wall');
@@ -1289,12 +1327,13 @@ function simulate(dt: number): void {
   juice.update(dt);
   debris.update(dt);
   slashFx.update(dt);
-  combos.update(dt);
+  combos.update(dt, state.combo, state.comboTimer);
   floatingScore.update(dt);
   renderer.update(dt);
   blade.fadeTrail();
   trail.sync(blade.trail);
   trail.update(dt);
+  if (rewardSavePending) persist();
 }
 
 function draw(): void {
@@ -1414,6 +1453,10 @@ installGameScreens({
     equipItem(id);
     refreshCurrentScreen();
   },
+  onUnequipItem: (id) => {
+    unequipItem(id);
+    refreshCurrentScreen();
+  },
   onSellItem: (id) => {
     // Re-check here too: the screen disables the button, but the guard is the
     // rule, and the UI must never be the only thing enforcing it (§7).
@@ -1449,7 +1492,7 @@ navigation.addGuard((change) => {
   const leavingMatch =
     (change.from === 'PLAY' || change.from === 'PAUSED') && change.to !== 'PAUSED' && change.to !== 'PLAY';
   if (!leavingMatch || !state.running) return true;
-  return confirm('Leave this match?\n\nYour progress in this run will be lost.');
+  return confirm('Leave this match?\n\nEarned XP and coins are saved. The current wave will end.');
 });
 
 /** Keep the legacy lobby and the new main menu mutually exclusive. */
@@ -1464,6 +1507,32 @@ navigation.onChange((change) => {
     if (!navigation.isOverlay(change.to)) menu.classList.add('hidden');
   }
 });
+
+installCombatDiagnostics(() => ({
+  phase: navigation.state,
+  elapsed: state.elapsed,
+  lastSlash: blade.lastSlash ? { id: blade.lastSlash.id, speed: blade.lastSlash.speed, pointer: blade.lastSlash.pointer } : null,
+  score: state.score,
+  combo: state.combo,
+  comboTimer: state.comboTimer,
+  wave: state.wave,
+  waveTotal: state.waveTotal,
+  waveKilled: state.waveKilled,
+  waveLeaks: state.waveLeaks,
+  lives: state.lives,
+  heroXp: state.heroXp,
+  heroLevel: state.heroLevel,
+  coins: save.coins,
+  towerXp: save.towerXp,
+  activeSlashes: slashFx.group.children.filter((mesh) => mesh.visible).length,
+  trailDrawCount: trail.line.geometry.drawRange.count,
+  trailVertices: Array.from(trail.line.geometry.getAttribute('position').array),
+  targets: fruits.fruits.filter((fruit) => fruit.alive).map((fruit) => {
+    const pos = worldPct(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z);
+    return { id: fruit.spawnSerial, kind: fruit.kind, enemyKind: fruit.enemyKind, hp: fruit.hp,
+      splitChild: fruit.splitChild, x: pos.nx * window.innerWidth / 100, y: pos.ny * window.innerHeight / 100 };
+  }),
+}));
 
 loop.start();
 

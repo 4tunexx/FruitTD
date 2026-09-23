@@ -22,6 +22,7 @@ import type { SaveData } from '../../game/save';
 
 export interface InventoryCallbacks {
   onEquip: (id: string) => void;
+  onUnequip?: (id: string) => void;
   onSell: (id: string) => void;
 }
 
@@ -110,7 +111,7 @@ export function renderInventory(root: HTMLElement, save: SaveData, cb: Inventory
           affordable: true,
           sellBlockedReason: sellCheck.ok ? undefined : sellCheck.message,
         },
-        { onEquip: cb.onEquip, onSell: cb.onSell },
+        { onEquip: cb.onEquip, onUnequip: cb.onUnequip, onSell: cb.onSell },
       ),
     );
   }

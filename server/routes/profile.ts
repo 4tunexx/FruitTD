@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getCollection, CloudSaveDoc, UserDoc } from '../db';
 import { resolveRequestUser } from '../auth';
+import { saveValidationError } from '../validation';
 
 export const profileRouter = Router();
 
@@ -41,7 +42,10 @@ profileRouter.get('/', async (req: Request, res: Response) => {
 // Body: { userId, saveData }
 profileRouter.post('/sync', async (req: Request, res: Response) => {
   try {
-    const { saveData } = req.body;
+    const { saveData: incoming } = req.body ?? {};
+    const invalid = saveValidationError(incoming);
+    if (invalid) return res.status(400).json({ success: false, error: invalid });
+    const saveData = { ...incoming, saveRevision: incoming.saveRevision ?? 0 };
     if (!saveData) {
       return res.status(400).json({ success: false, error: 'saveData is required' });
     }
@@ -73,7 +77,7 @@ profileRouter.post('/sync', async (req: Request, res: Response) => {
 
     const col = await getCollection<CloudSaveDoc>('cloud_saves');
     await col.updateOne(
-      { userId },
+      { userId, $or: [{ 'saveData.saveRevision': { $lt: saveData.saveRevision } }, { 'saveData.saveRevision': { $exists: false } }] },
       {
         $set: {
           saveData,
@@ -102,6 +106,7 @@ profileRouter.post('/sync', async (req: Request, res: Response) => {
 
     res.json({ success: true, timestamp: new Date() });
   } catch (err: any) {
+    if (err?.code === 11000) return res.status(409).json({ success: false, error: 'Save conflict: a newer or equal revision already exists. Reload to reconcile.' });
     console.error('Error syncing cloud save:', err);
     res.status(500).json({ success: false, error: err.message });
   }
