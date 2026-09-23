@@ -70,6 +70,16 @@ test('main menu PLAY button invokes the launch callback', () => {
   assert.equal(played, 1);
 });
 
+test('main menu always exposes the admin access entry when it is wired', () => {
+  const root = host();
+  let opened = 0;
+  renderMainMenu(root, defaultSave(), { onPlay: noop, onAdmin: () => { opened++; } });
+  const admin = root.querySelector('.ftd-mainmenu__admin') as HTMLElement | null;
+  assert.ok(admin, 'the active menu must expose the admin entry');
+  (admin as unknown as { click: () => void }).click();
+  assert.equal(opened, 1);
+});
+
 test('shop renders and never lists an owned item', () => {
   resetShopView();
   const root = host();

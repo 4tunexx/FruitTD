@@ -104,8 +104,14 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
           size: 'sm',
           onClick: () => openScreen('SETTINGS'),
         }),
-        ...(isUserAdmin() && cb.onAdmin
-          ? [GameButton({ label: 'Admin', variant: 'ghost', size: 'sm', onClick: cb.onAdmin })]
+        ...(cb.onAdmin
+          ? [GameButton({
+            label: isUserAdmin() ? 'Admin' : 'Admin access',
+            variant: 'ghost',
+            size: 'sm',
+            class: 'ftd-mainmenu__admin',
+            onClick: cb.onAdmin,
+          })]
           : []),
         GameButton({
           label: 'Quit',

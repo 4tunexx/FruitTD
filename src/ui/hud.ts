@@ -319,7 +319,15 @@ export class Hud {
   }
 
   openAdmin(): void {
-    if (isUserAdmin()) void this.adminController.open();
+    if (isUserAdmin()) {
+      void this.adminController.open();
+      return;
+    }
+    showAchievementToast(
+      'Admin access required',
+      'Sign in with the Steam account configured for this server.',
+      '🔒',
+    );
   }
 
   private setTitleVisible(open: boolean): void {

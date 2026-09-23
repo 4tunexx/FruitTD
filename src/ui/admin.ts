@@ -61,6 +61,7 @@ export class AdminController {
   }
 
   async open(): Promise<void> {
+    if (!isUserAdmin()) return;
     if (!this.modal) return;
     this.modal.classList.remove('hidden');
     this.renderTabs();
