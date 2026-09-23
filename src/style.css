@@ -413,6 +413,25 @@ canvas {
 /* HP bar */
 #hp-row { display: flex; flex-direction: column; gap: 0.3rem; position: relative; }
 
+#hp-row.is-hit,
+#hp-panel.is-hit {
+  animation: towerHitFlash 420ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+#hp-row.is-hit::after,
+#hp-panel.is-hit::after {
+  content: 'WALL HIT';
+  position: absolute;
+  right: 0;
+  top: -0.1rem;
+  color: #fb7185;
+  font-size: 0.58rem;
+  font-weight: 1000;
+  letter-spacing: 0.14em;
+  text-shadow: 0 0 12px rgba(244, 63, 94, 0.8);
+  animation: wallHitLabel 420ms ease-out forwards;
+}
+
 #hp-panel {
   transition: all 250ms ease;
   overflow: hidden;
@@ -440,6 +459,26 @@ canvas {
   border-radius: 4px;
   transition: width 300ms ease;
 }
+#hud-hp-fill.is-critical {
+  background: linear-gradient(90deg, #ef4444, #fb7185);
+  animation: criticalHpPulse 760ms ease-in-out infinite alternate;
+}
+
+#tower-xp-row { margin-top: 0.3rem; }
+.tower-xp-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.tower-xp-heading strong { color: #c4b5fd; font-size: 0.62rem; font-variant-numeric: tabular-nums; }
+#tower-xp-track { height: 0.22rem; margin-top: 0.2rem; background: rgba(255,255,255,0.08); overflow: hidden; }
+#hud-tower-xp-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #7c3aed, #c4b5fd); transition: width 350ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+@keyframes towerHitFlash {
+  0% { transform: translateX(0); filter: brightness(1); }
+  18% { transform: translateX(-5px); filter: brightness(1.65); }
+  36% { transform: translateX(4px); }
+  54% { transform: translateX(-2px); }
+  100% { transform: translateX(0); filter: brightness(1); }
+}
+@keyframes wallHitLabel { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+@keyframes criticalHpPulse { from { filter: saturate(1); } to { filter: saturate(1.5) brightness(1.18); } }
 
 #hud-combo {
   font-size: 0.75rem;
@@ -2942,6 +2981,38 @@ canvas {
   gap: 1rem;
   flex-wrap: wrap;
 }
+
+.admin-live-stats {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(4, 1fr);
+  gap: 0.45rem;
+  margin: 0.9rem 0;
+  padding: 0.5rem;
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0.025));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+}
+.admin-live-stat {
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border-left: 2px solid rgba(163, 230, 53, 0.38);
+  background: rgba(0, 0, 0, 0.16);
+}
+.admin-live-stat span {
+  display: block;
+  color: rgba(226, 232, 240, 0.56);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.admin-live-stat strong {
+  display: block;
+  margin-top: 0.18rem;
+  color: #d9f99d;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.admin-live-stat strong.is-fallback { color: #fbbf24; }
 .admin-badge-col {
   display: flex;
   flex-direction: column;
@@ -3813,7 +3884,7 @@ canvas {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  animation: bossLetterboxFadeOut 3s ease-in-out forwards;
+  animation: bossLetterboxFadeOut 5.5s ease-in-out forwards;
 }
 .boss-letterbox.hidden {
   display: none;
@@ -3847,7 +3918,21 @@ canvas {
   z-index: 1;
   text-align: center;
   transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg);
-  animation: bossContentFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+  animation: bossContentFadeIn 1.25s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both;
+}
+.boss-letterbox::before {
+  content: 'THREAT DETECTED';
+  position: absolute;
+  top: 27%;
+  left: 50%;
+  z-index: 2;
+  color: #fb7185;
+  font-size: clamp(0.58rem, 1.3vw, 0.8rem);
+  font-weight: 1000;
+  letter-spacing: 0.42em;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: bossThreatWarning 5.5s ease both;
 }
 .boss-intro-title {
   font-size: clamp(2.5rem, 8vw, 5rem);
@@ -3898,6 +3983,12 @@ canvas {
     opacity: 1;
     transform: perspective(800px) rotateX(-2deg) rotateZ(-1.5deg) translateY(0) scale(1);
   }
+}
+
+@keyframes bossThreatWarning {
+  0%, 12% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  18%, 30% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  38%, 100% { opacity: 0.42; transform: translateX(-50%) translateY(0); }
 }
 /* ══════════════════════════════════════════════
    P1-6: MENU POLISH - GAME SHELL FEEL
@@ -4024,12 +4115,17 @@ button:not(:disabled):active {
 }
 
 @keyframes bossLetterboxFadeOut {
-  0%, 70% {
+  0%, 84% {
     opacity: 1;
   }
   100% {
     opacity: 0;
   }
+}
+.boss-letterbox.is-releasing { animation: bossRelease 0.7s ease forwards; }
+@keyframes bossRelease {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* ══════════════════════════════════════════════

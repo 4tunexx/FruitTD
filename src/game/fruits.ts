@@ -65,9 +65,17 @@ function layoutHp(fruit: Fruit, t: number): void {
   const barH = fruit.boss ? 0.36 / s : 0.28 / s;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, barH);
-  fruit.hpBar.position.set(0, barY, 0.04 / s);
+  fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, 0.04 / s);
   fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.8, barH * 0.8);
-  const ok = fruit.boss ? (t <= 0.5 ? 0xef4444 : 0xf4d35e) : 0x3d8b2e;
+  const ok = fruit.boss
+    ? (t <= 0.5 ? 0xef4444 : 0xf4d35e)
+    : fruit.enemyKind === 'explosive'
+      ? 0xff7139
+      : fruit.enemyKind === 'armored'
+        ? 0x8ed1ff
+        : fruit.enemyKind === 'swift'
+          ? 0x58e6ff
+          : 0x8eea4e;
   (fruit.hpBar.material as MeshBasicMaterial).color.setHex(t > 0.35 ? ok : 0xc23b3b);
 }
 
@@ -252,7 +260,7 @@ export class FruitField {
         toast(this.activeState, `${hitLabel}! Tower -${damage} HP`, 1.1);
       }
     }
-    fruit.hp -= amount; fruit.squash = 0.16; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
+    fruit.hp -= amount; fruit.squash = 0.2; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
     const pos = {
       x: fruit.group.position.x,
       y: fruit.group.position.y,

@@ -83,6 +83,9 @@ export class Hud {
   private readonly shop = document.getElementById('hud-shop')!;
   private readonly hero = document.getElementById('hud-hero')!;
   private readonly hpFill = document.getElementById('hud-hp-fill')!;
+  private readonly hpPanel = document.getElementById('hp-row');
+  private readonly towerXpFill = document.getElementById('hud-tower-xp-fill');
+  private readonly towerXpValue = document.getElementById('hud-tower-xp-value');
   private readonly combo = document.getElementById('hud-combo')!;
   private readonly heroPick = document.getElementById('hero-pick')!;
   private readonly heroBlurb = document.getElementById('hero-blurb')!;
@@ -102,6 +105,7 @@ export class Hud {
 
   private currentSave: SaveData | null = null;
   private lastToast = '';
+  private lastLives: number | null = null;
   private currentLbMode = 'ranked';
   private dailyCountdownTimer: number | null = null;
   private juiceCanvasBooted = false;
@@ -1094,7 +1098,22 @@ export class Hud {
       : `${hero.name}  ·  Lv ${xpState.level}/${MAX_HERO_LEVEL}  ·  ` +
         `XP ${xpState.xpIntoLevel.toLocaleString()}/${xpState.xpForLevel.toLocaleString()}` +
         `<span class="hud-xp-track"><i style="width:${Math.round(xpState.progress * 100)}%"></i></span>`;
-    this.hpFill.style.width = `${Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100)}%`;
+    const hpPct = Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100);
+    this.hpFill.style.width = `${hpPct}%`;
+    this.hpFill.classList.toggle('is-critical', hpPct <= 30);
+    if (this.lastLives !== null && state.lives < this.lastLives) {
+      this.hpPanel?.classList.remove('is-hit');
+      void this.hpPanel?.offsetWidth;
+      this.hpPanel?.classList.add('is-hit');
+    }
+    this.lastLives = state.lives;
+    const towerXp = getTowerXpState();
+    if (this.towerXpFill) this.towerXpFill.style.width = `${Math.round(towerXp.progress * 100)}%`;
+    if (this.towerXpValue) {
+      this.towerXpValue.textContent = towerXp.maxed
+        ? 'Lv 10 MAX'
+        : `Lv ${towerXp.level} · ${towerXp.xp}/${towerXp.nextLevelXp} XP`;
+    }
     if (state.combo >= 1) {
       this.combo.textContent = `× ${state.combo} COMBO`;
       this.combo.style.display = '';

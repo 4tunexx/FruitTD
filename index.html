@@ -182,6 +182,13 @@
             <div id="hp-track">
               <div id="hud-hp-fill"></div>
             </div>
+            <div id="tower-xp-row" aria-label="Main Tower experience">
+              <div class="tower-xp-heading">
+                <span class="stat-label">Main Tower XP</span>
+                <strong id="hud-tower-xp-value">Lv 1</strong>
+              </div>
+              <div id="tower-xp-track"><div id="hud-tower-xp-fill"></div></div>
+            </div>
             <p id="hud-combo" data-testid="combat-sidebar-combo"></p>
           </div>
 
@@ -276,9 +283,9 @@
                   <span class="title-btn__icon">⟳</span>
                   <span class="title-btn__text">Continue</span>
                 </button>
-                <button type="button" id="btn-title-register" class="title-btn" aria-label="Load Save">
+                <button type="button" id="btn-title-register" class="title-btn" aria-label="Sign in">
                   <span class="title-btn__icon">💾</span>
-                  <span class="title-btn__text">Load Save</span>
+                  <span class="title-btn__text">Sign In</span>
                 </button>
                 <button type="button" id="btn-title-settings" class="title-btn" aria-label="Settings">
                   <span class="title-btn__icon">⚙</span>
@@ -915,6 +922,14 @@
                 </p>
               </div>
 
+            </div>
+
+            <div class="admin-live-stats" aria-label="Live game status">
+              <div class="admin-live-stat"><span>CONFIG</span><strong id="admin-stat-status">CONNECTING</strong></div>
+              <div class="admin-live-stat"><span>MISSIONS</span><strong id="admin-stat-missions">0</strong></div>
+              <div class="admin-live-stat"><span>SLICERS</span><strong id="admin-stat-slicers">0</strong></div>
+              <div class="admin-live-stat"><span>ENEMY TYPES</span><strong id="admin-stat-enemies">0</strong></div>
+              <div class="admin-live-stat"><span>RANK TIERS</span><strong id="admin-stat-ranks">0</strong></div>
             </div>
 
             <!-- Admin Tabs Navigation -->

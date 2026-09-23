@@ -89,6 +89,7 @@ const retryBtn = document.getElementById('btn-retry') as HTMLButtonElement;
 const overMenuBtn = document.getElementById('btn-over-menu') as HTMLButtonElement;
 const muteBtn = document.getElementById('btn-mute') as HTMLButtonElement;
 const bossIntroEl = document.getElementById('boss-intro')!;
+const BOSS_INTRO_DURATION = 5.5;
 
 const save: SaveData = loadSave();
 const renderer = new GameRenderer(canvas);
@@ -1079,12 +1080,13 @@ function showBossIntro(level: number): void {
   
   title.textContent = bossName;
   subtitle.textContent = `LEVEL ${level} OVERLORD`;
-  
+  letterbox.classList.remove('is-releasing');
   letterbox.classList.remove('hidden');
   setTimeout(() => {
-    letterbox.classList.add('hidden');
+    letterbox.classList.add('is-releasing');
     toast(state, `${bossName}  ·  LEVEL ${level}`, 1.8);
-  }, 3000);
+  }, (BOSS_INTRO_DURATION - 0.7) * 1000);
+  setTimeout(() => letterbox.classList.add('hidden'), BOSS_INTRO_DURATION * 1000);
 }
 
 function tickGuest(dt: number): void {
@@ -1217,7 +1219,7 @@ function simulate(dt: number): void {
   if (finishedStroke != null && playerContacts.missed(finishedStroke)) resetCombo('miss');
 
   if (state.bossIntro) {
-    if (state.bossIntroTimer === 2.5) {
+    if (state.bossIntroTimer === BOSS_INTRO_DURATION) {
       bossIntroEl.classList.remove('hidden');
       showBossIntro(state.level);
     }
@@ -1280,7 +1282,7 @@ function simulate(dt: number): void {
       toast(state, 'Wave clear', 1.3);
       if (completedWavesInLevel >= totalWavesInLevel) {
         state.bossIntro = true;
-        state.bossIntroTimer = 2.5;
+        state.bossIntroTimer = BOSS_INTRO_DURATION;
       } else {
         state.waveClearTimer = 2.2;
       }

@@ -193,10 +193,28 @@ export class AdminController {
   }
 
   private async loadConfig(): Promise<void> {
-    this.config = structuredClone((await fetchAdminConfig()) ?? DEFAULT_ADMIN_CONFIG);
+    const liveConfig = await fetchAdminConfig();
+    this.config = structuredClone(liveConfig ?? DEFAULT_ADMIN_CONFIG);
+    this.renderLiveStats(Boolean(liveConfig));
     this.renderBrandingEditor();
     this.renderEconomyEditor();
     this.renderCatalogEditors();
+  }
+
+  private renderLiveStats(isLive: boolean): void {
+    if (!this.config) return;
+    const values: Record<string, string> = {
+      'admin-stat-status': isLive ? 'LIVE CONFIG' : 'LOCAL FALLBACK',
+      'admin-stat-missions': String(this.config.missions.length),
+      'admin-stat-slicers': String(this.config.slicers.length),
+      'admin-stat-enemies': String(this.config.enemies.length),
+      'admin-stat-ranks': String(this.config.ranks.length),
+    };
+    for (const [id, value] of Object.entries(values)) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    }
+    document.getElementById('admin-stat-status')?.classList.toggle('is-fallback', !isLive);
   }
 
   private renderCatalogEditors(): void {
