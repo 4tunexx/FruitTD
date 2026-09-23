@@ -357,10 +357,9 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 async function deliverVerifyCode(email, code) {
-  console.log(`[auth] Email verify code for ${email}: ${code}`);
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    return { previewCode: code };
+    return process.env.NODE_ENV === "production" ? { emailed: false, error: "Email delivery is not configured." } : { previewCode: code, emailed: false };
   }
   const from = process.env.EMAIL_FROM || "Fruit TD <onboarding@resend.dev>";
   try {
@@ -381,13 +380,59 @@ async function deliverVerifyCode(email, code) {
     if (!res.ok) {
       const body = await res.text();
       console.error("[auth] Resend failed:", res.status, body);
-      return { previewCode: code, emailed: false, error: "Email send failed" };
+      return process.env.NODE_ENV === "production" ? { emailed: false, error: "Email delivery failed." } : { previewCode: code, emailed: false, error: "Email send failed" };
     }
     return { emailed: true };
   } catch (err) {
     console.error("[auth] Resend error:", err);
-    return { previewCode: code, emailed: false, error: "Email send failed" };
+    return process.env.NODE_ENV === "production" ? { emailed: false, error: "Email delivery failed." } : { previewCode: code, emailed: false, error: "Email send failed" };
   }
+}
+
+// server/validation.ts
+function safeInput(value, depth = 0) {
+  if (depth > 24) return false;
+  if (value === null || typeof value !== "object") return true;
+  return Object.entries(value).every(([key, child]) => !key.startsWith("$") && !key.includes(".") && !["__proto__", "prototype", "constructor"].includes(key) && safeInput(child, depth + 1));
+}
+function validId(value) {
+  return typeof value === "string" && /^[a-zA-Z0-9_-]{1,120}$/.test(value);
+}
+function boundedInteger(value, max, min = 0) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
+}
+var HEROES = ["jiju", "topfu", "lagen", "tripos", "ki"];
+var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt"]);
+function saveValidationError(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !safeInput(value)) return "Invalid save object";
+  const save = value;
+  if (Object.keys(save).some((key) => !SAVE_KEYS.has(key))) return "Unknown save field";
+  const limits = { coins: 1e6, gems: 1e6, skillPoints: 1e4, towerXp: 1e8, towerLifetimeXp: 1e8, highScore: 1e8, rankedScore: 1e8, bestWave: 9999, bestCombo: 1e5, games: 1e6, saveRevision: Number.MAX_SAFE_INTEGER, savedAt: Number.MAX_SAFE_INTEGER };
+  for (const [key, max] of Object.entries(limits)) {
+    if (save[key] !== void 0 && !boundedInteger(save[key], max)) return `Invalid ${key}: expected a nonnegative integer within maximum`;
+  }
+  for (const key of ["xp", "skills", "heroPerkRanks"]) {
+    const field = save[key];
+    if (field !== void 0 && (!field || typeof field !== "object" || Array.isArray(field))) return `Invalid ${key}`;
+  }
+  if (save.xp && Object.entries(save.xp).some(([hero, xp]) => !HEROES.includes(hero) || !boundedInteger(xp, 1e6))) return "Invalid hero XP";
+  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !validId(id) || !boundedInteger(rank, 100))) return "Invalid skill ranks";
+  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !validId(id) || !boundedInteger(rank, 100)))) return "Invalid hero perk ranks";
+  for (const key of ["ownedSkins", "ownedHeroes"]) {
+    const list = save[key];
+    if (list !== void 0 && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
+  }
+  if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES.includes(id))) return "Unknown hero";
+  if (save.hero !== void 0 && (typeof save.hero !== "string" || !HEROES.includes(save.hero))) return "Invalid hero";
+  if (save.mode !== void 0 && (typeof save.mode !== "string" || !["casual", "ranked", "coop", "arena"].includes(save.mode))) return "Invalid mode";
+  if (save.vipStatus !== void 0 && (typeof save.vipStatus !== "string" || !["none", "bronze", "silver", "gold"].includes(save.vipStatus))) return "Invalid VIP status";
+  for (const [key, max] of [["nickname", 64], ["avatar", 9e5], ["bladeSkin", 120], ["wallSkin", 120]]) {
+    if (save[key] !== void 0 && (typeof save[key] !== "string" || save[key].length > max)) return `Invalid ${key}`;
+  }
+  return null;
+}
+function validProgressUpdates(value, idKey) {
+  return Array.isArray(value) && value.length <= 100 && value.every((row) => row && typeof row === "object" && validId(row[idKey]) && (row.setProgress !== void 0 && row.progressDelta === void 0 && boundedInteger(row.setProgress, 1e8) || row.progressDelta !== void 0 && row.setProgress === void 0 && boundedInteger(row.progressDelta, 1e8)));
 }
 
 // server/routes/leaderboard.ts
@@ -420,8 +465,9 @@ leaderboardRouter.get("/monthly-rank", async (req2, res) => {
 });
 leaderboardRouter.get("/", async (req2, res) => {
   try {
+    if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
     const mode = resolveMode(req2.query.mode || "ranked");
-    const limit = Math.min(parseInt(req2.query.limit) || 50, 100);
+    const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
     const userId = (await resolveRequestUser(req2))?.userId;
     const col = await getCollection("leaderboards");
     const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
@@ -484,6 +530,10 @@ leaderboardRouter.post("/", async (req2, res) => {
       fruitsSliced,
       maxCombo
     } = req2.body;
+    if (mode !== void 0 && !["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+    if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
+    if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
+    if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
     if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
       return res.status(400).json({ success: false, error: "Invalid score submission payload" });
     }
@@ -626,7 +676,7 @@ achievementsRouter.get("/", async (req2, res) => {
 achievementsRouter.post("/progress", async (req2, res) => {
   try {
     const { updates } = req2.body;
-    if (!Array.isArray(updates)) {
+    if (!validProgressUpdates(updates, "achievementId")) {
       return res.status(400).json({ success: false, error: "Invalid payload" });
     }
     const user = await resolveRequestUser(req2);
@@ -653,12 +703,12 @@ achievementsRouter.post("/progress", async (req2, res) => {
         { userId, achievementId: def.id },
         {
           $set: {
-            progress: currentProgress,
+            progress: Math.min(maxProgress, currentProgress),
             maxProgress,
             unlocked,
-            unlockedAt: unlocked && !wasUnlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt,
-            claimed: existing?.claimed ?? false
-          }
+            unlockedAt: unlocked && !wasUnlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
+          },
+          $setOnInsert: { claimed: false }
         },
         { upsert: true }
       );
@@ -688,7 +738,8 @@ achievementsRouter.post("/claim", async (req2, res) => {
     if (existing.claimed) {
       return res.status(400).json({ success: false, error: "Reward already claimed" });
     }
-    await col.updateOne({ _id: existing._id }, { $set: { claimed: true } });
+    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
+    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Reward already claimed" });
     res.json({
       success: true,
       achievementId,
@@ -768,7 +819,7 @@ missionsRouter.get("/", async (req2, res) => {
 missionsRouter.post("/progress", async (req2, res) => {
   try {
     const { updates } = req2.body;
-    if (!Array.isArray(updates)) {
+    if (!validProgressUpdates(updates, "missionId")) {
       return res.status(400).json({ success: false, error: "Invalid payload" });
     }
     const user = await resolveRequestUser(req2);
@@ -792,12 +843,12 @@ missionsRouter.post("/progress", async (req2, res) => {
         { userId, missionId: def.id, dayKey: activeKey },
         {
           $set: {
-            progress: currentProgress,
+            progress: Math.min(goal, currentProgress),
             goal,
             completed: currentProgress >= goal,
-            claimed: existing?.claimed ?? false,
             updatedAt: /* @__PURE__ */ new Date()
-          }
+          },
+          $setOnInsert: { claimed: false }
         },
         { upsert: true }
       );
@@ -828,7 +879,8 @@ missionsRouter.post("/claim", async (req2, res) => {
     if (existing.claimed) {
       return res.status(400).json({ success: false, error: "Mission reward already claimed" });
     }
-    await col.updateOne({ _id: existing._id }, { $set: { claimed: true, updatedAt: /* @__PURE__ */ new Date() } });
+    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: /* @__PURE__ */ new Date() } });
+    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
     res.json({
       success: true,
       missionId,
@@ -1026,7 +1078,7 @@ adminRouter.post("/reset-daily", async (req2, res) => {
   }
   try {
     const { userId } = req2.body;
-    if (!userId) {
+    if (!validId(userId)) {
       return res.status(400).json({ success: false, error: "userId is required" });
     }
     const col = await getCollection("daily_bonus");
@@ -1161,7 +1213,7 @@ dailyRouter.post("/claim", async (req2, res) => {
     }
     const reward = activeRewards[newStreak - 1] || activeRewards[0];
     await col.updateOne(
-      { userId },
+      { userId, lastClaimDate: { $ne: todayStr } },
       {
         $set: {
           streak: newStreak,
@@ -1180,6 +1232,7 @@ dailyRouter.post("/claim", async (req2, res) => {
       reward
     });
   } catch (err) {
+    if (err?.code === 11e3) return res.status(400).json({ success: false, error: "Daily bonus already claimed for today" });
     console.error("Error claiming daily bonus:", err);
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1371,6 +1424,9 @@ authRouter.post("/register", async (req2, res) => {
     };
     await users.insertOne(doc);
     const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
+    }
     const token = await createSession(userId);
     res.json({
       success: true,
@@ -1476,6 +1532,9 @@ authRouter.post("/resend-verify", async (req2, res) => {
       }
     );
     const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
+    }
     res.json({ success: true, email, ...delivery });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1506,6 +1565,9 @@ authRouter.post("/set-email", async (req2, res) => {
       }
     );
     const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
+    }
     res.json({ success: true, email, ...delivery });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1774,7 +1836,10 @@ profileRouter.get("/", async (req2, res) => {
 });
 profileRouter.post("/sync", async (req2, res) => {
   try {
-    const { saveData } = req2.body;
+    const { saveData: incoming } = req2.body ?? {};
+    const invalid = saveValidationError(incoming);
+    if (invalid) return res.status(400).json({ success: false, error: invalid });
+    const saveData = { ...incoming, saveRevision: incoming.saveRevision ?? 0 };
     if (!saveData) {
       return res.status(400).json({ success: false, error: "saveData is required" });
     }
@@ -1801,7 +1866,7 @@ profileRouter.post("/sync", async (req2, res) => {
     const userId = user.userId;
     const col = await getCollection("cloud_saves");
     await col.updateOne(
-      { userId },
+      { userId, $or: [{ "saveData.saveRevision": { $lt: saveData.saveRevision } }, { "saveData.saveRevision": { $exists: false } }] },
       {
         $set: {
           saveData,
@@ -1827,6 +1892,7 @@ profileRouter.post("/sync", async (req2, res) => {
     );
     res.json({ success: true, timestamp: /* @__PURE__ */ new Date() });
   } catch (err) {
+    if (err?.code === 11e3) return res.status(409).json({ success: false, error: "Save conflict: a newer or equal revision already exists. Reload to reconcile." });
     console.error("Error syncing cloud save:", err);
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1873,7 +1939,7 @@ badgesRouter.get("/", async (req2, res) => {
 badgesRouter.post("/progress", async (req2, res) => {
   try {
     const { updates } = req2.body;
-    if (!Array.isArray(updates)) {
+    if (!validProgressUpdates(updates, "badgeId")) {
       return res.status(400).json({ success: false, error: "Invalid payload" });
     }
     const user = await resolveRequestUser(req2);
@@ -1899,7 +1965,7 @@ badgesRouter.post("/progress", async (req2, res) => {
         { userId, badgeId: def.id },
         {
           $set: {
-            progress: currentProgress,
+            progress: Math.min(maxProgress, currentProgress),
             maxProgress,
             unlocked,
             unlockedAt: unlocked && !existing?.unlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
@@ -1948,6 +2014,13 @@ function createApp() {
   }));
   app2.use(express.json({ limit: "2mb" }));
   app2.use(express.urlencoded({ extended: true }));
+  app2.use((req2, res, next) => {
+    if (!safeInput(req2.body) || !safeInput(req2.query)) {
+      res.status(400).json({ success: false, error: "Invalid request fields" });
+      return;
+    }
+    next();
+  });
   app2.use((req2, _res, next) => {
     if (req2.path.startsWith("/api")) {
       console.log(`[API] ${req2.method} ${req2.path}`);

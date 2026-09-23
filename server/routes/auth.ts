@@ -105,6 +105,9 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     };
     await users.insertOne(doc);
     const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || 'Email delivery is unavailable.' });
+    }
     const token = await createSession(userId);
 
     res.json({
@@ -224,6 +227,9 @@ authRouter.post('/resend-verify', async (req: Request, res: Response) => {
       }
     );
     const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || 'Email delivery is unavailable.' });
+    }
     res.json({ success: true, email, ...delivery });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -261,6 +267,9 @@ authRouter.post('/set-email', async (req: Request, res: Response) => {
       }
     );
     const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || 'Email delivery is unavailable.' });
+    }
     res.json({ success: true, email, ...delivery });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

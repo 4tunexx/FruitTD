@@ -104,14 +104,16 @@ export function isValidEmail(email: string): boolean {
 
 import { verifyEmailHtml, verifyEmailText } from './emailTemplates';
 
-/** Send verification code via Resend. Falls back to previewCode when key missing. */
+/** Send verification code via Resend. Preview codes are development-only. */
 export async function deliverVerifyCode(
   email: string,
   code: string
 ): Promise<{ previewCode?: string; emailed?: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    return { previewCode: code };
+    return process.env.NODE_ENV === 'production'
+      ? { emailed: false, error: 'Email delivery is not configured.' }
+      : { previewCode: code, emailed: false };
   }
 
   const from = process.env.EMAIL_FROM || 'Fruit TD <onboarding@resend.dev>';
@@ -133,11 +135,15 @@ export async function deliverVerifyCode(
     if (!res.ok) {
       const body = await res.text();
       console.error('[auth] Resend failed:', res.status, body);
-      return { previewCode: code, emailed: false, error: 'Email send failed' };
+      return process.env.NODE_ENV === 'production'
+        ? { emailed: false, error: 'Email delivery failed.' }
+        : { previewCode: code, emailed: false, error: 'Email send failed' };
     }
     return { emailed: true };
   } catch (err) {
     console.error('[auth] Resend error:', err);
-    return { previewCode: code, emailed: false, error: 'Email send failed' };
+    return process.env.NODE_ENV === 'production'
+      ? { emailed: false, error: 'Email delivery failed.' }
+      : { previewCode: code, emailed: false, error: 'Email send failed' };
   }
 }
