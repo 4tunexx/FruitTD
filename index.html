@@ -733,13 +733,12 @@
 
         <!-- ═══════════════ PHASE 2 GAME SCREENS ═══════════════
              Hosts rendered by src/ui/screens/*. The screen registry owns
-             their visibility — never toggle these by hand. -->
-        <div id="screen-main-menu" class="ftd-screen-host hidden" data-branding="menu"></div>
-        <div id="screen-heroes" class="ftd-screen-host hidden"></div>
-        <div id="screen-inventory" class="ftd-screen-host hidden"></div>
-        <div id="screen-shop" class="ftd-screen-host hidden"></div>
-        <div id="screen-profile" class="ftd-screen-host hidden"></div>
-        <div id="screen-coop" class="ftd-screen-host hidden"></div>
+             their visibility — never toggle these by hand.
+
+             screen-hub is the single persistent 4-panel shell (header,
+             footer/tabs, main + sub panel). MAIN_MENU / HEROES / INVENTORY /
+             SHOP / PROFILE / CO_OP all render *into* it — see hub.ts. -->
+        <div id="screen-hub" class="ftd-screen-host hidden" data-branding="menu"></div>
         <div id="screen-news" class="ftd-screen-host hidden"></div>
         <div id="screen-settings" class="ftd-screen-host hidden"></div>
 

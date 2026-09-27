@@ -1497,17 +1497,16 @@ navigation.addGuard((change) => {
   return confirm('Leave this match?\n\nEarned XP and coins are saved. The current wave will end.');
 });
 
-/** Keep the legacy lobby and the new main menu mutually exclusive. */
+/**
+ * Keep the legacy lobby and the hub mutually exclusive. The screen registry
+ * already shows/hides `screen-hub` for every hub-tab nav state (MAIN_MENU,
+ * HEROES, INVENTORY, SHOP, PROFILE, CO_OP — see screens/index.ts), so this
+ * only needs to gate the *legacy* `hud-start` dashboard, which the registry
+ * doesn't know about.
+ */
 navigation.onChange((change) => {
   const gate = document.getElementById('hud-start');
-  const menu = document.getElementById('screen-main-menu');
-  if (change.to === 'MAIN_MENU') {
-    gate?.classList.add('hidden');
-    menu?.classList.remove('hidden');
-  } else if (menu && change.from === 'MAIN_MENU') {
-    // Overlays keep the menu mounted underneath; full screens replace it.
-    if (!navigation.isOverlay(change.to)) menu.classList.add('hidden');
-  }
+  if (change.to === 'MAIN_MENU') gate?.classList.add('hidden');
 });
 
 installCombatDiagnostics(() => ({

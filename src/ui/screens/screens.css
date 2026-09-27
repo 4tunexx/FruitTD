@@ -100,7 +100,7 @@
 /* ═══════════════ MAIN MENU — BORDERLANDS APOCALYPTIC STYLE ═══════════════ */
 
 /* Host element: full-screen dark backdrop */
-#screen-main-menu {
+#screen-hub {
   position: absolute;
   inset: 0;
   z-index: 30;
@@ -764,7 +764,7 @@
    Reuses the Phase 2 main-menu DOM and navigation data. The canvas stays
    visible behind these restrained glass surfaces, so this is a game lobby
    rather than a dashboard painted over a flat page. */
-#screen-main-menu {
+#screen-hub {
   background:
     linear-gradient(90deg, rgba(3, 9, 13, 0.9), rgba(3, 9, 13, 0.54) 50%, rgba(3, 9, 13, 0.8)),
     radial-gradient(ellipse at 63% 45%, rgba(132, 194, 54, 0.13), transparent 45%);

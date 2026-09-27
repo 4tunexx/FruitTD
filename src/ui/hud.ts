@@ -238,7 +238,7 @@ export class Hud {
       this.checkDailyBonus();
     } else {
       this.startGate.classList.add('hidden');
-      document.getElementById('screen-main-menu')?.classList.add('hidden');
+      document.getElementById('screen-hub')?.classList.add('hidden');
     }
   }
 

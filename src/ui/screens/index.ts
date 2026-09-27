@@ -7,19 +7,20 @@
  */
 
 import './screens.css';
+import './hub.css';
 import { registerScreen, installScreenRouter, installNavLinks, installEscHandler } from './registry';
-import { renderMainMenu, type MainMenuCallbacks } from './mainMenu';
-import { renderShop } from './shop';
-import { renderInventory } from './inventory';
-import { renderHeroScreen } from './heroes';
-import { renderProfile, type ProfileStats } from './profile';
+import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubOptions } from './hub';
+import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab, coopHubTab } from './hubTabs';
 import { renderNews } from './news';
 import { renderSettings } from './settings';
-import { screenShell, emptyState } from './shell';
 import { navigation, type NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
 import type { HeroId } from '../../game/heroes';
+import type { ProfileStats } from './profile';
 import { loadLiveConfig } from '../../services/liveConfig';
+
+/** Nav states painted inside the persistent hub shell (Panels 1–4), rather than as their own screen host. */
+const HUB_TAB_STATES: readonly NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'CO_OP'];
 
 export interface ScreenHostCallbacks {
   /** Latest save — read fresh on every render so screens never show stale data. */
@@ -44,6 +45,10 @@ export interface ScreenHostCallbacks {
 }
 
 let callbacks: ScreenHostCallbacks | null = null;
+/** True once the hub shell has painted at least once, so tab switches animate instead of rebuilding the frame. */
+let hubMounted = false;
+/** Which hub tab is currently painted, so a same-tab refresh (e.g. after buying an item) skips the slide animation. */
+let activeHubTab: NavState | null = null;
 
 function host(id: string): HTMLElement | null {
   return typeof document === 'undefined' ? null : document.getElementById(id);
@@ -58,51 +63,33 @@ export function refreshCurrentScreen(): void {
 function renderFor(state: NavState): void {
   if (!callbacks) return;
   const save = callbacks.getSave();
+
+  if (HUB_TAB_STATES.includes(state)) {
+    const root = host('screen-hub');
+    if (!root) return;
+    if (!hubMounted) {
+      renderHub(root, save, state, hubOptions());
+      hubMounted = true;
+    } else if (state === activeHubTab) {
+      // Same tab, fresh data (e.g. after a buy/equip/sell) — repaint in
+      // place, no slide animation.
+      refreshHub(root, save, state);
+    } else {
+      switchHubTab(root, save, state);
+    }
+    activeHubTab = state;
+    if (state === 'SHOP') {
+      void loadLiveConfig(true).then(() => {
+        if (navigation.state === 'SHOP') {
+          const liveRoot = host('screen-hub');
+          if (liveRoot) refreshHub(liveRoot, save, 'SHOP');
+        }
+      });
+    }
+    return;
+  }
+
   switch (state) {
-    case 'MAIN_MENU': {
-      const root = host('screen-main-menu');
-      if (root) {
-        const menuCb: MainMenuCallbacks = {
-          onPlay: callbacks.onPlay,
-          onQuit: callbacks.onQuit,
-          onAdmin: callbacks.onAdmin,
-          lobbyStrip: callbacks.lobbyStrip,
-        };
-        renderMainMenu(root, save, menuCb);
-      }
-      break;
-    }
-    case 'HEROES': {
-      const root = host('screen-heroes');
-      if (root) {
-        renderHeroScreen(root, save, {
-          onEquip: callbacks.onEquipHero,
-          onBuy: callbacks.onBuyHero,
-        });
-      }
-      break;
-    }
-    case 'INVENTORY': {
-      const root = host('screen-inventory');
-      if (root) {
-        renderInventory(root, save, {
-          onEquip: callbacks.onEquipItem,
-          onUnequip: callbacks.onUnequipItem,
-          onSell: callbacks.onSellItem,
-        });
-      }
-      break;
-    }
-    case 'SHOP': {
-      const root = host('screen-shop');
-      if (root) renderShop(root, save, { onBuy: callbacks.onBuyItem });
-      break;
-    }
-    case 'PROFILE': {
-      const root = host('screen-profile');
-      if (root) renderProfile(root, save, callbacks.getProfileStats?.() ?? {});
-      break;
-    }
     case 'NEWS': {
       const root = host('screen-news');
       if (root) renderNews(root, save, callbacks.onOpenDaily);
@@ -113,50 +100,55 @@ function renderFor(state: NavState): void {
       if (root) renderSettings(root, save, { onToggleSound: callbacks.onToggleSound, onLogout: callbacks.onLogout });
       break;
     }
-    // MISSIONS / ACHIEVEMENTS / RANKED reuse the existing lobby pages and their
-    // working logic rather than duplicating them into new screens (§12).
-    case 'CO_OP': {
-      const root = host('screen-coop');
-      if (root) {
-        const body = screenShell(root, { title: 'Co-op', subtitle: 'Hold the wall together.', save });
-        body.appendChild(emptyState('Co-op is warming up', 'Invite a friend from the lobby once matchmaking is live.'));
-      }
-      break;
-    }
     default:
       break;
   }
 }
 
+function hubOptions(): HubOptions {
+  if (!callbacks) throw new Error('installGameScreens must run before the hub renders');
+  return { onPlay: callbacks.onPlay, onQuit: callbacks.onQuit, onAdmin: callbacks.onAdmin };
+}
+
 /** Registers all screens and starts the router. Call once at boot. */
 export function installGameScreens(cb: ScreenHostCallbacks): void {
   callbacks = cb;
+  hubMounted = false;
+  activeHubTab = null;
+  resetHub();
 
-  const defs: Array<{ id: NavState; elementId: string; overlay?: boolean }> = [
-    { id: 'MAIN_MENU', elementId: 'screen-main-menu' },
-    { id: 'HEROES', elementId: 'screen-heroes', overlay: true },
-    { id: 'INVENTORY', elementId: 'screen-inventory', overlay: true },
-    { id: 'SHOP', elementId: 'screen-shop', overlay: true },
-    { id: 'PROFILE', elementId: 'screen-profile', overlay: true },
-    { id: 'NEWS', elementId: 'screen-news', overlay: true },
-    { id: 'SETTINGS', elementId: 'screen-settings', overlay: true },
-    { id: 'CO_OP', elementId: 'screen-coop', overlay: true },
-  ];
+  registerHubTab(homeHubTab(() => cb.onPlay()));
+  registerHubTab(heroesHubTab({ onEquip: cb.onEquipHero, onBuy: cb.onBuyHero }));
+  registerHubTab(inventoryHubTab({ onEquip: cb.onEquipItem, onUnequip: cb.onUnequipItem, onSell: cb.onSellItem }));
+  registerHubTab(shopHubTab({ onBuy: cb.onBuyItem }));
+  registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}));
+  registerHubTab(coopHubTab());
 
-  for (const def of defs) {
+  // One shared host for every hub tab. Tabs are siblings, not overlays of
+  // each other — only one hub tab is ever on screen, so each is registered
+  // as a plain (non-overlay) screen sharing `screen-hub`; the registry's
+  // "only one non-overlay screen visible" invariant does the rest, and BACK
+  // from any tab falls through to MAIN_MENU exactly as it did before (§1, §10).
+  for (const id of HUB_TAB_STATES) {
     registerScreen({
-      id: def.id,
-      elementId: def.elementId,
-      overlay: def.overlay,
-      // Render on entry so a screen always shows current data.
-      onEnter: () => {
-        renderFor(def.id);
-        if (def.id === 'SHOP') void loadLiveConfig(true).then(() => {
-          if (navigation.state === 'SHOP') renderFor('SHOP');
-        });
-      },
+      id,
+      elementId: 'screen-hub',
+      onEnter: () => renderFor(id),
     });
   }
+
+  registerScreen({
+    id: 'NEWS',
+    elementId: 'screen-news',
+    overlay: true,
+    onEnter: () => renderFor('NEWS'),
+  });
+  registerScreen({
+    id: 'SETTINGS',
+    elementId: 'screen-settings',
+    overlay: true,
+    onEnter: () => renderFor('SETTINGS'),
+  });
 
   // Legacy lobby pages: one element, different page per nav state.
   const legacyPages: Array<{ id: NavState; page: string }> = [
