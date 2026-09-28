@@ -106,6 +106,9 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     await users.insertOne(doc);
     const delivery = await deliverVerifyCode(email, code);
     if (!delivery.emailed && !delivery.previewCode) {
+      // A failed production email send must not strand an unverified account
+      // that blocks this address from registering again.
+      await users.deleteOne({ userId });
       return res.status(503).json({ success: false, error: delivery.error || 'Email delivery is unavailable.' });
     }
     const token = await createSession(userId);

@@ -109,11 +109,15 @@ export async function deliverVerifyCode(
   email: string,
   code: string
 ): Promise<{ previewCode?: string; emailed?: boolean; error?: string }> {
+  const exposePreview = process.env.NODE_ENV !== 'production';
+  const fallback = (error?: string) => exposePreview
+    ? { previewCode: code, emailed: false, ...(error ? { error } : {}) }
+    : { emailed: false, error: error || 'Email delivery is unavailable.' };
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    return process.env.NODE_ENV === 'production'
-      ? { emailed: false, error: 'Email delivery is not configured.' }
-      : { previewCode: code, emailed: false };
+    return exposePreview
+      ? { previewCode: code, emailed: false }
+      : fallback('Email delivery is not configured.');
   }
 
   const from = process.env.EMAIL_FROM || 'Fruit TD <onboarding@resend.dev>';
@@ -134,16 +138,14 @@ export async function deliverVerifyCode(
     });
     if (!res.ok) {
       const body = await res.text();
-      console.error('[auth] Resend failed:', res.status, body);
-      return process.env.NODE_ENV === 'production'
-        ? { emailed: false, error: 'Email delivery failed.' }
-        : { previewCode: code, emailed: false, error: 'Email send failed' };
+      if (exposePreview) console.error('[auth] Resend failed:', res.status, body);
+      else console.error('[auth] Resend failed with status:', res.status);
+      return fallback(exposePreview ? 'Email send failed' : 'Email delivery failed.');
     }
     return { emailed: true };
   } catch (err) {
-    console.error('[auth] Resend error:', err);
-    return process.env.NODE_ENV === 'production'
-      ? { emailed: false, error: 'Email delivery failed.' }
-      : { previewCode: code, emailed: false, error: 'Email send failed' };
+    if (exposePreview) console.error('[auth] Resend error:', err);
+    else console.error('[auth] Resend request failed.');
+    return fallback(exposePreview ? 'Email send failed' : 'Email delivery failed.');
   }
 }

@@ -48,6 +48,7 @@ import {
   getAuthToken,
   type AuthUser,
 } from '../services/auth';
+import { bindTitleAuthButtons, showEmailAuthModal, type EmailAuthMode } from './authModal';
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getSlicers } from '../services/liveConfig';
@@ -419,9 +420,7 @@ export class Hud {
       if (this.canEnterDashboard()) this.enterDashboard();
       else void this.gateAfterAuth(getCachedAuthUser());
     });
-    document.getElementById('btn-title-login')?.addEventListener('click', () => this.openAuthModal('login'));
-    // "Load Save" button — reuses btn-title-register id, opens login to restore cloud save
-    document.getElementById('btn-title-register')?.addEventListener('click', () => this.openAuthModal('login'));
+    bindTitleAuthButtons(document, (mode) => this.openAuthModal(mode));
     document.getElementById('btn-title-settings')?.addEventListener('click', () => {
       document.getElementById('title-settings')?.classList.remove('hidden');
     });
@@ -546,33 +545,12 @@ export class Hud {
     window.setTimeout(() => impact.remove(), 520);
   }
 
-  private authMode: 'login' | 'register' = 'login';
+  private authMode: EmailAuthMode = 'login';
   private steamModalMode: 'login' | 'register' | 'link' = 'login';
 
-  private openAuthModal(mode: 'login' | 'register'): void {
+  private openAuthModal(mode: EmailAuthMode): void {
     this.authMode = mode;
-    const title = document.getElementById('auth-modal-title');
-    const sub = document.getElementById('auth-modal-sub');
-    const submit = document.getElementById('btn-auth-email-submit');
-    const err = document.getElementById('auth-email-error');
-    const steamBtn = document.getElementById('btn-auth-open-steam');
-    const switchBtn = document.getElementById('btn-auth-switch');
-    if (switchBtn) switchBtn.textContent = mode === 'login' ? 'New here? Create an account' : 'Already have an account? Sign in';
-    const password = document.getElementById('auth-password') as HTMLInputElement | null;
-    if (password) password.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-    if (title) title.textContent = mode === 'login' ? 'Login' : 'Register';
-    if (sub) {
-      sub.textContent =
-        mode === 'login'
-          ? 'Sign in with Steam or your email.'
-          : 'Create an account with Steam or email.';
-    }
-    if (submit) submit.textContent = mode === 'login' ? 'Login with email' : 'Register with email';
-    if (steamBtn) {
-      steamBtn.textContent = mode === 'login' ? 'Sign in through Steam' : 'Register through Steam';
-    }
-    err?.classList.add('hidden');
-    document.getElementById('modal-auth')?.classList.remove('hidden');
+    showEmailAuthModal(document, mode);
   }
 
   private openConfirmEmailModal(user: AuthUser): void {
@@ -1916,34 +1894,46 @@ export class Hud {
       const password = (document.getElementById('auth-password') as HTMLInputElement | null)?.value || '';
       const errEl = document.getElementById('auth-email-error');
       const btn = document.getElementById('btn-auth-email-submit') as HTMLButtonElement | null;
+      const mode = this.authMode;
+      errEl?.classList.add('hidden');
+      if (errEl) errEl.textContent = '';
       if (btn) {
         btn.disabled = true;
         btn.textContent = 'Please wait…';
       }
-      const res =
-        this.authMode === 'register'
+      try {
+        const res = mode === 'register'
           ? await registerWithEmail(email, password)
           : await loginWithEmail(email, password);
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = this.authMode === 'login' ? 'Login with email' : 'Register with email';
-      }
-      if (!res.success || !res.user) {
+        if (!res.success || !res.user) {
+          if (errEl) {
+            errEl.textContent = res.error || (mode === 'register' ? 'Could not create your account.' : 'Could not sign in.');
+            errEl.classList.remove('hidden');
+          }
+          return;
+        }
+        document.getElementById('modal-auth')?.classList.add('hidden');
+        if (res.previewCode) {
+          const preview = document.getElementById('confirm-email-preview');
+          if (preview) {
+            preview.textContent = `Dev code (email preview): ${res.previewCode}`;
+            preview.classList.remove('hidden');
+          }
+        }
+        await this.gateAfterAuth(res.user);
+      } catch {
         if (errEl) {
-          errEl.textContent = res.error || 'Could not sign in.';
+          errEl.textContent = mode === 'register'
+            ? 'Could not create your account. Check your connection and try again.'
+            : 'Could not sign in. Check your connection and try again.';
           errEl.classList.remove('hidden');
         }
-        return;
-      }
-      document.getElementById('modal-auth')?.classList.add('hidden');
-      if (res.previewCode) {
-        const preview = document.getElementById('confirm-email-preview');
-        if (preview) {
-          preview.textContent = `Dev code (email preview): ${res.previewCode}`;
-          preview.classList.remove('hidden');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = this.authMode === 'login' ? 'Login with email' : 'Register with email';
         }
       }
-      await this.gateAfterAuth(res.user);
     });
 
     document.getElementById('btn-close-confirm-email')?.addEventListener('click', () => {
