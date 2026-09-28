@@ -109,6 +109,35 @@ test('only one non-overlay screen is ever visible at a time', () => {
   }
 });
 
+test('switching backward between hub routes keeps their shared host visible', () => {
+  resetRegistry();
+  navigation.reset('MAIN_MENU');
+  const host = document.createElement('div');
+  host.id = 'shared-hub-test';
+  host.classList.add('hidden');
+  document.body.appendChild(host);
+  const ids: NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE'];
+  for (const id of ids) {
+    registerScreen({
+      id,
+      elementId: 'shared-hub-test',
+      onEnter: () => host.setAttribute('data-active', id),
+    });
+  }
+  installScreenRouter();
+
+  navigation.open('SHOP');
+  navigation.open('INVENTORY');
+  assert.equal(navigation.state, 'INVENTORY');
+  assert.equal(host.classList.contains('hidden'), false);
+  assert.equal(host.getAttribute('data-active'), 'INVENTORY');
+
+  navigation.open('HEROES');
+  assert.equal(host.classList.contains('hidden'), false);
+  assert.equal(host.getAttribute('data-active'), 'HEROES');
+  host.remove();
+});
+
 test('deep overlay stacks keep every ancestor mounted', () => {
   const tracked = setup(['MAIN_MENU', 'SHOP', 'INVENTORY'], ['SHOP', 'INVENTORY']);
   navigation.open('SHOP');

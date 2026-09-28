@@ -75,11 +75,27 @@ function render(change: NavChange): void {
     for (const parent of navigation.breadcrumb) visibleIds.add(parent);
   }
 
+  // Several navigation states can intentionally share one DOM host (the
+  // persistent hub). Resolve visibility once per element, or the old tab's
+  // later `hide` can override the new tab's earlier `show` in Map order.
+  const elementGroups = new Map<string, Array<[NavState, ScreenDef]>>();
+  for (const entry of screens) {
+    const screen = entry[1];
+    if (!screen.elementId || screen.setVisible) continue;
+    const group = elementGroups.get(screen.elementId) ?? [];
+    group.push(entry);
+    elementGroups.set(screen.elementId, group);
+  }
+  for (const group of elementGroups.values()) {
+    const hostVisible = group.some(([id]) => visibleIds.has(id));
+    applyVisibility(group[0][1], hostVisible, change);
+  }
+
   for (const [id, screen] of screens) {
     const shouldShow = visibleIds.has(id);
     const wasShown = shownIds.has(id);
     if (shouldShow === wasShown) continue;
-    applyVisibility(screen, shouldShow, change);
+    if (screen.setVisible) applyVisibility(screen, shouldShow, change);
     if (shouldShow) {
       shownIds.add(id);
       screen.onEnter?.(change);
