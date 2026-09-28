@@ -48,7 +48,7 @@ import {
   getAuthToken,
   type AuthUser,
 } from '../services/auth';
-import { bindTitleAuthButtons, showEmailAuthModal, type EmailAuthMode } from './authModal';
+import { bindTitleAuthButtons, showEmailAuthModal, syncTitleAuthState, type EmailAuthMode } from './authModal';
 import { showAchievementToast } from '../services/achievements';
 import { fetchBadges, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getSlicers } from '../services/liveConfig';
@@ -376,18 +376,7 @@ export class Hud {
     ];
     const user = getCachedAuthUser();
     const ready = this.canEnterDashboard();
-    const continueBtn = document.getElementById('btn-title-continue');
-    const loginBtn = document.getElementById('btn-title-login');
-    const account = document.getElementById('title-account-line');
-    continueBtn?.classList.toggle('hidden', !ready);
-    loginBtn?.classList.toggle('hidden', ready);
-    if (account) {
-      if (user?.nickname || user?.username) {
-        account.textContent = `Sign in as @${user.steamPersona || user.nickname || user.username}`;
-      } else {
-        account.textContent = 'Not signed in — click Start Game';
-      }
-    }
+    syncTitleAuthState(document, ready, user?.steamPersona || user?.nickname || user?.username);
     // Rotate tip text
     const tipEl = document.getElementById('title-tip-text');
     if (tipEl) {

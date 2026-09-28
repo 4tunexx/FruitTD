@@ -1,5 +1,17 @@
 export type EmailAuthMode = 'login' | 'register';
 
+/** Keep title actions and account copy aligned with the current session. */
+export function syncTitleAuthState(root: Document, ready: boolean, identity?: string): void {
+  root.getElementById('btn-title-continue')?.classList.toggle('hidden', !ready);
+  root.getElementById('btn-title-login')?.classList.toggle('hidden', ready);
+  root.getElementById('btn-title-register')?.classList.toggle('hidden', ready);
+  root.getElementById('btn-settings-logout')?.classList.toggle('hidden', !ready);
+  const account = root.getElementById('title-account-line');
+  if (account) account.textContent = ready
+    ? `Signed in as @${identity || 'Player'}`
+    : 'Not signed in — choose Start Game or Create Account';
+}
+
 /** Keep auth copy and form state in sync whenever the modal is opened/switched. */
 export function showEmailAuthModal(root: Document, mode: EmailAuthMode): void {
   const get = (id: string) => root.getElementById(id);

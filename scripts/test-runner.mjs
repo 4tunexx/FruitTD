@@ -18,7 +18,7 @@ function findTests(dir) {
 }
 
 const tests = [...findTests('server'), ...findTests('src')];
-const isWin = process.platform === 'win32';
-const npxCmd = isWin ? 'npx.cmd' : 'npx';
-const res = spawnSync(npxCmd, ['tsx', '--test', ...tests], { stdio: 'inherit', shell: isWin });
+// Running `tsx` through its CLI creates an IPC socket. Launch the Node test
+// runner with tsx's loader instead so sandboxed/locked-down environments work.
+const res = spawnSync(process.execPath, ['--import', 'tsx', '--test', ...tests], { stdio: 'inherit' });
 process.exit(res.status ?? 0);

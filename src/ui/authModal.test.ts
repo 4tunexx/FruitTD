@@ -3,9 +3,10 @@ installDomStub();
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bindTitleAuthButtons, showEmailAuthModal, type EmailAuthMode } from './authModal';
+import { bindTitleAuthButtons, showEmailAuthModal, syncTitleAuthState, type EmailAuthMode } from './authModal';
 
 function add(id: string, tag = 'div'): HTMLElement {
+  document.querySelectorAll(`#${id}`).forEach((existing) => existing.remove());
   const element = document.createElement(tag);
   element.id = id;
   document.body.appendChild(element);
@@ -45,4 +46,26 @@ test('title Create Account opens the registration form', () => {
   assert.equal(steam.textContent, 'Register through Steam');
   assert.equal(switchButton.textContent, 'Already have an account? Sign in');
   assert.equal(error.classList.contains('hidden'), true);
+});
+
+test('title actions and status accurately reflect signed-in state', () => {
+  const continueButton = add('btn-title-continue', 'button');
+  const login = add('btn-title-login', 'button');
+  const register = add('btn-title-register', 'button');
+  const logout = add('btn-settings-logout', 'button');
+  const account = add('title-account-line');
+
+  syncTitleAuthState(document, true, 'FruitPilot');
+  assert.equal(continueButton.classList.contains('hidden'), false);
+  assert.equal(login.classList.contains('hidden'), true);
+  assert.equal(register.classList.contains('hidden'), true);
+  assert.equal(logout.classList.contains('hidden'), false);
+  assert.equal(account.textContent, 'Signed in as @FruitPilot');
+
+  syncTitleAuthState(document, false);
+  assert.equal(continueButton.classList.contains('hidden'), true);
+  assert.equal(login.classList.contains('hidden'), false);
+  assert.equal(register.classList.contains('hidden'), false);
+  assert.equal(logout.classList.contains('hidden'), true);
+  assert.match(account.textContent!, /Start Game or Create Account/);
 });
