@@ -93,6 +93,19 @@ canvas {
   flex-shrink: 0;
 }
 
+#player-xp-ring {
+  --xp-progress: 0%;
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  flex: 0 0 auto;
+  border-radius: 0.8rem;
+  background: conic-gradient(from -90deg, #f59e0b var(--xp-progress), rgba(148,163,184,.24) var(--xp-progress));
+  box-shadow: 0 0 12px rgba(245,158,11,.18);
+}
+#player-xp-ring img { width: calc(100% - 5px); height: calc(100% - 5px); border: 2px solid rgba(9,15,12,.95); border-radius: 0.62rem; }
+
 #player-name {
   font-size: 0.82rem;
   font-weight: 800;
@@ -316,10 +329,11 @@ canvas {
   }
 
   #super-wrap {
-    top: 5.2rem;
-    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
+    top: auto;
+    bottom: calc(6rem + env(safe-area-inset-bottom, 0));
     left: 0.45rem;
     width: 2.1rem;
+    height: min(34vh, 230px);
   }
   #super-bar-track { width: 1.15rem; }
   #super-label { font-size: 0.5rem; }
@@ -420,7 +434,7 @@ canvas {
 
 #hp-row.is-hit::after,
 #hp-panel.is-hit::after {
-  content: 'WALL HIT';
+  content: '−' attr(data-hit-damage) ' HP';
   position: absolute;
   right: 0;
   top: -0.1rem;

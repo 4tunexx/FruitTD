@@ -20,10 +20,14 @@ export function renderSlicerLivePreview(container: HTMLElement, slicer: CatalogS
   `;
   const preview = container.querySelector('.slicer-live-preview') as HTMLElement | null;
   if (!preview) return;
+  preview.dataset.fx = slicer.fxStyle;
   preview.style.setProperty('--slicer-width', `${Math.max(3, slicer.trailWidth * 7)}px`);
+  preview.style.setProperty('--slicer-glow-radius', `${2 + Math.max(0, Math.min(1, slicer.glow)) * 18}px`);
   preview.style.setProperty('--slicer-color', slicer.color);
   preview.style.setProperty('--slicer-glow', slicer.glowColor);
+  preview.style.setProperty('--slicer-glint-color', slicer.glowColor);
   preview.style.setProperty('--slicer-glow-strength', String(slicer.glow));
+  preview.style.setProperty('--slicer-glint', String(slicer.glint));
 }
 
 function readSlicerCard(card: HTMLElement): CatalogSlicer {

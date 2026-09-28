@@ -1065,10 +1065,17 @@ export class Hud {
       : `${hero.name}  ·  Lv ${xpState.level}/${MAX_HERO_LEVEL}  ·  ` +
         `XP ${xpState.xpIntoLevel.toLocaleString()}/${xpState.xpForLevel.toLocaleString()}` +
         `<span class="hud-xp-track"><i style="width:${Math.round(xpState.progress * 100)}%"></i></span>`;
+    const avatarRing = this.playerAvatar?.parentElement as HTMLElement | null;
+    avatarRing?.style.setProperty('--xp-progress', `${Math.round(xpState.progress * 100)}%`);
+    if (avatarRing) avatarRing.title = xpState.maxed ? 'Hero XP · max level' : `Hero XP · ${Math.round(xpState.progress * 100)}% to next level`;
     const hpPct = Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100);
     this.hpFill.style.width = `${hpPct}%`;
     this.hpFill.classList.toggle('is-critical', hpPct <= 30);
+    wall.setTowerHealth(hpPct / 100);
     if (this.lastLives !== null && state.lives < this.lastLives) {
+      const damage = this.lastLives - state.lives;
+      this.hpPanel?.setAttribute('data-hit-damage', String(damage));
+      wall.damageFeedback();
       this.hpPanel?.classList.remove('is-hit');
       void this.hpPanel?.offsetWidth;
       this.hpPanel?.classList.add('is-hit');

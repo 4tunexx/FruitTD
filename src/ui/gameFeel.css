@@ -103,7 +103,7 @@ body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
   height: var(--slicer-width, 8px);
   transform: rotate(-16deg);
   transform-origin: center;
-  filter: drop-shadow(0 0 8px var(--slicer-glow, #60a5fa));
+  filter: drop-shadow(0 0 var(--slicer-glow-radius, 8px) var(--slicer-glow, #60a5fa));
   background: linear-gradient(
     90deg,
     transparent,
@@ -115,6 +115,20 @@ body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
   border-radius: 999px;
   animation: slicerPreviewSlash 1.05s cubic-bezier(0.2, 0.85, 0.25, 1) infinite;
 }
+.slicer-live-blade::after {
+  content: "";
+  position: absolute;
+  inset: -2px 34%;
+  border-radius: inherit;
+  background: #fff;
+  opacity: var(--slicer-glint, 0.5);
+  box-shadow: 0 0 14px var(--slicer-glint-color, #fff);
+}
+.slicer-live-preview[data-fx="spark"] .slicer-live-blade { filter: drop-shadow(0 0 var(--slicer-glow-radius, 8px) var(--slicer-glow)) drop-shadow(0 0 14px var(--slicer-color)); }
+.slicer-live-preview[data-fx="plasma"] .slicer-live-blade { mix-blend-mode: screen; animation-duration: 0.72s; }
+.slicer-live-preview[data-fx="ember"] .slicer-live-blade { background: linear-gradient(90deg, transparent, #ff6b22 18%, #fff3b0 48%, var(--slicer-color) 76%, transparent); filter: drop-shadow(0 0 12px #ff5b1b); }
+.slicer-live-preview[data-fx="frost"] .slicer-live-blade { background: linear-gradient(90deg, transparent, #7dd3fc 18%, #fff 50%, var(--slicer-color) 82%, transparent); filter: drop-shadow(0 0 10px #7dd3fc); }
+.slicer-live-preview[data-fx="solid"] .slicer-live-blade { animation-duration: 1.25s; }
 .slicer-live-sparks {
   position: absolute;
   inset: 0;

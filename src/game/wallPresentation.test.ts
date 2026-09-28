@@ -1,0 +1,27 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+function installStorageShim(): void {
+  const store = new Map<string, string>();
+  (globalThis as any).localStorage ??= {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => store.set(key, String(value)),
+    removeItem: (key: string) => store.delete(key),
+  };
+}
+
+test('tower range is shown only after selection and tower HP updates the ground bar', async () => {
+  installStorageShim();
+  const { WallBase } = await import('./wall');
+  const { MAIN_INDEX } = await import('./world');
+  const wall = new WallBase();
+  const range = (wall as any).rangeRing as import('three').Mesh;
+  const hp = (wall as any).towerHpFill as import('three').Mesh;
+
+  assert.equal(range.visible, false, 'initial main tower selection should not cover the arena with a range ring');
+  wall.select(MAIN_INDEX);
+  assert.equal(range.visible, true, 'click selection should reveal the selected tower range');
+  wall.setTowerHealth(0.5);
+  assert.ok(hp.scale.x > 0 && hp.scale.x < 1, 'tower health should visibly shorten the world-space health bar');
+  assert.equal((hp.material as import('three').MeshBasicMaterial).color.getHex(), 0xf59e0b, 'mid health should use warning amber');
+});

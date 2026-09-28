@@ -65,6 +65,10 @@ export class WallBase {
   private readonly wallMesh: Mesh;
   private readonly rangeRing: Mesh;
   private readonly keepMesh: Mesh;
+  private readonly towerHpFill: Mesh;
+  private readonly towerHome = new Vector3(0, 1.15, WALL_Z);
+  private rangeRequested = false;
+  private hitTimer = 0;
   private currentHero: HeroId | null = null;
   private towerStudio: StudioAnimState = createStudioAnimForKey(TOWER_STUDIO_KEY);
   private heroStudio: StudioAnimState = createStudioAnimForKey(heroIdToStudioKey('jiju'));
@@ -91,6 +95,11 @@ export class WallBase {
     );
     this.keepMesh.position.set(0, 1.15, WALL_Z);
     this.group.add(this.keepMesh);
+    const hpTrack = new Mesh(new BoxGeometry(1.72, 0.12, 0.035), new MeshBasicMaterial({ color: 0x241b18, transparent: true, opacity: 0.92, depthWrite: false }));
+    hpTrack.position.set(0, 0.12, WALL_Z - 1.35);
+    this.towerHpFill = new Mesh(new BoxGeometry(1.58, 0.075, 0.04), new MeshBasicMaterial({ color: 0x84cc16, depthWrite: false }));
+    this.towerHpFill.position.set(0, 0.13, WALL_Z - 1.38);
+    this.group.add(hpTrack, this.towerHpFill);
     for (let i = 0; i < 6; i++) {
       const merlon = new Mesh(new BoxGeometry(0.32, 0.38, 0.28), new MeshLambertMaterial({ color: 0x5a271f }));
       const a = (i / 6) * Math.PI * 2;
@@ -146,6 +155,7 @@ export class WallBase {
       this.slots.push(slot);
     }
     this.refreshPads();
+    this.rangeRequested = false;
     this.refreshRange();
   }
 
@@ -291,6 +301,9 @@ export class WallBase {
     this.shots.length = 0;
     this.selected = MAIN_INDEX;
     this.moving = false;
+    this.rangeRequested = false;
+    this.hitTimer = 0;
+    this.keepMesh.position.copy(this.towerHome);
     this.refreshPads();
     this.refreshRange();
   }
@@ -308,6 +321,7 @@ export class WallBase {
     slot.turret.group.position.set(slot.x, y, slot.z);
     this.group.add(slot.turret.group);
     this.selected = index;
+    this.rangeRequested = true;
     this.refreshPads();
     this.refreshRange();
     return true;
@@ -364,6 +378,7 @@ export class WallBase {
     src.turret = null;
     this.selected = index;
     this.moving = false;
+    this.rangeRequested = true;
     this.refreshPads();
     this.refreshRange();
     return true;
@@ -385,6 +400,7 @@ export class WallBase {
     slot.level = 0;
     slot.kind = null;
     this.moving = false;
+    this.rangeRequested = false;
     this.refreshPads();
     this.refreshRange();
     return refund;
@@ -394,10 +410,22 @@ export class WallBase {
     return this.slots[this.selected];
   }
 
+  setTowerHealth(ratio: number): void {
+    const t = Math.max(0, Math.min(1, ratio));
+    this.towerHpFill.scale.x = t;
+    this.towerHpFill.position.x = -0.79 * (1 - t);
+    (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf43f5e : t <= 0.6 ? 0xf59e0b : 0x84cc16);
+  }
+
+  damageFeedback(): void {
+    this.hitTimer = 0.24;
+  }
+
   select(index: number): void {
     if (index < 0) return;
     this.moving = false;
     this.selected = index;
+    this.rangeRequested = true;
     this.refreshPads();
     this.refreshRange();
   }
@@ -409,6 +437,12 @@ export class WallBase {
     bank: JuiceBank,
     onHit: (hit: TurretHit) => void,
   ): boolean {
+    if (this.hitTimer > 0) {
+      this.hitTimer = Math.max(0, this.hitTimer - dt);
+      this.keepMesh.position.x = this.towerHome.x + Math.sin(this.hitTimer * 105) * 0.055 * (this.hitTimer / 0.24);
+    } else {
+      this.keepMesh.position.copy(this.towerHome);
+    }
     this.tickStudioSkins(dt);
     let shot = false;
     for (const slot of this.slots) {
@@ -507,6 +541,10 @@ export class WallBase {
   }
 
   private refreshRange(): void {
+    if (!this.rangeRequested) {
+      this.rangeRing.visible = false;
+      return;
+    }
     const slot = this.slots[this.selected];
     if (!slot?.filled) {
       this.rangeRing.visible = false;

@@ -65,8 +65,8 @@ function layoutHp(fruit: Fruit, t: number): void {
   const barH = fruit.boss ? 0.36 / s : 0.28 / s;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, barH);
-  fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, 0.04 / s);
-  fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.8, barH * 0.8);
+  fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, 0.07 / s);
+  fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.76, barH * 0.76);
   const ok = fruit.boss
     ? (t <= 0.5 ? 0xef4444 : 0xf4d35e)
     : fruit.enemyKind === 'explosive'
@@ -83,7 +83,7 @@ function makeFruit(): Fruit {
   const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff }));
   const hpBackMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.85 });
   const hpBack = new Mesh(BAR_GEO, hpBackMat);
-  const hpBar = new Mesh(BAR_GEO, new MeshLambertMaterial({ color: 0x3d8b2e, emissive: 0x1a5015, emissiveIntensity: 0.4 }));
+  const hpBar = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x8eea4e, depthWrite: false }));
   
   // Visual hazard indicator for explosive enemies
   const hazardMat = new MeshBasicMaterial({ color: 0xff3b30, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false });
