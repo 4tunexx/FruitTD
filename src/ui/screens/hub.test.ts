@@ -19,6 +19,7 @@ import { defaultSave, type SaveData } from '../../game/save';
 import { navigation } from '../../game/navigation';
 import { resetRegistry, registerScreen, installScreenRouter } from './registry';
 import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubTab } from './hub';
+import { profileHubTab } from './hubTabs';
 import { Swords } from 'lucide';
 
 function host(): HTMLElement {
@@ -73,6 +74,39 @@ test('the active tab is marked in the footer', () => {
   const heroTab = root.querySelector('[data-hub-tab="HEROES"]')!;
   assert.equal(shopTab.classList.contains('is-active'), true);
   assert.equal(heroTab.classList.contains('is-active'), false);
+});
+
+test('the footer presents five core destinations and keeps the home state explicit', () => {
+  resetHub();
+  for (const [id, label] of [
+    ['MAIN_MENU', 'Home'], ['HEROES', 'Heroes'], ['INVENTORY', 'Inventory'],
+    ['SHOP', 'Shop'], ['PROFILE', 'Profile'], ['CO_OP', 'Co-op'],
+  ] as const) registerHubTab(stubTab(id, label));
+
+  const root = host();
+  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
+  assert.deepEqual(
+    [...root.querySelectorAll('.ftd-hub-tab')].map((tab) => tab.getAttribute('data-hub-tab')),
+    ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE'],
+  );
+  assert.equal(root.classList.contains('is-home'), true);
+
+  switchHubTab(root, defaultSave(), 'SHOP');
+  assert.equal(root.classList.contains('is-home'), false);
+});
+
+test('profile keeps the legacy destinations reachable and exposes its Play action', () => {
+  let played = 0;
+  const profile = profileHubTab(() => ({}), () => { played++; });
+  const main = host();
+  profile.renderMain(main, defaultSave());
+
+  const actions = main.querySelector('.ftd-profile-actions');
+  const actionButtons = actions?.querySelectorAll('button') ?? [];
+  const actionLabels = [...actionButtons].map((button) => button.textContent);
+  assert.deepEqual(actionLabels, ['Play now', 'Missions', 'Achievements', 'Ranked', 'Co-op lobby', 'Settings']);
+  actionButtons[0]?.click();
+  assert.equal(played, 1);
 });
 
 test('switchHubTab replaces panel content without rebuilding header/footer', () => {

@@ -107,7 +107,12 @@ function renderFor(state: NavState): void {
 
 function hubOptions(): HubOptions {
   if (!callbacks) throw new Error('installGameScreens must run before the hub renders');
-  return { onPlay: callbacks.onPlay, onQuit: callbacks.onQuit, onAdmin: callbacks.onAdmin };
+  return {
+    onPlay: callbacks.onPlay,
+    onQuit: callbacks.onQuit,
+    onAdmin: callbacks.onAdmin,
+    onOpenDaily: callbacks.onOpenDaily,
+  };
 }
 
 /** Registers all screens and starts the router. Call once at boot. */
@@ -121,7 +126,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
   registerHubTab(heroesHubTab({ onEquip: cb.onEquipHero, onBuy: cb.onBuyHero }));
   registerHubTab(inventoryHubTab({ onEquip: cb.onEquipItem, onUnequip: cb.onUnequipItem, onSell: cb.onSellItem }));
   registerHubTab(shopHubTab({ onBuy: cb.onBuyItem }));
-  registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}));
+  registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}, cb.onPlay));
   registerHubTab(coopHubTab());
 
   // One shared host for every hub tab. Tabs are siblings, not overlays of

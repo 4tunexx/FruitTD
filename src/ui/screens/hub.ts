@@ -44,10 +44,11 @@ export interface HubTab {
 export interface HubOptions {
   onQuit?: () => void;
   onAdmin?: () => void;
+  onOpenDaily?: () => void;
   onPlay: () => void;
 }
 
-/** The default tab: the PLAY stage + loadout card. Not in the footer — reached via the logo/Home. */
+/** The default tab: PLAY + loadout, reached via the Home destination or logo. */
 export const HUB_HOME: NavState = 'MAIN_MENU';
 
 const tabs = new Map<NavState, HubTab>();
@@ -106,6 +107,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
 
   const utils = el('div', { class: 'ftd-hub-utils' }, [
     GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
+    ...(opts.onOpenDaily ? [GameButton({ label: 'Daily', variant: 'outline', size: 'sm', onClick: opts.onOpenDaily })] : []),
     GameButton({ label: 'Settings', variant: 'ghost', size: 'sm', onClick: () => openScreen('SETTINGS') }),
     ...(opts.onAdmin
       ? [GameButton({
@@ -122,15 +124,13 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   return el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
 }
 
-/**
- * Builds the persistent footer (Panel 4): the destination tiles. HOME
- * (PLAY + loadout) is not listed here — it's reached via the logo in the
- * header — so the footer matches the original main-menu nav tile row.
- */
+/** Builds the persistent footer (Panel 4): five core game destinations. */
 function buildFooter(active: NavState): HTMLElement {
   const nav = el('nav', { class: 'ftd-hub__footer', 'aria-label': 'Game menu' });
   for (const tab of tabs.values()) {
-    if (tab.id === HUB_HOME) continue;
+    // Keep the phone tab bar focused on the five core destinations. Co-op is
+    // still reachable from Profile while the feature is in its lobby state.
+    if (tab.id === 'CO_OP') continue;
     const button = el('button', {
       class: `ftd-hub-tab${tab.id === active ? ' is-active' : ''}`,
       type: 'button',
@@ -198,6 +198,7 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
 export function renderHub(root: HTMLElement, save: SaveData, active: NavState, opts: HubOptions): void {
   clear(root);
   root.classList.add('ftd-hub');
+  root.classList.toggle('is-home', active === HUB_HOME);
 
   root.appendChild(buildHeader(save, opts));
 
@@ -220,6 +221,7 @@ export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState):
   if (!tab) return;
 
   const order = [...tabs.keys()];
+  root.classList.toggle('is-home', next === HUB_HOME);
   const prevIndex = lastActive ? order.indexOf(lastActive) : -1;
   const nextIndex = order.indexOf(next);
   const direction: 'forward' | 'back' = nextIndex >= prevIndex ? 'forward' : 'back';
@@ -239,6 +241,7 @@ export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState):
 export function refreshHub(root: HTMLElement, save: SaveData, active: NavState): void {
   const tab = tabs.get(active);
   if (!tab) return;
+  root.classList.toggle('is-home', active === HUB_HOME);
   paintTab(root, tab, save, 'none');
   lastActive = active;
 }

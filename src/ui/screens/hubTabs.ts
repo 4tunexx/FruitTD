@@ -362,7 +362,7 @@ function statCard(label: string, value: string, hint?: string): HTMLElement {
   ]);
 }
 
-function profileMain(getStats: () => ProfileStats) {
+function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
   return (root: HTMLElement, save: SaveData) => {
     const stats = getStats();
     const grid = el('div', { class: 'ftd-stat-grid' }, [
@@ -378,7 +378,11 @@ function profileMain(getStats: () => ProfileStats) {
     root.appendChild(grid);
     root.appendChild(
       el('div', { class: 'ftd-profile-actions' }, [
+        ...(onPlay ? [GameButton({ label: 'Play now', tone: 'primary', size: 'lg', onClick: onPlay })] : []),
+        GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
+        GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
+        GameButton({ label: 'Co-op lobby', variant: 'outline', onClick: () => openScreen('CO_OP') }),
         GameButton({ label: 'Settings', variant: 'ghost', onClick: () => openScreen('SETTINGS') }),
       ]),
     );
@@ -426,12 +430,12 @@ function profileSub(root: HTMLElement, save: SaveData): void {
   );
 }
 
-export function profileHubTab(getStats: () => ProfileStats): HubTab {
+export function profileHubTab(getStats: () => ProfileStats, onPlay?: () => void): HubTab {
   return {
     id: 'PROFILE',
     label: 'Profile',
     icon: UserRound,
-    renderMain: profileMain(getStats),
+    renderMain: profileMain(getStats, onPlay),
     renderSub: profileSub,
   };
 }
@@ -452,8 +456,8 @@ export function coopHubTab(): HubTab {
 /* ─────────────────────────── HOME (PLAY stage) ─────────────────────────── */
 
 /**
- * The default tab: not in the footer (reached via the header logo). Panel 1
- * is the PLAY call-to-action; Panel 2 is the active-hero loadout card. This
+ * The default tab: reachable from the Home footer destination and header logo.
+ * Panel 1 is the PLAY call-to-action; Panel 2 is the active-hero loadout. This
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
 function homeMain(onPlay: () => void) {
