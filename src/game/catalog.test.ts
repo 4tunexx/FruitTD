@@ -15,6 +15,7 @@ import {
   allCatalogItems,
   canSellItem,
   categoriesWithItems,
+  dedupeCatalogItems,
   findCatalogItem,
   inventoryItems,
   isEquipped,
@@ -45,6 +46,13 @@ test('the catalog exposes items with complete, sane data', () => {
     assert.ok(item.sellValue >= 0, `${item.id} sell value must not be negative`);
     assert.ok(['common', 'rare', 'epic', 'legendary'].includes(item.rarity));
   }
+});
+
+test('duplicate live blade IDs normalize to one catalogue item', () => {
+  const blade = findCatalogItem('blade-default')!;
+  const items = dedupeCatalogItems([blade, { ...blade, name: 'duplicate config row' }]);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].name, blade.name, 'the first configured item remains canonical');
 });
 
 test('an item can never be worth more sold than it costs to buy', () => {

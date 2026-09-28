@@ -18,6 +18,7 @@ import type { SaveData } from '../../game/save';
 import type { HeroId } from '../../game/heroes';
 import type { ProfileStats } from './profile';
 import { loadLiveConfig } from '../../services/liveConfig';
+import { LEGACY_MENU_PAGES, showLegacyMenuPage } from './legacyMenu';
 
 /** Nav states painted inside the persistent hub shell (Panels 1–4), rather than as their own screen host. */
 const HUB_TAB_STATES: readonly NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'CO_OP'];
@@ -156,12 +157,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
   });
 
   // Legacy lobby pages: one element, different page per nav state.
-  const legacyPages: Array<{ id: NavState; page: string }> = [
-    { id: 'MISSIONS', page: 'quests' },
-    { id: 'ACHIEVEMENTS', page: 'profile' },
-    { id: 'RANKED', page: 'leaderboard' },
-  ];
-  for (const { id } of legacyPages) {
+  for (const { id } of LEGACY_MENU_PAGES) {
     registerScreen({
       id,
       overlay: true,
@@ -172,10 +168,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
 
   installScreenRouter();
   const showLegacy = (state: NavState) => {
-    const selected = legacyPages.find((entry) => entry.id === state);
-    const gate = host('hud-start');
-    gate?.classList.toggle('hidden', !selected);
-    if (selected) cb.showLobbyPage?.(selected.page);
+    showLegacyMenuPage(state, host('hud-start'), cb.showLobbyPage ?? (() => undefined));
   };
   navigation.onChange((change) => showLegacy(change.to));
   showLegacy(navigation.state);

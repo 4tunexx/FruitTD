@@ -88,6 +88,7 @@ test('shop renders and never lists an owned item', () => {
   const html = root.innerHTML;
   assert.match(html, /Shop/);
   assert.equal(/blade-gold/.test(html), false, 'owned gear must not appear in the shop');
+  assert.ok(root.querySelector('.ftd-blade-preview'), 'blade offers show a colored trail preview');
 });
 
 test('inventory renders only owned gear', () => {
@@ -98,6 +99,7 @@ test('inventory renders only owned gear', () => {
   assert.match(html, /Inventory/);
   assert.match(html, /blade-gold/, 'owned gear must appear');
   assert.match(html, /EQUIPPED/, 'the equipped item must be marked');
+  assert.ok(root.querySelector('.ftd-blade-preview'), 'owned blades show their trail preview');
 });
 
 test('inventory shows a helpful empty state rather than a blank page', () => {

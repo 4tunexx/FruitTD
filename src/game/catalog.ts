@@ -143,6 +143,18 @@ function heroToItem(heroId: HeroId): CatalogItem | null {
   };
 }
 
+/** Remove repeated catalogue identities, keeping the first configured item. */
+export function dedupeCatalogItems(items: CatalogItem[]): CatalogItem[] {
+  // Admin/live configuration can contain duplicate IDs. Treat IDs as identity
+  // so one configured blade can never appear twice as equipped in the UI.
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 /** Every item that exists, across all categories. */
 export function allCatalogItems(): CatalogItem[] {
   const items: CatalogItem[] = [];
@@ -153,7 +165,7 @@ export function allCatalogItems(): CatalogItem[] {
     // Only purchasable heroes belong in the shop; the rest unlock by levelling.
     if (item && item.price > 0) items.push(item);
   }
-  return items;
+  return dedupeCatalogItems(items);
 }
 
 export function findCatalogItem(id: string): CatalogItem | null {

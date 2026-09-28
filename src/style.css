@@ -1168,7 +1168,8 @@ canvas {
 #hud-start {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  /* Legacy mission/ranked pages are overlays above the persistent hub shell. */
+  z-index: 40;
   overflow: hidden;
   background: #060d06;
   pointer-events: auto;
