@@ -80,7 +80,7 @@ test('profile sync rejects a stale or missing server revision and accepts the cu
 });
 
 test('profile sync rejects forged catalog ownership and in-cap balances', async (t) => {
-  const { deps } = profileDeps(4);
+  const { deps, cloud } = profileDeps(4);
   const { server, base } = await listen(createProfileRouter(deps), '/api/profile');
   closeAfter(t, server);
 
@@ -95,6 +95,13 @@ test('profile sync rejects forged catalog ownership and in-cap balances', async 
     body: JSON.stringify({ revision: 4, saveData: { ...defaultSave(), ownedSkins: ['blade-default', 'wall-brick', 'blade-gold'] } }),
   });
   assert.equal(knownButUnearned.status, 422);
+
+  cloud.saveData.ownedSkins.push('blade-gold');
+  const forgedEquipment = await fetch(`${base}/sync`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ revision: 4, saveData: { ...cloud.saveData, bladeSkin: 'blade-gold' } }),
+  });
+  assert.equal(forgedEquipment.status, 422, 'loadout slots can only change through an item action');
 
   const forgedCoins = await fetch(`${base}/sync`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

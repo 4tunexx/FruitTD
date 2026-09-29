@@ -26,7 +26,7 @@ const SAVE_KEYS = new Set(['hero', 'xp', 'ownedHeroes', 'towerXp', 'towerLifetim
 export const SERVER_OWNED_SAVE_KEYS = [
   'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore',
   'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'skillPoints', 'skills',
-  'ownedSkins', 'heroPerkRanks', 'vipStatus',
+  'ownedSkins', 'heroPerkRanks', 'vipStatus', 'hero', 'bladeSkin', 'wallSkin',
 ] as const;
 
 function sameJsonValue(a: unknown, b: unknown): boolean {

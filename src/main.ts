@@ -311,6 +311,7 @@ async function performSignedInCatalogueAction(action: CatalogueAction, id: strin
   state.heroLevel = heroXpToLevel(state.heroXp);
   applyEquippedBlade();
   wallSkinApply();
+  wall.setHero(save.hero);
   writeSave(save);
   hud.refreshHeroPick(state.hero, save);
   hud.mountShop(save);
@@ -511,6 +512,10 @@ function buySkill(id: SkillId): void {
 }
 
 function selectHero(id: HeroId): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('equip', `hero:${id}`);
+    return;
+  }
   // A player must never equip an unavailable hero (§4).
   if (!canEquipHero(save, id)) {
     toast(state, `${heroDef(id).name} is locked`, 2);

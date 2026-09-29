@@ -430,7 +430,10 @@ var SERVER_OWNED_SAVE_KEYS = [
   "skills",
   "ownedSkins",
   "heroPerkRanks",
-  "vipStatus"
+  "vipStatus",
+  "hero",
+  "bladeSkin",
+  "wallSkin"
 ];
 function sameJsonValue(a, b) {
   return isDeepStrictEqual(a, b);
