@@ -1,10 +1,20 @@
 import { Router, Request, Response } from 'express';
-import { getCollection, MissionDoc } from '../db';
+import type { Collection } from 'mongodb';
+import { getCollection, MissionDoc, CloudSaveDoc } from '../db';
 import { getMonthKey, loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
 import { validProgressUpdates } from '../validation';
+import { creditClaimReward } from '../claimWallet';
 
-export const missionsRouter = Router();
+type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
+
+export interface MissionRouteDeps {
+  resolveUser(req: Request): Promise<RequestUser>;
+  collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
+  catalog(): ReturnType<typeof loadQuestCatalog>;
+}
+
+const defaultDeps: MissionRouteDeps = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
 
 function getDayKey(): string {
   const d = new Date();
@@ -24,16 +34,19 @@ function periodKey(type: string): string {
   return getDayKey();
 }
 
-missionsRouter.get('/', async (req: Request, res: Response) => {
+export function createMissionsRouter(deps: MissionRouteDeps = defaultDeps): Router {
+const router = Router();
+
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to view missions' });
     const userId = user.userId;
 
-    const catalog = await loadQuestCatalog();
+    const catalog = await deps.catalog();
     const defs = catalog.missions.filter((m) => m.enabled !== false);
     const keys = [...new Set(defs.map((d) => periodKey(d.type)))];
-    const col = await getCollection<MissionDoc>('missions');
+    const col = await deps.collection<MissionDoc>('missions');
     const userDocs = await col.find({ userId, dayKey: { $in: keys } }).toArray();
     const docMap = new Map(userDocs.map((d) => [d.missionId, d]));
 
@@ -73,18 +86,18 @@ missionsRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
-missionsRouter.post('/progress', async (req: Request, res: Response) => {
+router.post('/progress', async (req: Request, res: Response) => {
   try {
     const { updates } = req.body;
     if (!validProgressUpdates(updates, 'missionId')) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to update missions' });
     const userId = user.userId;
 
-    const catalog = await loadQuestCatalog();
-    const col = await getCollection<MissionDoc>('missions');
+    const catalog = await deps.catalog();
+    const col = await deps.collection<MissionDoc>('missions');
 
     for (const update of updates) {
       const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
@@ -123,20 +136,20 @@ missionsRouter.post('/progress', async (req: Request, res: Response) => {
   }
 });
 
-missionsRouter.post('/claim', async (req: Request, res: Response) => {
+router.post('/claim', async (req: Request, res: Response) => {
   try {
     const { missionId } = req.body;
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim missions' });
     const userId = user.userId;
-    const catalog = await loadQuestCatalog();
+    const catalog = await deps.catalog();
     const def = catalog.missions.find((m) => m.id === missionId && m.enabled !== false);
     if (!def) {
       return res.status(400).json({ success: false, error: 'Invalid missionId' });
     }
 
     const activeKey = periodKey(def.type);
-    const col = await getCollection<MissionDoc>('missions');
+    const col = await deps.collection<MissionDoc>('missions');
     const existing = await col.findOne({ userId, missionId, dayKey: activeKey });
 
     if (!existing || !existing.completed) {
@@ -145,6 +158,13 @@ missionsRouter.post('/claim', async (req: Request, res: Response) => {
     if (existing.claimed) {
       return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
     }
+
+    const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
+    const wallet = await creditClaimReward(userId, `mission:${activeKey}:${missionId}`, {
+      coins: def.rewardCoins,
+      skillPoints: def.rewardSp,
+    }, saves);
+    if (!wallet) return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
 
     const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: new Date() } });
     if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
@@ -155,9 +175,16 @@ missionsRouter.post('/claim', async (req: Request, res: Response) => {
       rewardCoins: def.rewardCoins,
       rewardSp: def.rewardSp,
       rewardBadge: def.rewardBadge,
+      saveData: wallet.saveData,
+      revision: wallet.revision,
     });
   } catch (err: any) {
     console.error('Error claiming mission reward:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+return router;
+}
+
+export const missionsRouter = createMissionsRouter();

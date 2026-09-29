@@ -1353,14 +1353,16 @@ export class Hud {
           claimBtn.textContent = 'Claiming...';
           const claimRes = await claimMission(m.id);
           if (claimRes && this.currentSave) {
-            this.currentSave.coins += claimRes.rewardCoins;
-            this.currentSave.skillPoints += claimRes.rewardSp;
+            Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
             showAchievementToast('Mission Complete!', m.title, '🎁', `${claimRes.rewardCoins} Coins`);
             void reportGameEvent({ type: 'mission_claim' });
             this.renderMissions();
             this.renderBadges();
+          } else {
+            claimBtn.disabled = false;
+            claimBtn.textContent = 'Claim';
           }
         });
       }
@@ -1427,12 +1429,14 @@ export class Hud {
           claimBtn.textContent = 'Claiming...';
           const claimRes = await claimAchievement(ach.id);
           if (claimRes && this.currentSave) {
-            this.currentSave.coins += claimRes.rewardCoins;
-            this.currentSave.skillPoints += claimRes.rewardSp;
+            Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
             showAchievementToast('Trophy Claimed!', ach.title, '🏆', `${claimRes.rewardCoins} Coins`);
             this.renderAchievements();
+          } else {
+            claimBtn.disabled = false;
+            claimBtn.textContent = 'Claim';
           }
         });
       }
@@ -1852,15 +1856,7 @@ export class Hud {
 
       const res = await claimDailyBonus();
       if (res && this.currentSave) {
-        this.currentSave.coins += res.reward.coins;
-        this.currentSave.skillPoints += res.reward.skillPoints;
-        // P1-2: Add gems from daily rewards
-        if (res.reward.gems) {
-          this.currentSave.gems = (this.currentSave.gems || 0) + res.reward.gems;
-        }
-        if (res.reward.skinUnlock && !this.currentSave.ownedSkins.includes(res.reward.skinUnlock)) {
-          this.currentSave.ownedSkins.push(res.reward.skinUnlock);
-        }
+        Object.assign(this.currentSave, res.saveData);
         this.onSaveUpdate?.(this.currentSave);
         this.mountMeta(this.currentSave);
         showAchievementToast('Daily Login Reward!', res.reward.label, getRewardSvg(res.reward.iconType, res.reward.coins));

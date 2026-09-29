@@ -90,6 +90,8 @@ export interface CloudSaveDoc {
   saveData: Record<string, any>;
   /** Monotonic server-owned compare-and-swap revision. */
   revision?: number;
+  /** Canonical single-use reward claim receipts, updated atomically with wallet. */
+  claimReceipts?: string[];
   updatedAt: Date;
 }
 

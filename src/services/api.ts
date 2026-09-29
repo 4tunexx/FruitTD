@@ -60,6 +60,19 @@ export interface DailyStatus {
   rewards: DailyRewardTier[];
 }
 
+export interface ClaimWalletSnapshot {
+  revision: number;
+  saveData: Record<string, any>;
+}
+
+function acceptClaimWallet<T extends ClaimWalletSnapshot>(response: T | null): T | null {
+  if (response?.saveData && Number.isSafeInteger(response.revision) && response.revision >= 0) {
+    cloudRevision = response.revision;
+    cloudRevisionAuthToken = getAuthToken();
+  }
+  return response;
+}
+
 export interface SteamProfile {
   steamId: string;
   personaName: string;
@@ -209,16 +222,16 @@ export async function updateAchievementProgress(
 
 export async function claimAchievement(
   achievementId: string
-): Promise<{ rewardCoins: number; rewardSp: number } | null> {
+): Promise<{ rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number } | null> {
   const userId = getUserId();
-  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number }>(
+  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number }>(
     '/api/achievements/claim',
     {
       method: 'POST',
       body: JSON.stringify({ userId, achievementId }),
     }
   );
-  return res && res.success ? { rewardCoins: res.rewardCoins, rewardSp: res.rewardSp } : null;
+  return res && res.success ? acceptClaimWallet({ rewardCoins: res.rewardCoins, rewardSp: res.rewardSp, saveData: res.saveData, revision: res.revision }) : null;
 }
 
 // ----------------- MISSIONS -----------------
@@ -246,13 +259,13 @@ export async function updateMissionProgress(
   return !!res?.success;
 }
 
-export async function claimMission(missionId: string): Promise<{ rewardCoins: number; rewardSp: number } | null> {
+export async function claimMission(missionId: string): Promise<{ rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number } | null> {
   const userId = getUserId();
-  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number }>('/api/missions/claim', {
+  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number }>('/api/missions/claim', {
     method: 'POST',
     body: JSON.stringify({ userId, missionId }),
   });
-  return res && res.success ? { rewardCoins: res.rewardCoins, rewardSp: res.rewardSp } : null;
+  return res && res.success ? acceptClaimWallet({ rewardCoins: res.rewardCoins, rewardSp: res.rewardSp, saveData: res.saveData, revision: res.revision }) : null;
 }
 
 // ----------------- DAILY BONUS -----------------
@@ -275,13 +288,13 @@ export async function fetchDailyBonusStatus(): Promise<DailyStatus | null> {
     : null;
 }
 
-export async function claimDailyBonus(): Promise<{ streak: number; reward: DailyRewardTier } | null> {
+export async function claimDailyBonus(): Promise<{ streak: number; reward: DailyRewardTier; saveData: Record<string, any>; revision: number } | null> {
   const userId = getUserId();
-  const res = await apiRequest<{ success: boolean; streak: number; reward: DailyRewardTier }>('/api/daily/claim', {
+  const res = await apiRequest<{ success: boolean; streak: number; reward: DailyRewardTier; saveData: Record<string, any>; revision: number }>('/api/daily/claim', {
     method: 'POST',
     body: JSON.stringify({ userId }),
   });
-  return res && res.success ? { streak: res.streak, reward: res.reward } : null;
+  return res && res.success ? acceptClaimWallet({ streak: res.streak, reward: res.reward, saveData: res.saveData, revision: res.revision }) : null;
 }
 
 // ----------------- STEAM -----------------

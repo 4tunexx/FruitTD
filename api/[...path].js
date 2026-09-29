@@ -720,134 +720,303 @@ var leaderboardRouter = createLeaderboardRouter();
 
 // server/routes/achievements.ts
 import { Router as Router2 } from "express";
-var achievementsRouter = Router2();
-achievementsRouter.get("/", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to view achievements" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const defs = catalog.achievements.filter((a) => a.enabled !== false);
-    const col = await getCollection("achievements");
-    const userDocs = await col.find({ userId }).toArray();
-    const docMap = new Map(userDocs.map((d) => [d.achievementId, d]));
-    const list = defs.map((def) => {
-      const doc = docMap.get(def.id);
-      const maxProgress = def.requirement?.goal || 1;
-      const progress = Math.min(doc?.progress || 0, maxProgress);
-      const unlocked = !!doc?.unlocked || progress >= maxProgress;
-      return {
-        id: def.id,
-        title: def.title,
-        desc: def.desc,
-        icon: def.icon,
-        maxProgress,
+
+// src/game/progression/heroEconomy.ts
+var HERO_PRICES = {
+  tripos: { cost: 1800 },
+  ki: { cost: 3e3 }
+};
+function heroPrice(id) {
+  return HERO_PRICES[id]?.cost ?? null;
+}
+
+// src/game/heroes.ts
+var HEROES2 = [
+  { id: "jiju", name: "Master Jiju", title: "Clean blade", color: 3108845, trail: 1920728, blurb: "Classic wide cuts. Combos stack if you keep slicing.", mouse: "Precise flicks. Combo builds fast.", touch: "Wider finger slash. Easier to clip packs.", damage: 18, radius: 0.16, shake: 0.55, unlockLevel: 1 },
+  { id: "topfu", name: "Topfu", title: "Soft pressure", color: 16040810, trail: 15251530, blurb: "Shorter reach, but fruit go brittle and slow.", mouse: "Short snap cuts. Stacks brittle.", touch: "Fat squash pad. Bigger slow zone.", damage: 13, radius: 0.1, shake: 0.35, unlockLevel: 10 },
+  { id: "lagen", name: "Lagen", title: "Long reach", color: 3842906, trail: 2278750, blurb: "Lance slash. The swipe keeps going past your cursor.", mouse: "Fast flick = extra spear length.", touch: "Stable long line, a bit less extra reach.", damage: 16, radius: 0.12, shake: 0.45, unlockLevel: 25 },
+  { id: "tripos", name: "Tripos", title: "Triple path", color: 12860298, trail: 15235520, blurb: "One swipe becomes three parallel cuts.", mouse: "Tight triple lines.", touch: "Wider triple spread.", damage: 11, radius: 0.1, shake: 0.4, unlockLevel: 50, purchaseOnly: true, purchaseCost: heroPrice("tripos") ?? 1800 },
+  { id: "ki", name: "Master Ki", title: "Charged spirit", color: 8141549, trail: 10980346, blurb: "Hold to charge. Tap empty grass for a Ki pulse.", mouse: "Hold, then flick for a heavy cut.", touch: "Tap to pulse. Swipe to slash.", damage: 15, radius: 0.14, shake: 0.7, unlockLevel: 75, purchaseOnly: true, purchaseCost: heroPrice("ki") ?? 3e3 }
+];
+var MAX_HERO_LEVEL = 100;
+function heroXpForLevel(level) {
+  const lv = Math.max(1, Math.min(MAX_HERO_LEVEL, Math.floor(level)));
+  return lv === 1 ? 0 : Math.floor(35 * Math.pow(lv - 1, 1.58) + 20 * (lv - 1));
+}
+
+// src/game/skills.ts
+function emptySkills() {
+  return { edge: 0, reach: 0, flow: 0, steel: 0, storm: 0 };
+}
+
+// src/game/world.ts
+var SIM_DT = 1 / 60;
+var IMPACT_FREEZE = 1 / 60;
+var WALL_Z = -9.2;
+var EXTRA_Z = -7.85;
+function buildPads() {
+  return [
+    { x: -6.2, z: WALL_Z, main: false, floor: false },
+    { x: -3.8, z: WALL_Z, main: false, floor: false },
+    { x: 0, z: WALL_Z, main: true, floor: false },
+    { x: 3.8, z: WALL_Z, main: false, floor: false },
+    { x: 6.2, z: WALL_Z, main: false, floor: false },
+    { x: -4.8, z: EXTRA_Z, main: false, floor: true },
+    { x: -2.2, z: EXTRA_Z, main: false, floor: true },
+    { x: 2.2, z: EXTRA_Z, main: false, floor: true },
+    { x: 4.8, z: EXTRA_Z, main: false, floor: true }
+  ];
+}
+var PADS = buildPads();
+var MAIN_INDEX = PADS.findIndex((p) => p.main);
+
+// src/game/progression/rewards.ts
+var EMPTY_REWARD = Object.freeze({
+  score: 0,
+  coins: 0,
+  heroXp: 0,
+  towerXp: 0,
+  reason: "fruit_sliced"
+});
+
+// src/game/progression/index.ts
+var MAX_HERO_XP = heroXpForLevel(MAX_HERO_LEVEL);
+
+// src/game/save.ts
+function emptyXp() {
+  return { jiju: 0, topfu: 0, lagen: 0, tripos: 0, ki: 0 };
+}
+function emptyPerkRanks() {
+  return { jiju: {}, topfu: {}, lagen: {}, tripos: {}, ki: {} };
+}
+function defaultAvatar(name) {
+  const letter = (name[0] || "S").toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1d4ed8"/><text x="32" y="42" text-anchor="middle" font-size="28" font-family="Arial" fill="white" font-weight="700">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+function defaultSave() {
+  return {
+    hero: "jiju",
+    xp: emptyXp(),
+    ownedHeroes: ["jiju"],
+    towerXp: 0,
+    towerLifetimeXp: 0,
+    highScore: 0,
+    rankedScore: 0,
+    bestWave: 1,
+    bestCombo: 0,
+    games: 0,
+    coins: 0,
+    gems: 0,
+    nickname: "Slicer",
+    avatar: defaultAvatar("Slicer"),
+    skillPoints: 0,
+    skills: emptySkills(),
+    ownedSkins: ["blade-default", "wall-brick"],
+    bladeSkin: "blade-default",
+    wallSkin: "wall-brick",
+    mode: "casual",
+    heroPerkRanks: emptyPerkRanks(),
+    vipStatus: "none",
+    saveRevision: 0,
+    savedAt: 0
+  };
+}
+var WALL_SKINS = [
+  { id: "wall-brick", name: "Brick wall", kind: "wall", cost: 0, sellValue: 0, color: 10698034, blurb: "Default clay bricks." },
+  { id: "wall-stone", name: "Stone wall", kind: "wall", cost: 200, sellValue: 70, color: 9146265, blurb: "Cool grey stone." },
+  { id: "wall-night", name: "Night wall", kind: "wall", cost: 280, sellValue: 95, color: 2831184, blurb: "Dark midnight fort." }
+];
+
+// server/claimWallet.ts
+async function creditClaimReward(userId, receiptKey, reward, saves) {
+  const col = saves ?? await getCollection("cloud_saves");
+  let existing = await col.findOne({ userId });
+  if (!existing) {
+    try {
+      await col.insertOne({
+        userId,
+        saveData: defaultSave(),
+        revision: 0,
+        claimReceipts: [],
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+    } catch (err) {
+      if (err?.code !== 11e3) throw err;
+    }
+    existing = await col.findOne({ userId });
+  }
+  if (!existing) throw new Error("Could not initialize authoritative wallet");
+  const now = /* @__PURE__ */ new Date();
+  const set = {
+    revision: { $add: [{ $ifNull: ["$revision", 0] }, 1] },
+    updatedAt: now,
+    claimReceipts: { $setUnion: [{ $ifNull: ["$claimReceipts", []] }, [receiptKey]] }
+  };
+  const cappedCredit = (field, amount, cap) => ({
+    $min: [cap, { $add: [{ $ifNull: [`$saveData.${field}`, 0] }, amount] }]
+  });
+  if ((reward.coins ?? 0) > 0) set["saveData.coins"] = cappedCredit("coins", reward.coins, 1e6);
+  if ((reward.gems ?? 0) > 0) set["saveData.gems"] = cappedCredit("gems", reward.gems, 1e6);
+  if ((reward.skillPoints ?? 0) > 0) set["saveData.skillPoints"] = cappedCredit("skillPoints", reward.skillPoints, 1e4);
+  for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
+    if (amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
+  }
+  if (reward.items?.length) {
+    set["saveData.ownedSkins"] = { $setUnion: [{ $ifNull: ["$saveData.ownedSkins", []] }, reward.items] };
+  }
+  return col.findOneAndUpdate(
+    {
+      userId,
+      claimReceipts: { $ne: receiptKey }
+    },
+    [{ $set: set }],
+    { returnDocument: "after" }
+  );
+}
+
+// server/routes/achievements.ts
+var defaultDeps2 = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
+function createAchievementsRouter(deps = defaultDeps2) {
+  const router = Router2();
+  router.get("/", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to view achievements" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const defs = catalog.achievements.filter((a) => a.enabled !== false);
+      const col = await deps.collection("achievements");
+      const userDocs = await col.find({ userId }).toArray();
+      const docMap = new Map(userDocs.map((d) => [d.achievementId, d]));
+      const list = defs.map((def) => {
+        const doc = docMap.get(def.id);
+        const maxProgress = def.requirement?.goal || 1;
+        const progress = Math.min(doc?.progress || 0, maxProgress);
+        const unlocked = !!doc?.unlocked || progress >= maxProgress;
+        return {
+          id: def.id,
+          title: def.title,
+          desc: def.desc,
+          icon: def.icon,
+          maxProgress,
+          rewardCoins: def.rewardCoins,
+          rewardSp: def.rewardSp,
+          rewardBadge: def.rewardBadge,
+          progress,
+          unlocked,
+          claimed: !!doc?.claimed,
+          unlockedAt: doc?.unlockedAt
+        };
+      });
+      res.json({
+        success: true,
+        achievements: list,
+        stats: {
+          total: defs.length,
+          unlocked: list.filter((a) => a.unlocked).length,
+          claimable: list.filter((a) => a.unlocked && !a.claimed).length
+        }
+      });
+    } catch (err) {
+      console.error("Error fetching achievements:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/progress", async (req2, res) => {
+    try {
+      const { updates } = req2.body;
+      if (!validProgressUpdates(updates, "achievementId")) {
+        return res.status(400).json({ success: false, error: "Invalid payload" });
+      }
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to update achievements" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const col = await deps.collection("achievements");
+      const newlyUnlocked = [];
+      for (const update of updates) {
+        const def = catalog.achievements.find((a) => a.id === update.achievementId && a.enabled !== false);
+        if (!def) continue;
+        const existing = await col.findOne({ userId, achievementId: def.id });
+        let currentProgress = existing?.progress || 0;
+        const maxProgress = def.requirement?.goal || 1;
+        if (typeof update.setProgress === "number") {
+          currentProgress = Math.max(currentProgress, update.setProgress);
+        } else if (typeof update.progressDelta === "number") {
+          currentProgress += update.progressDelta;
+        }
+        const unlocked = currentProgress >= maxProgress;
+        const wasUnlocked = existing?.unlocked ?? false;
+        if (unlocked && !wasUnlocked) newlyUnlocked.push(def.id);
+        await col.updateOne(
+          { userId, achievementId: def.id },
+          {
+            $set: {
+              progress: Math.min(maxProgress, currentProgress),
+              maxProgress,
+              unlocked,
+              unlockedAt: unlocked && !wasUnlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
+            },
+            $setOnInsert: { claimed: false }
+          },
+          { upsert: true }
+        );
+      }
+      res.json({ success: true, newlyUnlocked });
+    } catch (err) {
+      console.error("Error updating achievement progress:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/claim", async (req2, res) => {
+    try {
+      const { achievementId } = req2.body;
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to claim achievements" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const def = catalog.achievements.find((a) => a.id === achievementId && a.enabled !== false);
+      if (!def) {
+        return res.status(400).json({ success: false, error: "Invalid achievementId" });
+      }
+      const col = await deps.collection("achievements");
+      const existing = await col.findOne({ userId, achievementId });
+      if (!existing || !existing.unlocked) {
+        return res.status(400).json({ success: false, error: "Achievement is not yet unlocked" });
+      }
+      if (existing.claimed) {
+        return res.status(400).json({ success: false, error: "Reward already claimed" });
+      }
+      const saves = await deps.collection("cloud_saves");
+      const wallet = await creditClaimReward(userId, `achievement:${achievementId}`, {
+        coins: def.rewardCoins,
+        skillPoints: def.rewardSp
+      }, saves);
+      if (!wallet) return res.status(400).json({ success: false, error: "Reward already claimed" });
+      const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
+      if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Reward already claimed" });
+      res.json({
+        success: true,
+        achievementId,
         rewardCoins: def.rewardCoins,
         rewardSp: def.rewardSp,
         rewardBadge: def.rewardBadge,
-        progress,
-        unlocked,
-        claimed: !!doc?.claimed,
-        unlockedAt: doc?.unlockedAt
-      };
-    });
-    res.json({
-      success: true,
-      achievements: list,
-      stats: {
-        total: defs.length,
-        unlocked: list.filter((a) => a.unlocked).length,
-        claimable: list.filter((a) => a.unlocked && !a.claimed).length
-      }
-    });
-  } catch (err) {
-    console.error("Error fetching achievements:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-achievementsRouter.post("/progress", async (req2, res) => {
-  try {
-    const { updates } = req2.body;
-    if (!validProgressUpdates(updates, "achievementId")) {
-      return res.status(400).json({ success: false, error: "Invalid payload" });
+        saveData: wallet.saveData,
+        revision: wallet.revision
+      });
+    } catch (err) {
+      console.error("Error claiming achievement reward:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to update achievements" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const col = await getCollection("achievements");
-    const newlyUnlocked = [];
-    for (const update of updates) {
-      const def = catalog.achievements.find((a) => a.id === update.achievementId && a.enabled !== false);
-      if (!def) continue;
-      const existing = await col.findOne({ userId, achievementId: def.id });
-      let currentProgress = existing?.progress || 0;
-      const maxProgress = def.requirement?.goal || 1;
-      if (typeof update.setProgress === "number") {
-        currentProgress = Math.max(currentProgress, update.setProgress);
-      } else if (typeof update.progressDelta === "number") {
-        currentProgress += update.progressDelta;
-      }
-      const unlocked = currentProgress >= maxProgress;
-      const wasUnlocked = existing?.unlocked ?? false;
-      if (unlocked && !wasUnlocked) newlyUnlocked.push(def.id);
-      await col.updateOne(
-        { userId, achievementId: def.id },
-        {
-          $set: {
-            progress: Math.min(maxProgress, currentProgress),
-            maxProgress,
-            unlocked,
-            unlockedAt: unlocked && !wasUnlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
-          },
-          $setOnInsert: { claimed: false }
-        },
-        { upsert: true }
-      );
-    }
-    res.json({ success: true, newlyUnlocked });
-  } catch (err) {
-    console.error("Error updating achievement progress:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-achievementsRouter.post("/claim", async (req2, res) => {
-  try {
-    const { achievementId } = req2.body;
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim achievements" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const def = catalog.achievements.find((a) => a.id === achievementId && a.enabled !== false);
-    if (!def) {
-      return res.status(400).json({ success: false, error: "Invalid achievementId" });
-    }
-    const col = await getCollection("achievements");
-    const existing = await col.findOne({ userId, achievementId });
-    if (!existing || !existing.unlocked) {
-      return res.status(400).json({ success: false, error: "Achievement is not yet unlocked" });
-    }
-    if (existing.claimed) {
-      return res.status(400).json({ success: false, error: "Reward already claimed" });
-    }
-    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
-    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Reward already claimed" });
-    res.json({
-      success: true,
-      achievementId,
-      rewardCoins: def.rewardCoins,
-      rewardSp: def.rewardSp,
-      rewardBadge: def.rewardBadge
-    });
-  } catch (err) {
-    console.error("Error claiming achievement reward:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  });
+  return router;
+}
+var achievementsRouter = createAchievementsRouter();
 
 // server/routes/missions.ts
 import { Router as Router3 } from "express";
-var missionsRouter = Router3();
+var defaultDeps3 = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
 function getDayKey() {
   const d = /* @__PURE__ */ new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -863,128 +1032,141 @@ function periodKey(type) {
   if (type === "monthly") return `M-${getMonthKey()}`;
   return getDayKey();
 }
-missionsRouter.get("/", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to view missions" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const defs = catalog.missions.filter((m) => m.enabled !== false);
-    const keys = [...new Set(defs.map((d) => periodKey(d.type)))];
-    const col = await getCollection("missions");
-    const userDocs = await col.find({ userId, dayKey: { $in: keys } }).toArray();
-    const docMap = new Map(userDocs.map((d) => [d.missionId, d]));
-    const missions = defs.map((def) => {
+function createMissionsRouter(deps = defaultDeps3) {
+  const router = Router3();
+  router.get("/", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to view missions" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const defs = catalog.missions.filter((m) => m.enabled !== false);
+      const keys = [...new Set(defs.map((d) => periodKey(d.type)))];
+      const col = await deps.collection("missions");
+      const userDocs = await col.find({ userId, dayKey: { $in: keys } }).toArray();
+      const docMap = new Map(userDocs.map((d) => [d.missionId, d]));
+      const missions = defs.map((def) => {
+        const activeKey = periodKey(def.type);
+        const doc = docMap.get(def.id);
+        const goal = def.requirement?.goal || 1;
+        const progress = Math.min(doc?.progress || 0, goal);
+        return {
+          id: def.id,
+          type: def.type,
+          title: def.title,
+          desc: def.desc,
+          icon: def.icon,
+          goal,
+          rewardCoins: def.rewardCoins,
+          rewardSp: def.rewardSp,
+          rewardBadge: def.rewardBadge,
+          periodKey: activeKey,
+          progress,
+          completed: progress >= goal,
+          claimed: !!doc?.claimed
+        };
+      });
+      res.json({
+        success: true,
+        dayKey: getDayKey(),
+        weekKey: getWeekKey(),
+        monthKey: getMonthKey(),
+        missions,
+        totalClaimable: missions.filter((m) => m.completed && !m.claimed).length
+      });
+    } catch (err) {
+      console.error("Error fetching missions:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/progress", async (req2, res) => {
+    try {
+      const { updates } = req2.body;
+      if (!validProgressUpdates(updates, "missionId")) {
+        return res.status(400).json({ success: false, error: "Invalid payload" });
+      }
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to update missions" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const col = await deps.collection("missions");
+      for (const update of updates) {
+        const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
+        if (!def) continue;
+        const activeKey = periodKey(def.type);
+        const existing = await col.findOne({ userId, missionId: def.id, dayKey: activeKey });
+        let currentProgress = existing?.progress || 0;
+        const goal = def.requirement?.goal || 1;
+        if (typeof update.setProgress === "number") {
+          currentProgress = Math.max(currentProgress, update.setProgress);
+        } else if (typeof update.progressDelta === "number") {
+          currentProgress += update.progressDelta;
+        }
+        await col.updateOne(
+          { userId, missionId: def.id, dayKey: activeKey },
+          {
+            $set: {
+              progress: Math.min(goal, currentProgress),
+              goal,
+              completed: currentProgress >= goal,
+              updatedAt: /* @__PURE__ */ new Date()
+            },
+            $setOnInsert: { claimed: false }
+          },
+          { upsert: true }
+        );
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error updating missions:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/claim", async (req2, res) => {
+    try {
+      const { missionId } = req2.body;
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to claim missions" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const def = catalog.missions.find((m) => m.id === missionId && m.enabled !== false);
+      if (!def) {
+        return res.status(400).json({ success: false, error: "Invalid missionId" });
+      }
       const activeKey = periodKey(def.type);
-      const doc = docMap.get(def.id);
-      const goal = def.requirement?.goal || 1;
-      const progress = Math.min(doc?.progress || 0, goal);
-      return {
-        id: def.id,
-        type: def.type,
-        title: def.title,
-        desc: def.desc,
-        icon: def.icon,
-        goal,
+      const col = await deps.collection("missions");
+      const existing = await col.findOne({ userId, missionId, dayKey: activeKey });
+      if (!existing || !existing.completed) {
+        return res.status(400).json({ success: false, error: "Mission is not completed yet" });
+      }
+      if (existing.claimed) {
+        return res.status(400).json({ success: false, error: "Mission reward already claimed" });
+      }
+      const saves = await deps.collection("cloud_saves");
+      const wallet = await creditClaimReward(userId, `mission:${activeKey}:${missionId}`, {
+        coins: def.rewardCoins,
+        skillPoints: def.rewardSp
+      }, saves);
+      if (!wallet) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
+      const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: /* @__PURE__ */ new Date() } });
+      if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
+      res.json({
+        success: true,
+        missionId,
         rewardCoins: def.rewardCoins,
         rewardSp: def.rewardSp,
         rewardBadge: def.rewardBadge,
-        periodKey: activeKey,
-        progress,
-        completed: progress >= goal,
-        claimed: !!doc?.claimed
-      };
-    });
-    res.json({
-      success: true,
-      dayKey: getDayKey(),
-      weekKey: getWeekKey(),
-      monthKey: getMonthKey(),
-      missions,
-      totalClaimable: missions.filter((m) => m.completed && !m.claimed).length
-    });
-  } catch (err) {
-    console.error("Error fetching missions:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-missionsRouter.post("/progress", async (req2, res) => {
-  try {
-    const { updates } = req2.body;
-    if (!validProgressUpdates(updates, "missionId")) {
-      return res.status(400).json({ success: false, error: "Invalid payload" });
+        saveData: wallet.saveData,
+        revision: wallet.revision
+      });
+    } catch (err) {
+      console.error("Error claiming mission reward:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to update missions" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const col = await getCollection("missions");
-    for (const update of updates) {
-      const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
-      if (!def) continue;
-      const activeKey = periodKey(def.type);
-      const existing = await col.findOne({ userId, missionId: def.id, dayKey: activeKey });
-      let currentProgress = existing?.progress || 0;
-      const goal = def.requirement?.goal || 1;
-      if (typeof update.setProgress === "number") {
-        currentProgress = Math.max(currentProgress, update.setProgress);
-      } else if (typeof update.progressDelta === "number") {
-        currentProgress += update.progressDelta;
-      }
-      await col.updateOne(
-        { userId, missionId: def.id, dayKey: activeKey },
-        {
-          $set: {
-            progress: Math.min(goal, currentProgress),
-            goal,
-            completed: currentProgress >= goal,
-            updatedAt: /* @__PURE__ */ new Date()
-          },
-          $setOnInsert: { claimed: false }
-        },
-        { upsert: true }
-      );
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Error updating missions:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-missionsRouter.post("/claim", async (req2, res) => {
-  try {
-    const { missionId } = req2.body;
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim missions" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const def = catalog.missions.find((m) => m.id === missionId && m.enabled !== false);
-    if (!def) {
-      return res.status(400).json({ success: false, error: "Invalid missionId" });
-    }
-    const activeKey = periodKey(def.type);
-    const col = await getCollection("missions");
-    const existing = await col.findOne({ userId, missionId, dayKey: activeKey });
-    if (!existing || !existing.completed) {
-      return res.status(400).json({ success: false, error: "Mission is not completed yet" });
-    }
-    if (existing.claimed) {
-      return res.status(400).json({ success: false, error: "Mission reward already claimed" });
-    }
-    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: /* @__PURE__ */ new Date() } });
-    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
-    res.json({
-      success: true,
-      missionId,
-      rewardCoins: def.rewardCoins,
-      rewardSp: def.rewardSp,
-      rewardBadge: def.rewardBadge
-    });
-  } catch (err) {
-    console.error("Error claiming mission reward:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  });
+  return router;
+}
+var missionsRouter = createMissionsRouter();
 
 // server/routes/daily.ts
 import { Router as Router5 } from "express";
@@ -1221,7 +1403,15 @@ adminRouter.post("/leaderboard/delete", async (req2, res) => {
 });
 
 // server/routes/daily.ts
-var dailyRouter = Router5();
+var defaultDeps4 = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  rewards: getActiveDailyRewards,
+  allowedSkinIds: async () => {
+    const catalog = await loadQuestCatalog();
+    return /* @__PURE__ */ new Set([...catalog.slicers.map((item) => item.id), ...WALL_SKINS.map((item) => item.id)]);
+  }
+};
 async function getActiveDailyRewards() {
   try {
     const col = await getCollection("admin_config");
@@ -1240,95 +1430,116 @@ async function getActiveDailyRewards() {
 function getDayKey2(date = /* @__PURE__ */ new Date()) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
-dailyRouter.get("/", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to view daily rewards" });
-    const userId = user.userId;
-    const todayStr = getDayKey2();
-    const col = await getCollection("daily_bonus");
-    const existing = await col.findOne({ userId });
-    const activeRewards = await getActiveDailyRewards();
-    let currentStreak = existing?.streak || 0;
-    let canClaim = false;
-    if (!existing || !existing.lastClaimDate) {
-      canClaim = true;
-      currentStreak = 1;
-    } else {
-      const lastDate = new Date(existing.lastClaimDate);
-      const todayDate = new Date(todayStr);
-      const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1e3 * 60 * 60 * 24));
-      if (diffDays === 0) {
-        canClaim = false;
-      } else if (diffDays === 1) {
-        canClaim = true;
-        currentStreak = existing.streak % 7 + 1;
-      } else {
+function createDailyRouter(deps = defaultDeps4) {
+  const router = Router5();
+  router.get("/", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to view daily rewards" });
+      const userId = user.userId;
+      const todayStr = getDayKey2();
+      const col = await deps.collection("daily_bonus");
+      const existing = await col.findOne({ userId });
+      const activeRewards = await deps.rewards();
+      let currentStreak = existing?.streak || 0;
+      let canClaim = false;
+      if (!existing || !existing.lastClaimDate) {
         canClaim = true;
         currentStreak = 1;
-      }
-    }
-    res.json({
-      success: true,
-      streak: currentStreak,
-      canClaim,
-      lastClaimDate: existing?.lastClaimDate || null,
-      today: todayStr,
-      rewards: activeRewards
-    });
-  } catch (err) {
-    console.error("Error getting daily bonus status:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-dailyRouter.post("/claim", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim daily rewards" });
-    const userId = user.userId;
-    const todayStr = getDayKey2();
-    const col = await getCollection("daily_bonus");
-    const existing = await col.findOne({ userId });
-    const activeRewards = await getActiveDailyRewards();
-    let newStreak = 1;
-    if (existing && existing.lastClaimDate) {
-      const lastDate = new Date(existing.lastClaimDate);
-      const todayDate = new Date(todayStr);
-      const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1e3 * 60 * 60 * 24));
-      if (diffDays === 0) {
-        return res.status(400).json({ success: false, error: "Daily bonus already claimed for today" });
-      } else if (diffDays === 1) {
-        newStreak = existing.streak % 7 + 1;
       } else {
-        newStreak = 1;
-      }
-    }
-    const reward = activeRewards[newStreak - 1] || activeRewards[0];
-    await col.updateOne(
-      { userId, lastClaimDate: { $ne: todayStr } },
-      {
-        $set: {
-          streak: newStreak,
-          lastClaimDate: todayStr,
-          updatedAt: /* @__PURE__ */ new Date()
-        },
-        $inc: {
-          totalClaimed: 1
+        const lastDate = new Date(existing.lastClaimDate);
+        const todayDate = new Date(todayStr);
+        const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1e3 * 60 * 60 * 24));
+        if (diffDays === 0) {
+          canClaim = false;
+        } else if (diffDays === 1) {
+          canClaim = true;
+          currentStreak = existing.streak % 7 + 1;
+        } else {
+          canClaim = true;
+          currentStreak = 1;
         }
-      },
-      { upsert: true }
-    );
-    res.json({
-      success: true,
-      streak: newStreak,
-      reward
-    });
-  } catch (err) {
-    if (err?.code === 11e3) return res.status(400).json({ success: false, error: "Daily bonus already claimed for today" });
-    console.error("Error claiming daily bonus:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+      }
+      res.json({
+        success: true,
+        streak: currentStreak,
+        canClaim,
+        lastClaimDate: existing?.lastClaimDate || null,
+        today: todayStr,
+        rewards: activeRewards
+      });
+    } catch (err) {
+      console.error("Error getting daily bonus status:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/claim", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to claim daily rewards" });
+      const userId = user.userId;
+      const todayStr = getDayKey2();
+      const col = await deps.collection("daily_bonus");
+      const existing = await col.findOne({ userId });
+      const activeRewards = await deps.rewards();
+      let newStreak = 1;
+      if (existing && existing.lastClaimDate) {
+        const lastDate = new Date(existing.lastClaimDate);
+        const todayDate = new Date(todayStr);
+        const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1e3 * 60 * 60 * 24));
+        if (diffDays === 0) {
+          return res.status(400).json({ success: false, error: "Daily bonus already claimed for today" });
+        } else if (diffDays === 1) {
+          newStreak = existing.streak % 7 + 1;
+        } else {
+          newStreak = 1;
+        }
+      }
+      const reward = activeRewards[newStreak - 1] || activeRewards[0];
+      if (reward.skinUnlock && !(await deps.allowedSkinIds()).has(reward.skinUnlock)) {
+        return res.status(500).json({ success: false, error: "Configured daily reward item is unavailable" });
+      }
+      const saves = await deps.collection("cloud_saves");
+      const wallet = await creditClaimReward(userId, `daily:${todayStr}`, {
+        coins: reward.coins,
+        gems: reward.gems,
+        skillPoints: reward.skillPoints,
+        items: reward.skinUnlock ? [reward.skinUnlock] : []
+      }, saves);
+      if (!wallet) return res.status(400).json({ success: false, error: "Daily bonus already claimed for today" });
+      const consumed = await col.updateOne(
+        { userId, lastClaimDate: { $ne: todayStr } },
+        {
+          $set: {
+            streak: newStreak,
+            lastClaimDate: todayStr,
+            updatedAt: /* @__PURE__ */ new Date()
+          },
+          $inc: {
+            totalClaimed: 1
+          }
+        },
+        { upsert: true }
+      );
+      if (consumed.modifiedCount !== 1 && consumed.upsertedCount !== 1) {
+        return res.status(409).json({ success: false, error: "Daily claim receipt was recorded; reload your wallet" });
+      }
+      res.json({
+        success: true,
+        streak: newStreak,
+        reward,
+        saveData: wallet.saveData,
+        revision: wallet.revision
+      });
+    } catch (err) {
+      if (err?.code === 11e3) return res.status(400).json({ success: false, error: "Daily bonus already claimed for today" });
+      console.error("Error claiming daily bonus:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  return router;
+}
+var dailyRouter = createDailyRouter();
 
 // server/routes/steam.ts
 import { Router as Router7 } from "express";
@@ -1900,116 +2111,7 @@ steamRouter.get("/status", async (req2, res) => {
 
 // server/routes/profile.ts
 import { Router as Router8 } from "express";
-
-// src/game/progression/heroEconomy.ts
-var HERO_PRICES = {
-  tripos: { cost: 1800 },
-  ki: { cost: 3e3 }
-};
-function heroPrice(id) {
-  return HERO_PRICES[id]?.cost ?? null;
-}
-
-// src/game/heroes.ts
-var HEROES2 = [
-  { id: "jiju", name: "Master Jiju", title: "Clean blade", color: 3108845, trail: 1920728, blurb: "Classic wide cuts. Combos stack if you keep slicing.", mouse: "Precise flicks. Combo builds fast.", touch: "Wider finger slash. Easier to clip packs.", damage: 18, radius: 0.16, shake: 0.55, unlockLevel: 1 },
-  { id: "topfu", name: "Topfu", title: "Soft pressure", color: 16040810, trail: 15251530, blurb: "Shorter reach, but fruit go brittle and slow.", mouse: "Short snap cuts. Stacks brittle.", touch: "Fat squash pad. Bigger slow zone.", damage: 13, radius: 0.1, shake: 0.35, unlockLevel: 10 },
-  { id: "lagen", name: "Lagen", title: "Long reach", color: 3842906, trail: 2278750, blurb: "Lance slash. The swipe keeps going past your cursor.", mouse: "Fast flick = extra spear length.", touch: "Stable long line, a bit less extra reach.", damage: 16, radius: 0.12, shake: 0.45, unlockLevel: 25 },
-  { id: "tripos", name: "Tripos", title: "Triple path", color: 12860298, trail: 15235520, blurb: "One swipe becomes three parallel cuts.", mouse: "Tight triple lines.", touch: "Wider triple spread.", damage: 11, radius: 0.1, shake: 0.4, unlockLevel: 50, purchaseOnly: true, purchaseCost: heroPrice("tripos") ?? 1800 },
-  { id: "ki", name: "Master Ki", title: "Charged spirit", color: 8141549, trail: 10980346, blurb: "Hold to charge. Tap empty grass for a Ki pulse.", mouse: "Hold, then flick for a heavy cut.", touch: "Tap to pulse. Swipe to slash.", damage: 15, radius: 0.14, shake: 0.7, unlockLevel: 75, purchaseOnly: true, purchaseCost: heroPrice("ki") ?? 3e3 }
-];
-var MAX_HERO_LEVEL = 100;
-function heroXpForLevel(level) {
-  const lv = Math.max(1, Math.min(MAX_HERO_LEVEL, Math.floor(level)));
-  return lv === 1 ? 0 : Math.floor(35 * Math.pow(lv - 1, 1.58) + 20 * (lv - 1));
-}
-
-// src/game/skills.ts
-function emptySkills() {
-  return { edge: 0, reach: 0, flow: 0, steel: 0, storm: 0 };
-}
-
-// src/game/world.ts
-var SIM_DT = 1 / 60;
-var IMPACT_FREEZE = 1 / 60;
-var WALL_Z = -9.2;
-var EXTRA_Z = -7.85;
-function buildPads() {
-  return [
-    { x: -6.2, z: WALL_Z, main: false, floor: false },
-    { x: -3.8, z: WALL_Z, main: false, floor: false },
-    { x: 0, z: WALL_Z, main: true, floor: false },
-    { x: 3.8, z: WALL_Z, main: false, floor: false },
-    { x: 6.2, z: WALL_Z, main: false, floor: false },
-    { x: -4.8, z: EXTRA_Z, main: false, floor: true },
-    { x: -2.2, z: EXTRA_Z, main: false, floor: true },
-    { x: 2.2, z: EXTRA_Z, main: false, floor: true },
-    { x: 4.8, z: EXTRA_Z, main: false, floor: true }
-  ];
-}
-var PADS = buildPads();
-var MAIN_INDEX = PADS.findIndex((p) => p.main);
-
-// src/game/progression/rewards.ts
-var EMPTY_REWARD = Object.freeze({
-  score: 0,
-  coins: 0,
-  heroXp: 0,
-  towerXp: 0,
-  reason: "fruit_sliced"
-});
-
-// src/game/progression/index.ts
-var MAX_HERO_XP = heroXpForLevel(MAX_HERO_LEVEL);
-
-// src/game/save.ts
-function emptyXp() {
-  return { jiju: 0, topfu: 0, lagen: 0, tripos: 0, ki: 0 };
-}
-function emptyPerkRanks() {
-  return { jiju: {}, topfu: {}, lagen: {}, tripos: {}, ki: {} };
-}
-function defaultAvatar(name) {
-  const letter = (name[0] || "S").toUpperCase();
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1d4ed8"/><text x="32" y="42" text-anchor="middle" font-size="28" font-family="Arial" fill="white" font-weight="700">${letter}</text></svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-function defaultSave() {
-  return {
-    hero: "jiju",
-    xp: emptyXp(),
-    ownedHeroes: ["jiju"],
-    towerXp: 0,
-    towerLifetimeXp: 0,
-    highScore: 0,
-    rankedScore: 0,
-    bestWave: 1,
-    bestCombo: 0,
-    games: 0,
-    coins: 0,
-    gems: 0,
-    nickname: "Slicer",
-    avatar: defaultAvatar("Slicer"),
-    skillPoints: 0,
-    skills: emptySkills(),
-    ownedSkins: ["blade-default", "wall-brick"],
-    bladeSkin: "blade-default",
-    wallSkin: "wall-brick",
-    mode: "casual",
-    heroPerkRanks: emptyPerkRanks(),
-    vipStatus: "none",
-    saveRevision: 0,
-    savedAt: 0
-  };
-}
-var WALL_SKINS = [
-  { id: "wall-brick", name: "Brick wall", kind: "wall", cost: 0, sellValue: 0, color: 10698034, blurb: "Default clay bricks." },
-  { id: "wall-stone", name: "Stone wall", kind: "wall", cost: 200, sellValue: 70, color: 9146265, blurb: "Cool grey stone." },
-  { id: "wall-night", name: "Night wall", kind: "wall", cost: 280, sellValue: 95, color: 2831184, blurb: "Dark midnight fort." }
-];
-
-// server/routes/profile.ts
-var defaultDeps2 = {
+var defaultDeps5 = {
   resolveUser: resolveRequestUser,
   collection: getCollection,
   allowedSkinIds: async () => {
@@ -2023,7 +2125,7 @@ function etag(revision) {
 function serverRevision(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
-function createProfileRouter(deps = defaultDeps2) {
+function createProfileRouter(deps = defaultDeps5) {
   const router = Router8();
   router.get("/", async (req2, res) => {
     try {

@@ -1,9 +1,30 @@
 import { Router, Request, Response } from 'express';
-import { getCollection, DailyBonusDoc } from '../db';
+import type { Collection } from 'mongodb';
+import { getCollection, DailyBonusDoc, CloudSaveDoc } from '../db';
 import { AdminConfigDoc, DEFAULT_ADMIN_CONFIG } from './admin';
 import { resolveRequestUser } from '../auth';
+import { creditClaimReward } from '../claimWallet';
+import { loadQuestCatalog } from '../catalog';
+import { WALL_SKINS } from '../../src/game/save';
 
-export const dailyRouter = Router();
+type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
+
+export interface DailyRouteDeps {
+  resolveUser(req: Request): Promise<RequestUser>;
+  collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
+  rewards(): Promise<DailyRewardTier[]>;
+  allowedSkinIds(): Promise<ReadonlySet<string>>;
+}
+
+const defaultDeps: DailyRouteDeps = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  rewards: getActiveDailyRewards,
+  allowedSkinIds: async () => {
+    const catalog = await loadQuestCatalog();
+    return new Set([...catalog.slicers.map((item) => item.id), ...WALL_SKINS.map((item) => item.id)]);
+  },
+};
 
 export interface DailyRewardTier {
   day: number;
@@ -37,16 +58,19 @@ function getDayKey(date = new Date()): string {
 }
 
 // GET /api/daily?userId=xxx
-dailyRouter.get('/', async (req: Request, res: Response) => {
+export function createDailyRouter(deps: DailyRouteDeps = defaultDeps): Router {
+const router = Router();
+
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to view daily rewards' });
     const userId = user.userId;
 
     const todayStr = getDayKey();
-    const col = await getCollection<DailyBonusDoc>('daily_bonus');
+    const col = await deps.collection<DailyBonusDoc>('daily_bonus');
     const existing = await col.findOne({ userId });
-    const activeRewards = await getActiveDailyRewards();
+    const activeRewards = await deps.rewards();
 
     let currentStreak = existing?.streak || 0;
     let canClaim = false;
@@ -90,16 +114,16 @@ dailyRouter.get('/', async (req: Request, res: Response) => {
 
 // POST /api/daily/claim
 // Body: { userId }
-dailyRouter.post('/claim', async (req: Request, res: Response) => {
+router.post('/claim', async (req: Request, res: Response) => {
   try {
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim daily rewards' });
     const userId = user.userId;
 
     const todayStr = getDayKey();
-    const col = await getCollection<DailyBonusDoc>('daily_bonus');
+    const col = await deps.collection<DailyBonusDoc>('daily_bonus');
     const existing = await col.findOne({ userId });
-    const activeRewards = await getActiveDailyRewards();
+    const activeRewards = await deps.rewards();
 
     let newStreak = 1;
     if (existing && existing.lastClaimDate) {
@@ -117,8 +141,20 @@ dailyRouter.post('/claim', async (req: Request, res: Response) => {
     }
 
     const reward = activeRewards[newStreak - 1] || activeRewards[0];
+    if (reward.skinUnlock && !(await deps.allowedSkinIds()).has(reward.skinUnlock)) {
+      return res.status(500).json({ success: false, error: 'Configured daily reward item is unavailable' });
+    }
 
-    await col.updateOne(
+    const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
+    const wallet = await creditClaimReward(userId, `daily:${todayStr}`, {
+      coins: reward.coins,
+      gems: reward.gems,
+      skillPoints: reward.skillPoints,
+      items: reward.skinUnlock ? [reward.skinUnlock] : [],
+    }, saves);
+    if (!wallet) return res.status(400).json({ success: false, error: 'Daily bonus already claimed for today' });
+
+    const consumed = await col.updateOne(
       { userId, lastClaimDate: { $ne: todayStr } },
       {
         $set: {
@@ -132,11 +168,16 @@ dailyRouter.post('/claim', async (req: Request, res: Response) => {
       },
       { upsert: true }
     );
+    if (consumed.modifiedCount !== 1 && consumed.upsertedCount !== 1) {
+      return res.status(409).json({ success: false, error: 'Daily claim receipt was recorded; reload your wallet' });
+    }
 
     res.json({
       success: true,
       streak: newStreak,
       reward,
+      saveData: wallet.saveData,
+      revision: wallet.revision,
     });
   } catch (err: any) {
     if (err?.code === 11000) return res.status(400).json({ success: false, error: 'Daily bonus already claimed for today' });
@@ -144,3 +185,8 @@ dailyRouter.post('/claim', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+return router;
+}
+
+export const dailyRouter = createDailyRouter();

@@ -1,20 +1,33 @@
 import { Router, Request, Response } from 'express';
-import { getCollection, AchievementDoc } from '../db';
+import type { Collection } from 'mongodb';
+import { getCollection, AchievementDoc, CloudSaveDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
 import { validProgressUpdates } from '../validation';
+import { creditClaimReward } from '../claimWallet';
 
-export const achievementsRouter = Router();
+type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 
-achievementsRouter.get('/', async (req: Request, res: Response) => {
+export interface AchievementRouteDeps {
+  resolveUser(req: Request): Promise<RequestUser>;
+  collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
+  catalog(): ReturnType<typeof loadQuestCatalog>;
+}
+
+const defaultDeps: AchievementRouteDeps = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
+
+export function createAchievementsRouter(deps: AchievementRouteDeps = defaultDeps): Router {
+const router = Router();
+
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to view achievements' });
     const userId = user.userId;
 
-    const catalog = await loadQuestCatalog();
+    const catalog = await deps.catalog();
     const defs = catalog.achievements.filter((a) => a.enabled !== false);
-    const col = await getCollection<AchievementDoc>('achievements');
+    const col = await deps.collection<AchievementDoc>('achievements');
     const userDocs = await col.find({ userId }).toArray();
     const docMap = new Map(userDocs.map((d) => [d.achievementId, d]));
 
@@ -54,18 +67,18 @@ achievementsRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
-achievementsRouter.post('/progress', async (req: Request, res: Response) => {
+router.post('/progress', async (req: Request, res: Response) => {
   try {
     const { updates } = req.body;
     if (!validProgressUpdates(updates, 'achievementId')) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to update achievements' });
     const userId = user.userId;
 
-    const catalog = await loadQuestCatalog();
-    const col = await getCollection<AchievementDoc>('achievements');
+    const catalog = await deps.catalog();
+    const col = await deps.collection<AchievementDoc>('achievements');
     const newlyUnlocked: string[] = [];
 
     for (const update of updates) {
@@ -108,19 +121,19 @@ achievementsRouter.post('/progress', async (req: Request, res: Response) => {
   }
 });
 
-achievementsRouter.post('/claim', async (req: Request, res: Response) => {
+router.post('/claim', async (req: Request, res: Response) => {
   try {
     const { achievementId } = req.body;
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim achievements' });
     const userId = user.userId;
-    const catalog = await loadQuestCatalog();
+    const catalog = await deps.catalog();
     const def = catalog.achievements.find((a) => a.id === achievementId && a.enabled !== false);
     if (!def) {
       return res.status(400).json({ success: false, error: 'Invalid achievementId' });
     }
 
-    const col = await getCollection<AchievementDoc>('achievements');
+    const col = await deps.collection<AchievementDoc>('achievements');
     const existing = await col.findOne({ userId, achievementId });
 
     if (!existing || !existing.unlocked) {
@@ -129,6 +142,13 @@ achievementsRouter.post('/claim', async (req: Request, res: Response) => {
     if (existing.claimed) {
       return res.status(400).json({ success: false, error: 'Reward already claimed' });
     }
+
+    const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
+    const wallet = await creditClaimReward(userId, `achievement:${achievementId}`, {
+      coins: def.rewardCoins,
+      skillPoints: def.rewardSp,
+    }, saves);
+    if (!wallet) return res.status(400).json({ success: false, error: 'Reward already claimed' });
 
     const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
     if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Reward already claimed' });
@@ -139,9 +159,16 @@ achievementsRouter.post('/claim', async (req: Request, res: Response) => {
       rewardCoins: def.rewardCoins,
       rewardSp: def.rewardSp,
       rewardBadge: def.rewardBadge,
+      saveData: wallet.saveData,
+      revision: wallet.revision,
     });
   } catch (err: any) {
     console.error('Error claiming achievement reward:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+return router;
+}
+
+export const achievementsRouter = createAchievementsRouter();
