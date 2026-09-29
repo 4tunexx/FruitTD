@@ -77,3 +77,20 @@ test('skill purchase spends server-owned skill points and survives a wallet read
   assert.equal(cloud.saveData.skills.edge, 1);
   assert.equal(cloud.revision, 5);
 });
+
+test('a successful server action fills missing currency fields on a legacy wallet', async (t) => {
+  const { deps, cloud } = setup();
+  delete cloud.saveData.gems;
+  const { server, base } = await listen(createItemsRouter(deps));
+  closeAfter(t, server);
+
+  const response = await fetch(base, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'buy-skill', id: 'edge' }),
+  });
+
+  assert.equal(response.status, 200);
+  const body = await response.json() as any;
+  assert.equal(body.saveData.gems, 0);
+  assert.equal(cloud.saveData.gems, 0);
+});

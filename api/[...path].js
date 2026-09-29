@@ -743,9 +743,9 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   const cappedCredit = (field, amount, cap) => ({
     $min: [cap, { $add: [{ $ifNull: [`$saveData.${field}`, 0] }, amount] }]
   });
-  if ((reward.coins ?? 0) > 0) set["saveData.coins"] = cappedCredit("coins", reward.coins, 1e6);
-  if ((reward.gems ?? 0) > 0) set["saveData.gems"] = cappedCredit("gems", reward.gems, 1e6);
-  if ((reward.skillPoints ?? 0) > 0) set["saveData.skillPoints"] = cappedCredit("skillPoints", reward.skillPoints, 1e4);
+  set["saveData.coins"] = cappedCredit("coins", reward.coins ?? 0, 1e6);
+  set["saveData.gems"] = cappedCredit("gems", reward.gems ?? 0, 1e6);
+  set["saveData.skillPoints"] = cappedCredit("skillPoints", reward.skillPoints ?? 0, 1e4);
   for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
     if (HEROES2.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
   }
@@ -2636,7 +2636,7 @@ function createItemsRouter(deps = defaultDeps6) {
       const col = await deps.collection("cloud_saves");
       const current = await col.findOne({ userId: user.userId });
       const currentRevision = serverRevision2(current?.revision);
-      const saveData = structuredClone(current?.saveData ?? defaultSave());
+      const saveData = { ...defaultSave(), ...structuredClone(current?.saveData ?? {}) };
       const ownedSkins = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
       const ownedHeroes = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
       const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
@@ -2658,9 +2658,9 @@ function createItemsRouter(deps = defaultDeps6) {
         const skill = SKILLS2.find((entry) => entry.id === id);
         if (!skill) return res.status(404).json({ success: false, error: "Skill not found" });
         if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: "Not enough skill points" });
-        if (!saveData.skills || !Number.isSafeInteger(saveData.skills[id]) || saveData.skills[id] >= skill.max) return res.status(409).json({ success: false, error: "Skill is already at maximum rank" });
+        if (!saveData.skills || !Number.isSafeInteger(saveData.skills[skill.id]) || saveData.skills[skill.id] >= skill.max) return res.status(409).json({ success: false, error: "Skill is already at maximum rank" });
         saveData.skillPoints -= 1;
-        saveData.skills[id] += 1;
+        saveData.skills[skill.id] += 1;
       }
       if (action === "buy") {
         if (hero) {

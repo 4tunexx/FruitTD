@@ -59,7 +59,10 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       const col = await deps.collection<CloudSaveDoc>('cloud_saves');
       const current = await col.findOne({ userId: user.userId });
       const currentRevision = serverRevision(current?.revision);
-      const saveData = structuredClone(current?.saveData ?? defaultSave());
+      // Older Atlas saves predate gems and some of the newer progression
+      // fields. Start from the canonical shape so any successful server action
+      // migrates those fields without changing existing balances.
+      const saveData = { ...defaultSave(), ...structuredClone(current?.saveData ?? {}) };
       const ownedSkins: string[] = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
       const ownedHeroes: string[] = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
       const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
@@ -83,9 +86,9 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
         const skill = SKILLS.find((entry) => entry.id === id);
         if (!skill) return res.status(404).json({ success: false, error: 'Skill not found' });
         if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: 'Not enough skill points' });
-        if (!saveData.skills || !Number.isSafeInteger(saveData.skills[id]) || saveData.skills[id] >= skill.max) return res.status(409).json({ success: false, error: 'Skill is already at maximum rank' });
+        if (!saveData.skills || !Number.isSafeInteger(saveData.skills[skill.id]) || saveData.skills[skill.id] >= skill.max) return res.status(409).json({ success: false, error: 'Skill is already at maximum rank' });
         saveData.skillPoints -= 1;
-        saveData.skills[id] += 1;
+        saveData.skills[skill.id] += 1;
       }
 
       if (action === 'buy') {

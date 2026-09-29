@@ -56,9 +56,11 @@ export async function creditClaimReward(
   const cappedCredit = (field: string, amount: number, cap: number) => ({
     $min: [cap, { $add: [{ $ifNull: [`$saveData.${field}`, 0] }, amount] }],
   });
-  if ((reward.coins ?? 0) > 0) set['saveData.coins'] = cappedCredit('coins', reward.coins!, 1_000_000);
-  if ((reward.gems ?? 0) > 0) set['saveData.gems'] = cappedCredit('gems', reward.gems!, 1_000_000);
-  if ((reward.skillPoints ?? 0) > 0) set['saveData.skillPoints'] = cappedCredit('skillPoints', reward.skillPoints!, 10_000);
+  // Materialize balances on legacy saves even when a claim awards zero of a
+  // currency. This keeps every authoritative wallet response complete.
+  set['saveData.coins'] = cappedCredit('coins', reward.coins ?? 0, 1_000_000);
+  set['saveData.gems'] = cappedCredit('gems', reward.gems ?? 0, 1_000_000);
+  set['saveData.skillPoints'] = cappedCredit('skillPoints', reward.skillPoints ?? 0, 10_000);
   for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
     if (HEROES.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1_000_000);
   }
