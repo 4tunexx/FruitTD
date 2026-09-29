@@ -202,6 +202,24 @@ test('data-nav buttons push the named screen', () => {
   dispose();
 });
 
+test('data-nav controls inside hidden or inert legacy markup cannot route', () => {
+  setup(['MAIN_MENU', 'SHOP'], ['SHOP']);
+  const dispose = installNavLinks(document);
+  const shell = document.createElement('div');
+  shell.setAttribute('hidden', '');
+  shell.setAttribute('inert', '');
+  const btn = document.createElement('button');
+  btn.setAttribute('data-nav', 'SHOP');
+  shell.appendChild(btn);
+  document.body.appendChild(shell);
+
+  clickVia(btn);
+  assert.equal(navigation.state, 'MAIN_MENU');
+  assert.equal(navigation.depth, 0);
+  dispose();
+  shell.remove();
+});
+
 test('data-nav="back" and "home" work through delegation', () => {
   setup(['MAIN_MENU', 'SHOP', 'INVENTORY'], ['SHOP', 'INVENTORY']);
   const dispose = installNavLinks(document);

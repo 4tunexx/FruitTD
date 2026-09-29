@@ -160,6 +160,9 @@ export function installNavLinks(root: Document | HTMLElement = document): () => 
     const start = event.target as HTMLElement | null;
     const el = start?.closest?.('[data-nav]') as HTMLElement | null;
     if (!el) return;
+    // Legacy menu markup stays in the document for its quest/ranked content,
+    // but controls inside hidden or inert shells must never route by accident.
+    if (el.closest('[hidden], [inert], .hidden')) return;
     const value = el.dataset.nav;
     if (!value) return;
     event.preventDefault();
