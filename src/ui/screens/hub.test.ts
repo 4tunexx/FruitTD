@@ -117,7 +117,7 @@ test('the hub exposes stable Play, Settings, and Admin test ids', () => {
   const root = host();
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined, onAdmin: () => { adminOpens++; } });
 
-  for (const id of ['nav-play', 'nav-home', 'nav-settings', 'nav-admin']) {
+  for (const id of ['nav-play', 'nav-home', 'nav-brand-home', 'nav-settings', 'nav-admin']) {
     assert.ok(root.querySelector(`[data-testid="${id}"]`), `${id} should be stable and present`);
   }
   root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();

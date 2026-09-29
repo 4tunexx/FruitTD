@@ -82,7 +82,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('span', { class: 'ftd-hub-logo__main', text: 'FRUIT' }),
     el('span', { class: 'ftd-hub-logo__accent', text: 'TD' }),
   ]);
-  logo.setAttribute('data-testid', 'nav-home');
+  logo.setAttribute('data-testid', 'nav-brand-home');
   logo.addEventListener('click', () => home());
 
   const identity = el('div', { class: 'ftd-hub-identity' }, [
