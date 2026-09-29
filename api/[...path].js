@@ -730,6 +730,21 @@ function heroPrice(id) {
   return HERO_PRICES[id]?.cost ?? null;
 }
 
+// src/game/progression/heroMilestones.ts
+var HERO_MILESTONES = [
+  { level: 5, kind: "cosmetic", name: "First Edge", reward: "Blade effect slot" },
+  { level: 10, kind: "perk", name: "Combo Engine", reward: "Hero perk I + Topfu unlock", unlocksHero: "topfu", bonusPerkPoints: 1 },
+  { level: 20, kind: "cosmetic", name: "Bladebearer", reward: "Hero cosmetic slot" },
+  { level: 25, kind: "unlock", name: "Long Reach", reward: "Lagen unlock", unlocksHero: "lagen" },
+  { level: 30, kind: "perk", name: "Tower Guardian", reward: "Hero perk II", bonusPerkPoints: 1 },
+  { level: 40, kind: "cosmetic", name: "Orchard Veteran", reward: "Hero cosmetic slot" },
+  { level: 50, kind: "perk", name: "Perfect Cut", reward: "Hero perk III", bonusPerkPoints: 1 },
+  { level: 60, kind: "cosmetic", name: "Grove Warden", reward: "Hero cosmetic slot" },
+  { level: 75, kind: "perk", name: "Last Stand", reward: "Major hero perk IV", bonusPerkPoints: 2 },
+  { level: 90, kind: "cosmetic", name: "Mastery Aura", reward: "Mastery cosmetic" },
+  { level: 100, kind: "mastery", name: "Max Mastery", reward: "MAX MASTERY \u2014 permanent Hero 100 title", bonusPerkPoints: 3 }
+];
+
 // src/game/heroes.ts
 var HEROES2 = [
   { id: "jiju", name: "Master Jiju", title: "Clean blade", color: 3108845, trail: 1920728, blurb: "Classic wide cuts. Combos stack if you keep slicing.", mouse: "Precise flicks. Combo builds fast.", touch: "Wider finger slash. Easier to clip packs.", damage: 18, radius: 0.16, shake: 0.55, unlockLevel: 1 },
@@ -739,9 +754,23 @@ var HEROES2 = [
   { id: "ki", name: "Master Ki", title: "Charged spirit", color: 8141549, trail: 10980346, blurb: "Hold to charge. Tap empty grass for a Ki pulse.", mouse: "Hold, then flick for a heavy cut.", touch: "Tap to pulse. Swipe to slash.", damage: 15, radius: 0.14, shake: 0.7, unlockLevel: 75, purchaseOnly: true, purchaseCost: heroPrice("ki") ?? 3e3 }
 ];
 var MAX_HERO_LEVEL = 100;
+function heroDef(id) {
+  return HEROES2.find((h) => h.id === id) ?? HEROES2[0];
+}
 function heroXpForLevel(level) {
   const lv = Math.max(1, Math.min(MAX_HERO_LEVEL, Math.floor(level)));
   return lv === 1 ? 0 : Math.floor(35 * Math.pow(lv - 1, 1.58) + 20 * (lv - 1));
+}
+function heroXpToLevel(xp) {
+  const safe = Math.max(0, Math.floor(xp));
+  let low = 1;
+  let high = MAX_HERO_LEVEL;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (heroXpForLevel(mid) <= safe) low = mid;
+    else high = mid - 1;
+  }
+  return low;
 }
 
 // src/game/skills.ts
@@ -781,6 +810,69 @@ var EMPTY_REWARD = Object.freeze({
 
 // src/game/progression/index.ts
 var MAX_HERO_XP = heroXpForLevel(MAX_HERO_LEVEL);
+function heroMilestoneUnlockLevel(heroId) {
+  return HERO_MILESTONES.find((m) => m.unlocksHero === heroId)?.level ?? null;
+}
+
+// src/game/progression/heroStatus.ts
+function getHeroStatus(save, heroId) {
+  const def = heroDef(heroId);
+  const xp = Math.max(0, Number(save.xp[heroId]) || 0);
+  const level = heroXpToLevel(xp);
+  const owned = save.ownedHeroes.includes(heroId);
+  const cost = def.purchaseOnly ? def.purchaseCost ?? null : null;
+  const unlockLevel = def.purchaseOnly ? null : heroMilestoneUnlockLevel(heroId) ?? def.unlockLevel;
+  const coins = Math.max(0, Number(save.coins) || 0);
+  let availability;
+  let requirement;
+  if (owned) {
+    availability = "owned";
+    requirement = heroId === "jiju" ? "Starter hero" : "Owned";
+  } else if (def.purchaseOnly) {
+    availability = "purchasable";
+    requirement = `${(cost ?? 0).toLocaleString()} Coins`;
+  } else {
+    availability = "locked";
+    requirement = `Reach Master Jiju Lv ${unlockLevel ?? def.unlockLevel}`;
+  }
+  return {
+    heroId,
+    availability,
+    owned,
+    unlockLevel,
+    purchaseCost: cost,
+    requirement,
+    level,
+    xp,
+    canAfford: cost !== null && coins >= cost,
+    equippable: owned
+  };
+}
+function canEquipHero(save, heroId) {
+  return getHeroStatus(save, heroId).equippable;
+}
+function purchaseHeroAtomic(save, heroId) {
+  const def = HEROES2.find((h) => h.id === heroId);
+  if (!def) return { ok: false, error: "invalid-hero", message: "Unknown hero" };
+  if (!def.purchaseOnly || !def.purchaseCost) {
+    return { ok: false, error: "not-purchasable", message: `${def.name} is not a purchasable hero` };
+  }
+  if (save.ownedHeroes.includes(heroId)) {
+    return { ok: false, error: "already-owned", message: `${def.name} is already owned` };
+  }
+  const cost = def.purchaseCost;
+  const coins = Math.max(0, Number(save.coins) || 0);
+  if (coins < cost) {
+    return {
+      ok: false,
+      error: "insufficient-coins",
+      message: `Need ${(cost - coins).toLocaleString()} more coins`
+    };
+  }
+  save.coins = coins - cost;
+  save.ownedHeroes = [.../* @__PURE__ */ new Set([...save.ownedHeroes, heroId])];
+  return { ok: true, coinsSpent: cost, coinsRemaining: save.coins };
+}
 
 // src/game/save.ts
 function emptyXp() {
@@ -2310,6 +2402,110 @@ badgesRouter.post("/progress", async (req2, res) => {
   }
 });
 
+// server/routes/items.ts
+import { Router as Router10 } from "express";
+var defaultDeps6 = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  slicers: async () => (await loadQuestCatalog()).slicers
+};
+function serverRevision2(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+function isSlicer(id, slicers) {
+  return slicers.find((item) => item.id === id && item.enabled !== false);
+}
+function createItemsRouter(deps = defaultDeps6) {
+  const router = Router10();
+  router.post("/action", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to manage gear" });
+      const action = req2.body?.action;
+      const id = req2.body?.id;
+      if (!["buy", "equip", "unequip", "sell"].includes(action) || typeof id !== "string" || id.length > 120) {
+        return res.status(400).json({ success: false, error: "Invalid gear action" });
+      }
+      const slicers = await deps.slicers();
+      const slicer = isSlicer(id, slicers);
+      const wall = WALL_SKINS.find((item) => item.id === id);
+      const heroId = id.startsWith("hero:") ? id.slice(5) : null;
+      const hero = heroId && HEROES2.find((item) => item.id === heroId);
+      if (!slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
+      const col = await deps.collection("cloud_saves");
+      const current = await col.findOne({ userId: user.userId });
+      const currentRevision = serverRevision2(current?.revision);
+      const saveData = structuredClone(current?.saveData ?? defaultSave());
+      const ownedSkins = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
+      const ownedHeroes = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
+      const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
+      if (action === "buy") {
+        if (hero) {
+          const result = purchaseHeroAtomic(saveData, hero.id);
+          if (!result.ok) return res.status(result.error === "already-owned" ? 409 : 422).json({ success: false, error: result.message });
+        } else {
+          const price = slicer?.cost ?? wall?.cost ?? 0;
+          if (owned) return res.status(409).json({ success: false, error: "Gear is already owned" });
+          if (price <= 0) return res.status(400).json({ success: false, error: "This gear cannot be purchased" });
+          if (!Number.isSafeInteger(saveData.coins) || saveData.coins < price) {
+            return res.status(422).json({ success: false, error: "Not enough coins" });
+          }
+          saveData.coins -= price;
+          saveData.ownedSkins = [...ownedSkins, id];
+        }
+      } else if (action === "equip") {
+        if (!owned) return res.status(403).json({ success: false, error: "Gear is not owned" });
+        if (hero) {
+          if (!canEquipHero(saveData, hero.id)) return res.status(403).json({ success: false, error: "Hero is not unlocked" });
+          saveData.hero = hero.id;
+        } else if (slicer) saveData.bladeSkin = id;
+        else saveData.wallSkin = id;
+      } else if (action === "unequip") {
+        if (hero) return res.status(422).json({ success: false, error: "A hero must remain selected" });
+        if (slicer && saveData.bladeSkin === id) saveData.bladeSkin = "";
+        else if (wall && saveData.wallSkin === id) saveData.wallSkin = "";
+        else return res.status(409).json({ success: false, error: "Gear is not equipped" });
+      } else {
+        if (hero) return res.status(422).json({ success: false, error: "Heroes cannot be sold" });
+        const sellValue = slicer?.sellValue ?? wall?.sellValue ?? 0;
+        if (!owned) return res.status(403).json({ success: false, error: "Gear is not owned" });
+        if (id === "blade-default" || id === "wall-brick" || sellValue <= 0) {
+          return res.status(422).json({ success: false, error: "Starter gear cannot be sold" });
+        }
+        saveData.ownedSkins = ownedSkins.filter((ownedId) => ownedId !== id);
+        saveData.coins = (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + sellValue;
+        if (saveData.bladeSkin === id) saveData.bladeSkin = "";
+        if (saveData.wallSkin === id) saveData.wallSkin = "";
+      }
+      const nextRevision = currentRevision + 1;
+      const updatedAt = /* @__PURE__ */ new Date();
+      let written = false;
+      if (current) {
+        const result = await col.updateOne(
+          current.revision === void 0 ? { userId: user.userId, revision: { $exists: false } } : { userId: user.userId, revision: currentRevision },
+          { $set: { saveData, revision: nextRevision, updatedAt } }
+        );
+        written = result.matchedCount === 1;
+      } else {
+        try {
+          await col.insertOne({ userId: user.userId, saveData, revision: nextRevision, updatedAt });
+          written = true;
+        } catch (err) {
+          if (err?.code !== 11e3) throw err;
+        }
+      }
+      if (!written) return res.status(409).json({ success: false, error: "Save changed; reload and try again" });
+      res.setHeader("ETag", `"${nextRevision}"`);
+      return res.json({ success: true, saveData, revision: nextRevision });
+    } catch (err) {
+      console.error("Error applying catalogue action:", err);
+      return res.status(500).json({ success: false, error: "Could not update gear" });
+    }
+  });
+  return router;
+}
+var itemsRouter = createItemsRouter();
+
 // server/rateLimit.ts
 function rateLimit(maxRequests, windowMs) {
   const buckets = /* @__PURE__ */ new Map();
@@ -2373,6 +2569,7 @@ function createApp() {
   app2.use("/api/daily", rateLimit(20, 6e4), dailyRouter);
   app2.use("/api/steam", steamRouter);
   app2.use("/api/profile", profileRouter);
+  app2.use("/api/items", rateLimit(60, 6e4), itemsRouter);
   app2.use("/api/admin", rateLimit(30, 6e4), adminRouter);
   app2.use("/api/badges", badgesRouter);
   return app2;

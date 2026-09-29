@@ -381,3 +381,28 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
   }
   return syncInFlight;
 }
+
+export type CatalogueAction = 'buy' | 'equip' | 'unequip' | 'sell';
+
+/** Server-authoritative shop/loadout mutation. The returned wallet replaces local state. */
+export async function performCatalogueAction(
+  action: CatalogueAction,
+  id: string,
+): Promise<{ saveData: Record<string, any>; revision: number } | null> {
+  if (!getAuthToken()) return null;
+  // Serialize wallet actions behind any in-flight profile sync so a just-saved
+  // profile cannot race the catalogue action's revision compare-and-swap.
+  if (syncInFlight) await syncInFlight;
+  const response = await apiRequest<{
+    success: boolean;
+    saveData: Record<string, any>;
+    revision: number;
+  }>('/api/items/action', {
+    method: 'POST',
+    body: JSON.stringify({ action, id }),
+  });
+  if (!response?.success || !response.saveData || !Number.isSafeInteger(response.revision)) return null;
+  cloudRevision = response.revision;
+  cloudRevisionAuthToken = getAuthToken();
+  return { saveData: response.saveData, revision: response.revision };
+}

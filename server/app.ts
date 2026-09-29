@@ -8,6 +8,7 @@ import { steamRouter } from './routes/steam';
 import { profileRouter } from './routes/profile';
 import { adminRouter } from './routes/admin';
 import { badgesRouter } from './routes/badges';
+import { itemsRouter } from './routes/items';
 import { authRouter } from './routes/auth';
 import { getDb } from './db';
 import { rateLimit } from './rateLimit';
@@ -58,6 +59,7 @@ export function createApp() {
   app.use('/api/daily', rateLimit(20, 60_000), dailyRouter);
   app.use('/api/steam', steamRouter);
   app.use('/api/profile', profileRouter);
+  app.use('/api/items', rateLimit(60, 60_000), itemsRouter);
   app.use('/api/admin', rateLimit(30, 60_000), adminRouter);
   app.use('/api/badges', badgesRouter);
 

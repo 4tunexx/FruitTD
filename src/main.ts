@@ -36,7 +36,8 @@ import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
-import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun } from './services/api';
+import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, type CatalogueAction } from './services/api';
+import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
 import { reportGameEvent } from './services/progress';
 import { confirmModal } from './ui/components/surface';
@@ -203,6 +204,15 @@ hud.mountMeta(save);
 hud.onHero = (id) => selectHero(id);
 hud.onToastRequest = (message) => toast(state, message, 2);
 hud.onHeroPurchase = (id) => {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('buy', `hero:${id}`).then((ok) => {
+      if (!ok) return;
+      toast(state, `${heroDef(id).name} unlocked!`, 2.6);
+      sfx.unlockItem();
+      selectHero(id);
+    });
+    return;
+  }
   const result = purchaseHeroAtomic(save, id);
   if (!result.ok) {
     toast(state, result.message ?? 'Purchase failed', 2.2);
@@ -286,7 +296,39 @@ function setMode(id: GameMode): void {
   sfx.select();
 }
 
+async function performSignedInCatalogueAction(action: CatalogueAction, id: string): Promise<boolean> {
+  if (!getAuthToken()) return false;
+  const result = await performCatalogueAction(action, id);
+  if (!result) {
+    toast(state, 'Could not update gear. Please try again.', 2.4);
+    sfx.denied();
+    refreshCurrentScreen();
+    return false;
+  }
+  Object.assign(save, result.saveData);
+  state.hero = save.hero;
+  state.heroXp = save.xp[save.hero] ?? 0;
+  state.heroLevel = heroXpToLevel(state.heroXp);
+  applyEquippedBlade();
+  wallSkinApply();
+  writeSave(save);
+  hud.refreshHeroPick(state.hero, save);
+  hud.mountShop(save);
+  refreshCurrentScreen();
+  if (action === 'buy' || action === 'sell') sfx.place();
+  else sfx.select();
+  return true;
+}
+
 function buySkin(id: string): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('buy', id);
+    return;
+  }
+  if (id.startsWith('hero:')) {
+    hud.onHeroPurchase?.(id.slice(5) as HeroId);
+    return;
+  }
   const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
   const wall = WALL_SKINS.find((w) => w.id === id);
   if (!slicer && !wall) return;
@@ -313,6 +355,15 @@ function isUnequippedSkin(id: string): boolean {
 }
 
 function equipItem(id: string): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('equip', id);
+    return;
+  }
+  if (id.startsWith('hero:')) {
+    const heroId = id.slice(5) as HeroId;
+    if (canEquipHero(save, heroId)) selectHero(heroId);
+    return;
+  }
   if (!save.ownedSkins.includes(id)) return;
   const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
   const wall = WALL_SKINS.find((w) => w.id === id);
@@ -329,6 +380,10 @@ function equipItem(id: string): void {
 
 /** Clear a loadout slot (Blade or Wall). Starters stay owned but are not forced-equipped. */
 function unequipItem(id: string): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('unequip', id);
+    return;
+  }
   if (!id) return;
   let changed = false;
   if (save.bladeSkin === id) {
@@ -356,6 +411,10 @@ function unequipItem(id: string): void {
 }
 
 function sellItem(id: string): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('sell', id);
+    return;
+  }
   if (id === 'blade-default' || id === 'wall-brick') {
     sfx.denied();
     return;
