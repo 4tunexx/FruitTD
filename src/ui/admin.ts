@@ -29,6 +29,7 @@ import { installCreatorWaveBoard } from './creatorWaveBoard';
 import { installCreatorSlicerVfx } from './creatorSlicerVfx';
 import { openDesignMode } from './design/designMode';
 import { renderThemeEditor } from './design/themeEditor';
+import { confirmModal, GameToast } from './components/surface';
 
 type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
@@ -124,7 +125,12 @@ export class AdminController {
     document.getElementById('btn-admin-wipe-mode')?.addEventListener('click', async () => {
       const select = document.getElementById('admin-lb-wipe-mode') as HTMLSelectElement | null;
       const mode = select?.value || 'ranked';
-      const ok = confirm(`Wipe ALL ${mode} leaderboard scores from MongoDB Atlas? This cannot be undone.`);
+      const ok = await confirmModal({
+        title: 'Wipe leaderboard scores?',
+        message: `Delete every ${mode} score from the leaderboard? This cannot be undone.`,
+        confirmLabel: 'Wipe scores',
+        tone: 'danger',
+      });
       if (!ok) return;
       const statusEl = document.getElementById('admin-save-status');
       const res = await adminWipeLeaderboardMode(mode);
@@ -547,7 +553,12 @@ export class AdminController {
       `;
 
       row.querySelector('.admin-del-btn')?.addEventListener('click', async () => {
-        const ok = confirm(`Delete score for ${e.nickname} (${e.score} pts)?`);
+        const ok = await confirmModal({
+          title: 'Delete leaderboard score?',
+          message: `Remove ${e.nickname}'s score of ${e.score} points?`,
+          confirmLabel: 'Delete score',
+          tone: 'danger',
+        });
         if (ok) {
           await adminDeleteScore(e._id);
           this.renderLeaderboardManager();
@@ -634,7 +645,7 @@ export class AdminController {
     
     const names = textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     if (names.length < 3) {
-      alert('Please enter at least 3 boss names (one per line).');
+      GameToast('Enter at least three boss names, one per line.', 'warning');
       return;
     }
     
@@ -659,7 +670,7 @@ export class AdminController {
         statusEl.className = 'admin-status-ok';
       }
     } catch (e: any) {
-      alert(`Invalid JSON for ${type}: ${e.message}`);
+      GameToast(`Invalid JSON for ${type}: ${e instanceof Error ? e.message : 'Check the format.'}`, 'danger', 4500, { title: 'Could not save content' });
     }
   }
 

@@ -3,10 +3,14 @@
  * Storage: fruittd-creator-v2 (read-fallback from admin-media-studio-v1).
  * Live clip playback / hooks: src/game/studioRuntime.ts.
  */
+import { notifyStudioRuntimeChanged } from '../game/studioRuntimeSignals';
+import { loadSoundBank, saveSoundBank, SOUND_BANK_SLOTS, type SoundBankStore } from '../game/studioSoundBank';
+
+export { loadSoundBank, saveSoundBank, SOUND_BANK_SLOTS, SOUND_BANK_STORAGE_KEY } from '../game/studioSoundBank';
+export type { SoundBankStore } from '../game/studioSoundBank';
 
 export const MEDIA_STUDIO_STORAGE_KEY = 'admin-media-studio-v1';
 export const CREATOR_STORAGE_KEY = 'fruittd-creator-v2';
-export const SOUND_BANK_STORAGE_KEY = 'admin-media-studio-sfx-v1';
 
 export type StudioDirection = 'down' | 'left' | 'right' | 'up';
 export type StudioState = 'idle' | 'walk' | 'run' | 'hit' | 'death';
@@ -52,11 +56,6 @@ export interface MediaStudioStore {
   selectedEntity: string;
 }
 
-export interface SoundBankStore {
-  version: 1;
-  replacements: Record<string, string>; // slotId -> dataURL
-}
-
 export const FX_PRESETS: FxPreset[] = ['none', 'juice-burst', 'spark', 'dark-pulse', 'screen-shake'];
 
 export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
@@ -81,27 +80,6 @@ export const STUDIO_STATES: StudioState[] = ['idle', 'walk', 'run', 'hit', 'deat
 export const STUDIO_DIRECTIONS: StudioDirection[] = ['down', 'left', 'right', 'up'];
 
 /** Key SFX slots from src/audio/sfx.ts BANKS (+ a few one-shots). */
-export const SOUND_BANK_SLOTS: { id: string; label: string; file: string }[] = [
-  { id: 'swipe', label: 'Swipe', file: 'Sword-swipe-1.wav' },
-  { id: 'swipeBlitz', label: 'Swipe Blitz', file: 'blade-rainbow-1.wav' },
-  { id: 'cleanSlice', label: 'Clean Slice', file: 'Clean-Slice-1.wav' },
-  { id: 'lemonImpact', label: 'Lemon/Citrus Impact', file: 'Impact-Orange.wav' },
-  { id: 'berryImpact', label: 'Berry Impact', file: 'Impact-Strawberry.wav' },
-  { id: 'melonImpact', label: 'Melon Impact', file: 'Impact-Watermelon.wav' },
-  { id: 'bombExplode', label: 'Bomb Explode', file: 'Bomb-explode.wav' },
-  { id: 'combo', label: 'Combo', file: 'Combo.wav' },
-  { id: 'comboBlitzHit', label: 'Combo Blitz Hit', file: 'combo-blitz-1.wav' },
-  { id: 'weaponLaunch', label: 'Weapon Launch', file: 'Bonus-Firework-Launch.wav' },
-  { id: 'weaponBoom', label: 'Weapon Boom', file: 'Bonus-Firework-Explode.wav' },
-  { id: 'shopTap', label: 'Shop Tap', file: 'ui-button-push.wav' },
-  { id: 'shopEnter', label: 'Shop Enter', file: 'ui-screen-whoosh.wav' },
-  { id: 'tick', label: 'Tick', file: 'Time-tick.wav' },
-  { id: 'gameStart', label: 'Game Start', file: 'Game-start.wav' },
-  { id: 'gameOver', label: 'Game Over', file: 'Game-over.wav' },
-  { id: 'critical', label: 'Critical', file: 'Critical.wav' },
-  { id: 'splatterMed', label: 'Splatter Medium', file: 'Splatter-Medium-1.wav' },
-];
-
 export function clipKey(state: StudioState, dir: StudioDirection): string {
   if (state === 'idle' || state === 'hit' || state === 'death') return state;
   return `${state}_${dir}`;
@@ -321,22 +299,6 @@ export function loadStudioStore(): MediaStudioStore {
 export function saveStudioStore(store: MediaStudioStore): void {
   const v2 = migrateStoreToV2(store);
   localStorage.setItem(CREATOR_STORAGE_KEY, JSON.stringify(v2));
-}
-
-export function loadSoundBank(): SoundBankStore {
-  try {
-    const raw = localStorage.getItem(SOUND_BANK_STORAGE_KEY);
-    if (!raw) return { version: 1, replacements: {} };
-    const parsed = JSON.parse(raw) as SoundBankStore;
-    if (!parsed || parsed.version !== 1) return { version: 1, replacements: {} };
-    return parsed;
-  } catch {
-    return { version: 1, replacements: {} };
-  }
-}
-
-export function saveSoundBank(store: SoundBankStore): void {
-  localStorage.setItem(SOUND_BANK_STORAGE_KEY, JSON.stringify(store));
 }
 
 /** Pack JSON for a single entity (meta + clips + events + sheet dataURL). */
@@ -912,12 +874,7 @@ function persistAll(): void {
     else delete currentEntity().label;
   }
   saveStudioStore(store);
-  try {
-    // Soft-invalidate runtime cache if present.
-    void import('../game/studioRuntime').then((m) => m.invalidateStudioRuntimeCache?.());
-  } catch {
-    /* optional */
-  }
+  notifyStudioRuntimeChanged();
   const kb = approxDataUrlKb(currentEntity().sheetDataUrl);
   if (kb > 2500) {
     setStatus(`Saved to ${CREATOR_STORAGE_KEY} (~${kb} KB). Warning: localStorage often caps ~5MB.`, false);

@@ -165,6 +165,22 @@ test('toasts mount into a shared host', async () => {
   });
 });
 
+test('rich warning toasts use themed text nodes rather than injecting markup', async () => {
+  await withDom(async () => {
+    const { GameToast } = await import('./surface');
+    const toast = GameToast('<img src=x onerror=alert(1)>', 'danger', 4500, {
+      title: 'Could not save',
+      icon: '⚠️',
+      meta: 'Try again',
+    }) as any;
+    assert.equal(toast.getAttribute('role'), 'alert');
+    assert.equal(toast.querySelector('.ftd-toast__title')?.textContent, 'Could not save');
+    assert.equal(toast.querySelector('.ftd-toast__message')?.textContent, '<img src=x onerror=alert(1)>');
+    assert.equal(toast.querySelector('img'), null, 'message text must not become executable markup');
+    assert.equal(toast.querySelector('.ftd-toast__meta')?.textContent, 'Try again');
+  });
+});
+
 test('theme store applies css variables to the document and persists', async () => {
   await withDom(async () => {
     const { themeStore } = await import('../theme/themeStore');

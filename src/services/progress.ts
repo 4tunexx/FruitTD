@@ -10,6 +10,7 @@ import {
 import { getLiveConfig } from './liveConfig';
 import { updateMissionProgress } from './api';
 import { reportBadgeProgress } from './badges';
+import { applyAchievementUpdates } from './achievements';
 
 function enabledMissions(): CatalogMission[] {
   return (getLiveConfig().missions || []).filter((m) => m.enabled !== false && m.requirement?.type);
@@ -70,9 +71,7 @@ export async function reportGameEvent(event: GameEvent): Promise<void> {
   const tasks: Promise<unknown>[] = [];
   if (missionUpdates.length) tasks.push(updateMissionProgress(missionUpdates));
   if (achievementUpdates.length) {
-    tasks.push(
-      import('./achievements').then(({ applyAchievementUpdates }) => applyAchievementUpdates(achievementUpdates))
-    );
+    tasks.push(applyAchievementUpdates(achievementUpdates));
   }
   if (badgeUpdates.length) tasks.push(reportBadgeProgress(badgeUpdates));
   if (tasks.length) await Promise.all(tasks);

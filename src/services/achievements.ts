@@ -2,49 +2,14 @@ import {
   fetchAchievements,
   updateAchievementProgress,
 } from './api';
+import { GameToast } from '../ui/components/surface';
 
 export function showAchievementToast(title: string, desc: string, icon = '🏆', reward?: string): void {
-  let container = document.getElementById('achievement-toasts');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'achievement-toasts';
-    container.className = 'fixed top-6 right-6 z-50 flex flex-col gap-3 pointer-events-none';
-    document.body.appendChild(container);
-  }
-
-  const toast = document.createElement('div');
-  toast.className =
-    'pointer-events-auto flex items-center gap-4 px-5 py-4 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-amber-400/50 shadow-[0_0_25px_rgba(251,191,36,0.3)] text-white transform translate-x-full opacity-0 transition-all duration-500 ease-out min-w-[300px] max-w-[400px]';
-
-  toast.innerHTML = `
-    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-[0_0_15px_rgba(245,158,11,0.5)] shrink-0 animate-bounce">
-      ${icon}
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="text-[10px] uppercase font-black tracking-widest text-amber-300 flex items-center gap-1.5">
-        <span>🏆</span> ACHIEVEMENT UNLOCKED!
-      </div>
-      <div class="font-bold text-sm text-white truncate">${title}</div>
-      <div class="text-xs text-slate-300 truncate">${desc}</div>
-      ${reward ? `<div class="mt-1 text-[11px] font-semibold text-emerald-400">+${reward}</div>` : ''}
-    </div>
-  `;
-
-  container.appendChild(toast);
-
-  // Trigger animation
-  requestAnimationFrame(() => {
-    toast.classList.remove('translate-x-full', 'opacity-0');
-    toast.classList.add('translate-x-0', 'opacity-100');
+  GameToast(desc, 'accent', 4500, {
+    title: `ACHIEVEMENT · ${title}`,
+    icon,
+    meta: reward ? `+${reward}` : undefined,
   });
-
-  // Auto dismiss
-  setTimeout(() => {
-    toast.classList.add('translate-x-full', 'opacity-0');
-    setTimeout(() => {
-      toast.remove();
-    }, 500);
-  }, 4500);
 }
 
 // Local cache of unlocked achievements to avoid duplicate toasts

@@ -3,6 +3,7 @@
  * Pure loaders/helpers come from adminMediaStudio; no DOM install code is invoked here.
  */
 import { CanvasTexture, LinearFilter, SRGBColorSpace } from 'three';
+import { subscribeStudioRuntimeInvalidation } from './studioRuntimeSignals';
 import {
   CREATOR_STORAGE_KEY,
   MEDIA_STUDIO_STORAGE_KEY,
@@ -158,6 +159,8 @@ export function invalidateStudioRuntimeCache(): void {
   cachedStoreSig = null;
   cachedEntities = {};
 }
+
+subscribeStudioRuntimeInvalidation(invalidateStudioRuntimeCache);
 
 /** Entity data even without a sheet (for event hooks). */
 export function getStudioEntityData(entityKey: string): EntityStudioData | null {

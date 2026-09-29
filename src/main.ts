@@ -39,6 +39,7 @@ import { Hud } from './ui/hud';
 import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun } from './services/api';
 import { initAchievementsCache } from './services/achievements';
 import { reportGameEvent } from './services/progress';
+import { confirmModal } from './ui/components/surface';
 import { getCachedSteamState } from './services/steam';
 import type { GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
@@ -1484,11 +1485,33 @@ installGameScreens({
  * Leaving a live match must always be deliberate (§10). The guard runs for
  * every navigation, so PLAY → anywhere is covered once, not per button.
  */
+let leavePromptOpen = false;
+let leaveMatchApproved = false;
 navigation.addGuard((change) => {
   const leavingMatch =
     (change.from === 'PLAY' || change.from === 'PAUSED') && change.to !== 'PAUSED' && change.to !== 'PLAY';
   if (!leavingMatch || !state.running) return true;
-  return confirm('Leave this match?\n\nEarned XP and coins are saved. The current wave will end.');
+  if (leaveMatchApproved) {
+    leaveMatchApproved = false;
+    return true;
+  }
+  if (!leavePromptOpen) {
+    leavePromptOpen = true;
+    void confirmModal({
+      title: 'Leave this match?',
+      message: 'Your earned XP and coins are saved, but the current wave will end.',
+      confirmLabel: 'Leave match',
+      cancelLabel: 'Keep playing',
+      tone: 'danger',
+    }).then((confirmed) => {
+      leavePromptOpen = false;
+      if (confirmed) {
+        leaveMatchApproved = true;
+        quitToMenu();
+      }
+    });
+  }
+  return false;
 });
 
 /**

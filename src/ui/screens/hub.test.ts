@@ -134,11 +134,14 @@ test('legacy lobby navigation and Play markup are hidden, inert, and unwired', (
   const html = readFileSync(new URL('../../../index.html', import.meta.url), 'utf8');
   const main = readFileSync(new URL('../../main.ts', import.meta.url), 'utf8');
   const hud = readFileSync(new URL('../../ui/hud.ts', import.meta.url), 'utf8');
+  const admin = readFileSync(new URL('../../ui/admin.ts', import.meta.url), 'utf8');
   assert.match(html, /<nav id="menu-leftnav"[^>]*\bhidden\b[^>]*\binert\b/);
   assert.match(html, /<footer id="menu-bottombar"[^>]*\bhidden\b[^>]*\binert\b/);
   assert.doesNotMatch(main, /getElementById\(['"]btn-start['"]\)/);
   assert.equal((main.match(/navigation\.addGuard\(/g) ?? []).length, 1, 'one match-leave guard owns quit confirmation');
-  assert.equal((main.match(/confirm\('Leave this match\?/g) ?? []).length, 1, 'match quit uses one confirmation');
+  assert.equal((main.match(/confirmModal\(\{/g) ?? []).length, 1, 'match quit uses one in-game confirmation panel');
+  assert.doesNotMatch(main, /\bconfirm\(/, 'match leave never uses browser-native prompts');
+  assert.doesNotMatch(admin, /\b(confirm|alert)\(/, 'admin flows use game panels instead of browser prompts');
   assert.doesNotMatch(hud, /querySelectorAll<HTMLButtonElement>\('\[data-page\]'\)/);
   assert.doesNotMatch(hud, /#menu-leftnav/);
   assert.doesNotMatch(hud, /getElementById\(['"]btn-dash-main-menu['"]\).*addEventListener/);

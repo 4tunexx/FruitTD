@@ -202,13 +202,25 @@ function readSpeed(varName: string, fallback: number): number {
 
 export type ToastTone = 'default' | 'success' | 'warning' | 'danger' | 'accent';
 
-export function GameToast(message: string, tone: ToastTone = 'default', ms = 2600): HTMLElement {
+export function GameToast(
+  message: string,
+  tone: ToastTone = 'default',
+  ms = 2600,
+  details: { title?: string; icon?: string; meta?: string } = {},
+): HTMLElement {
   let host = document.getElementById('ftd-toast-host');
   if (!host) {
-    host = el('div', { id: 'ftd-toast-host', class: 'ftd-toast-host', 'aria-live': 'polite' });
+    host = el('div', { id: 'ftd-toast-host', class: 'ftd-toast-host', 'aria-live': 'polite', 'aria-atomic': 'false' });
     document.body.appendChild(host);
   }
-  const toast = el('div', { class: classNames('ftd-toast', `ftd-tone-${tone}`), text: message });
+  const toast = el('div', { class: classNames('ftd-toast', `ftd-tone-${tone}`), role: tone === 'danger' || tone === 'warning' ? 'alert' : 'status', 'aria-atomic': 'true' }, [
+    details.icon ? el('span', { class: 'ftd-toast__icon', 'aria-hidden': 'true', text: details.icon }) : null,
+    el('span', { class: 'ftd-toast__copy' }, [
+      details.title ? el('strong', { class: 'ftd-toast__title', text: details.title }) : null,
+      el('span', { class: 'ftd-toast__message', text: message }),
+      details.meta ? el('span', { class: 'ftd-toast__meta', text: details.meta }) : null,
+    ]),
+  ]);
   host.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('is-on'));
   window.setTimeout(() => {

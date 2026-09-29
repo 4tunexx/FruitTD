@@ -1,9 +1,11 @@
 import type { FruitKind } from '../game/fruits';
+import { loadSoundBank, SOUND_BANK_SLOTS } from '../game/studioSoundBank';
 
-const wavLoaders = import.meta.glob('../../Sound/*.wav', {
+const wavUrls = import.meta.glob('../../Sound/*.wav', {
+  eager: true,
   query: '?url',
   import: 'default',
-}) as Record<string, () => Promise<string>>;
+}) as Record<string, string>;
 
 function fileKey(path: string): string {
   const slash = path.replace(/\\/g, '/');
@@ -11,13 +13,13 @@ function fileKey(path: string): string {
   return name.replace(/\.wav$/i, '').toLowerCase();
 }
 
-const loaderByName = new Map<string, () => Promise<string>>();
-for (const [path, loader] of Object.entries(wavLoaders)) {
-  loaderByName.set(fileKey(path), loader);
+const urlByName = new Map<string, string>();
+for (const [path, url] of Object.entries(wavUrls)) {
+  urlByName.set(fileKey(path), url);
 }
 
 function names(...list: string[]): string[] {
-  return list.filter((n) => loaderByName.has(n.toLowerCase()));
+  return list.filter((n) => urlByName.has(n.toLowerCase()));
 }
 
 const BANKS = {
@@ -219,7 +221,6 @@ export class Sfx {
   /** Optional: prefer admin Media Studio dataURL replacements for matching BANKS slots. */
   private async loadStudioSoundBank(): Promise<void> {
     try {
-      const { loadSoundBank, SOUND_BANK_SLOTS } = await import('../ui/adminMediaStudio');
       const store = loadSoundBank();
       const bankMap = BANKS as Record<string, string[]>;
       for (const slot of SOUND_BANK_SLOTS) {
@@ -251,7 +252,7 @@ export class Sfx {
 
   async preload(list: string[]): Promise<void> {
     const unique = [...new Set(list.map((n) => n.toLowerCase()))];
-    const queue = unique.filter((n) => loaderByName.has(n) && !this.buffers.has(n));
+    const queue = unique.filter((n) => urlByName.has(n) && !this.buffers.has(n));
     const workers = 4;
     let i = 0;
     await Promise.all(
@@ -270,11 +271,10 @@ export class Sfx {
     if (hit) return hit;
     const pending = this.inflight.get(key);
     if (pending) return pending;
-    const loader = loaderByName.get(key);
-    if (!loader) return null;
+    const url = urlByName.get(key);
+    if (!url) return null;
     const work = (async () => {
       try {
-        const url = await loader();
         const ctx = this.ensure();
         const res = await fetch(url);
         const raw = await res.arrayBuffer();
