@@ -156,21 +156,6 @@ export class Hud {
 
     this.superBtn.addEventListener('click', () => this.onSuper?.());
 
-    // Navigation Tabs
-    // Wire both the legacy tab bar and the new left nav data-page buttons
-    document.querySelectorAll<HTMLButtonElement>('[data-page]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const page = btn.dataset.page || 'play';
-        this.showPage(page);
-        if (page === 'leaderboard') this.loadLeaderboard();
-        if (page === 'quests') this.loadQuests();
-        // Update active state on left nav
-        document.querySelectorAll<HTMLButtonElement>('#menu-leftnav .menu-navitem[data-page]').forEach(n => {
-          n.classList.toggle('is-active', n.dataset.page === page);
-        });
-      });
-    });
-
     const nameInput = document.getElementById('name-input') as HTMLInputElement | null;
     nameInput?.addEventListener('change', () => this.onRename?.(nameInput.value.trim() || 'Slicer'));
 
@@ -436,9 +421,6 @@ export class Hud {
     document.getElementById('btn-quit-back')?.addEventListener('click', () => {
       document.getElementById('title-quit')?.classList.add('hidden');
     });
-    document.getElementById('btn-dash-main-menu')?.addEventListener('click', () => {
-      this.returnToTitle();
-    });
     this.syncSettingsMuteLabel();
   }
 
@@ -581,11 +563,6 @@ export class Hud {
     document.querySelectorAll('#menu-tabs .menu-tab').forEach((btn) => {
       btn.classList.toggle('is-on', (btn as HTMLElement).dataset.page === page);
     });
-    // Update left nav active state
-    document.querySelectorAll<HTMLButtonElement>('#menu-leftnav .menu-navitem[data-page]').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.page === page);
-    });
-
     // P1-1: Load profile data when switching to profile page
     if (page === 'profile') {
       this.renderProfilePage();

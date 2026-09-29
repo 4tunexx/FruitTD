@@ -28,7 +28,7 @@ import { heroDef } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
 import { rankFromScore } from '../../game/requirements';
 import type { SaveData } from '../../game/save';
-import type { NavState } from '../../game/navigation';
+import { navigation, type NavState } from '../../game/navigation';
 
 /** A tab's contextual UI: what goes in Panel 1 (main) and Panel 2 (sub). */
 export interface HubTab {
@@ -82,7 +82,8 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('span', { class: 'ftd-hub-logo__main', text: 'FRUIT' }),
     el('span', { class: 'ftd-hub-logo__accent', text: 'TD' }),
   ]);
-  logo.addEventListener('click', () => openScreen(HUB_HOME));
+  logo.setAttribute('data-testid', 'nav-home');
+  logo.addEventListener('click', () => home());
 
   const identity = el('div', { class: 'ftd-hub-identity' }, [
     el('img', {
@@ -121,6 +122,12 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     GameButton({ label: 'Quit', variant: 'ghost', size: 'sm', tone: 'danger', onClick: () => opts.onQuit?.() }),
   ]);
 
+  const settings = [...utils.querySelectorAll<HTMLButtonElement>('.ftd-btn')]
+    .find((button) => button.textContent?.trim() === 'Settings');
+  settings?.setAttribute('data-testid', 'nav-settings');
+  const admin = utils.querySelector<HTMLButtonElement>('.ftd-hub-admin');
+  admin?.setAttribute('data-testid', 'nav-admin');
+
   return el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
 }
 
@@ -137,12 +144,14 @@ function buildFooter(active: NavState): HTMLElement {
       role: 'tab',
       'aria-selected': String(tab.id === active),
       'data-hub-tab': tab.id,
+      'data-testid': `nav-${tab.id === 'MAIN_MENU' ? 'home' : tab.id.toLowerCase()}`,
     }, [
       icon(tab.icon, 'ftd-hub-tab__icon'),
       el('span', { class: 'ftd-hub-tab__label', text: tab.label }),
     ]);
     button.addEventListener('click', () => {
-      if (tab.id !== active) openScreen(tab.id);
+      if (tab.id === HUB_HOME) home();
+      else if (tab.id !== navigation.state) openScreen(tab.id);
     });
     nav.appendChild(button);
   }

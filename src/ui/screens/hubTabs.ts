@@ -473,7 +473,7 @@ function homeMain(onPlay: () => void) {
       el('p', { class: 'ftd-playcard__mode', text: `Mode · ${save.mode.toUpperCase()}` }),
     ]);
     root.appendChild(playPanel);
-    playPanel.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'combat-play-button');
+    playPanel.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'nav-play');
   };
 }
 

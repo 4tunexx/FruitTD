@@ -77,7 +77,6 @@ requestAnimationFrame(() => hideBootLoader());
 window.addEventListener('error', () => hideBootLoader());
 window.addEventListener('unhandledrejection', () => hideBootLoader());
 
-const startBtn = document.getElementById('btn-start')!;
 const upgradeBtn = document.getElementById('btn-upgrade') as HTMLButtonElement;
 const sellBtn = document.getElementById('btn-sell') as HTMLButtonElement;
 const moveBtn = document.getElementById('btn-move') as HTMLButtonElement;
@@ -1430,12 +1429,6 @@ async function launchMatch(): Promise<void> {
   applyEquippedBlade();
   restartMatch();
 }
-
-startBtn.addEventListener('click', async () => {
-  startBtn.textContent = 'Slicing…';
-  await launchMatch();
-  startBtn.textContent = 'Play';
-});
 
 /* ═══════════════ PHASE 2 GAME SCREENS ═══════════════
    Screens read the live save and route every mutation back through the
