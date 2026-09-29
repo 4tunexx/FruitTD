@@ -428,7 +428,7 @@ var HEROES = ["jiju", "topfu", "lagen", "tripos", "ki"];
 var SKILLS = ["edge", "reach", "flow", "steel", "storm"];
 var HERO_PERKS = ["combo", "juice", "tower", "critical", "survival"];
 var DEFAULT_OWNABLE_SKINS = /* @__PURE__ */ new Set(["blade-default", "blade-gold", "blade-ink", "blade-cherry", "wall-brick", "wall-stone", "wall-night"]);
-var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt"]);
+var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
 var SERVER_OWNED_SAVE_KEYS = [
   "xp",
   "ownedHeroes",
@@ -485,7 +485,11 @@ function saveValidationError(value, allowedSkinIds = DEFAULT_OWNABLE_SKINS) {
   if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return "Duplicate owned skin";
   if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return "Duplicate owned hero";
   if (save.hero !== void 0 && (typeof save.hero !== "string" || !HEROES.includes(save.hero))) return "Invalid hero";
-  if (save.mode !== void 0 && (typeof save.mode !== "string" || !["casual", "ranked", "coop", "arena"].includes(save.mode))) return "Invalid mode";
+  if (save.mode !== void 0 && (typeof save.mode !== "string" || !["casual", "ranked", "coop", "arena", "horde", "campaign"].includes(save.mode))) return "Invalid mode";
+  if (save.campaignProgress !== void 0) {
+    const progress = save.campaignProgress;
+    if (!progress || typeof progress !== "object" || Array.isArray(progress) || Object.keys(progress).some((key) => !["unlocked", "cleared"].includes(key)) || !boundedInteger(progress.unlocked, 100, 1) || !Array.isArray(progress.cleared) || progress.cleared.length > 100 || progress.cleared.some((level) => !boundedInteger(level, 100, 1))) return "Invalid campaign progress";
+  }
   if (save.vipStatus !== void 0 && (typeof save.vipStatus !== "string" || !["none", "bronze", "silver", "gold"].includes(save.vipStatus))) return "Invalid VIP status";
   for (const [key, max] of [["nickname", 64], ["avatar", 9e5], ["bladeSkin", 120], ["wallSkin", 120]]) {
     if (save[key] !== void 0 && (typeof save[key] !== "string" || save[key].length > max)) return `Invalid ${key}`;
@@ -706,7 +710,8 @@ function defaultSave() {
     heroPerkRanks: emptyPerkRanks(),
     vipStatus: "none",
     saveRevision: 0,
-    savedAt: 0
+    savedAt: 0,
+    campaignProgress: { unlocked: 1, cleared: [] }
   };
 }
 var WALL_SKINS = [
@@ -792,7 +797,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
   router.post("/run", async (req2, res) => {
     try {
       const mode = req2.body?.mode ?? "casual";
-      if (!["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+      if (!["casual", "ranked", "coop", "arena", "horde", "campaign"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
       const user = await deps.resolveUser(req2);
       if (!user) return res.status(401).json({ success: false, error: "Sign in to start a leaderboard run" });
       const runToken = crypto2.randomBytes(32).toString("hex");
@@ -861,7 +866,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
   });
   router.get("/", async (req2, res) => {
     try {
-      if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
+      if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|horde|campaign|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
       const mode = resolveMode(req2.query.mode || "ranked");
       const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
       const userId = (await deps.resolveUser(req2))?.userId;
@@ -929,7 +934,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
         rewards,
         completed
       } = req2.body;
-      if (mode !== void 0 && !["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+      if (mode !== void 0 && !["casual", "ranked", "coop", "arena", "horde", "campaign"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
       if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
       if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
       if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
@@ -1513,7 +1518,8 @@ adminRouter.get("/config", async (_req, res) => {
         ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
-        waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves
+        waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
+        campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : []
       }
     });
   } catch (err) {
@@ -1537,7 +1543,10 @@ adminRouter.post("/config", async (req2, res) => {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves } = req2.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses } = req2.body;
+    if (campaignBosses !== void 0 && (!Array.isArray(campaignBosses) || campaignBosses.length > 100 || campaignBosses.some((boss, index) => !boss || typeof boss !== "object" || typeof boss.name !== "string" || boss.name.length > 80 || typeof boss.title !== "string" || boss.title.length > 100 || typeof boss.description !== "string" || boss.description.length > 500 || !Number.isFinite(boss.difficulty) || boss.difficulty < 1 || boss.difficulty > 8 || !Number.isInteger(boss.rewardCoins) || boss.rewardCoins < 0 || boss.rewardCoins > Math.floor(((index + 1 < 10 ? 5 : Math.floor((index + 1) / 10) * 10) + 1) * 100 / 1.5) || !Number.isInteger(boss.rewardGems) || boss.rewardGems < 0 || boss.rewardGems > Math.floor((index + 1 < 10 ? 6 : Math.floor((index + 1) / 10) * 10 + 1) / 5) || boss.revealImage !== void 0 && (typeof boss.revealImage !== "string" || boss.revealImage.length > 3e4 || !/^data:image\/webp;base64,/.test(boss.revealImage))))) {
+      return res.status(400).json({ success: false, error: "Invalid campaign boss roster. Check field ranges and keep each optimized reveal image under 30 KB." });
+    }
     const col = await getCollection("admin_config");
     const existing = await col.findOne({ configKey: "game_config" });
     const updated = {
@@ -1553,6 +1562,7 @@ adminRouter.post("/config", async (req2, res) => {
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG.waves,
+      campaignBosses: campaignBosses !== void 0 ? campaignBosses : existing?.campaignBosses || [],
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });

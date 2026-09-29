@@ -245,6 +245,7 @@
             <div class="boss-bar boss-bar-bottom"></div>
           </div>
           <div class="boss-intro-content">
+            <img id="boss-intro-art" class="boss-intro-art hidden" alt="Campaign boss reveal" />
             <p id="boss-intro-title" class="boss-intro-title"></p>
             <p id="boss-intro-subtitle" class="boss-intro-subtitle"></p>
           </div>
@@ -741,6 +742,13 @@
         <div id="screen-hub" class="ftd-screen-host hidden" data-branding="menu"></div>
         <div id="screen-news" class="ftd-screen-host hidden"></div>
         <div id="screen-settings" class="ftd-screen-host hidden"></div>
+        <div id="screen-campaign" class="ftd-screen-host hidden"></div>
+        <section id="campaign-victory" class="ftd-campaign-victory hidden" aria-live="polite">
+          <p>THE ORCHARD IS YOURS</p><h1>CAMPAIGN CLEARED</h1>
+          <p>All 100 overlords defeated. Your wall stands.</p>
+          <button id="campaign-victory-map" type="button">VIEW CAMPAIGN MAP</button>
+        </section>
+        <div id="screen-campaign" class="ftd-screen-host hidden"></div>
 
         <!-- ════════════════════════ MODALS ════════════════════════ -->
 
@@ -1475,10 +1483,23 @@
               <p class="text-xs text-slate-400 mb-3">Edit game content: fruit types, enemy configurations, wave patterns, and boss names. Changes are for advanced tuning.</p>
               
               <div class="admin-form-col" style="max-width: 800px;">
-                <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-bottom: 0.5rem;">Boss Names</h3>
-                <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">21 boss names cycle through waves. Edit names (one per line):</p>
-                <textarea id="admin-boss-names" rows="12" class="admin-input font-mono" style="font-size: 0.75rem;" placeholder="SENTINEL&#10;GUARDIAN&#10;WATCHER&#10;THE CRUSHER&#10;..."></textarea>
-                <button id="btn-save-boss-names" class="admin-btn-action" style="margin-top: 0.5rem;">Save Boss Names</button>
+                <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin-bottom: 0.5rem;">100 Stage Campaign Bosses</h3>
+                <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">Edit a stage’s reveal card here. Upload animated boss sprite sheets in Creator → Media Studio. Reveal PNGs are stored in the shared admin configuration.</p>
+                <label>Stage <select id="admin-campaign-boss-stage" class="admin-input"></select></label>
+                <label>Boss name <input id="admin-campaign-boss-name" class="admin-input" maxlength="80" /></label>
+                <label>Title <input id="admin-campaign-boss-title" class="admin-input" maxlength="100" /></label>
+                <label>Description <textarea id="admin-campaign-boss-description" rows="3" class="admin-input" maxlength="500"></textarea></label>
+                <div class="admin-form-row">
+                  <label>Difficulty multiplier <input id="admin-campaign-boss-difficulty" type="number" min="1" max="8" step="0.1" class="admin-input" /></label>
+                  <label>Coin reward <input id="admin-campaign-boss-coins" type="number" min="0" max="100000" step="10" class="admin-input" /></label>
+                  <label>Gem reward <input id="admin-campaign-boss-gems" type="number" min="0" max="1000" class="admin-input" /></label>
+                </div>
+                <label>Reveal art (PNG/JPEG, optimized to WebP under 30 KB) <input id="admin-campaign-boss-image" type="file" accept="image/png,image/jpeg,image/webp" class="admin-input" /></label>
+                <div id="admin-campaign-boss-live-preview" class="admin-boss-live-preview" aria-live="polite">
+                  <figure><img id="admin-campaign-boss-preview" alt="Boss reveal preview" /><figcaption>LIVE BOSS REVEAL</figcaption></figure>
+                  <div><small id="admin-campaign-boss-preview-title"></small><h4 id="admin-campaign-boss-preview-name"></h4><p id="admin-campaign-boss-preview-description"></p><strong id="admin-campaign-boss-preview-stats"></strong></div>
+                </div>
+                <button id="btn-save-boss-names" class="admin-btn-action" style="margin-top: 0.5rem;">Save Boss to Shared Config</button>
                 
                 <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 1.25rem;">Prefer Creator / Media Studio forms for fruits, enemies, and waves. Raw JSON is last-resort only.</p>
                 <p style="font-size: 0.7rem; color: #64748b; margin-top: 0.35rem;">Wave packs: use the visual <strong>Wave / Level Board</strong> under Creator (Advanced JSON collapsed there). Published packs use admin field <code>waves</code> / <code>fruittd-creator-waves-v1</code>.</p>

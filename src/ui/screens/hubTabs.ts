@@ -442,13 +442,19 @@ export function profileHubTab(getStats: () => ProfileStats, onPlay?: () => void)
 
 /* ─────────────────────────── CO-OP (placeholder) ─────────────────────────── */
 
-export function coopHubTab(): HubTab {
+export function coopHubTab(onStart?: () => void): HubTab {
   return {
     id: 'CO_OP',
     label: 'Co-op',
     icon: UsersRound,
     renderMain: (root) => {
-      root.appendChild(emptyState('Co-op is warming up', 'Invite a friend from the lobby once matchmaking is live.'));
+      root.appendChild(el('section', { class: 'ftd-coop-card' }, [
+        el('p', { class: 'ftd-playcard__eyebrow', text: 'LOCAL GUEST ASSIST' }),
+        el('h2', { text: 'DEFEND THE WALL TOGETHER' }),
+        el('p', { text: 'A second local helper joins your operative, slices nearby fruit and gives you extra wall lives.' }),
+        GameButton({ label: 'Start local co-op', tone: 'primary', size: 'lg', onClick: () => onStart?.() }),
+        el('p', { class: 'ftd-mode-card__note', text: 'Online matchmaking is not connected yet. Online Multiplayer stays unavailable until its server relay is ready.' }),
+      ]));
     },
   };
 }
@@ -460,7 +466,7 @@ export function coopHubTab(): HubTab {
  * Panel 1 is the PLAY call-to-action; Panel 2 is the active-hero loadout. This
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
-function homeMain(onPlay: () => void) {
+function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').GameMode) => void, onCampaign?: () => void) {
   return (root: HTMLElement, save: SaveData) => {
     const playPanel = el('div', { class: 'ftd-playcard' }, [
       el('p', { class: 'ftd-playcard__eyebrow', text: 'HOLD THE WALL' }),
@@ -474,6 +480,27 @@ function homeMain(onPlay: () => void) {
     ]);
     root.appendChild(playPanel);
     playPanel.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'nav-play');
+    const modes = el('section', { class: 'ftd-mode-select', 'aria-label': 'Game modes' }, [
+      el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: `CAMPAIGN ${String(save.campaignProgress.unlocked).padStart(2, '0')}/100` })]),
+      el('div', { class: 'ftd-mode-select__grid' }),
+    ]);
+    const grid = modes.querySelector('.ftd-mode-select__grid')!;
+    const entries = [
+      { id: 'casual' as const, name: 'Casual', note: 'Learn the lanes' },
+      { id: 'ranked' as const, name: 'Ranked', note: 'Climb the ladder' },
+      { id: 'arena' as const, name: 'Arena', note: 'Fast, high-pressure waves' },
+      { id: 'horde' as const, name: 'Horde', note: 'Endless · no bosses' },
+    ];
+    entries.forEach((mode) => {
+      const button = el('button', { type: 'button', class: `ftd-mode-card${save.mode === mode.id ? ' is-active' : ''}`, 'aria-pressed': String(save.mode === mode.id), 'data-testid': `mode-${mode.id}` }, [el('strong', { text: mode.name }), el('small', { text: mode.note })]);
+      button.addEventListener('click', () => onMode?.(mode.id)); grid.appendChild(button);
+    });
+    const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
+    campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card' }, [el('strong', { text: 'Local Co-op' }), el('small', { text: 'Second player guest assist' })]);
+    coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
+    grid.appendChild(el('div', { class: 'ftd-mode-card ftd-mode-card--disabled', 'aria-disabled': 'true' }, [el('strong', { text: 'Online Multiplayer' }), el('small', { text: 'Coming soon · matchmaking not connected' })]));
+    root.appendChild(modes);
   };
 }
 
@@ -505,12 +532,12 @@ function homeSub(root: HTMLElement, save: SaveData): void {
   );
 }
 
-export function homeHubTab(onPlay: () => void): HubTab {
+export function homeHubTab(onPlay: () => void, onMode?: (mode: import('../../game/save').GameMode) => void, onCampaign?: () => void): HubTab {
   return {
     id: HUB_HOME,
     label: 'Home',
     icon: Home,
-    renderMain: homeMain(onPlay),
+    renderMain: homeMain(onPlay, onMode, onCampaign),
     renderSub: homeSub,
   };
 }

@@ -46,6 +46,8 @@ export interface HubOptions {
   onAdmin?: () => void;
   onOpenDaily?: () => void;
   onPlay: () => void;
+  onSelectMode?: (mode: import('../../game/save').GameMode) => void;
+  onCampaign?: () => void;
 }
 
 /** The default tab: PLAY + loadout, reached via the Home destination or logo. */

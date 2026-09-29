@@ -8,11 +8,13 @@
 
 import './screens.css';
 import './hub.css';
+import './campaign.css';
 import { registerScreen, installScreenRouter, installNavLinks, installEscHandler } from './registry';
 import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubOptions } from './hub';
 import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab, coopHubTab } from './hubTabs';
 import { renderNews } from './news';
 import { renderSettings } from './settings';
+import { renderCampaign } from './campaign';
 import { navigation, type NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
 import type { HeroId } from '../../game/heroes';
@@ -27,6 +29,8 @@ export interface ScreenHostCallbacks {
   /** Latest save — read fresh on every render so screens never show stale data. */
   getSave: () => SaveData;
   onPlay: () => void;
+  onStartCampaign?: (stage: number) => void;
+  onSelectMode?: (mode: import('../../game/save').GameMode) => void;
   onQuit?: () => void;
   onToggleSound: () => void;
   onLogout: () => void;
@@ -101,6 +105,11 @@ function renderFor(state: NavState): void {
       if (root) renderSettings(root, save, { onToggleSound: callbacks.onToggleSound, onLogout: callbacks.onLogout });
       break;
     }
+    case 'CAMPAIGN': {
+      const root = host('screen-campaign');
+      if (root) renderCampaign(root, save, callbacks.onStartCampaign ?? (() => undefined));
+      break;
+    }
     default:
       break;
   }
@@ -113,6 +122,8 @@ function hubOptions(): HubOptions {
     onQuit: callbacks.onQuit,
     onAdmin: callbacks.onAdmin,
     onOpenDaily: callbacks.onOpenDaily,
+    onSelectMode: callbacks.onSelectMode,
+    onCampaign: () => navigation.open('CAMPAIGN'),
   };
 }
 
@@ -123,12 +134,12 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
   activeHubTab = null;
   resetHub();
 
-  registerHubTab(homeHubTab(() => cb.onPlay()));
+  registerHubTab(homeHubTab(() => cb.onPlay(), cb.onSelectMode, () => navigation.open('CAMPAIGN')));
   registerHubTab(heroesHubTab({ onEquip: cb.onEquipHero, onBuy: cb.onBuyHero }));
   registerHubTab(inventoryHubTab({ onEquip: cb.onEquipItem, onUnequip: cb.onUnequipItem, onSell: cb.onSellItem }));
   registerHubTab(shopHubTab({ onBuy: cb.onBuyItem }));
   registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}, cb.onPlay));
-  registerHubTab(coopHubTab());
+  registerHubTab(coopHubTab(() => { cb.onSelectMode?.('coop'); cb.onPlay(); }));
 
   // One shared host for every hub tab. Tabs are siblings, not overlays of
   // each other — only one hub tab is ever on screen, so each is registered
@@ -154,6 +165,12 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
     elementId: 'screen-settings',
     overlay: true,
     onEnter: () => renderFor('SETTINGS'),
+  });
+  registerScreen({
+    id: 'CAMPAIGN',
+    elementId: 'screen-campaign',
+    overlay: true,
+    onEnter: () => renderFor('CAMPAIGN'),
   });
 
   // Legacy lobby pages: one element, different page per nav state.

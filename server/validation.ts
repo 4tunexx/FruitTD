@@ -21,7 +21,7 @@ const HEROES = ['jiju', 'topfu', 'lagen', 'tripos', 'ki'];
 const SKILLS = ['edge', 'reach', 'flow', 'steel', 'storm'];
 const HERO_PERKS = ['combo', 'juice', 'tower', 'critical', 'survival'];
 const DEFAULT_OWNABLE_SKINS = new Set(['blade-default', 'blade-gold', 'blade-ink', 'blade-cherry', 'wall-brick', 'wall-stone', 'wall-night']);
-const SAVE_KEYS = new Set(['hero', 'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore', 'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'nickname', 'avatar', 'skillPoints', 'skills', 'ownedSkins', 'bladeSkin', 'wallSkin', 'mode', 'heroPerkRanks', 'vipStatus', 'saveRevision', 'savedAt']);
+const SAVE_KEYS = new Set(['hero', 'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore', 'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'nickname', 'avatar', 'skillPoints', 'skills', 'ownedSkins', 'bladeSkin', 'wallSkin', 'mode', 'heroPerkRanks', 'vipStatus', 'saveRevision', 'savedAt', 'campaignProgress']);
 
 export const SERVER_OWNED_SAVE_KEYS = [
   'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore',
@@ -71,7 +71,11 @@ export function saveValidationError(value: unknown, allowedSkinIds: ReadonlySet<
   if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return 'Duplicate owned skin';
   if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return 'Duplicate owned hero';
   if (save.hero !== undefined && (typeof save.hero !== 'string' || !HEROES.includes(save.hero))) return 'Invalid hero';
-  if (save.mode !== undefined && (typeof save.mode !== 'string' || !['casual', 'ranked', 'coop', 'arena'].includes(save.mode))) return 'Invalid mode';
+  if (save.mode !== undefined && (typeof save.mode !== 'string' || !['casual', 'ranked', 'coop', 'arena', 'horde', 'campaign'].includes(save.mode))) return 'Invalid mode';
+  if (save.campaignProgress !== undefined) {
+    const progress = save.campaignProgress as any;
+    if (!progress || typeof progress !== 'object' || Array.isArray(progress) || Object.keys(progress).some((key) => !['unlocked', 'cleared'].includes(key)) || !boundedInteger(progress.unlocked, 100, 1) || !Array.isArray(progress.cleared) || progress.cleared.length > 100 || progress.cleared.some((level: unknown) => !boundedInteger(level, 100, 1))) return 'Invalid campaign progress';
+  }
   if (save.vipStatus !== undefined && (typeof save.vipStatus !== 'string' || !['none', 'bronze', 'silver', 'gold'].includes(save.vipStatus))) return 'Invalid VIP status';
   for (const [key, max] of [['nickname', 64], ['avatar', 900_000], ['bladeSkin', 120], ['wallSkin', 120]] as const) {
     if (save[key] !== undefined && (typeof save[key] !== 'string' || (save[key] as string).length > max)) return `Invalid ${key}`;

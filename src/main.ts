@@ -27,6 +27,7 @@ import { currentRewardModifiers } from './game/progression/modifiers';
 import type { ComboResetReason } from './game/progression/combo';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
+import { campaignBoss, campaignWaves } from './game/campaign';
 import { BladeTrail } from './game/trail';
 import { StrokeContacts } from './game/strokeContacts';
 import { installCombatDiagnostics } from './game/combatDiagnostics';
@@ -153,6 +154,8 @@ let sessionMaxCombo = 0;
 let sessionLeaks = 0;
 let rewardSavePending = false;
 let matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
+let campaignStartStage = 1;
+let campaignRunSettled = false;
 
 function emit(event: GameEvent): void {
   void reportGameEvent({
@@ -678,6 +681,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
     boss: !!fruit.boss,
     wave: state.wave,
     combo: state.combo,
+    ...(fruit.boss && state.mode === 'campaign' ? (() => { const bounty = campaignBoss(state.level, getLiveConfig().campaignBosses); return { coinsOverride: bounty.rewardCoins, gemsOverride: bounty.rewardGems }; })() : {}),
   });
   const scoreReward = result.scoreGained;
   const scr = worldPct(fruit.group.position.x, fruit.group.position.y + 0.35, fruit.group.position.z);
@@ -848,6 +852,12 @@ function tryUpgrade(): void {
 
 function restart(): void {
   resetState(state);
+  campaignRunSettled = false;
+  if (state.mode === 'campaign') {
+    state.level = campaignStartStage;
+    state.wave = 1;
+    state.waveInLevel = 1;
+  }
   state.hero = save.hero;
   state.heroXp = save.xp[save.hero] ?? 0;
   state.heroLevel = heroXpToLevel(state.heroXp);
@@ -1157,7 +1167,8 @@ function quitToMenu(): void {
   // The navigation guard owns the single confirmation; respect cancellation.
   if (navigation.state !== 'MAIN_MENU' && !navigation.setState('MAIN_MENU')) return;
   persist();
-  if (totalFruitsSliced > 0 || state.score > 0) void submitCurrentRun(false);
+  if (!campaignRunSettled && (totalFruitsSliced > 0 || state.score > 0)) void submitCurrentRun(false);
+  document.getElementById('campaign-victory')?.classList.add('hidden');
   state.running = false;
   wall.cancelMove();
   blade.consumeClick();
@@ -1180,6 +1191,11 @@ if (typeof window !== 'undefined') {
   (window as any).__fruitTdQuitToMenu = quitToMenu;
 }
 
+document.getElementById('campaign-victory-map')?.addEventListener('click', () => {
+  quitToMenu();
+  navigation.open('CAMPAIGN');
+});
+
 function restartMatch(): void {
   hud.showPause(false);
   navigation.setState('PLAY');
@@ -1196,8 +1212,9 @@ function showBossIntro(level: number): void {
   if (!letterbox || !title || !subtitle) return;
 
   // Creator Hub: fire boss onSpawn hooks at intro (best-effort; fruit spawn also fires).
-  if (!fireStudioEvent(bossStudioKey('watermelon'), 'onSpawn')) {
-    fireStudioEvent(BOSS_OVERLORD_STUDIO_KEY, 'onSpawn');
+  const stageBossKey = `boss-stage-${String(level).padStart(2, '0')}`;
+  if (!fireStudioEvent(state.mode === 'campaign' ? stageBossKey : bossStudioKey('watermelon'), 'onSpawn')) {
+    if (!fireStudioEvent(bossStudioKey('watermelon'), 'onSpawn')) fireStudioEvent(BOSS_OVERLORD_STUDIO_KEY, 'onSpawn');
   }
   
   // Fruit-zombie overlord names scale with LEVEL (not wave)
@@ -1213,10 +1230,13 @@ function showBossIntro(level: number): void {
   const tierIndex = Math.min(bossNames.length - 1, Math.floor((level - 1) / 3));
   const tier = bossNames[tierIndex];
   const nameIndex = (level - 1) % tier.length;
-  const bossName = tier[nameIndex] || tier[0];
+  const campaign = state.mode === 'campaign' ? campaignBoss(level, getLiveConfig().campaignBosses) : null;
+  const bossName = campaign?.name || tier[nameIndex] || tier[0];
+  const art = document.getElementById('boss-intro-art') as HTMLImageElement | null;
+  if (art) { art.src = campaign?.revealImage || ''; art.classList.toggle('hidden', !campaign?.revealImage); }
   
   title.textContent = bossName;
-  subtitle.textContent = `LEVEL ${level} OVERLORD`;
+  subtitle.textContent = campaign ? `${campaign.title} · ${campaignWaves(level)} WAVES · ${campaign.rewardCoins.toLocaleString()} COINS${campaign.rewardGems ? ` · ${campaign.rewardGems} GEMS` : ''}` : `LEVEL ${level} OVERLORD`;
   letterbox.classList.remove('is-releasing');
   letterbox.classList.remove('hidden');
   setTimeout(() => {
@@ -1365,7 +1385,8 @@ function simulate(dt: number): void {
       state.bossIntro = false;
       bossIntroEl.classList.add('hidden');
       state.waveSpawning = true;
-      const plan = planBossWave(state.wave, state.mode, state.level);
+      const customBoss = state.mode === 'campaign' ? campaignBoss(state.level, getLiveConfig().campaignBosses) : null;
+      const plan = planBossWave(state.wave, state.mode, state.level, customBoss?.difficulty);
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
       state.waveLeaks = 0;
@@ -1378,8 +1399,8 @@ function simulate(dt: number): void {
     state.waveClearTimer -= dt;
     if (state.waveClearTimer <= 0) {
       state.waveSpawning = true;
-      const totalWavesInLevel = wavesPerLevel(state.level);
-      const currentWaveInLevel = ((state.wave - 1) % totalWavesInLevel) + 1;
+      const totalWavesInLevel = wavesPerLevel(state.level, state.mode);
+      const currentWaveInLevel = state.waveInLevel;
       const plan = planWave(state.wave, state.mode, state.level, currentWaveInLevel, totalWavesInLevel);
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
@@ -1398,8 +1419,8 @@ function simulate(dt: number): void {
     }
   } else if (!fruits.waveBusy) {
     state.waveSpawning = false;
-    const totalWavesInLevel = wavesPerLevel(state.level);
-    const completedWavesInLevel = ((state.wave - 1) % totalWavesInLevel) + 1;
+    const totalWavesInLevel = wavesPerLevel(state.level, state.mode);
+    const completedWavesInLevel = state.waveInLevel;
     // Pool objects retain their last kind after death, so inspecting all dead
     // pooled fruits can accidentally classify many later waves as boss waves.
     const wasBoss = consumeBossWaveCompletion(state);
@@ -1416,15 +1437,45 @@ function simulate(dt: number): void {
     state.wave += 1;
     
     if (wasBoss) {
+      const cleared = state.level;
+      if (state.mode === 'campaign') {
+        save.campaignProgress.cleared = [...new Set([...save.campaignProgress.cleared, cleared])].sort((a, b) => a - b);
+        save.campaignProgress.unlocked = Math.max(save.campaignProgress.unlocked, Math.min(100, cleared + 1));
+        campaignStartStage = Math.min(100, cleared + 1);
+        writeSave(save);
+        void syncCloudSave(save);
+        campaignRunSettled = true;
+        const finalStage = cleared >= 100;
+        void submitCurrentRun(true).then(() => {
+          if (!finalStage && state.running && state.mode === 'campaign') {
+            matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
+            campaignRunSettled = false;
+            startLeaderboardRun('campaign');
+          }
+        });
+        if (finalStage) {
+          state.running = false;
+          document.getElementById('campaign-victory')?.classList.remove('hidden');
+        }
+        state.wave = 1;
+      }
       toast(state, `Level ${state.level} complete!`, 2);
-      state.level += 1;
+      state.level = state.mode === 'campaign' ? Math.min(100, state.level + 1) : state.level + 1;
+      state.waveInLevel = 1;
       state.waveClearTimer = 2.2;
     } else {
       toast(state, 'Wave clear', 1.3);
-      if (completedWavesInLevel >= totalWavesInLevel) {
-        state.bossIntro = true;
-        state.bossIntroTimer = BOSS_INTRO_DURATION;
+        if (completedWavesInLevel >= totalWavesInLevel) {
+        if (state.mode === 'horde') {
+          state.level += 1;
+          state.waveInLevel = 1;
+          state.waveClearTimer = 1.2;
+        } else {
+          state.bossIntro = true;
+          state.bossIntroTimer = BOSS_INTRO_DURATION;
+        }
       } else {
+        state.waveInLevel += 1;
         state.waveClearTimer = 2.2;
       }
     }
@@ -1574,12 +1625,22 @@ async function launchMatch(): Promise<void> {
   restartMatch();
 }
 
+async function launchCampaign(stage: number): Promise<void> {
+  campaignStartStage = Math.max(1, Math.min(save.campaignProgress.unlocked, Math.min(100, Math.floor(stage))));
+  state.mode = 'campaign';
+  save.mode = 'campaign';
+  persist();
+  await launchMatch();
+}
+
 /* ═══════════════ PHASE 2 GAME SCREENS ═══════════════
    Screens read the live save and route every mutation back through the
    existing gameplay functions, so there is no second economy path. */
 installGameScreens({
   getSave: () => save,
   onPlay: () => void launchMatch(),
+  onStartCampaign: (stage) => void launchCampaign(stage),
+  onSelectMode: (mode) => { setMode(mode); refreshCurrentScreen(); },
   onQuit: () => document.getElementById('title-quit')?.classList.remove('hidden'),
   onToggleSound: () => document.getElementById('btn-mute')?.click(),
   onLogout: () => void hud.logoutToTitle(),

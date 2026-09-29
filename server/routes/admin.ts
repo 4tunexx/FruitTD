@@ -203,6 +203,7 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
         waves: cfg.waves && typeof cfg.waves === 'object' ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
+        campaignBosses: Array.isArray((cfg as any).campaignBosses) ? (cfg as any).campaignBosses.slice(0, 100) : [],
       },
     });
   } catch (err: any) {
@@ -231,7 +232,10 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
   }
 
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves } = req.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses } = req.body;
+    if (campaignBosses !== undefined && (!Array.isArray(campaignBosses) || campaignBosses.length > 100 || campaignBosses.some((boss: any, index: number) => !boss || typeof boss !== 'object' || typeof boss.name !== 'string' || boss.name.length > 80 || typeof boss.title !== 'string' || boss.title.length > 100 || typeof boss.description !== 'string' || boss.description.length > 500 || !Number.isFinite(boss.difficulty) || boss.difficulty < 1 || boss.difficulty > 8 || !Number.isInteger(boss.rewardCoins) || boss.rewardCoins < 0 || boss.rewardCoins > Math.floor(((index + 1 < 10 ? 5 : Math.floor((index + 1) / 10) * 10) + 1) * 100 / 1.5) || !Number.isInteger(boss.rewardGems) || boss.rewardGems < 0 || boss.rewardGems > Math.floor((index + 1 < 10 ? 6 : Math.floor((index + 1) / 10) * 10 + 1) / 5) || (boss.revealImage !== undefined && (typeof boss.revealImage !== 'string' || boss.revealImage.length > 30_000 || !/^data:image\/webp;base64,/.test(boss.revealImage)))))) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign boss roster. Check field ranges and keep each optimized reveal image under 30 KB.' });
+    }
     const col = await getCollection<AdminConfigDoc>('admin_config');
     const existing = await col.findOne({ configKey: 'game_config' });
 
@@ -248,6 +252,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       waves: waves && typeof waves === 'object' ? waves : (existing?.waves || DEFAULT_ADMIN_CONFIG.waves),
+      campaignBosses: campaignBosses !== undefined ? campaignBosses : ((existing as any)?.campaignBosses || []),
       updatedAt: new Date(),
     };
 

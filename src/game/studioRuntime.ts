@@ -29,8 +29,9 @@ export function heroIdToStudioKey(heroId: string): string {
 }
 
 /** Preferred studio keys for a boss fruit (specific fruit first, then overlord). */
-export function bossStudioCandidates(fruitKind?: string | null): string[] {
+export function bossStudioCandidates(fruitKind?: string | null, stage?: number): string[] {
   const keys: string[] = [];
+  if (Number.isInteger(stage) && stage! >= 1 && stage! <= 100) keys.push(`boss-stage-${String(stage).padStart(2, '0')}`);
   if (fruitKind) keys.push(`boss-${fruitKind}`);
   keys.push(BOSS_OVERLORD_STUDIO_KEY);
   return keys;
@@ -91,9 +92,10 @@ export function resolveFruitStudioKey(
   enemyKind: EnemyKind,
   boss = false,
   fruitKind?: string | null,
+  bossStage?: number,
 ): string {
   if (boss) {
-    for (const key of bossStudioCandidates(fruitKind)) {
+    for (const key of bossStudioCandidates(fruitKind, bossStage)) {
       if (hasStudioPlaybackClip(key)) return key;
     }
   }
@@ -326,18 +328,18 @@ export function createStudioAnimForKey(entityKey: string): StudioAnimState {
 
 export function createStudioAnimState(
   enemyKind: EnemyKind,
-  opts?: { boss?: boolean; fruitKind?: string | null },
+  opts?: { boss?: boolean; fruitKind?: string | null; bossStage?: number },
 ): StudioAnimState {
-  const entityKey = resolveFruitStudioKey(enemyKind, Boolean(opts?.boss), opts?.fruitKind);
+  const entityKey = resolveFruitStudioKey(enemyKind, Boolean(opts?.boss), opts?.fruitKind, opts?.bossStage);
   return createStudioAnimForKey(entityKey);
 }
 
 export function resetStudioAnimState(
   anim: StudioAnimState,
   enemyKind: EnemyKind,
-  opts?: { boss?: boolean; fruitKind?: string | null },
+  opts?: { boss?: boolean; fruitKind?: string | null; bossStage?: number },
 ): void {
-  anim.entityKey = resolveFruitStudioKey(enemyKind, Boolean(opts?.boss), opts?.fruitKind);
+  anim.entityKey = resolveFruitStudioKey(enemyKind, Boolean(opts?.boss), opts?.fruitKind, opts?.bossStage);
   anim.phase = 'walk';
   anim.phaseT = 0;
   anim.dir = 'down';

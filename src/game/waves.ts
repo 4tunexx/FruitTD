@@ -1,6 +1,7 @@
 import type { FruitKind } from './fruits';
 import { enemyRule, specialEnemyForWave, type EnemyKind } from './enemies';
 import { modeRules } from './modes';
+import { campaignWaves } from './campaign';
 import type { GameMode } from './save';
 import {
   authoredWavesPerLevel,
@@ -15,6 +16,7 @@ export interface SpawnItem {
   kind: FruitKind;
   boss: boolean;
   enemy?: EnemyKind;
+  bossStage?: number;
 }
 
 export interface WavePlan {
@@ -89,13 +91,17 @@ function overrideSources(): WaveOverrideSources {
   return { creator, live: getLiveWavesConfig() };
 }
 
-export function wavesPerLevel(level: number): number {
+export function wavesPerLevel(level: number, mode?: GameMode): number {
+  if (mode === 'campaign') return campaignWaves(level);
+  if (mode === 'horde') return 5;
   return authoredWavesPerLevel(level, overrideSources(), (lvl) => Math.max(5, lvl));
 }
 
 export function planWave(wave: number, mode: GameMode, level: number, waveInLevel: number, totalWavesInLevel: number): WavePlan {
   const authored = tryAuthoredPlanWave(wave, mode, level, waveInLevel, totalWavesInLevel, overrideSources());
-  if (authored) return authored;
+  if (authored) return mode === 'horde'
+    ? { ...authored, boss: false, items: authored.items.map((item) => ({ ...item, boss: false, bossStage: undefined })) }
+    : authored;
 
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
@@ -136,8 +142,8 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
 
   return {
     items,
-    gap: Math.max(0.28, (0.82 - w * 0.035) * rules.spawnGapMul),
-    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul,
+    gap: Math.max(0.22, (0.82 - w * 0.035) * rules.spawnGapMul * (mode === 'campaign' ? Math.max(0.72, 1 - (level - 1) * 0.002) : 1)),
+    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul * (mode === 'campaign' ? Math.min(2.5, 1 + (level - 1) * 0.015) : 1),
     boss: false,
     title,
     subtitle,
@@ -147,21 +153,24 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
   };
 }
 
-export function planBossWave(wave: number, mode: GameMode, level: number): WavePlan {
+export function planBossWave(wave: number, mode: GameMode, level: number, configuredDifficulty?: number): WavePlan {
   const authored = tryAuthoredPlanBossWave(wave, mode, level, overrideSources());
   if (authored) return authored;
 
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
   const items: SpawnItem[] = [];
-  const wavesInLevel = wavesPerLevel(level);
+  const wavesInLevel = wavesPerLevel(level, mode);
 
   add(items, 'watermelon', 1, true, level >= 2 ? 'armored' : 'normal');
+  items[0].bossStage = mode === 'campaign' ? level : undefined;
 
   return {
     items,
     gap: 1.2,
-    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul * 1.5,
+    hpScale: mode === 'campaign'
+      ? rules.hpMul * 1.5 * Math.min(8, Math.max(1, configuredDifficulty ?? 1 + (level - 1) * 0.075))
+      : (1 + (w - 1) * 0.2) * rules.hpMul * 1.5,
     boss: true,
     title: `LEVEL ${level}  ·  OVERLORD`,
     subtitle: level >= 2 ? 'Rind-Plate overlord breaches the wall' : 'Fruit-zombie overlord approaches',

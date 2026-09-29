@@ -130,6 +130,7 @@ test('tower and boss studio key helpers', () => {
   assert.equal(bossStudioKey(null), 'boss-overlord');
   assert.equal(bossStudioKey('watermelon'), 'boss-watermelon');
   assert.deepEqual(bossStudioCandidates('watermelon'), ['boss-watermelon', 'boss-overlord']);
+  assert.deepEqual(bossStudioCandidates('watermelon', 7), ['boss-stage-07', 'boss-watermelon', 'boss-overlord']);
   assert.deepEqual(bossStudioCandidates(), ['boss-overlord']);
 });
 

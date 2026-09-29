@@ -77,6 +77,22 @@ test('the active tab is marked in the footer', () => {
   assert.equal(heroTab.classList.contains('is-active'), false);
 });
 
+test('home offers playable Casual, Ranked, Horde, Campaign and local Co-op paths', () => {
+  resetHub();
+  const selected: string[] = [];
+  registerHubTab(homeHubTab(() => undefined, (mode) => selected.push(mode), () => selected.push('campaign-map')));
+  const root = host();
+  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-ranked"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-arena"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-horde"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="campaign-open"]')!.click();
+  assert.deepEqual(selected, ['casual', 'ranked', 'arena', 'horde', 'campaign-map']);
+  assert.match(root.textContent!, /Online Multiplayer/);
+  assert.match(root.textContent!, /Coming soon/);
+});
+
 test('primary hub routes are reachable, Back returns one level, and Home clears the stack', () => {
   resetHub();
   resetRegistry();

@@ -381,6 +381,12 @@ test('boss kills award a premium gem through the same progression pipeline', () 
   assert.equal(result.gemsGained, 1);
 });
 
+test('campaign boss bounty uses the configured coin and gem rewards', () => {
+  const bounty = calculateReward({ type: 'boss_defeated', baseScore: 20, wave: 11, coinsOverride: 320, gemsOverride: 2 });
+  assert.equal(bounty.coins, 320);
+  assert.equal(bounty.gems, 2);
+});
+
 test('boss score, coins and XP rise with later waves and stop at a fair tier cap', () => {
   const early = calculateReward({ type: 'boss_defeated', baseScore: 55, wave: 6 });
   const later = calculateReward({ type: 'boss_defeated', baseScore: 55, wave: 16 });

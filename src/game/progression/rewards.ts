@@ -33,6 +33,9 @@ export interface RewardEvent {
   score?: number;
   /** Reslice generation depth. */
   generation?: number;
+  /** Configured campaign boss bounty, still checked against server run caps. */
+  coinsOverride?: number;
+  gemsOverride?: number;
 }
 
 /** The single shape every reward flows through. */
@@ -130,8 +133,8 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       score = base * 4 * bossTier * rule.scoreMultiplier * comboMul * lastStand;
       heroXp = 12 * bossTier * rule.xpMultiplier;
       towerXp = score / 4;
-      coins = score * 0.8;
-      gems = 1;
+      coins = event.coinsOverride ?? score * 0.8;
+      gems = event.gemsOverride ?? 1;
       break;
     }
     case 'bomb_parry': {

@@ -71,12 +71,14 @@ test('profile sync rejects a stale or missing server revision and accepts the cu
 
   const legitimate = await fetch(`${base}/sync`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ revision: 2, saveData: { ...defaultSave(), nickname: 'Fresh Lime' } }),
+    body: JSON.stringify({ revision: 2, saveData: { ...defaultSave(), nickname: 'Fresh Lime', mode: 'campaign', campaignProgress: { unlocked: 3, cleared: [1, 2] } } }),
   });
   assert.equal(legitimate.status, 200);
   assert.equal((await legitimate.json()).revision, 3);
   assert.equal(cloud.revision, 3);
   assert.equal(cloud.saveData.nickname, 'Fresh Lime');
+  assert.deepEqual(cloud.saveData.campaignProgress, { unlocked: 3, cleared: [1, 2] });
+  assert.equal(cloud.saveData.mode, 'campaign');
 });
 
 test('profile sync rejects forged catalog ownership and in-cap balances', async (t) => {
@@ -160,4 +162,17 @@ test('leaderboard requires and consumes a server-issued run token', async (t) =>
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...score, runToken }),
   });
   assert.equal(replay.status, 401, 'run tokens must be single-use');
+
+  for (const mode of ['horde', 'campaign']) {
+    const startModeRun = await fetch(`${base}/run`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
+    });
+    assert.equal(startModeRun.status, 201, `${mode} must receive a real server run token`);
+    const { runToken: modeToken } = await startModeRun.json();
+    const modeResult = await fetch(base, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...score, mode, wave: 10, runToken: modeToken }),
+    });
+    assert.equal(modeResult.status, 200, `${mode} scores should use their own authorized mode path`);
+  }
 });

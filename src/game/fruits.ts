@@ -213,7 +213,7 @@ export class FruitField {
     this.queue = items.slice(); this.spawnCd = 0.12; this.spawnGap = gap; this.hpScale = hpScale;
   }
 
-  spawn(kind: FruitKind, boss = false, enemyKind: EnemyKind = 'normal'): Fruit | null {
+  spawn(kind: FruitKind, boss = false, enemyKind: EnemyKind = 'normal', bossStage?: number): Fruit | null {
     // Keep killed objects stable until synchronous reward/debris/leak consumers finish.
     const idle = this.fruits.find((f) => !f.alive && !this.retired.has(f));
     if (!idle) return null;
@@ -234,7 +234,7 @@ export class FruitField {
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false;
     idle.splitChild = false;
-    resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind });
+    resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind, bossStage });
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.hazardRing.visible = idle.enemyKind === 'explosive';
     idle.armorRing.visible = idle.enemyKind === 'armored';
@@ -331,7 +331,7 @@ export class FruitField {
       if (this.spawnCd <= 0) {
         this.spawnCd = this.spawnGap;
         const next = this.queue[0];
-        if (next && this.spawn(next.kind, next.boss, next.enemy ?? 'normal')) this.queue.shift();
+        if (next && this.spawn(next.kind, next.boss, next.enemy ?? 'normal', next.bossStage)) this.queue.shift();
       }
     }
 

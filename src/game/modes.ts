@@ -97,6 +97,16 @@ export const MODE_INFO: ModeRules[] = [
     hints: false,
     guest: false,
   },
+  {
+    id: 'horde', name: 'Horde', blurb: 'Endless five-wave sectors. No boss rounds; enemy pressure keeps climbing.',
+    lives: 15, startMoney: 140, yellow: 10, pink: 10, orange: 3, hpMul: 1, speedMul: 1,
+    spawnGapMul: 0.9, waveOffset: 0, currencyMul: 1, leakMul: 1, superMul: 1, hints: false, guest: false,
+  },
+  {
+    id: 'campaign', name: 'Campaign', blurb: '100 linked stages, unique overlords, permanent unlocks and milestone rewards.',
+    lives: 15, startMoney: 140, yellow: 10, pink: 10, orange: 3, hpMul: 1, speedMul: 1,
+    spawnGapMul: 1, waveOffset: 0, currencyMul: 1, leakMul: 1, superMul: 1, hints: true, guest: false,
+  },
 ];
 
 export function modeRules(id: GameMode): ModeRules {

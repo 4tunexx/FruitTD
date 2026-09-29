@@ -35,7 +35,7 @@ const router = Router();
 router.post('/run', async (req: Request, res: Response) => {
   try {
     const mode = req.body?.mode ?? 'casual';
-    if (!['casual', 'ranked', 'coop', 'arena'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
+    if (!['casual', 'ranked', 'coop', 'arena', 'horde', 'campaign'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
     const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to start a leaderboard run' });
 
@@ -109,7 +109,7 @@ router.post('/monthly-rank/claim', async (req: Request, res: Response) => {
 // GET /api/leaderboard?mode=ranked&limit=50&userId=xxx
 router.get('/', async (req: Request, res: Response) => {
   try {
-    if (req.query.mode !== undefined && (typeof req.query.mode !== 'string' || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req.query.mode))) return res.status(400).json({ success: false, error: 'Invalid mode' });
+    if (req.query.mode !== undefined && (typeof req.query.mode !== 'string' || !/^(casual|ranked|coop|arena|horde|campaign|monthly|monthly-\d{4}-\d{2})$/.test(req.query.mode))) return res.status(400).json({ success: false, error: 'Invalid mode' });
     const mode = resolveMode((req.query.mode as string) || 'ranked');
     const limit = Math.max(1, Math.min(parseInt(String(req.query.limit)) || 50, 100));
     const userId = (await deps.resolveUser(req))?.userId;
@@ -191,7 +191,7 @@ router.post('/', async (req: Request, res: Response) => {
       rewards,
       completed,
     } = req.body;
-    if (mode !== undefined && !['casual', 'ranked', 'coop', 'arena'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
+    if (mode !== undefined && !['casual', 'ranked', 'coop', 'arena', 'horde', 'campaign'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
     if (hero !== undefined && !['jiju', 'topfu', 'lagen', 'tripos', 'ki'].includes(hero)) return res.status(400).json({ success: false, error: 'Invalid hero' });
     if ((wave !== undefined && !boundedInteger(wave, 1000, 1)) || (fruitsSliced !== undefined && !boundedInteger(fruitsSliced, 100_000)) || (maxCombo !== undefined && !boundedInteger(maxCombo, 5000))) return res.status(400).json({ success: false, error: 'Invalid match counters' });
     if ((nickname !== undefined && (typeof nickname !== 'string' || nickname.length > 64)) || (avatar !== undefined && (typeof avatar !== 'string' || avatar.length > 900_000))) return res.status(400).json({ success: false, error: 'Invalid profile fields' });

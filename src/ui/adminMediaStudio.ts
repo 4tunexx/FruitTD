@@ -74,6 +74,7 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'boss-watermelon', label: 'Boss Watermelon (boss-watermelon)' },
   { key: 'boss-pineapple', label: 'Boss Pineapple (boss-pineapple)' },
   { key: 'boss-bomb', label: 'Boss Bomb (boss-bomb)' },
+  ...Array.from({ length: 100 }, (_, index) => ({ key: `boss-stage-${String(index + 1).padStart(2, '0')}`, label: `Campaign Boss Stage ${String(index + 1).padStart(2, '0')}` })),
 ];
 
 export const STUDIO_STATES: StudioState[] = ['idle', 'walk', 'run', 'hit', 'death'];

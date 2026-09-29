@@ -30,6 +30,7 @@ import { installCreatorSlicerVfx } from './creatorSlicerVfx';
 import { openDesignMode } from './design/designMode';
 import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
+import { campaignBoss, defaultCampaignBoss } from '../game/campaign';
 
 type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
@@ -169,6 +170,11 @@ export class AdminController {
 
     // Main (PR#6): Content editing handlers
     document.getElementById('btn-save-boss-names')?.addEventListener('click', () => this.saveBossNames());
+    document.getElementById('admin-campaign-boss-stage')?.addEventListener('change', () => this.renderContentEditor());
+    document.getElementById('admin-campaign-boss-image')?.addEventListener('change', (event) => void this.readCampaignBossImage(event));
+    for (const id of ['admin-campaign-boss-name', 'admin-campaign-boss-title', 'admin-campaign-boss-description', 'admin-campaign-boss-difficulty', 'admin-campaign-boss-coins', 'admin-campaign-boss-gems']) {
+      document.getElementById(id)?.addEventListener('input', () => this.previewCampaignBoss());
+    }
     document.getElementById('btn-save-fruits')?.addEventListener('click', () => this.saveContent('fruits'));
     document.getElementById('btn-save-enemies')?.addEventListener('click', () => this.saveContent('enemies'));
     document.getElementById('btn-save-waves')?.addEventListener('click', () => this.saveContent('waves'));
@@ -639,22 +645,51 @@ export class AdminController {
   }
 
   // Main content editor (kept from post-PR#6)
-  private saveBossNames(): void {
-    const textarea = document.getElementById('admin-boss-names') as HTMLTextAreaElement | null;
-    if (!textarea) return;
-    
-    const names = textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
-    if (names.length < 3) {
-      GameToast('Enter at least three boss names, one per line.', 'warning');
-      return;
-    }
-    
-    localStorage.setItem('admin-boss-names', JSON.stringify(names));
+  private campaignRevealImage = '';
+
+  private async readCampaignBossImage(event: Event): Promise<void> {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { GameToast('Choose a PNG, JPEG, or WebP image.', 'warning'); return; }
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image(); image.src = imageUrl; await image.decode();
+      const scale = Math.min(1, 320 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+      let quality = 0.86;
+      do { this.campaignRevealImage = canvas.toDataURL('image/webp', quality); quality -= 0.12; } while (this.campaignRevealImage.length > 28_000 && quality >= 0.2);
+      if (this.campaignRevealImage.length > 30_000) { this.campaignRevealImage = ''; GameToast('Image is too detailed. Use a smaller PNG (320×320 recommended).', 'warning'); return; }
+      const preview = document.getElementById('admin-campaign-boss-preview') as HTMLImageElement | null;
+      if (preview) { preview.src = this.campaignRevealImage; preview.classList.remove('hidden'); }
+      this.previewCampaignBoss();
+    } catch { GameToast('Could not read that image.', 'danger'); }
+    finally { URL.revokeObjectURL(imageUrl); }
+  }
+
+  private async saveBossNames(): Promise<void> {
+    const stageEl = document.getElementById('admin-campaign-boss-stage') as HTMLSelectElement | null;
+    if (!stageEl || !this.config) return;
+    const index = Number(stageEl.value) - 1;
+    const existing = this.config.campaignBosses?.[index] ?? campaignBoss(index + 1);
+    const value = {
+      ...existing,
+      name: (document.getElementById('admin-campaign-boss-name') as HTMLInputElement).value.trim(),
+      title: (document.getElementById('admin-campaign-boss-title') as HTMLInputElement).value.trim(),
+      description: (document.getElementById('admin-campaign-boss-description') as HTMLTextAreaElement).value.trim(),
+      difficulty: Math.min(8, Math.max(1, Number((document.getElementById('admin-campaign-boss-difficulty') as HTMLInputElement).value) || 1)),
+      rewardCoins: Math.min(100_000, Math.max(0, Math.floor(Number((document.getElementById('admin-campaign-boss-coins') as HTMLInputElement).value) || 0))),
+      rewardGems: Math.min(1000, Math.max(0, Math.floor(Number((document.getElementById('admin-campaign-boss-gems') as HTMLInputElement).value) || 0))),
+      revealImage: this.campaignRevealImage || existing.revealImage,
+    };
+    if (!value.name || !value.title || !value.description) { GameToast('Name, title and description are required.', 'warning'); return; }
+    const roster = Array.from({ length: 100 }, (_, i) => this.config!.campaignBosses?.[i] ?? defaultCampaignBoss(i + 1)); roster[index] = value;
+    const updated = { ...this.config, campaignBosses: roster };
+    const result = await saveAdminConfig(updated);
     const statusEl = document.getElementById('admin-save-status');
-    if (statusEl) {
-      statusEl.textContent = `Saved ${names.length} boss names to localStorage.`;
-      statusEl.className = 'admin-status-ok';
-    }
+    if (!result.success) { GameToast(result.error || 'Could not save boss.', 'danger'); return; }
+    this.config = updated; setLiveConfig(updated); this.onConfigSaved?.(updated); this.campaignRevealImage = '';
+    if (statusEl) { statusEl.textContent = `Stage ${index + 1} boss saved to shared admin config.`; statusEl.className = 'admin-status-ok'; }
   }
 
   private saveContent(type: 'fruits' | 'enemies' | 'waves'): void {
@@ -675,17 +710,23 @@ export class AdminController {
   }
 
   private renderContentEditor(): void {
-    const bossTextarea = document.getElementById('admin-boss-names') as HTMLTextAreaElement | null;
-    if (bossTextarea) {
-      const stored = localStorage.getItem('admin-boss-names');
-      if (stored) {
-        try {
-          const names = JSON.parse(stored);
-          bossTextarea.value = names.join('\n');
-        } catch {
-          bossTextarea.value = 'SENTINEL\nGUARDIAN\nWATCHER\nTHE CRUSHER\nBERSERKER\nRAVAGER\nTITANFRUIT\nCOLOSSUS\nJUGGERNAUT\nAPEX PREDATOR\nDOMINATOR\nANNIHILATOR\nTHE BEHEMOTH\nLEVIATHAN\nTITAN\nFRUIT OVERLORD\nSUPREME RULER\nEMPEROR\nULTIMATE DESTROYER\nGOD EMPEROR\nOMEGA';
-        }
-      }
+    const stageSelect = document.getElementById('admin-campaign-boss-stage') as HTMLSelectElement | null;
+    if (stageSelect && !stageSelect.options.length) for (let stage = 1; stage <= 100; stage++) stageSelect.add(new Option(`Stage ${String(stage).padStart(2, '0')}`, String(stage)));
+    if (stageSelect) {
+      const boss = this.config?.campaignBosses?.[Number(stageSelect.value || 1) - 1] ?? defaultCampaignBoss(Number(stageSelect.value || 1));
+      (document.getElementById('admin-campaign-boss-name') as HTMLInputElement | null)?.setAttribute('value', boss.name);
+      const nameInput = document.getElementById('admin-campaign-boss-name') as HTMLInputElement | null; if (nameInput) nameInput.value = boss.name;
+      const titleInput = document.getElementById('admin-campaign-boss-title') as HTMLInputElement | null; if (titleInput) titleInput.value = boss.title;
+      const descInput = document.getElementById('admin-campaign-boss-description') as HTMLTextAreaElement | null; if (descInput) descInput.value = boss.description;
+      const difficultyInput = document.getElementById('admin-campaign-boss-difficulty') as HTMLInputElement | null; if (difficultyInput) difficultyInput.value = String(boss.difficulty);
+      const coinsInput = document.getElementById('admin-campaign-boss-coins') as HTMLInputElement | null; if (coinsInput) coinsInput.value = String(boss.rewardCoins);
+      if (coinsInput) coinsInput.max = String(Math.floor(((Number(stageSelect.value) < 10 ? 5 : Math.floor(Number(stageSelect.value) / 10) * 10) + 1) * 100 / 1.5));
+      const gemsInput = document.getElementById('admin-campaign-boss-gems') as HTMLInputElement | null; if (gemsInput) gemsInput.value = String(boss.rewardGems);
+      if (gemsInput) gemsInput.max = String(Math.floor((Number(stageSelect.value) < 10 ? 6 : Math.floor(Number(stageSelect.value) / 10) * 10 + 1) / 5));
+      const preview = document.getElementById('admin-campaign-boss-preview') as HTMLImageElement | null;
+      if (preview) { preview.src = boss.revealImage || ''; preview.classList.toggle('hidden', !boss.revealImage); }
+      this.campaignRevealImage = '';
+      this.previewCampaignBoss();
     }
     
     const fruitsTextarea = document.getElementById('admin-fruits-json') as HTMLTextAreaElement | null;
@@ -704,5 +745,20 @@ export class AdminController {
       const stored = localStorage.getItem('admin-waves-config');
       if (stored) wavesTextarea.value = stored;
     }
+  }
+
+  private previewCampaignBoss(): void {
+    const stage = (document.getElementById('admin-campaign-boss-stage') as HTMLSelectElement | null)?.value || '1';
+    const name = (document.getElementById('admin-campaign-boss-name') as HTMLInputElement | null)?.value || 'UNKNOWN OVERLORD';
+    const title = (document.getElementById('admin-campaign-boss-title') as HTMLInputElement | null)?.value || `Campaign Overlord · Stage ${stage}`;
+    const description = (document.getElementById('admin-campaign-boss-description') as HTMLTextAreaElement | null)?.value || '';
+    const difficulty = (document.getElementById('admin-campaign-boss-difficulty') as HTMLInputElement | null)?.value || '1';
+    const coins = (document.getElementById('admin-campaign-boss-coins') as HTMLInputElement | null)?.value || '0';
+    const gems = (document.getElementById('admin-campaign-boss-gems') as HTMLInputElement | null)?.value || '0';
+    const set = (id: string, value: string) => { const node = document.getElementById(id); if (node) node.textContent = value; };
+    set('admin-campaign-boss-preview-title', title);
+    set('admin-campaign-boss-preview-name', name);
+    set('admin-campaign-boss-preview-description', description);
+    set('admin-campaign-boss-preview-stats', `${Math.max(5, Number(stage))} WAVES · THREAT ×${Number(difficulty).toFixed(1)} · ${Number(coins).toLocaleString()} COINS · ${gems} GEMS`);
   }
 }

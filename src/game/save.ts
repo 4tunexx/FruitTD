@@ -4,10 +4,11 @@ import { getTowerProgression, syncTowerProgression } from './towerProgression';
 import { HERO_PERKS, type HeroPerkId } from './heroProgression';
 import { heroesUnlockedByJijuLevel } from './progression/heroMilestones';
 import { purchaseHeroAtomic } from './progression/heroStatus';
+import { sanitizeCampaignProgress, type CampaignProgress } from './campaign';
 
 const KEY = 'fruit-td-save-v1';
 const OLD_PERK_KEY = 'fruit-td-hero-perks-v1';
-export type GameMode = 'casual' | 'ranked' | 'coop' | 'arena';
+export type GameMode = 'casual' | 'ranked' | 'coop' | 'arena' | 'horde' | 'campaign';
 export type HeroPerkRanks = Record<HeroId, Partial<Record<HeroPerkId, number>>>;
 
 export interface SaveData {
@@ -32,6 +33,7 @@ export interface SaveData {
   bladeSkin: string;
   wallSkin: string;
   mode: GameMode;
+  campaignProgress: CampaignProgress;
   heroPerkRanks?: HeroPerkRanks;
   vipStatus?: 'none' | 'bronze' | 'silver' | 'gold'; // P1-2: VIP tier
   /**
@@ -71,7 +73,7 @@ export function defaultSave(): SaveData {
     highScore:0, rankedScore:0, bestWave:1, bestCombo:0, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
     skillPoints:0, skills:emptySkills(), ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
     heroPerkRanks:emptyPerkRanks(), vipStatus:'none',
-    saveRevision:0, savedAt:0,
+    saveRevision:0, savedAt:0, campaignProgress: { unlocked: 1, cleared: [] },
   };
 }
 
@@ -102,7 +104,8 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.nickname = typeof data.nickname === 'string' ? data.nickname.trim().slice(0, 16) || 'Slicer' : 'Slicer';
   data.avatar = typeof data.avatar === 'string' && data.avatar ? data.avatar : defaultAvatar(data.nickname);
   if (!HEROES.some((h) => h.id === data.hero)) data.hero = 'jiju';
-  if (!['casual','ranked','coop','arena'].includes(data.mode)) data.mode = 'casual';
+  if (!['casual','ranked','coop','arena','horde','campaign'].includes(data.mode)) data.mode = 'casual';
+  data.campaignProgress = sanitizeCampaignProgress(data.campaignProgress);
   if (!data.ownedSkins.includes('blade-default')) data.ownedSkins.push('blade-default');
   if (!data.ownedSkins.includes('wall-brick')) data.ownedSkins.push('wall-brick');
   // Unequipped slots use '' or 'none' — do not force starters back on.
@@ -313,6 +316,10 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
     bladeSkin:remote.bladeSkin||local.bladeSkin,
     wallSkin:remote.wallSkin||local.wallSkin,
     mode:remote.mode||local.mode,
+    campaignProgress: sanitizeCampaignProgress({
+      unlocked: Math.max(local.campaignProgress?.unlocked ?? 1, remote.campaignProgress?.unlocked ?? 1),
+      cleared: [...new Set([...(local.campaignProgress?.cleared ?? []), ...(remote.campaignProgress?.cleared ?? [])])],
+    }),
     vipStatus: remote.vipStatus || local.vipStatus,
     saveRevision: Math.max(localRev, remoteRev),
     savedAt: Math.max(localTime, remoteTime),

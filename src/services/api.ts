@@ -395,7 +395,8 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
     saveData: {
       nickname: String(saveData.nickname || '').slice(0, 64),
       avatar: typeof saveData.avatar === 'string' ? saveData.avatar.slice(0, 900_000) : '',
-      mode: ['casual', 'ranked', 'coop', 'arena'].includes(saveData.mode) ? saveData.mode : 'casual',
+      mode: ['casual', 'ranked', 'coop', 'arena', 'horde', 'campaign'].includes(saveData.mode) ? saveData.mode : 'casual',
+      campaignProgress: saveData.campaignProgress,
     },
   };
   if (!syncInFlight) {

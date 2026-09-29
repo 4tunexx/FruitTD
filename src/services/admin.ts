@@ -67,6 +67,8 @@ export interface AdminConfig {
   enemies: any[];
   /** Creator-published wave/level packs (fruittd-creator-waves-v1 shape). */
   waves?: any;
+  /** Per-stage boss description and reveal art. Boss animation sprites use Media Studio. */
+  campaignBosses?: Array<{ name: string; title: string; description: string; difficulty: number; rewardCoins: number; rewardGems: number; revealImage?: string }>;
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -108,6 +110,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   slicers: DEFAULT_SLICERS,
   enemies: [],
   waves: { version: 1, levels: {} },
+  campaignBosses: [],
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -128,6 +131,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     waves: src.waves && typeof src.waves === 'object'
       ? structuredClone(src.waves)
       : structuredClone(DEFAULT_ADMIN_CONFIG.waves),
+    campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
   };
 }
 

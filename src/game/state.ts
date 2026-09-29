@@ -15,6 +15,7 @@ export interface GameState {
   wave: number;
   level: number;
   wavesInLevel: number;
+  waveInLevel: number;
   elapsed: number;
   towerLevel: number;
   towerXp: number;
@@ -40,7 +41,7 @@ export interface GameState {
   /** Peak combo this session; survives combo resets so it can be persisted. */
   bestCombo: number;
   superJuice: number;
-  mode: 'casual' | 'ranked' | 'coop' | 'arena';
+  mode: 'casual' | 'ranked' | 'coop' | 'arena' | 'horde' | 'campaign';
 }
 
 const MAX_HERO_XP = heroXpForLevel(MAX_HERO_LEVEL);
@@ -55,6 +56,7 @@ export function createState(): GameState {
     wave: 1,
     level: 1,
     wavesInLevel: 5,
+    waveInLevel: 1,
     elapsed: 0,
     towerLevel: 1,
     towerXp: tower.xp,
