@@ -63,17 +63,32 @@ function monthlyLeaderboardMode(date = /* @__PURE__ */ new Date()) {
   return `monthly-${currentMonthKey(date)}`;
 }
 var DEFAULT_RANK_TIERS = [
-  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "B" },
-  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "S" },
-  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "G" },
-  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "P" },
-  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "D" },
-  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "M" },
-  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "GM" }
+  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "B", rewardCoins: 100 },
+  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "S", rewardCoins: 250, rewardGems: 5 },
+  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "G", rewardCoins: 500, rewardGems: 10 },
+  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "P", rewardCoins: 750, rewardGems: 15 },
+  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "D", rewardCoins: 1500, rewardGems: 30 },
+  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "M", rewardCoins: 2500, rewardGems: 60 },
+  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "GM", rewardCoins: 5e3, rewardGems: 100 }
 ];
 function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
   const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
   return sorted.find((t) => score >= t.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
+}
+function mergeRewardDefaults(items, defaults) {
+  const byId = new Map(defaults.map((item) => [item.id, item]));
+  return items.map((item) => {
+    const fallback = byId.get(item.id);
+    const merged = { ...fallback, ...item };
+    const rewardCoins = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins ?? fallback?.rewardCoins) || 0)));
+    const rewardGems = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardGems ?? fallback?.rewardGems) || 0)));
+    return {
+      ...merged,
+      rewardCoins,
+      rewardGems,
+      ..."rewardSp" in merged ? { rewardSp: Math.max(0, Math.min(1e4, Math.floor(Number(merged.rewardSp) || 0))) } : {}
+    };
+  });
 }
 function req(type, goal, extra = {}) {
   return { type, goal, ...extra };
@@ -83,12 +98,12 @@ var DEFAULT_MISSIONS = [
   { id: "daily_combos", type: "daily", title: "Combo Fiend", desc: "Perform 4 combos of 3x or higher", icon: "X", enabled: true, requirement: req("combo_count", 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
   { id: "daily_wave", type: "daily", title: "Wave Survivor", desc: "Survive to Wave 5 in any run", icon: "W", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
   { id: "weekly_fruits", type: "weekly", title: "Fruit Apocalypse", desc: "Slice 250 total fruits this week", icon: "F", enabled: true, requirement: req("slice_any", 250), rewardCoins: 350, rewardSp: 1 },
-  { id: "monthly_ranked_climb", type: "monthly", title: "Monthly Climb", desc: "Score 4,000 in Ranked this month to reach Gold", icon: "G", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardSp: 1, rewardBadge: "gold-slicer" },
-  { id: "monthly_silver_climb", type: "monthly", title: "Silver Season", desc: "Score 1,500 in Ranked this month to reach Silver", icon: "S", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardSp: 0, rewardBadge: "silver-slicer" },
-  { id: "monthly_diamond_climb", type: "monthly", title: "Diamond Season", desc: "Score 15,000 in Ranked this month to reach Diamond", icon: "D", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardBadge: "diamond-slicer" }
+  { id: "monthly_ranked_climb", type: "monthly", title: "Monthly Climb", desc: "Score 4,000 in Ranked this month to reach Gold", icon: "G", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardSp: 1, rewardGems: 10, rewardBadge: "gold-slicer" },
+  { id: "monthly_silver_climb", type: "monthly", title: "Silver Season", desc: "Score 1,500 in Ranked this month to reach Silver", icon: "S", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardSp: 0, rewardGems: 5, rewardBadge: "silver-slicer" },
+  { id: "monthly_diamond_climb", type: "monthly", title: "Diamond Season", desc: "Score 15,000 in Ranked this month to reach Diamond", icon: "D", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" }
 ];
 var DEFAULT_ACHIEVEMENTS = [
-  { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "1", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardBadge: "first-cut" },
+  { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "1", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: "first-cut" },
   { id: "combo_5", title: "Combo Artist", desc: "Execute a 5x or higher combo slice", icon: "5", enabled: true, requirement: req("combo_reach_5", 5), rewardCoins: 100, rewardSp: 0 },
   { id: "combo_10", title: "Blade Master", desc: "Execute a massive 10x combo slice", icon: "X", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "combo-king" },
   { id: "fruit_100", title: "Fruit Peeler", desc: "Slice 100 total fruits", icon: "F", enabled: true, requirement: req("slice_any", 100), rewardCoins: 150, rewardSp: 0 },
@@ -100,18 +115,18 @@ var DEFAULT_ACHIEVEMENTS = [
   { id: "untouchable", title: "Pristine Wall", desc: "Clear a wave with 100% wall integrity", icon: "P", enabled: true, requirement: req("perfect_wave", 1), rewardCoins: 150, rewardSp: 0 },
   { id: "turret_builder", title: "Fortress Architect", desc: "Place 3 turrets on your defensive wall", icon: "T", enabled: true, requirement: req("turret_place", 3), rewardCoins: 150, rewardSp: 0 },
   { id: "steam_connect", title: "Steam Cadet", desc: "Link your Steam profile to Fruit TD", icon: "ST", enabled: true, requirement: req("steam_link", 1), rewardCoins: 500, rewardSp: 1, rewardBadge: "steam-cadet" },
-  { id: "diamond_rank", title: "Diamond Slicer", desc: "Reach Diamond on the monthly ranked ladder", icon: "D", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardBadge: "diamond-slicer" }
+  { id: "diamond_rank", title: "Diamond Slicer", desc: "Reach Diamond on the monthly ranked ladder", icon: "D", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" }
 ];
 var DEFAULT_BADGES = [
-  { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "FC", rarity: "common", enabled: true, requirement: req("slice_any", 1) },
-  { id: "combo-king", title: "Combo King", desc: "Awarded for a 10x combo", icon: "CK", rarity: "rare", enabled: true, requirement: req("combo_reach_10", 10) },
-  { id: "wall-guard", title: "Wall Guard", desc: "Hold the wall to wave 10", icon: "WG", rarity: "rare", enabled: true, requirement: req("wave_reach", 10) },
-  { id: "steam-cadet", title: "Steam Cadet", desc: "Linked Steam account", icon: "SC", rarity: "common", enabled: true, requirement: req("steam_link", 1) },
-  { id: "bronze-slicer", title: "Bronze Slicer", desc: "Finish a Ranked match this month", icon: "BR", rarity: "common", enabled: true, requirement: req("monthly_games", 1) },
-  { id: "silver-slicer", title: "Silver Slicer", desc: "Monthly Silver rank", icon: "SS", rarity: "rare", enabled: true, requirement: req("reach_silver", 1500) },
-  { id: "gold-slicer", title: "Gold Slicer", desc: "Monthly Gold rank", icon: "GS", rarity: "epic", enabled: true, requirement: req("reach_gold", 4e3) },
-  { id: "diamond-slicer", title: "Diamond Slicer", desc: "Monthly Diamond rank", icon: "DS", rarity: "legendary", enabled: true, requirement: req("reach_diamond", 15e3) },
-  { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "DR", rarity: "rare", enabled: true, requirement: req("claim_daily", 7) }
+  { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "FC", rarity: "common", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50 },
+  { id: "combo-king", title: "Combo King", desc: "Awarded for a 10x combo", icon: "CK", rarity: "rare", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 150, rewardGems: 2 },
+  { id: "wall-guard", title: "Wall Guard", desc: "Hold the wall to wave 10", icon: "WG", rarity: "rare", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 100, rewardGems: 2 },
+  { id: "steam-cadet", title: "Steam Cadet", desc: "Linked Steam account", icon: "SC", rarity: "common", enabled: true, requirement: req("steam_link", 1), rewardCoins: 100 },
+  { id: "bronze-slicer", title: "Bronze Slicer", desc: "Finish a Ranked match this month", icon: "BR", rarity: "common", enabled: true, requirement: req("monthly_games", 1), rewardCoins: 100 },
+  { id: "silver-slicer", title: "Silver Slicer", desc: "Monthly Silver rank", icon: "SS", rarity: "rare", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: "gold-slicer", title: "Gold Slicer", desc: "Monthly Gold rank", icon: "GS", rarity: "epic", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardGems: 10 },
+  { id: "diamond-slicer", title: "Diamond Slicer", desc: "Monthly Diamond rank", icon: "DS", rarity: "legendary", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "DR", rarity: "rare", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 250, rewardGems: 5 }
 ];
 
 // src/game/slicers.ts
@@ -202,10 +217,10 @@ async function loadQuestCatalog() {
     const doc = await col.findOne({ configKey: "game_config" });
     cache = {
       at: Date.now(),
-      missions: Array.isArray(doc?.missions) && doc.missions.length ? doc.missions : DEFAULT_MISSIONS,
-      achievements: Array.isArray(doc?.achievements) && doc.achievements.length ? doc.achievements : DEFAULT_ACHIEVEMENTS,
-      badges: Array.isArray(doc?.badges) && doc.badges.length ? doc.badges : DEFAULT_BADGES,
-      ranks: Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS,
+      missions: mergeRewardDefaults(Array.isArray(doc?.missions) && doc.missions.length ? doc.missions : DEFAULT_MISSIONS, DEFAULT_MISSIONS),
+      achievements: mergeRewardDefaults(Array.isArray(doc?.achievements) && doc.achievements.length ? doc.achievements : DEFAULT_ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS),
+      badges: mergeRewardDefaults(Array.isArray(doc?.badges) && doc.badges.length ? doc.badges : DEFAULT_BADGES, DEFAULT_BADGES),
+      ranks: mergeRewardDefaults(Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(doc?.slicers) && doc.slicers.length ? doc.slicers : DEFAULT_SLICERS
     };
     return cache;
@@ -486,244 +501,6 @@ function validProgressUpdates(value, idKey) {
   return Array.isArray(value) && value.length <= 100 && value.every((row) => row && typeof row === "object" && validId(row[idKey]) && (row.setProgress !== void 0 && row.progressDelta === void 0 && boundedInteger(row.setProgress, 1e8) || row.progressDelta !== void 0 && row.setProgress === void 0 && boundedInteger(row.progressDelta, 1e8)));
 }
 
-// server/routes/leaderboard.ts
-var defaultDeps = {
-  resolveUser: resolveRequestUser,
-  collection: getCollection,
-  catalog: loadQuestCatalog
-};
-var RUN_TOKEN_TTL_MS = 15 * 60 * 1e3;
-function resolveMode(mode) {
-  if (mode === "monthly") return monthlyLeaderboardMode();
-  return mode || "ranked";
-}
-function createLeaderboardRouter(deps = defaultDeps) {
-  const router = Router();
-  router.post("/run", async (req2, res) => {
-    try {
-      const mode = req2.body?.mode ?? "casual";
-      if (!["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
-      const user = await deps.resolveUser(req2);
-      if (!user) return res.status(401).json({ success: false, error: "Sign in to start a leaderboard run" });
-      const runToken = crypto2.randomBytes(32).toString("hex");
-      const createdAt = /* @__PURE__ */ new Date();
-      const expiresAt = new Date(createdAt.getTime() + RUN_TOKEN_TTL_MS);
-      const col = await deps.collection("run_tokens");
-      await col.insertOne({ tokenHash: hashToken(runToken), userId: user.userId, mode, createdAt, expiresAt });
-      res.status(201).json({ success: true, runToken, expiresAt });
-    } catch (err) {
-      console.error("Error issuing run token:", err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-  router.get("/monthly-rank", async (req2, res) => {
-    try {
-      const userId = (await deps.resolveUser(req2))?.userId;
-      const catalog = await deps.catalog();
-      const seasonMode = monthlyLeaderboardMode();
-      const col = await deps.collection("leaderboards");
-      const entry = userId ? await col.findOne({ userId, mode: seasonMode }, { sort: { score: -1 } }) : null;
-      const score = entry?.score || 0;
-      const rank = rankFromScore(score, catalog.ranks);
-      const sorted = [...catalog.ranks].sort((a, b) => a.minScore - b.minScore);
-      const next = sorted.find((t) => t.minScore > rank.minScore) || null;
-      res.json({
-        success: true,
-        season: seasonMode,
-        score,
-        rank,
-        next
-      });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-  router.get("/", async (req2, res) => {
-    try {
-      if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
-      const mode = resolveMode(req2.query.mode || "ranked");
-      const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
-      const userId = (await deps.resolveUser(req2))?.userId;
-      const col = await deps.collection("leaderboards");
-      const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
-      const leaderboard = topEntries.map((entry, idx) => ({
-        rank: idx + 1,
-        userId: entry.userId,
-        nickname: entry.nickname,
-        avatar: entry.avatar,
-        hero: entry.hero,
-        mode: entry.mode,
-        score: entry.score,
-        wave: entry.wave,
-        fruitsSliced: entry.fruitsSliced,
-        maxCombo: entry.maxCombo,
-        steamId: entry.steamId,
-        steamPersona: entry.steamPersona,
-        steamAvatar: entry.steamAvatar,
-        date: entry.createdAt
-      }));
-      let userRank = null;
-      if (userId) {
-        const userBest = await col.findOne({ userId, mode }, { sort: { score: -1 } });
-        if (userBest) {
-          const higherCount = await col.countDocuments({
-            mode,
-            $or: [
-              { score: { $gt: userBest.score } },
-              { score: userBest.score, wave: { $gt: userBest.wave } }
-            ]
-          });
-          userRank = {
-            rank: higherCount + 1,
-            score: userBest.score,
-            wave: userBest.wave,
-            hero: userBest.hero
-          };
-        }
-      }
-      res.json({
-        success: true,
-        mode,
-        leaderboard,
-        userRank,
-        totalEntries: await col.countDocuments({ mode })
-      });
-    } catch (err) {
-      console.error("Error fetching leaderboard:", err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-  router.post("/", async (req2, res) => {
-    try {
-      const {
-        nickname,
-        avatar,
-        hero,
-        mode,
-        score,
-        wave,
-        fruitsSliced,
-        maxCombo,
-        runToken
-      } = req2.body;
-      if (mode !== void 0 && !["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
-      if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
-      if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
-      if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
-      if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
-        return res.status(400).json({ success: false, error: "Invalid score submission payload" });
-      }
-      const MAX_REASONABLE_SCORE = 1e7;
-      const MAX_REASONABLE_WAVE = 1e3;
-      const MAX_REASONABLE_FRUITS = 1e5;
-      const MAX_REASONABLE_COMBO = 5e3;
-      if (score > MAX_REASONABLE_SCORE) {
-        return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
-      }
-      if (wave && wave > MAX_REASONABLE_WAVE) {
-        return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
-      }
-      if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
-        return res.status(400).json({ success: false, error: "Fruits sliced exceeds reasonable maximum" });
-      }
-      if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
-        return res.status(400).json({ success: false, error: "Combo exceeds reasonable maximum" });
-      }
-      const user = await deps.resolveUser(req2);
-      if (!user) {
-        return res.status(401).json({ success: false, error: "Sign in to submit leaderboard scores" });
-      }
-      const userId = user.userId;
-      if (typeof runToken !== "string" || !/^[a-f0-9]{64}$/.test(runToken)) {
-        return res.status(401).json({ success: false, error: "A valid run token is required" });
-      }
-      const playMode = mode || "casual";
-      const runs = await deps.collection("run_tokens");
-      const consumed = await runs.findOneAndUpdate(
-        {
-          tokenHash: hashToken(runToken),
-          userId,
-          mode: playMode,
-          expiresAt: { $gt: /* @__PURE__ */ new Date() },
-          consumedAt: { $exists: false }
-        },
-        { $set: { consumedAt: /* @__PURE__ */ new Date() } },
-        { returnDocument: "before" }
-      );
-      if (!consumed) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
-      const col = await deps.collection("leaderboards");
-      const upsertBest = async (modeKey) => {
-        const existing = await col.findOne({ userId, mode: modeKey });
-        if (!existing) {
-          await col.insertOne({
-            userId,
-            nickname: nickname || user.nickname || "Slicer",
-            avatar: avatar || user.avatar || "",
-            hero: hero || "jiju",
-            mode: modeKey,
-            score,
-            wave: wave || 1,
-            fruitsSliced: fruitsSliced || 0,
-            maxCombo: maxCombo || 0,
-            steamId: user.steamId,
-            steamPersona: user.steamPersona,
-            steamAvatar: user.steamAvatar,
-            createdAt: /* @__PURE__ */ new Date()
-          });
-          return true;
-        }
-        if (score > existing.score || score === existing.score && (wave || 1) > existing.wave) {
-          await col.updateOne(
-            { _id: existing._id },
-            {
-              $set: {
-                nickname: nickname || existing.nickname,
-                avatar: avatar || existing.avatar,
-                hero: hero || existing.hero,
-                score,
-                wave: wave || existing.wave,
-                fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
-                maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
-                steamId: user.steamId || existing.steamId,
-                steamPersona: user.steamPersona || existing.steamPersona,
-                steamAvatar: user.steamAvatar || existing.steamAvatar,
-                createdAt: /* @__PURE__ */ new Date()
-              }
-            }
-          );
-          return true;
-        }
-        return false;
-      };
-      const isNewHigh = await upsertBest(playMode);
-      if (playMode === "ranked") {
-        await upsertBest(monthlyLeaderboardMode());
-      }
-      const higherCount = await col.countDocuments({
-        mode: playMode,
-        score: { $gt: score }
-      });
-      const catalog = playMode === "ranked" ? await deps.catalog() : null;
-      const monthlyScore = playMode === "ranked" ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score : score;
-      res.json({
-        success: true,
-        isNewHigh,
-        rank: higherCount + 1,
-        score,
-        monthlyRank: catalog ? rankFromScore(monthlyScore, catalog.ranks) : void 0
-      });
-    } catch (err) {
-      console.error("Error submitting score:", err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-  return router;
-}
-var leaderboardRouter = createLeaderboardRouter();
-
-// server/routes/achievements.ts
-import { Router as Router2 } from "express";
-
 // src/game/progression/heroEconomy.ts
 var HERO_PRICES = {
   tripos: { cost: 1800 },
@@ -747,6 +524,13 @@ var HERO_MILESTONES = [
   { level: 90, kind: "cosmetic", name: "Mastery Aura", reward: "Mastery cosmetic" },
   { level: 100, kind: "mastery", name: "Max Mastery", reward: "MAX MASTERY \u2014 permanent Hero 100 title", bonusPerkPoints: 3 }
 ];
+function heroMilestonesUnlocked(level) {
+  const lv = Math.max(1, Math.floor(level));
+  return HERO_MILESTONES.filter((m) => m.level <= lv);
+}
+function heroesUnlockedByJijuLevel(level) {
+  return heroMilestonesUnlocked(level).map((m) => m.unlocksHero).filter((id) => !!id);
+}
 
 // src/game/heroes.ts
 var HEROES2 = [
@@ -777,6 +561,13 @@ function heroXpToLevel(xp) {
 }
 
 // src/game/skills.ts
+var SKILLS2 = [
+  { id: "edge", name: "Edge", blurb: "Your slash hits harder.", max: 3 },
+  { id: "reach", name: "Reach", blurb: "Wider cut. Easier multi-hits.", max: 3 },
+  { id: "flow", name: "Flow", blurb: "Super juice fills faster.", max: 3 },
+  { id: "steel", name: "Steel", blurb: "Turrets deal more damage.", max: 3 },
+  { id: "storm", name: "Storm", blurb: "Super blow wrecks a bigger pack.", max: 3 }
+];
 function emptySkills() {
   return { edge: 0, reach: 0, flow: 0, steel: 0, storm: 0 };
 }
@@ -808,6 +599,7 @@ var EMPTY_REWARD = Object.freeze({
   coins: 0,
   heroXp: 0,
   towerXp: 0,
+  gems: 0,
   reason: "fruit_sliced"
 });
 
@@ -955,7 +747,21 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   if ((reward.gems ?? 0) > 0) set["saveData.gems"] = cappedCredit("gems", reward.gems, 1e6);
   if ((reward.skillPoints ?? 0) > 0) set["saveData.skillPoints"] = cappedCredit("skillPoints", reward.skillPoints, 1e4);
   for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
-    if (amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
+    if (HEROES2.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
+  }
+  if ((reward.towerXp ?? 0) > 0) {
+    set["saveData.towerXp"] = cappedCredit("towerXp", reward.towerXp, 1e9);
+    set["saveData.towerLifetimeXp"] = cappedCredit("towerLifetimeXp", reward.towerXp, 1e9);
+  }
+  if ((reward.games ?? 0) > 0) set["saveData.games"] = cappedCredit("games", reward.games, 1e6);
+  if ((reward.highScore ?? 0) > 0) set["saveData.highScore"] = { $max: [{ $ifNull: ["$saveData.highScore", 0] }, reward.highScore] };
+  if ((reward.rankedScore ?? 0) > 0) set["saveData.rankedScore"] = { $max: [{ $ifNull: ["$saveData.rankedScore", 0] }, reward.rankedScore] };
+  if ((reward.bestWave ?? 0) > 0) set["saveData.bestWave"] = { $max: [{ $ifNull: ["$saveData.bestWave", 1] }, reward.bestWave] };
+  if ((reward.bestCombo ?? 0) > 0) set["saveData.bestCombo"] = { $max: [{ $ifNull: ["$saveData.bestCombo", 0] }, reward.bestCombo] };
+  if (reward.xp?.jiju !== void 0) {
+    const resultingJijuXp = Math.min(1e6, (Number(existing.saveData?.xp?.jiju) || 0) + reward.xp.jiju);
+    const unlocked = heroesUnlockedByJijuLevel(heroXpToLevel(resultingJijuXp));
+    if (unlocked.length) set["saveData.ownedHeroes"] = { $setUnion: [{ $ifNull: ["$saveData.ownedHeroes", ["jiju"]] }, unlocked] };
   }
   if (reward.items?.length) {
     set["saveData.ownedSkins"] = { $setUnion: [{ $ifNull: ["$saveData.ownedSkins", []] }, reward.items] };
@@ -970,7 +776,312 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   );
 }
 
+// server/routes/leaderboard.ts
+var defaultDeps = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  catalog: loadQuestCatalog
+};
+var RUN_TOKEN_TTL_MS = 15 * 60 * 1e3;
+function resolveMode(mode) {
+  if (mode === "monthly") return monthlyLeaderboardMode();
+  return mode || "ranked";
+}
+function createLeaderboardRouter(deps = defaultDeps) {
+  const router = Router();
+  router.post("/run", async (req2, res) => {
+    try {
+      const mode = req2.body?.mode ?? "casual";
+      if (!["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to start a leaderboard run" });
+      const runToken = crypto2.randomBytes(32).toString("hex");
+      const createdAt = /* @__PURE__ */ new Date();
+      const expiresAt = new Date(createdAt.getTime() + RUN_TOKEN_TTL_MS);
+      const col = await deps.collection("run_tokens");
+      await col.insertOne({ tokenHash: hashToken(runToken), userId: user.userId, mode, createdAt, expiresAt });
+      res.status(201).json({ success: true, runToken, expiresAt });
+    } catch (err) {
+      console.error("Error issuing run token:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.get("/monthly-rank", async (req2, res) => {
+    try {
+      const userId = (await deps.resolveUser(req2))?.userId;
+      const catalog = await deps.catalog();
+      const seasonMode = monthlyLeaderboardMode();
+      const col = await deps.collection("leaderboards");
+      const entry = userId ? await col.findOne({ userId, mode: seasonMode }, { sort: { score: -1 } }) : null;
+      const score = entry?.score || 0;
+      const rank = rankFromScore(score, catalog.ranks);
+      const sorted = [...catalog.ranks].sort((a, b) => a.minScore - b.minScore);
+      const next = sorted.find((t) => t.minScore > rank.minScore) || null;
+      const wallet = userId ? await (await deps.collection("cloud_saves")).findOne({ userId }) : null;
+      const rewardReceipt = `rank:${seasonMode}:${rank.id}`;
+      res.json({
+        success: true,
+        season: seasonMode,
+        score,
+        rank,
+        next,
+        hasEntry: !!entry,
+        claimed: (wallet?.claimReceipts || []).includes(rewardReceipt),
+        claimedRankIds: (wallet?.claimReceipts || []).filter((receipt) => receipt.startsWith(`rank:${seasonMode}:`)).map((receipt) => receipt.slice(`rank:${seasonMode}:`.length))
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/monthly-rank/claim", async (req2, res) => {
+    try {
+      const userId = (await deps.resolveUser(req2))?.userId;
+      if (!userId) return res.status(401).json({ success: false, error: "Sign in to claim rank rewards" });
+      const catalog = await deps.catalog();
+      const season = monthlyLeaderboardMode();
+      const board = await deps.collection("leaderboards");
+      const entry = await board.findOne({ userId, mode: season }, { sort: { score: -1 } });
+      if (!entry) return res.status(422).json({ success: false, error: "Play a ranked match to earn a season rank" });
+      const currentRank = rankFromScore(entry.score, catalog.ranks);
+      const requestedRankId = req2.body?.rankId;
+      const rank = requestedRankId === void 0 ? currentRank : catalog.ranks.find((tier) => tier.id === requestedRankId);
+      if (!rank) return res.status(400).json({ success: false, error: "Invalid rank reward tier" });
+      if (entry.score < rank.minScore) return res.status(422).json({ success: false, error: "That rank reward has not been earned yet" });
+      const receiptKey = `rank:${season}:${rank.id}`;
+      const saves = await deps.collection("cloud_saves");
+      const wallet = await creditClaimReward(userId, receiptKey, {
+        coins: rank.rewardCoins ?? 0,
+        gems: rank.rewardGems ?? 0
+      }, saves);
+      if (!wallet) return res.status(409).json({ success: false, error: "This rank reward has already been claimed" });
+      res.json({ success: true, rankId: rank.id, rewardCoins: rank.rewardCoins ?? 0, rewardGems: rank.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.get("/", async (req2, res) => {
+    try {
+      if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
+      const mode = resolveMode(req2.query.mode || "ranked");
+      const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
+      const userId = (await deps.resolveUser(req2))?.userId;
+      const col = await deps.collection("leaderboards");
+      const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
+      const leaderboard = topEntries.map((entry, idx) => ({
+        rank: idx + 1,
+        userId: entry.userId,
+        nickname: entry.nickname,
+        avatar: entry.avatar,
+        hero: entry.hero,
+        mode: entry.mode,
+        score: entry.score,
+        wave: entry.wave,
+        fruitsSliced: entry.fruitsSliced,
+        maxCombo: entry.maxCombo,
+        steamId: entry.steamId,
+        steamPersona: entry.steamPersona,
+        steamAvatar: entry.steamAvatar,
+        date: entry.createdAt
+      }));
+      let userRank = null;
+      if (userId) {
+        const userBest = await col.findOne({ userId, mode }, { sort: { score: -1 } });
+        if (userBest) {
+          const higherCount = await col.countDocuments({
+            mode,
+            $or: [
+              { score: { $gt: userBest.score } },
+              { score: userBest.score, wave: { $gt: userBest.wave } }
+            ]
+          });
+          userRank = {
+            rank: higherCount + 1,
+            score: userBest.score,
+            wave: userBest.wave,
+            hero: userBest.hero
+          };
+        }
+      }
+      res.json({
+        success: true,
+        mode,
+        leaderboard,
+        userRank,
+        totalEntries: await col.countDocuments({ mode })
+      });
+    } catch (err) {
+      console.error("Error fetching leaderboard:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.post("/", async (req2, res) => {
+    try {
+      const {
+        nickname,
+        avatar,
+        hero,
+        mode,
+        score,
+        wave,
+        fruitsSliced,
+        maxCombo,
+        runToken,
+        rewards,
+        completed
+      } = req2.body;
+      if (mode !== void 0 && !["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+      if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
+      if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
+      if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
+      if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
+        return res.status(400).json({ success: false, error: "Invalid score submission payload" });
+      }
+      if (rewards !== void 0) {
+        const keys = ["coins", "heroXp", "towerXp", "skillPoints"];
+        if (!rewards || typeof rewards !== "object" || Array.isArray(rewards) || Object.keys(rewards).some((key) => ![...keys, "gems"].includes(key)) || keys.some((key) => !boundedInteger(rewards[key], key === "coins" ? 1e5 : 1e4)) || rewards.gems !== void 0 && !boundedInteger(rewards.gems, 100)) {
+          return res.status(400).json({ success: false, error: "Invalid run reward payload" });
+        }
+        const rewardCaps = {
+          coins: Math.min(1e5, Math.ceil(score * 2 + (wave || 1) * 100)),
+          heroXp: Math.min(1e4, Math.ceil(score / 5 + (wave || 1) * 100 + 100)),
+          towerXp: Math.min(1e4, Math.ceil(score / 3 + (wave || 1) * 150 + 100)),
+          skillPoints: Math.min(100, Math.ceil(score / 1e3) + 5),
+          gems: Math.min(100, Math.floor((wave || 0) / 5))
+        };
+        if (keys.some((key) => rewards[key] > rewardCaps[key]) || (rewards.gems ?? 0) > rewardCaps.gems) {
+          return res.status(422).json({ success: false, error: "Run rewards exceed the score and wave limits" });
+        }
+      }
+      if (completed !== void 0 && typeof completed !== "boolean") return res.status(400).json({ success: false, error: "Invalid run completion state" });
+      const MAX_REASONABLE_SCORE = 1e7;
+      const MAX_REASONABLE_WAVE = 1e3;
+      const MAX_REASONABLE_FRUITS = 1e5;
+      const MAX_REASONABLE_COMBO = 5e3;
+      if (score > MAX_REASONABLE_SCORE) {
+        return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
+      }
+      if (wave && wave > MAX_REASONABLE_WAVE) {
+        return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
+      }
+      if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
+        return res.status(400).json({ success: false, error: "Fruits sliced exceeds reasonable maximum" });
+      }
+      if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
+        return res.status(400).json({ success: false, error: "Combo exceeds reasonable maximum" });
+      }
+      const user = await deps.resolveUser(req2);
+      if (!user) {
+        return res.status(401).json({ success: false, error: "Sign in to submit leaderboard scores" });
+      }
+      const userId = user.userId;
+      if (typeof runToken !== "string" || !/^[a-f0-9]{64}$/.test(runToken)) {
+        return res.status(401).json({ success: false, error: "A valid run token is required" });
+      }
+      const playMode = mode || "casual";
+      const rewardTokenKey = hashToken(runToken);
+      const runs = await deps.collection("run_tokens");
+      const consumed = await runs.findOneAndUpdate(
+        {
+          tokenHash: hashToken(runToken),
+          userId,
+          mode: playMode,
+          expiresAt: { $gt: /* @__PURE__ */ new Date() },
+          consumedAt: { $exists: false }
+        },
+        { $set: { consumedAt: /* @__PURE__ */ new Date() } },
+        { returnDocument: "before" }
+      );
+      if (!consumed) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
+      let settledWallet = null;
+      if (rewards) {
+        const wallet = await creditClaimReward(userId, `run:${rewardTokenKey}`, {
+          coins: rewards.coins,
+          gems: rewards.gems ?? 0,
+          skillPoints: rewards.skillPoints,
+          xp: { [hero || "jiju"]: rewards.heroXp },
+          towerXp: rewards.towerXp,
+          games: completed === false ? 0 : 1,
+          highScore: score,
+          rankedScore: playMode === "ranked" ? score : 0,
+          bestWave: wave || 1,
+          bestCombo: maxCombo || 0
+        }, await deps.collection("cloud_saves"));
+        if (!wallet) return res.status(500).json({ success: false, error: "Could not settle run rewards" });
+        settledWallet = { saveData: wallet.saveData, revision: wallet.revision ?? 0 };
+      }
+      const col = await deps.collection("leaderboards");
+      const upsertBest = async (modeKey) => {
+        const existing = await col.findOne({ userId, mode: modeKey });
+        if (!existing) {
+          await col.insertOne({
+            userId,
+            nickname: nickname || user.nickname || "Slicer",
+            avatar: avatar || user.avatar || "",
+            hero: hero || "jiju",
+            mode: modeKey,
+            score,
+            wave: wave || 1,
+            fruitsSliced: fruitsSliced || 0,
+            maxCombo: maxCombo || 0,
+            steamId: user.steamId,
+            steamPersona: user.steamPersona,
+            steamAvatar: user.steamAvatar,
+            createdAt: /* @__PURE__ */ new Date()
+          });
+          return true;
+        }
+        if (score > existing.score || score === existing.score && (wave || 1) > existing.wave) {
+          await col.updateOne(
+            { _id: existing._id },
+            {
+              $set: {
+                nickname: nickname || existing.nickname,
+                avatar: avatar || existing.avatar,
+                hero: hero || existing.hero,
+                score,
+                wave: wave || existing.wave,
+                fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
+                maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
+                steamId: user.steamId || existing.steamId,
+                steamPersona: user.steamPersona || existing.steamPersona,
+                steamAvatar: user.steamAvatar || existing.steamAvatar,
+                createdAt: /* @__PURE__ */ new Date()
+              }
+            }
+          );
+          return true;
+        }
+        return false;
+      };
+      const isNewHigh = await upsertBest(playMode);
+      if (playMode === "ranked") {
+        await upsertBest(monthlyLeaderboardMode());
+      }
+      const higherCount = await col.countDocuments({
+        mode: playMode,
+        score: { $gt: score }
+      });
+      const catalog = playMode === "ranked" ? await deps.catalog() : null;
+      const monthlyScore = playMode === "ranked" ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score : score;
+      res.json({
+        success: true,
+        isNewHigh,
+        rank: higherCount + 1,
+        score,
+        monthlyRank: catalog ? rankFromScore(monthlyScore, catalog.ranks) : void 0,
+        wallet: settledWallet
+      });
+    } catch (err) {
+      console.error("Error submitting score:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  return router;
+}
+var leaderboardRouter = createLeaderboardRouter();
+
 // server/routes/achievements.ts
+import { Router as Router2 } from "express";
 var defaultDeps2 = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
 function createAchievementsRouter(deps = defaultDeps2) {
   const router = Router2();
@@ -997,6 +1108,7 @@ function createAchievementsRouter(deps = defaultDeps2) {
           maxProgress,
           rewardCoins: def.rewardCoins,
           rewardSp: def.rewardSp,
+          rewardGems: def.rewardGems ?? 0,
           rewardBadge: def.rewardBadge,
           progress,
           unlocked,
@@ -1086,6 +1198,7 @@ function createAchievementsRouter(deps = defaultDeps2) {
       const saves = await deps.collection("cloud_saves");
       const wallet = await creditClaimReward(userId, `achievement:${achievementId}`, {
         coins: def.rewardCoins,
+        gems: def.rewardGems ?? 0,
         skillPoints: def.rewardSp
       }, saves);
       if (!wallet) return res.status(400).json({ success: false, error: "Reward already claimed" });
@@ -1096,6 +1209,7 @@ function createAchievementsRouter(deps = defaultDeps2) {
         achievementId,
         rewardCoins: def.rewardCoins,
         rewardSp: def.rewardSp,
+        rewardGems: def.rewardGems ?? 0,
         rewardBadge: def.rewardBadge,
         saveData: wallet.saveData,
         revision: wallet.revision
@@ -1154,6 +1268,7 @@ function createMissionsRouter(deps = defaultDeps3) {
           goal,
           rewardCoins: def.rewardCoins,
           rewardSp: def.rewardSp,
+          rewardGems: def.rewardGems ?? 0,
           rewardBadge: def.rewardBadge,
           periodKey: activeKey,
           progress,
@@ -1240,6 +1355,7 @@ function createMissionsRouter(deps = defaultDeps3) {
       const saves = await deps.collection("cloud_saves");
       const wallet = await creditClaimReward(userId, `mission:${activeKey}:${missionId}`, {
         coins: def.rewardCoins,
+        gems: def.rewardGems ?? 0,
         skillPoints: def.rewardSp
       }, saves);
       if (!wallet) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
@@ -1250,6 +1366,7 @@ function createMissionsRouter(deps = defaultDeps3) {
         missionId,
         rewardCoins: def.rewardCoins,
         rewardSp: def.rewardSp,
+        rewardGems: def.rewardGems ?? 0,
         rewardBadge: def.rewardBadge,
         saveData: wallet.saveData,
         revision: wallet.revision
@@ -1291,6 +1408,15 @@ function normalizeDailyRewards(input) {
       iconType
     };
   });
+}
+function normalizePrizeCatalog(input, defaults) {
+  const rows = mergeRewardDefaults(Array.isArray(input) && input.length ? input : defaults, defaults);
+  return rows.map((item) => ({
+    ...item,
+    rewardCoins: Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins) || 0))),
+    rewardGems: Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardGems) || 0))),
+    ..."rewardSp" in item ? { rewardSp: Math.max(0, Math.min(1e4, Math.floor(Number(item.rewardSp) || 0))) } : {}
+  }));
 }
 function normalizeMenuConfig(input) {
   const row = input && typeof input === "object" ? input : {};
@@ -1381,10 +1507,10 @@ adminRouter.get("/config", async (_req, res) => {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
         vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
-        missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
-        achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
-        badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
-        ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
+        missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
+        achievements: normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS),
+        badges: normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES),
+        ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
         waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves
@@ -1420,10 +1546,10 @@ adminRouter.post("/config", async (req2, res) => {
       vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
-      missions: Array.isArray(missions) ? missions : existing?.missions || DEFAULT_MISSIONS,
-      achievements: Array.isArray(achievements) ? achievements : existing?.achievements || DEFAULT_ACHIEVEMENTS,
-      badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
-      ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
+      missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
+      achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),
+      badges: normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES),
+      ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG.waves,
@@ -1502,6 +1628,11 @@ var defaultDeps4 = {
   resolveUser: resolveRequestUser,
   collection: getCollection,
   rewards: getActiveDailyRewards,
+  vipTiers: async () => {
+    const col = await getCollection("admin_config");
+    const doc = await col.findOne({ configKey: "game_config" });
+    return doc?.vipTiers?.length ? doc.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers || [];
+  },
   allowedSkinIds: async () => {
     const catalog = await loadQuestCatalog();
     return /* @__PURE__ */ new Set([...catalog.slicers.map((item) => item.id), ...WALL_SKINS.map((item) => item.id)]);
@@ -1522,6 +1653,22 @@ async function getActiveDailyRewards() {
   }
   return DEFAULT_ADMIN_CONFIG.dailyRewards;
 }
+async function withVipDailyBonus(userId, rewards, deps) {
+  if (!deps.vipTiers) return rewards;
+  const saves = await deps.collection("cloud_saves");
+  const wallet = await saves.findOne({ userId });
+  const status = wallet?.saveData?.vipStatus;
+  const vip = (await deps.vipTiers()).find((tier) => tier.tier === status);
+  if (!vip) return rewards;
+  const coinBonus = Math.max(0, Math.min(1e6, Math.floor(Number(vip.dailyCoins) || 0)));
+  const skillBonus = Math.max(0, Math.min(1e4, Math.floor(Number(vip.dailySp) || 0)));
+  return rewards.map((reward) => ({
+    ...reward,
+    coins: Math.min(1e6, reward.coins + coinBonus),
+    skillPoints: Math.min(1e4, reward.skillPoints + skillBonus),
+    label: `${reward.label} \xB7 VIP +${coinBonus} Coins${skillBonus ? ` +${skillBonus} SP` : ""}`
+  }));
+}
 function getDayKey2(date = /* @__PURE__ */ new Date()) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
@@ -1535,7 +1682,7 @@ function createDailyRouter(deps = defaultDeps4) {
       const todayStr = getDayKey2();
       const col = await deps.collection("daily_bonus");
       const existing = await col.findOne({ userId });
-      const activeRewards = await deps.rewards();
+      const activeRewards = await withVipDailyBonus(userId, await deps.rewards(), deps);
       let currentStreak = existing?.streak || 0;
       let canClaim = false;
       if (!existing || !existing.lastClaimDate) {
@@ -1576,7 +1723,7 @@ function createDailyRouter(deps = defaultDeps4) {
       const todayStr = getDayKey2();
       const col = await deps.collection("daily_bonus");
       const existing = await col.findOne({ userId });
-      const activeRewards = await deps.rewards();
+      const activeRewards = await withVipDailyBonus(userId, await deps.rewards(), deps);
       let newStreak = 1;
       if (existing && existing.lastClaimDate) {
         const lastDate = new Date(existing.lastClaimDate);
@@ -2101,8 +2248,7 @@ steamRouter.get("/callback", async (req2, res) => {
               avatar: summary.avatarFull,
               profileComplete: true,
               authProvider: sessionUser.passwordHash ? "steam+email" : "steam",
-              updatedAt: /* @__PURE__ */ new Date(),
-              ...sessionUser.steamBonusGranted ? {} : { steamBonusGranted: true }
+              updatedAt: /* @__PURE__ */ new Date()
             }
           }
         );
@@ -2129,7 +2275,7 @@ steamRouter.get("/callback", async (req2, res) => {
         authProvider: "steam",
         emailVerified: false,
         profileComplete: true,
-        steamBonusGranted: true,
+        steamBonusGranted: false,
         createdAt: now,
         updatedAt: now
       };
@@ -2155,6 +2301,10 @@ steamRouter.get("/callback", async (req2, res) => {
         }
       );
       user = await users.findOne({ userId: user.userId });
+    }
+    if (bonus && user) {
+      await creditClaimReward(user.userId, "steam-welcome", { coins: 500, skillPoints: 1 });
+      await users.updateOne({ userId: user.userId }, { $set: { steamBonusGranted: true, updatedAt: /* @__PURE__ */ new Date() } });
     }
     const token = await createSession(user.userId);
     const needsEmail = !user.emailVerified;
@@ -2335,19 +2485,33 @@ badgesRouter.get("/", async (req2, res) => {
     const defs = catalog.badges.filter((b) => b.enabled !== false);
     const col = await getCollection("badges");
     const docs = await col.find({ userId }).toArray();
+    const wallet = await (await getCollection("cloud_saves")).findOne({ userId });
+    const receipts = new Set(wallet?.claimReceipts || []);
+    const rewardedBadgeIds = /* @__PURE__ */ new Set();
+    for (const mission of catalog.missions) {
+      if (mission.rewardBadge && [...receipts].some((receipt) => receipt.startsWith("mission:") && receipt.endsWith(`:${mission.id}`))) {
+        rewardedBadgeIds.add(mission.rewardBadge);
+      }
+    }
+    for (const achievement of catalog.achievements) {
+      if (achievement.rewardBadge && receipts.has(`achievement:${achievement.id}`)) rewardedBadgeIds.add(achievement.rewardBadge);
+    }
     const map = new Map(docs.map((d) => [d.badgeId, d]));
     const badges = defs.map((def) => {
       const doc = map.get(def.id);
       const maxProgress = def.requirement?.goal || 1;
       const progress = Math.min(doc?.progress || 0, maxProgress);
-      const unlocked = !!doc?.unlocked || progress >= maxProgress;
+      const unlocked = !!doc?.unlocked || progress >= maxProgress || rewardedBadgeIds.has(def.id);
       return {
         id: def.id,
         title: def.title,
         desc: def.desc,
         icon: def.icon,
         rarity: def.rarity,
-        progress,
+        rewardCoins: def.rewardCoins ?? 0,
+        rewardGems: def.rewardGems ?? 0,
+        claimed: receipts.has(`badge:${def.id}`),
+        progress: rewardedBadgeIds.has(def.id) ? maxProgress : progress,
         maxProgress,
         unlocked
       };
@@ -2357,6 +2521,35 @@ badgesRouter.get("/", async (req2, res) => {
       badges,
       unlocked: badges.filter((b) => b.unlocked).length
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+badgesRouter.post("/claim", async (req2, res) => {
+  try {
+    const user = await resolveRequestUser(req2);
+    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim badge rewards" });
+    const badgeId = req2.body?.badgeId;
+    if (typeof badgeId !== "string") return res.status(400).json({ success: false, error: "Invalid badge id" });
+    const catalog = await loadQuestCatalog();
+    const def = catalog.badges.find((badge2) => badge2.id === badgeId && badge2.enabled !== false);
+    if (!def) return res.status(404).json({ success: false, error: "Badge not found" });
+    const badges = await getCollection("badges");
+    const badge = await badges.findOne({ userId: user.userId, badgeId });
+    const walletCol = await getCollection("cloud_saves");
+    const currentWallet = await walletCol.findOne({ userId: user.userId });
+    const receipts = currentWallet?.claimReceipts || [];
+    const missionReceiptUnlock = catalog.missions.some((mission) => mission.rewardBadge === badgeId && receipts.some((receipt) => receipt.startsWith("mission:") && receipt.endsWith(`:${mission.id}`)));
+    const achievementReceiptUnlock = catalog.achievements.some((achievement) => achievement.rewardBadge === badgeId && receipts.includes(`achievement:${achievement.id}`));
+    if (!badge?.unlocked && (badge?.progress ?? 0) < (def.requirement?.goal ?? 1) && !missionReceiptUnlock && !achievementReceiptUnlock) {
+      return res.status(422).json({ success: false, error: "Badge has not been unlocked" });
+    }
+    const wallet = await creditClaimReward(user.userId, `badge:${badgeId}`, {
+      coins: def.rewardCoins ?? 0,
+      gems: def.rewardGems ?? 0
+    });
+    if (!wallet) return res.status(409).json({ success: false, error: "Badge reward already claimed" });
+    res.json({ success: true, badgeId, rewardCoins: def.rewardCoins ?? 0, rewardGems: def.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2407,6 +2600,11 @@ badgesRouter.post("/progress", async (req2, res) => {
 
 // server/routes/items.ts
 import { Router as Router10 } from "express";
+var VIP_FALLBACK = {
+  bronze: { price: 500, coins: 1e3 },
+  silver: { price: 1500, coins: 2500 },
+  gold: { price: 5e3, coins: 5e3 }
+};
 var defaultDeps6 = {
   resolveUser: resolveRequestUser,
   collection: getCollection,
@@ -2426,7 +2624,7 @@ function createItemsRouter(deps = defaultDeps6) {
       if (!user) return res.status(401).json({ success: false, error: "Sign in to manage gear" });
       const action = req2.body?.action;
       const id = req2.body?.id;
-      if (!["buy", "equip", "unequip", "sell"].includes(action) || typeof id !== "string" || id.length > 120) {
+      if (!["buy", "equip", "unequip", "sell", "buy-vip", "buy-skill"].includes(action) || typeof id !== "string" || id.length > 120) {
         return res.status(400).json({ success: false, error: "Invalid gear action" });
       }
       const slicers = await deps.slicers();
@@ -2434,7 +2632,7 @@ function createItemsRouter(deps = defaultDeps6) {
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith("hero:") ? id.slice(5) : null;
       const hero = heroId && HEROES2.find((item) => item.id === heroId);
-      if (!slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
+      if (!["buy-vip", "buy-skill"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
       const col = await deps.collection("cloud_saves");
       const current = await col.findOne({ userId: user.userId });
       const currentRevision = serverRevision2(current?.revision);
@@ -2442,6 +2640,28 @@ function createItemsRouter(deps = defaultDeps6) {
       const ownedSkins = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
       const ownedHeroes = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
       const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
+      if (action === "buy-vip") {
+        if (!["bronze", "silver", "gold"].includes(id)) return res.status(400).json({ success: false, error: "Invalid VIP tier" });
+        const tier = id;
+        const configCol = await deps.collection("admin_config");
+        const config = await configCol.findOne({ configKey: "game_config" });
+        const configuredPrice = Number(config?.vipTiers?.find((entry) => entry?.tier === tier)?.price);
+        const price = Number.isSafeInteger(configuredPrice) && configuredPrice >= 0 && configuredPrice <= 1e6 ? configuredPrice : VIP_FALLBACK[tier].price;
+        const tiers = ["none", "bronze", "silver", "gold"];
+        const currentTier = tiers.indexOf(saveData.vipStatus || "none");
+        if (currentTier >= tiers.indexOf(tier)) return res.status(409).json({ success: false, error: "Already own this VIP tier or higher" });
+        if (!Number.isSafeInteger(saveData.gems) || saveData.gems < price) return res.status(422).json({ success: false, error: "Not enough gems" });
+        saveData.gems -= price;
+        saveData.vipStatus = tier;
+        saveData.coins = Math.min(1e6, (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + VIP_FALLBACK[tier].coins);
+      } else if (action === "buy-skill") {
+        const skill = SKILLS2.find((entry) => entry.id === id);
+        if (!skill) return res.status(404).json({ success: false, error: "Skill not found" });
+        if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: "Not enough skill points" });
+        if (!saveData.skills || !Number.isSafeInteger(saveData.skills[id]) || saveData.skills[id] >= skill.max) return res.status(409).json({ success: false, error: "Skill is already at maximum rank" });
+        saveData.skillPoints -= 1;
+        saveData.skills[id] += 1;
+      }
       if (action === "buy") {
         if (hero) {
           const result = purchaseHeroAtomic(saveData, hero.id);
@@ -2468,7 +2688,7 @@ function createItemsRouter(deps = defaultDeps6) {
         if (slicer && saveData.bladeSkin === id) saveData.bladeSkin = "";
         else if (wall && saveData.wallSkin === id) saveData.wallSkin = "";
         else return res.status(409).json({ success: false, error: "Gear is not equipped" });
-      } else {
+      } else if (action === "sell") {
         if (hero) return res.status(422).json({ success: false, error: "Heroes cannot be sold" });
         const sellValue = slicer?.sellValue ?? wall?.sellValue ?? 0;
         if (!owned) return res.status(403).json({ success: false, error: "Gear is not owned" });
@@ -2476,7 +2696,7 @@ function createItemsRouter(deps = defaultDeps6) {
           return res.status(422).json({ success: false, error: "Starter gear cannot be sold" });
         }
         saveData.ownedSkins = ownedSkins.filter((ownedId) => ownedId !== id);
-        saveData.coins = (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + sellValue;
+        saveData.coins = Math.min(1e6, (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + sellValue);
         if (saveData.bladeSkin === id) saveData.bladeSkin = "";
         if (saveData.wallSkin === id) saveData.wallSkin = "";
       }

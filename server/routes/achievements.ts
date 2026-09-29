@@ -44,6 +44,7 @@ router.get('/', async (req: Request, res: Response) => {
         maxProgress,
         rewardCoins: def.rewardCoins,
         rewardSp: def.rewardSp,
+        rewardGems: def.rewardGems ?? 0,
         rewardBadge: def.rewardBadge,
         progress,
         unlocked,
@@ -146,6 +147,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
     const wallet = await creditClaimReward(userId, `achievement:${achievementId}`, {
       coins: def.rewardCoins,
+      gems: def.rewardGems ?? 0,
       skillPoints: def.rewardSp,
     }, saves);
     if (!wallet) return res.status(400).json({ success: false, error: 'Reward already claimed' });
@@ -158,6 +160,7 @@ router.post('/claim', async (req: Request, res: Response) => {
       achievementId,
       rewardCoins: def.rewardCoins,
       rewardSp: def.rewardSp,
+      rewardGems: def.rewardGems ?? 0,
       rewardBadge: def.rewardBadge,
       saveData: wallet.saveData,
       revision: wallet.revision,

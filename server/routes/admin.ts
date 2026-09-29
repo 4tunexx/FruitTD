@@ -7,6 +7,7 @@ import {
   DEFAULT_BADGES,
   DEFAULT_MISSIONS,
   DEFAULT_RANK_TIERS,
+  mergeRewardDefaults,
   monthlyLeaderboardMode,
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
@@ -85,6 +86,19 @@ function normalizeDailyRewards(input: unknown): AdminConfigDoc['dailyRewards'] {
       iconType,
     };
   });
+}
+
+function normalizePrizeCatalog<T extends { id: string; rewardCoins?: number; rewardGems?: number; rewardSp?: number }>(
+  input: unknown,
+  defaults: T[],
+): T[] {
+  const rows = mergeRewardDefaults(Array.isArray(input) && input.length ? input as T[] : defaults, defaults);
+  return rows.map((item) => ({
+    ...item,
+    rewardCoins: Math.max(0, Math.min(1_000_000, Math.floor(Number(item.rewardCoins) || 0))),
+    rewardGems: Math.max(0, Math.min(1_000_000, Math.floor(Number(item.rewardGems) || 0))),
+    ...('rewardSp' in item ? { rewardSp: Math.max(0, Math.min(10_000, Math.floor(Number(item.rewardSp) || 0))) } : {}),
+  }));
 }
 
 function normalizeMenuConfig(input: unknown): AdminConfigDoc['menuConfig'] {
@@ -182,10 +196,10 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
         vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
-        missions: Array.isArray(cfg.missions) && cfg.missions.length ? cfg.missions : DEFAULT_MISSIONS,
-        achievements: Array.isArray(cfg.achievements) && cfg.achievements.length ? cfg.achievements : DEFAULT_ACHIEVEMENTS,
-        badges: Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : DEFAULT_BADGES,
-        ranks: Array.isArray(cfg.ranks) && cfg.ranks.length ? cfg.ranks : DEFAULT_RANK_TIERS,
+        missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
+        achievements: normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS),
+        badges: normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES),
+        ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
         waves: cfg.waves && typeof cfg.waves === 'object' ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
@@ -227,10 +241,10 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
-      missions: Array.isArray(missions) ? missions : existing?.missions || DEFAULT_MISSIONS,
-      achievements: Array.isArray(achievements) ? achievements : existing?.achievements || DEFAULT_ACHIEVEMENTS,
-      badges: Array.isArray(badges) ? badges : existing?.badges || DEFAULT_BADGES,
-      ranks: Array.isArray(ranks) ? ranks : existing?.ranks || DEFAULT_RANK_TIERS,
+      missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
+      achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),
+      badges: normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES),
+      ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       waves: waves && typeof waves === 'object' ? waves : (existing?.waves || DEFAULT_ADMIN_CONFIG.waves),

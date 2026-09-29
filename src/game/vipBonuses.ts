@@ -3,9 +3,9 @@ import { getLiveConfig } from '../services/liveConfig';
 import type { VipTierRewards } from '../services/admin';
 
 const FALLBACK_VIP_COSTS: Record<'bronze' | 'silver' | 'gold', number> = {
-  bronze: 100,
-  silver: 250,
-  gold: 500,
+  bronze: 500,
+  silver: 1500,
+  gold: 5000,
 };
 
 const FALLBACK_VIP_COIN_GRANTS: Record<'bronze' | 'silver' | 'gold', number> = {
@@ -40,7 +40,7 @@ export function vipXpMultiplier(): number {
 export function vipTierPrice(tier: 'bronze' | 'silver' | 'gold'): number {
   const found = (getLiveConfig().vipTiers || []).find((t) => t.tier === tier);
   const price = Number(found?.price);
-  if (Number.isFinite(price) && price > 0) return Math.floor(price);
+  if (Number.isFinite(price) && price >= 0) return Math.floor(price);
   return FALLBACK_VIP_COSTS[tier];
 }
 

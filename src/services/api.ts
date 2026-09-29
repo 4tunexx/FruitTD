@@ -24,6 +24,7 @@ export interface AchievementItem {
   maxProgress: number;
   rewardCoins: number;
   rewardSp: number;
+  rewardGems?: number;
   unlocked: boolean;
   claimed: boolean;
 }
@@ -40,6 +41,7 @@ export interface MissionItem {
   claimed: boolean;
   rewardCoins: number;
   rewardSp: number;
+  rewardGems?: number;
   rewardBadge?: string;
 }
 
@@ -122,6 +124,7 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 
 // ----------------- LEADERBOARD -----------------
 let activeRunToken: Promise<string | null> | null = null;
+let runSettlementInFlight: Promise<unknown> | null = null;
 
 export function startLeaderboardRun(mode: string): void {
   activeRunToken = apiRequest<{ success: boolean; runToken: string }>('/api/leaderboard/run', {
@@ -139,6 +142,8 @@ export async function submitScore(payload: {
   wave: number;
   fruitsSliced: number;
   maxCombo: number;
+  rewards?: { coins: number; gems: number; heroXp: number; towerXp: number; skillPoints: number };
+  completed?: boolean;
   steamId?: string;
   steamPersona?: string;
   steamAvatar?: string;
@@ -146,40 +151,66 @@ export async function submitScore(payload: {
   isNewHigh: boolean;
   rank: number;
   monthlyRank?: { id: string; title: string; minScore: number; color: string; icon: string };
+  wallet?: { saveData: Record<string, any>; revision: number };
 } | null> {
   const tokenPromise = activeRunToken;
   activeRunToken = null;
   const runToken = tokenPromise ? await tokenPromise : null;
   if (!runToken) return null;
-  const res = await apiRequest<{
+  if (syncInFlight) await syncInFlight;
+  const request = apiRequest<{
     success: boolean;
     isNewHigh: boolean;
     rank: number;
     monthlyRank?: { id: string; title: string; minScore: number; color: string; icon: string };
+    wallet?: { saveData: Record<string, any>; revision: number };
   }>('/api/leaderboard', {
     method: 'POST',
     body: JSON.stringify({ ...payload, runToken }),
   });
+  runSettlementInFlight = request;
+  const res = await request;
+  if (runSettlementInFlight === request) runSettlementInFlight = null;
   return res && res.success
-    ? { isNewHigh: res.isNewHigh, rank: res.rank, monthlyRank: res.monthlyRank }
+    ? { isNewHigh: res.isNewHigh, rank: res.rank, monthlyRank: res.monthlyRank, wallet: res.wallet }
     : null;
+}
+
+export function adoptAuthoritativeSave(revision: number): void {
+  if (Number.isSafeInteger(revision) && revision >= 0) {
+    cloudRevision = revision;
+    cloudRevisionAuthToken = getAuthToken();
+  }
 }
 
 export async function fetchMonthlyRank(): Promise<{
   season: string;
   score: number;
-  rank: { id: string; title: string; minScore: number; color: string; icon: string };
+  rank: { id: string; title: string; minScore: number; color: string; icon: string; rewardCoins?: number; rewardGems?: number };
   next?: { id: string; title: string; minScore: number; color: string; icon: string } | null;
+  claimed: boolean;
+  hasEntry: boolean;
+  claimedRankIds: string[];
 } | null> {
   const userId = getUserId();
   const res = await apiRequest<{
     success: boolean;
     season: string;
     score: number;
-    rank: { id: string; title: string; minScore: number; color: string; icon: string };
+    rank: { id: string; title: string; minScore: number; color: string; icon: string; rewardCoins?: number; rewardGems?: number };
     next?: { id: string; title: string; minScore: number; color: string; icon: string } | null;
+    claimed: boolean;
+    hasEntry: boolean;
+    claimedRankIds: string[];
   }>(`/api/leaderboard/monthly-rank?userId=${encodeURIComponent(userId)}`);
   return res && res.success ? res : null;
+}
+
+export async function claimMonthlyRank(rankId?: string): Promise<{ saveData: Record<string, any>; revision: number } | null> {
+  const res = await apiRequest<{ success: boolean; saveData: Record<string, any>; revision: number }>('/api/leaderboard/monthly-rank/claim', {
+    method: 'POST', body: JSON.stringify(rankId ? { rankId } : {}),
+  });
+  return res?.success && res.saveData && Number.isSafeInteger(res.revision) ? acceptClaimWallet(res) : null;
 }
 
 export async function fetchLeaderboard(mode = 'ranked', limit = 50): Promise<{
@@ -222,16 +253,16 @@ export async function updateAchievementProgress(
 
 export async function claimAchievement(
   achievementId: string
-): Promise<{ rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number } | null> {
+): Promise<{ rewardCoins: number; rewardSp: number; rewardGems: number; saveData: Record<string, any>; revision: number } | null> {
   const userId = getUserId();
-  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number }>(
+  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number; rewardGems: number; saveData: Record<string, any>; revision: number }>(
     '/api/achievements/claim',
     {
       method: 'POST',
       body: JSON.stringify({ userId, achievementId }),
     }
   );
-  return res && res.success ? acceptClaimWallet({ rewardCoins: res.rewardCoins, rewardSp: res.rewardSp, saveData: res.saveData, revision: res.revision }) : null;
+  return res && res.success ? acceptClaimWallet({ rewardCoins: res.rewardCoins, rewardSp: res.rewardSp, rewardGems: res.rewardGems ?? 0, saveData: res.saveData, revision: res.revision }) : null;
 }
 
 // ----------------- MISSIONS -----------------
@@ -259,13 +290,13 @@ export async function updateMissionProgress(
   return !!res?.success;
 }
 
-export async function claimMission(missionId: string): Promise<{ rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number } | null> {
+export async function claimMission(missionId: string): Promise<{ rewardCoins: number; rewardSp: number; rewardGems: number; saveData: Record<string, any>; revision: number } | null> {
   const userId = getUserId();
-  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number; saveData: Record<string, any>; revision: number }>('/api/missions/claim', {
+  const res = await apiRequest<{ success: boolean; rewardCoins: number; rewardSp: number; rewardGems: number; saveData: Record<string, any>; revision: number }>('/api/missions/claim', {
     method: 'POST',
     body: JSON.stringify({ userId, missionId }),
   });
-  return res && res.success ? acceptClaimWallet({ rewardCoins: res.rewardCoins, rewardSp: res.rewardSp, saveData: res.saveData, revision: res.revision }) : null;
+  return res && res.success ? acceptClaimWallet({ rewardCoins: res.rewardCoins, rewardSp: res.rewardSp, rewardGems: res.rewardGems ?? 0, saveData: res.saveData, revision: res.revision }) : null;
 }
 
 // ----------------- DAILY BONUS -----------------
@@ -356,11 +387,22 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
   const authToken = getAuthToken();
   if (!authToken) return Promise.resolve(false);
   if (cloudRevisionAuthToken !== authToken) cloudRevision = null;
-  pendingSave = { userId: getUserId(), saveData: structuredClone(saveData) };
+  // Only profile-owned fields travel through generic sync. Balances,
+  // progression, inventory and loadout are written by their dedicated server
+  // actions; including local copies here would make the whole save conflict.
+  pendingSave = {
+    userId: getUserId(),
+    saveData: {
+      nickname: String(saveData.nickname || '').slice(0, 64),
+      avatar: typeof saveData.avatar === 'string' ? saveData.avatar.slice(0, 900_000) : '',
+      mode: ['casual', 'ranked', 'coop', 'arena'].includes(saveData.mode) ? saveData.mode : 'casual',
+    },
+  };
   if (!syncInFlight) {
     syncInFlight = (async () => {
       let success = true;
       while (pendingSave) {
+        if (runSettlementInFlight) await runSettlementInFlight;
         const snapshot = pendingSave;
         pendingSave = null;
         if (snapshot.userId !== getUserId() || !getAuthToken()) continue;
@@ -382,7 +424,7 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
   return syncInFlight;
 }
 
-export type CatalogueAction = 'buy' | 'equip' | 'unequip' | 'sell';
+export type CatalogueAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill';
 
 /** Server-authoritative shop/loadout mutation. The returned wallet replaces local state. */
 export async function performCatalogueAction(
@@ -393,6 +435,7 @@ export async function performCatalogueAction(
   // Serialize wallet actions behind any in-flight profile sync so a just-saved
   // profile cannot race the catalogue action's revision compare-and-swap.
   if (syncInFlight) await syncInFlight;
+  if (runSettlementInFlight) await runSettlementInFlight;
   const response = await apiRequest<{
     success: boolean;
     saveData: Record<string, any>;
@@ -405,4 +448,8 @@ export async function performCatalogueAction(
   cloudRevision = response.revision;
   cloudRevisionAuthToken = getAuthToken();
   return { saveData: response.saveData, revision: response.revision };
+}
+
+export async function performWalletAction(action: 'buy-vip' | 'buy-skill', id: string): Promise<{ saveData: Record<string, any>; revision: number } | null> {
+  return performCatalogueAction(action, id);
 }

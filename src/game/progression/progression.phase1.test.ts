@@ -370,6 +370,17 @@ test('special enemy multipliers actually reach the reward system', () => {
   assert.ok(splitter.score > normal.score);
 });
 
+test('boss kills award a premium gem through the same progression pipeline', () => {
+  const normal = calculateReward({ type: 'fruit_sliced', baseScore: 10 });
+  const boss = calculateReward({ type: 'boss_defeated', baseScore: 10 });
+  assert.equal(normal.gems, 0);
+  assert.equal(boss.gems, 1);
+  const save = freshSave();
+  const result = applyRewards(save, boss);
+  assert.equal(save.gems, 1);
+  assert.equal(result.gemsGained, 1);
+});
+
 test('combo increases rewards up to a fair cap', () => {
   const none = calculateReward({ type: 'fruit_sliced', baseScore: 100, combo: 0 });
   const some = calculateReward({ type: 'fruit_sliced', baseScore: 100, combo: 10 });

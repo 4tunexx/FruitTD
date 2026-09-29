@@ -1,4 +1,5 @@
-import { getUserId } from './api';
+import { adoptAuthoritativeSave, getUserId } from './api';
+import { getAuthToken } from './auth';
 import { showAchievementToast } from './achievements';
 
 export interface BadgeItem {
@@ -10,13 +11,17 @@ export interface BadgeItem {
   progress: number;
   maxProgress: number;
   unlocked: boolean;
+  claimed: boolean;
+  rewardCoins: number;
+  rewardGems: number;
 }
 
 async function apiJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
     const res = await fetch(url, {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}), ...(options?.headers || {}) },
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
@@ -31,6 +36,15 @@ export async function fetchBadges(): Promise<{ badges: BadgeItem[]; unlocked: nu
     `/api/badges?userId=${encodeURIComponent(userId)}`
   );
   return res && res.success ? { badges: res.badges, unlocked: res.unlocked } : null;
+}
+
+export async function claimBadge(badgeId: string): Promise<{ saveData: Record<string, any>; revision: number } | null> {
+  const res = await apiJson<{ success: boolean; saveData: Record<string, any>; revision: number }>('/api/badges/claim', {
+    method: 'POST', body: JSON.stringify({ badgeId }),
+  });
+  if (!res?.success || !res.saveData || !Number.isSafeInteger(res.revision)) return null;
+  adoptAuthoritativeSave(res.revision);
+  return res;
 }
 
 const unlockedBadges = new Set<string>();

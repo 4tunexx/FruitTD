@@ -36,7 +36,7 @@ import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
-import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, type CatalogueAction } from './services/api';
+import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, adoptAuthoritativeSave, type CatalogueAction } from './services/api';
 import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
 import { reportGameEvent } from './services/progress';
@@ -45,6 +45,7 @@ import { getCachedSteamState } from './services/steam';
 import type { GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
+import { syncTowerProgression } from './game/towerProgression';
 import { getTowerMilestoneBonuses } from './game/towerMilestones';
 import { navigation } from './game/navigation';
 import { canEquipHero, purchaseHeroAtomic } from './game/progression/heroStatus';
@@ -150,6 +151,7 @@ let totalFruitsSliced = 0;
 let sessionMaxCombo = 0;
 let sessionLeaks = 0;
 let rewardSavePending = false;
+let matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
 
 function emit(event: GameEvent): void {
   void reportGameEvent({
@@ -237,6 +239,11 @@ hud.onBuySkill = (id) => buySkill(id);
 hud.onSaveUpdate = (newSave) => {
   Object.assign(save, newSave);
   persist();
+  const authToken = getAuthToken();
+  if (authToken && authToken !== cloudHydrationToken) {
+    cloudHydrationToken = authToken;
+    void fetchCloudSave().then(applyCloudSave);
+  }
 };
 hud.onRename = (name) => {
   save.nickname = name.slice(0, 16);
@@ -246,10 +253,37 @@ hud.onRename = (name) => {
 };
 hud.onSuper = () => trySuper();
 
-void fetchCloudSave().then((remote) => {
+let cloudHydrationToken: string | null = getAuthToken();
+
+function applyCloudSave(remote: Record<string, any> | null): void {
   if (!remote) return;
-  const merged = mergeSaves(save, remote as Partial<SaveData>);
-  Object.assign(save, merged);
+  const cloud = remote as Partial<SaveData>;
+  const merged = mergeSaves(save, cloud);
+  // The cloud wallet and progression are authoritative for signed-in players;
+  // the legacy merge helper is retained for offline/guest save migration only.
+  Object.assign(save, getAuthToken() ? {
+    ...merged,
+    xp: cloud.xp ?? merged.xp,
+    ownedHeroes: cloud.ownedHeroes ?? merged.ownedHeroes,
+    towerXp: cloud.towerXp ?? merged.towerXp,
+    towerLifetimeXp: cloud.towerLifetimeXp ?? merged.towerLifetimeXp,
+    highScore: cloud.highScore ?? merged.highScore,
+    rankedScore: cloud.rankedScore ?? merged.rankedScore,
+    bestWave: cloud.bestWave ?? merged.bestWave,
+    bestCombo: cloud.bestCombo ?? merged.bestCombo,
+    games: cloud.games ?? merged.games,
+    coins: cloud.coins ?? merged.coins,
+    gems: cloud.gems ?? merged.gems,
+    skillPoints: cloud.skillPoints ?? merged.skillPoints,
+    skills: cloud.skills ?? merged.skills,
+    ownedSkins: cloud.ownedSkins ?? merged.ownedSkins,
+    hero: cloud.hero ?? merged.hero,
+    bladeSkin: cloud.bladeSkin ?? merged.bladeSkin,
+    wallSkin: cloud.wallSkin ?? merged.wallSkin,
+    heroPerkRanks: cloud.heroPerkRanks ?? merged.heroPerkRanks,
+    vipStatus: cloud.vipStatus ?? merged.vipStatus,
+  } : merged);
+  syncTowerProgression(save.towerXp, save.towerLifetimeXp);
   writeSave(save);
   state.hero = save.hero;
   state.heroXp = save.xp[save.hero] ?? 0;
@@ -257,7 +291,9 @@ void fetchCloudSave().then((remote) => {
   hud.mountMeta(save);
   applyEquippedBlade();
   refreshCurrentScreen();
-});
+}
+
+void fetchCloudSave().then(applyCloudSave);
 function equippedSlicer() {
   return findSlicer(getSlicers(), save.bladeSkin) || findSlicer(getEnabledSlicers(), save.bladeSkin);
 }
@@ -303,6 +339,7 @@ async function performSignedInCatalogueAction(action: CatalogueAction, id: strin
     toast(state, 'Could not update gear. Please try again.', 2.4);
     sfx.denied();
     refreshCurrentScreen();
+    void fetchCloudSave().then(applyCloudSave);
     return false;
   }
   Object.assign(save, result.saveData);
@@ -315,6 +352,7 @@ async function performSignedInCatalogueAction(action: CatalogueAction, id: strin
   writeSave(save);
   hud.refreshHeroPick(state.hero, save);
   hud.mountShop(save);
+  hud.mountSkills(save);
   refreshCurrentScreen();
   if (action === 'buy' || action === 'sell') sfx.place();
   else sfx.select();
@@ -429,7 +467,7 @@ function sellItem(id: string): void {
     return;
   }
   save.ownedSkins = save.ownedSkins.filter((x) => x !== id);
-  save.coins += sell;
+  save.coins = Math.min(1_000_000, save.coins + sell);
   if (save.bladeSkin === id) save.bladeSkin = '';
   if (save.wallSkin === id) save.wallSkin = '';
   if (!save.ownedSkins.includes('blade-default')) save.ownedSkins.push('blade-default');
@@ -442,6 +480,12 @@ function sellItem(id: string): void {
 
 // P1-2: VIP Purchase System
 function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('buy-vip', tier).then((ok) => {
+      if (ok) toast(state, `${tier.toUpperCase()} VIP unlocked`, 2.5);
+    });
+    return;
+  }
   const cost = vipTierPrice(tier);
   const currentStatus = save.vipStatus || 'none';
 
@@ -468,7 +512,7 @@ function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
 
   // Flat coin grant on purchase (schema has % bonuses, not purchase coins)
   const coins = vipTierPurchaseCoins(tier);
-  save.coins += coins;
+  save.coins = Math.min(1_000_000, save.coins + coins);
 
   toast(state, `${tier.toUpperCase()} VIP Unlocked! +${coins} coins`, 3);
   sfx.place();
@@ -499,6 +543,10 @@ function wallSkinApply(): void {
 }
 
 function buySkill(id: SkillId): void {
+  if (getAuthToken()) {
+    void performSignedInCatalogueAction('buy-skill', id);
+    return;
+  }
   const def = SKILLS.find((s) => s.id === id);
   if (!def || save.skillPoints <= 0 || (save.skills[id] ?? 0) >= def.max) {
     sfx.denied();
@@ -549,6 +597,11 @@ function award(event: RewardEvent): ProgressionResult {
   state.currency += Math.max(0, Math.round(reward.score * 0.6));
 
   const result = applyRewards(save, reward, { heroId: state.hero });
+  matchRewards.coins = Math.min(100_000, matchRewards.coins + result.coinsGained);
+  matchRewards.gems = Math.min(100, matchRewards.gems + result.gemsGained);
+  matchRewards.heroXp = Math.min(10_000, matchRewards.heroXp + result.heroXpGained);
+  matchRewards.towerXp = Math.min(10_000, matchRewards.towerXp + result.towerXpGained);
+  matchRewards.skillPoints = Math.min(100, matchRewards.skillPoints + result.perkPointsGained);
   state.heroXp = save.xp[state.hero] ?? 0;
   state.towerXp = save.towerXp;
   const towerState = getTowerXpState();
@@ -563,6 +616,7 @@ function award(event: RewardEvent): ProgressionResult {
 
 /** UI FEEDBACK step: level-ups, milestones and hero unlocks. */
 function announceProgression(result: ProgressionResult): void {
+  if (result.gemsGained > 0) toast(state, `+${result.gemsGained} GEM${result.gemsGained > 1 ? 'S' : ''} · BOSS BOUNTY`, 2.2);
   if (result.heroLeveledUp) {
     const heroName = heroDef(result.heroId).name;
     const parts = [`${heroName} Lv ${result.heroLevelAfter}`];
@@ -668,6 +722,47 @@ function showGameOverOverlay(): void {
   if (finalWave) finalWave.textContent = `Wave ${state.wave}`;
 }
 
+function submitCurrentRun(completed: boolean): Promise<void> {
+  const steamState = getCachedSteamState();
+  const feedbackEl = document.getElementById('lb-submit-feedback');
+  if (completed && feedbackEl) feedbackEl.innerHTML = '<span>Syncing score and rewards…</span>';
+  return submitScore({
+    nickname: save.nickname,
+    avatar: save.avatar,
+    hero: state.hero,
+    mode: state.mode,
+    score: state.score,
+    wave: state.wave,
+    fruitsSliced: totalFruitsSliced,
+    maxCombo: sessionMaxCombo,
+    rewards: { ...matchRewards },
+    completed,
+    steamId: steamState.steamId,
+    steamPersona: steamState.personaName,
+    steamAvatar: steamState.avatar,
+  }).then((res) => {
+    if (res?.wallet) {
+      Object.assign(save, res.wallet.saveData);
+      syncTowerProgression(save.towerXp, save.towerLifetimeXp);
+      adoptAuthoritativeSave(res.wallet.revision);
+      writeSave(save);
+      hud.mountMeta(save);
+      hud.mountShop(save);
+      hud.mountSkills(save);
+      hud.refreshHeroPick(state.hero, save);
+    } else if (!res && getAuthToken()) {
+      void fetchCloudSave().then(applyCloudSave);
+    }
+    if (res && feedbackEl && completed) {
+      const monthly = res.monthlyRank ? ` · Monthly ${res.monthlyRank.title}` : '';
+      feedbackEl.innerHTML = `<span class="font-bold text-lime-400">🏆 Global Rank: #${res.rank} ${res.isNewHigh ? '· NEW BEST SCORE!' : ''}${monthly}</span>`;
+    } else if (!res && feedbackEl && completed) {
+      feedbackEl.innerHTML = '<span class="text-slate-400">Score saved locally</span>';
+    }
+    if (completed) void hud.refreshMonthlyRank();
+  });
+}
+
 function maybeOver(): void {
   if (state.lives > 0) return;
   // Already ended — keep overlay visible (hud.sync must not fight this)
@@ -688,34 +783,7 @@ function maybeOver(): void {
 
   showGameOverOverlay();
 
-  // Submit score to MongoDB Atlas
-  const steamState = getCachedSteamState();
-  const feedbackEl = document.getElementById('lb-submit-feedback');
-  if (feedbackEl) feedbackEl.innerHTML = '<span>Syncing score to MongoDB Atlas...</span>';
-
-  submitScore({
-    nickname: save.nickname,
-    avatar: save.avatar,
-    hero: state.hero,
-    mode: state.mode,
-    score: state.score,
-    wave: state.wave,
-    fruitsSliced: totalFruitsSliced,
-    maxCombo: sessionMaxCombo,
-    steamId: steamState.steamId,
-    steamPersona: steamState.personaName,
-    steamAvatar: steamState.avatar,
-  }).then((res) => {
-    if (res && feedbackEl) {
-      const monthly = res.monthlyRank ? ` · Monthly ${res.monthlyRank.title}` : '';
-      feedbackEl.innerHTML = `<span class="font-bold text-lime-400">🏆 Global Rank: #${res.rank} ${
-        res.isNewHigh ? '· NEW BEST SCORE!' : ''
-      }${monthly}</span>`;
-    } else if (feedbackEl) {
-      feedbackEl.innerHTML = '<span class="text-slate-400">Score saved locally</span>';
-    }
-    void hud.refreshMonthlyRank();
-  });
+  void submitCurrentRun(true);
 
   emit({
     type: 'game_over',
@@ -804,6 +872,7 @@ function restart(): void {
   wall.cancelMove();
   guestCd = 1.6;
   totalFruitsSliced = 0;
+  matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
   sessionMaxCombo = 0;
   sessionLeaks = 0;
   emit({ type: 'game_start' });
@@ -1086,6 +1155,7 @@ function quitToMenu(): void {
   // The navigation guard owns the single confirmation; respect cancellation.
   if (navigation.state !== 'MAIN_MENU' && !navigation.setState('MAIN_MENU')) return;
   persist();
+  if (totalFruitsSliced > 0 || state.score > 0) void submitCurrentRun(false);
   state.running = false;
   wall.cancelMove();
   blade.consumeClick();

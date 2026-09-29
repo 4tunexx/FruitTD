@@ -14,12 +14,18 @@ export interface DailyRouteDeps {
   collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
   rewards(): Promise<DailyRewardTier[]>;
   allowedSkinIds(): Promise<ReadonlySet<string>>;
+  vipTiers?(): Promise<NonNullable<AdminConfigDoc['vipTiers']>>;
 }
 
 const defaultDeps: DailyRouteDeps = {
   resolveUser: resolveRequestUser,
   collection: getCollection,
   rewards: getActiveDailyRewards,
+  vipTiers: async () => {
+    const col = await getCollection<AdminConfigDoc>('admin_config');
+    const doc = await col.findOne({ configKey: 'game_config' });
+    return doc?.vipTiers?.length ? doc.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers || [];
+  },
   allowedSkinIds: async () => {
     const catalog = await loadQuestCatalog();
     return new Set([...catalog.slicers.map((item) => item.id), ...WALL_SKINS.map((item) => item.id)]);
@@ -53,6 +59,23 @@ export async function getActiveDailyRewards(): Promise<DailyRewardTier[]> {
   return DEFAULT_ADMIN_CONFIG.dailyRewards;
 }
 
+async function withVipDailyBonus(userId: string, rewards: DailyRewardTier[], deps: DailyRouteDeps): Promise<DailyRewardTier[]> {
+  if (!deps.vipTiers) return rewards;
+  const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
+  const wallet = await saves.findOne({ userId });
+  const status = wallet?.saveData?.vipStatus;
+  const vip = (await deps.vipTiers()).find((tier) => tier.tier === status);
+  if (!vip) return rewards;
+  const coinBonus = Math.max(0, Math.min(1_000_000, Math.floor(Number(vip.dailyCoins) || 0)));
+  const skillBonus = Math.max(0, Math.min(10_000, Math.floor(Number(vip.dailySp) || 0)));
+  return rewards.map((reward) => ({
+    ...reward,
+    coins: Math.min(1_000_000, reward.coins + coinBonus),
+    skillPoints: Math.min(10_000, reward.skillPoints + skillBonus),
+    label: `${reward.label} · VIP +${coinBonus} Coins${skillBonus ? ` +${skillBonus} SP` : ''}`,
+  }));
+}
+
 function getDayKey(date = new Date()): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
@@ -70,7 +93,7 @@ router.get('/', async (req: Request, res: Response) => {
     const todayStr = getDayKey();
     const col = await deps.collection<DailyBonusDoc>('daily_bonus');
     const existing = await col.findOne({ userId });
-    const activeRewards = await deps.rewards();
+    const activeRewards = await withVipDailyBonus(userId, await deps.rewards(), deps);
 
     let currentStreak = existing?.streak || 0;
     let canClaim = false;
@@ -123,7 +146,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     const todayStr = getDayKey();
     const col = await deps.collection<DailyBonusDoc>('daily_bonus');
     const existing = await col.findOne({ userId });
-    const activeRewards = await deps.rewards();
+    const activeRewards = await withVipDailyBonus(userId, await deps.rewards(), deps);
 
     let newStreak = 1;
     if (existing && existing.lastClaimDate) {

@@ -5,6 +5,7 @@ import { fetchSteamPlayerSummary } from '../steam';
 import { createSession, resolveSession } from '../auth';
 import { sanitizeSteamUsername } from '../username';
 import { unlockSteamAchievement, bearer } from './auth';
+import { creditClaimReward } from '../claimWallet';
 
 export const steamRouter = Router();
 
@@ -111,9 +112,6 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
               profileComplete: true,
               authProvider: sessionUser.passwordHash ? 'steam+email' : 'steam',
               updatedAt: new Date(),
-              ...(sessionUser.steamBonusGranted
-                ? {}
-                : { steamBonusGranted: true }),
             },
           }
         );
@@ -142,7 +140,7 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
         authProvider: 'steam',
         emailVerified: false,
         profileComplete: true,
-        steamBonusGranted: true,
+        steamBonusGranted: false,
         createdAt: now,
         updatedAt: now,
       };
@@ -169,6 +167,11 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
         }
       );
       user = (await users.findOne({ userId: user.userId }))!;
+    }
+
+    if (bonus && user) {
+      await creditClaimReward(user.userId, 'steam-welcome', { coins: 500, skillPoints: 1 });
+      await users.updateOne({ userId: user.userId }, { $set: { steamBonusGranted: true, updatedAt: new Date() } });
     }
 
     const token = await createSession(user.userId);

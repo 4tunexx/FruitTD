@@ -122,6 +122,7 @@ export function renderMissionEditor(container: HTMLElement, items: CatalogMissio
           </select>
         </label>
         <label><span>Coins</span><input type="number" class="admin-input m-coins" value="${item.rewardCoins}" min="0" /></label>
+        <label><span>Gems</span><input type="number" class="admin-input m-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
         <label><span>Skill Pts</span><input type="number" class="admin-input m-sp" value="${item.rewardSp}" min="0" /></label>
         <label><span>Badge ID</span><input class="admin-input m-badge" value="${escapeAttr(item.rewardBadge || '')}" placeholder="optional" /></label>
       </div>
@@ -141,6 +142,9 @@ export function renderMissionEditor(container: HTMLElement, items: CatalogMissio
     });
     card.querySelector('.m-coins')?.addEventListener('change', (e) => {
       item.rewardCoins = Number((e.target as HTMLInputElement).value) || 0;
+    });
+    card.querySelector('.m-gems')?.addEventListener('change', (e) => {
+      item.rewardGems = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
     });
     card.querySelector('.m-sp')?.addEventListener('change', (e) => {
       item.rewardSp = Number((e.target as HTMLInputElement).value) || 0;
@@ -170,6 +174,7 @@ export function addMission(items: CatalogMission[]): void {
     enabled: true,
     requirement: { type: 'slice_any', goal: 10 },
     rewardCoins: 100,
+    rewardGems: 0,
     rewardSp: 0,
   });
 }
@@ -190,6 +195,7 @@ export function renderAchievementEditor(container: HTMLElement, items: CatalogAc
         <label class="flex-1"><span>Description</span><input class="admin-input a-desc" value="${escapeAttr(item.desc)}" /></label>
         <label><span>Icon</span><input class="admin-input a-icon" value="${escapeAttr(item.icon)}" maxlength="4" /></label>
         <label><span>Coins</span><input type="number" class="admin-input a-coins" value="${item.rewardCoins}" min="0" /></label>
+        <label><span>Gems</span><input type="number" class="admin-input a-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
         <label><span>Skill Pts</span><input type="number" class="admin-input a-sp" value="${item.rewardSp}" min="0" /></label>
         <label><span>Badge ID</span><input class="admin-input a-badge" value="${escapeAttr(item.rewardBadge || '')}" /></label>
       </div>
@@ -206,6 +212,9 @@ export function renderAchievementEditor(container: HTMLElement, items: CatalogAc
     });
     card.querySelector('.a-coins')?.addEventListener('change', (e) => {
       item.rewardCoins = Number((e.target as HTMLInputElement).value) || 0;
+    });
+    card.querySelector('.a-gems')?.addEventListener('change', (e) => {
+      item.rewardGems = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
     });
     card.querySelector('.a-sp')?.addEventListener('change', (e) => {
       item.rewardSp = Number((e.target as HTMLInputElement).value) || 0;
@@ -255,6 +264,8 @@ export function renderBadgeEditor(container: HTMLElement, items: CatalogBadge[])
         <label class="flex-1"><span>Description</span><input class="admin-input b-desc" value="${escapeAttr(item.desc)}" /></label>
         <label><span>Icon</span><input class="admin-input b-icon" value="${escapeAttr(item.icon)}" maxlength="4" /></label>
         <label><span>ID</span><input class="admin-input b-id" value="${escapeAttr(item.id)}" /></label>
+        <label><span>Coins</span><input type="number" class="admin-input b-coins" value="${item.rewardCoins ?? 0}" min="0" /></label>
+        <label><span>Gems</span><input type="number" class="admin-input b-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
         <label><span>Rarity</span>
           <select class="admin-input b-rarity">
             <option value="common" ${item.rarity === 'common' ? 'selected' : ''}>Common</option>
@@ -274,6 +285,12 @@ export function renderBadgeEditor(container: HTMLElement, items: CatalogBadge[])
     });
     card.querySelector('.b-icon')?.addEventListener('change', (e) => {
       item.icon = (e.target as HTMLInputElement).value;
+    });
+    card.querySelector('.b-coins')?.addEventListener('change', (e) => {
+      item.rewardCoins = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
+    });
+    card.querySelector('.b-gems')?.addEventListener('change', (e) => {
+      item.rewardGems = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
     });
     card.querySelector('.b-id')?.addEventListener('change', (e) => {
       item.id = (e.target as HTMLInputElement).value.trim() || item.id;
@@ -302,6 +319,8 @@ export function addBadge(items: CatalogBadge[]): void {
     rarity: 'common',
     enabled: true,
     requirement: { type: 'slice_any', goal: 1 },
+    rewardCoins: 100,
+    rewardGems: 0,
   });
 }
 
@@ -323,6 +342,8 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
           <label><span>ID</span><input class="admin-input r-id" value="${escapeAttr(item.id)}" /></label>
           <label><span>Title</span><input class="admin-input r-title" value="${escapeAttr(item.title)}" /></label>
           <label><span>Min monthly score</span><input type="number" class="admin-input r-score" value="${item.minScore}" min="0" /></label>
+          <label><span>Coins</span><input type="number" class="admin-input r-coins" value="${item.rewardCoins ?? 0}" min="0" /></label>
+          <label><span>Gems</span><input type="number" class="admin-input r-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
           <label><span>Color</span><input type="color" class="admin-input admin-color r-color" value="${escapeAttr(item.color)}" /></label>
           <label><span>Icon</span><input class="admin-input r-icon" value="${escapeAttr(item.icon)}" maxlength="3" /></label>
         </div>
@@ -335,6 +356,12 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
       });
       card.querySelector('.r-score')?.addEventListener('change', (e) => {
         item.minScore = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
+      });
+      card.querySelector('.r-coins')?.addEventListener('change', (e) => {
+        item.rewardCoins = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
+      });
+      card.querySelector('.r-gems')?.addEventListener('change', (e) => {
+        item.rewardGems = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
       });
       card.querySelector('.r-color')?.addEventListener('change', (e) => {
         item.color = (e.target as HTMLInputElement).value;
@@ -351,7 +378,7 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
 }
 
 export function addRank(items: RankTier[]): void {
-  items.push({ id: newCatalogId('rank'), title: 'New Rank', minScore: 1000, color: '#a3e635', icon: 'R' });
+  items.push({ id: newCatalogId('rank'), title: 'New Rank', minScore: 1000, color: '#a3e635', icon: 'R', rewardCoins: 0, rewardGems: 0 });
 }
 
 function sliderField(

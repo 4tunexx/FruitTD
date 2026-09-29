@@ -20,6 +20,7 @@ import {
   fetchDailyBonusStatus,
   claimDailyBonus,
   fetchMonthlyRank,
+  claimMonthlyRank,
   type LeaderboardEntry,
   type MissionItem,
   type AchievementItem,
@@ -31,7 +32,6 @@ import {
   isSessionAuthed,
   setSessionAuthed,
   consumeAuthCallbackParams,
-  applySteamBonusIfNeeded,
 } from '../services/steam';
 import {
   loginWithEmail,
@@ -50,7 +50,7 @@ import {
 } from '../services/auth';
 import { bindTitleAuthButtons, showEmailAuthModal, syncTitleAuthState, type EmailAuthMode } from './authModal';
 import { showAchievementToast } from '../services/achievements';
-import { fetchBadges, type BadgeItem } from '../services/badges';
+import { fetchBadges, claimBadge, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getSlicers } from '../services/liveConfig';
 import { bootMenuParallax, syncMenuParallax } from './menuParallax';
 import { navigation } from '../game/navigation';
@@ -1298,7 +1298,7 @@ export class Hud {
       card.className = 'mission-card';
 
       const pct = Math.min(100, (m.progress / m.goal) * 100);
-      const rewardStr = `${m.rewardCoins} coins${m.rewardSp ? ` + ${m.rewardSp} SP` : ''}${m.rewardBadge ? ` · ${m.rewardBadge}` : ''}`;
+      const rewardStr = `${m.rewardCoins} coins${m.rewardGems ? ` + ${m.rewardGems} gems` : ''}${m.rewardSp ? ` + ${m.rewardSp} SP` : ''}${m.rewardBadge ? ` · ${m.rewardBadge}` : ''}`;
 
       card.innerHTML = `
         <div class="mission-top">
@@ -1333,7 +1333,7 @@ export class Hud {
             Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
-            showAchievementToast('Mission Complete!', m.title, '🎁', `${claimRes.rewardCoins} Coins`);
+            showAchievementToast('Mission Complete!', m.title, '🎁', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
             void reportGameEvent({ type: 'mission_claim' });
             this.renderMissions();
             this.renderBadges();
@@ -1377,7 +1377,7 @@ export class Hud {
       card.className = `ach-card${ach.unlocked ? ' is-unlocked' : ''}`;
 
       const pct = Math.min(100, (ach.progress / ach.maxProgress) * 100);
-      const rewardStr = `${ach.rewardCoins} 🪙${ach.rewardSp ? ` + ${ach.rewardSp} ⚡` : ''}`;
+      const rewardStr = `${ach.rewardCoins} 🪙${ach.rewardGems ? ` + ${ach.rewardGems} 💎` : ''}${ach.rewardSp ? ` + ${ach.rewardSp} ⚡` : ''}`;
 
       card.innerHTML = `
         <div class="ach-top">
@@ -1409,7 +1409,7 @@ export class Hud {
             Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
-            showAchievementToast('Trophy Claimed!', ach.title, '🏆', `${claimRes.rewardCoins} Coins`);
+            showAchievementToast('Trophy Claimed!', ach.title, '🏆', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
             this.renderAchievements();
           } else {
             claimBtn.disabled = false;
@@ -1452,9 +1452,26 @@ export class Hud {
         </div>
         <div class="ach-bottom">
           <span class="text-xs text-slate-400 font-bold">${badge.progress} / ${badge.maxProgress}</span>
-          <span class="reward-badge">${badge.unlocked ? 'Unlocked' : 'In progress'}</span>
+          <span class="reward-badge">${badge.unlocked ? `Unlocked${badge.rewardCoins || badge.rewardGems ? ` · ${badge.rewardCoins || 0} coins${badge.rewardGems ? ` + ${badge.rewardGems} gems` : ''}` : ''}` : 'In progress'}</span>
+          ${badge.unlocked && (badge.rewardCoins || badge.rewardGems) ? `<button class="claim-btn" ${badge.claimed ? 'disabled' : ''}>${badge.claimed ? 'Claimed' : 'Claim prize'}</button>` : ''}
         </div>
       `;
+      const prizeButton = card.querySelector('.claim-btn') as HTMLButtonElement | null;
+      prizeButton?.addEventListener('click', async () => {
+        prizeButton.disabled = true;
+        prizeButton.textContent = 'Claiming…';
+        const result = await claimBadge(badge.id);
+        if (result && this.currentSave) {
+          Object.assign(this.currentSave, result.saveData);
+          this.onSaveUpdate?.(this.currentSave);
+          this.mountMeta(this.currentSave);
+          showAchievementToast('Badge Prize!', badge.title, badge.icon, `${badge.rewardCoins || 0} Coins${badge.rewardGems ? ` · ${badge.rewardGems} Gems` : ''}`);
+          void this.renderBadges();
+        } else {
+          prizeButton.disabled = false;
+          prizeButton.textContent = 'Claim prize';
+        }
+      });
       listEl.appendChild(card);
     });
   }
@@ -1489,13 +1506,38 @@ export class Hud {
     tiersEl.innerHTML = tiers
       .map((tier) => {
         const reached = score >= tier.minScore;
+        const claimed = rank?.claimedRankIds.includes(tier.id) ?? false;
+        const prize = (tier.rewardCoins || tier.rewardGems)
+          ? `<button class="claim-btn rank-prize-btn" data-rank-id="${tier.id}" ${!rank?.hasEntry || !reached || claimed ? 'disabled' : ''}>${claimed ? 'Claimed' : `${tier.rewardCoins || 0} coins${tier.rewardGems ? ` + ${tier.rewardGems} gems` : ''}`}</button>`
+          : '';
         return `<div class="rank-tier-row${reached ? ' is-reached' : ''}${tier.id === current.id ? ' is-current' : ''}">
           <span class="rank-tier-icon" style="color:${tier.color}">${tier.icon}</span>
           <strong style="color:${tier.color}">${tier.title}</strong>
           <span>${tier.minScore.toLocaleString()} pts</span>
+          ${prize}
         </div>`;
       })
       .join('');
+
+    tiersEl.querySelectorAll<HTMLButtonElement>('.rank-prize-btn').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const tier = tiers.find((entry) => entry.id === button.dataset.rankId);
+        if (!tier) return;
+        button.disabled = true;
+        button.textContent = 'Claiming…';
+        const result = await claimMonthlyRank(tier.id);
+        if (result && this.currentSave) {
+          Object.assign(this.currentSave, result.saveData);
+          this.onSaveUpdate?.(this.currentSave);
+          this.mountMeta(this.currentSave);
+          showAchievementToast('Season Prize!', tier.title, tier.icon, `${tier.rewardCoins || 0} Coins${tier.rewardGems ? ` · ${tier.rewardGems} Gems` : ''}`);
+          void this.renderRanks();
+        } else {
+          button.disabled = false;
+          button.textContent = `${tier.rewardCoins || 0} coins${tier.rewardGems ? ` + ${tier.rewardGems} gems` : ''}`;
+        }
+      });
+    });
 
     if (monthlyEl) {
       monthlyEl.innerHTML = '';
@@ -1739,7 +1781,6 @@ export class Hud {
       showAchievementToast('Steam login failed', cb.error, '⚠️');
     }
     if (cb.bonus) {
-      applySteamBonusIfNeeded(true);
       showAchievementToast('Steam Connected!', 'Welcome bonus', '🎮', '500 Coins + 1 SP');
       void reportGameEvent({ type: 'steam_link' });
     }

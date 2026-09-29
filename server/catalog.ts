@@ -4,6 +4,7 @@ import {
   DEFAULT_MISSIONS,
   DEFAULT_RANK_TIERS,
   currentMonthKey,
+  mergeRewardDefaults,
   type CatalogAchievement,
   type CatalogBadge,
   type CatalogMission,
@@ -47,10 +48,10 @@ export async function loadQuestCatalog(): Promise<{
     const doc = await col.findOne({ configKey: 'game_config' });
     cache = {
       at: Date.now(),
-      missions: Array.isArray(doc?.missions) && doc!.missions!.length ? doc!.missions! : DEFAULT_MISSIONS,
-      achievements: Array.isArray(doc?.achievements) && doc!.achievements!.length ? doc!.achievements! : DEFAULT_ACHIEVEMENTS,
-      badges: Array.isArray(doc?.badges) && doc!.badges!.length ? doc!.badges! : DEFAULT_BADGES,
-      ranks: Array.isArray(doc?.ranks) && doc!.ranks!.length ? doc!.ranks! : DEFAULT_RANK_TIERS,
+      missions: mergeRewardDefaults(Array.isArray(doc?.missions) && doc!.missions!.length ? doc!.missions! : DEFAULT_MISSIONS, DEFAULT_MISSIONS),
+      achievements: mergeRewardDefaults(Array.isArray(doc?.achievements) && doc!.achievements!.length ? doc!.achievements! : DEFAULT_ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS),
+      badges: mergeRewardDefaults(Array.isArray(doc?.badges) && doc!.badges!.length ? doc!.badges! : DEFAULT_BADGES, DEFAULT_BADGES),
+      ranks: mergeRewardDefaults(Array.isArray(doc?.ranks) && doc!.ranks!.length ? doc!.ranks! : DEFAULT_RANK_TIERS, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(doc?.slicers) && doc!.slicers!.length ? doc!.slicers! : DEFAULT_SLICERS,
     };
     return cache;

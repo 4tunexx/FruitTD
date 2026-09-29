@@ -50,6 +50,7 @@ export interface ProgressionResult {
   towerMaxed: boolean;
   towerMilestoneNames: string[];
   coinsGained: number;
+  gemsGained: number;
   scoreGained: number;
 }
 
@@ -71,6 +72,7 @@ function emptyResult(heroId: HeroId, heroLevel: number, towerLevel: number): Pro
     towerMaxed: false,
     towerMilestoneNames: [],
     coinsGained: 0,
+    gemsGained: 0,
     scoreGained: 0,
   };
 }
@@ -160,6 +162,13 @@ export function applyRewards(
     const before = Math.max(0, Number(save.coins) || 0);
     save.coins = Math.min(MAX_COINS, before + coins);
     result.coinsGained = save.coins - before;
+  }
+
+  const gems = Math.max(0, Math.floor(reward.gems ?? 0));
+  if (gems > 0) {
+    const before = Math.max(0, Number(save.gems) || 0);
+    save.gems = Math.min(1_000_000, before + gems);
+    result.gemsGained = save.gems - before;
   }
 
   result.scoreGained = Math.max(0, Math.floor(reward.score));

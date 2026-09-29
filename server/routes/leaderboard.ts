@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'node:crypto';
 import type { Collection } from 'mongodb';
-import { getCollection, LeaderboardDoc, RunTokenDoc } from '../db';
+import { getCollection, LeaderboardDoc, RunTokenDoc, type CloudSaveDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { monthlyLeaderboardMode, rankFromScore } from '../../src/game/requirements';
 import { hashToken, resolveRequestUser } from '../auth';
 import { boundedInteger } from '../validation';
+import { creditClaimReward } from '../claimWallet';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 
@@ -61,13 +62,45 @@ router.get('/monthly-rank', async (req: Request, res: Response) => {
     const rank = rankFromScore(score, catalog.ranks);
     const sorted = [...catalog.ranks].sort((a, b) => a.minScore - b.minScore);
     const next = sorted.find((t) => t.minScore > rank.minScore) || null;
+    const wallet = userId ? await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId }) : null;
+    const rewardReceipt = `rank:${seasonMode}:${rank.id}`;
     res.json({
       success: true,
       season: seasonMode,
       score,
       rank,
       next,
+      hasEntry: !!entry,
+      claimed: (wallet?.claimReceipts || []).includes(rewardReceipt),
+      claimedRankIds: (wallet?.claimReceipts || []).filter((receipt) => receipt.startsWith(`rank:${seasonMode}:`)).map((receipt) => receipt.slice(`rank:${seasonMode}:`.length)),
     });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/monthly-rank/claim', async (req: Request, res: Response) => {
+  try {
+    const userId = (await deps.resolveUser(req))?.userId;
+    if (!userId) return res.status(401).json({ success: false, error: 'Sign in to claim rank rewards' });
+    const catalog = await deps.catalog();
+    const season = monthlyLeaderboardMode();
+    const board = await deps.collection<LeaderboardDoc>('leaderboards');
+    const entry = await board.findOne({ userId, mode: season }, { sort: { score: -1 } });
+    if (!entry) return res.status(422).json({ success: false, error: 'Play a ranked match to earn a season rank' });
+    const currentRank = rankFromScore(entry.score, catalog.ranks);
+    const requestedRankId = req.body?.rankId;
+    const rank = requestedRankId === undefined ? currentRank : catalog.ranks.find((tier) => tier.id === requestedRankId);
+    if (!rank) return res.status(400).json({ success: false, error: 'Invalid rank reward tier' });
+    if (entry.score < rank.minScore) return res.status(422).json({ success: false, error: 'That rank reward has not been earned yet' });
+    const receiptKey = `rank:${season}:${rank.id}`;
+    const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
+    const wallet = await creditClaimReward(userId, receiptKey, {
+      coins: rank.rewardCoins ?? 0,
+      gems: rank.rewardGems ?? 0,
+    }, saves);
+    if (!wallet) return res.status(409).json({ success: false, error: 'This rank reward has already been claimed' });
+    res.json({ success: true, rankId: rank.id, rewardCoins: rank.rewardCoins ?? 0, rewardGems: rank.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -155,6 +188,8 @@ router.post('/', async (req: Request, res: Response) => {
       fruitsSliced,
       maxCombo,
       runToken,
+      rewards,
+      completed,
     } = req.body;
     if (mode !== undefined && !['casual', 'ranked', 'coop', 'arena'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
     if (hero !== undefined && !['jiju', 'topfu', 'lagen', 'tripos', 'ki'].includes(hero)) return res.status(400).json({ success: false, error: 'Invalid hero' });
@@ -164,6 +199,26 @@ router.post('/', async (req: Request, res: Response) => {
     if (typeof score !== 'number' || !Number.isFinite(score) || score < 0) {
       return res.status(400).json({ success: false, error: 'Invalid score submission payload' });
     }
+
+    if (rewards !== undefined) {
+      const keys = ['coins', 'heroXp', 'towerXp', 'skillPoints'];
+      if (!rewards || typeof rewards !== 'object' || Array.isArray(rewards) || Object.keys(rewards).some((key) => ![...keys, 'gems'].includes(key)) ||
+          keys.some((key) => !boundedInteger(rewards[key], key === 'coins' ? 100_000 : 10_000)) ||
+          (rewards.gems !== undefined && !boundedInteger(rewards.gems, 100))) {
+        return res.status(400).json({ success: false, error: 'Invalid run reward payload' });
+      }
+      const rewardCaps = {
+        coins: Math.min(100_000, Math.ceil(score * 2 + (wave || 1) * 100)),
+        heroXp: Math.min(10_000, Math.ceil(score / 5 + (wave || 1) * 100 + 100)),
+        towerXp: Math.min(10_000, Math.ceil(score / 3 + (wave || 1) * 150 + 100)),
+        skillPoints: Math.min(100, Math.ceil(score / 1000) + 5),
+        gems: Math.min(100, Math.floor((wave || 0) / 5)),
+      };
+      if (keys.some((key) => rewards[key] > rewardCaps[key as keyof typeof rewardCaps]) || (rewards.gems ?? 0) > rewardCaps.gems) {
+        return res.status(422).json({ success: false, error: 'Run rewards exceed the score and wave limits' });
+      }
+    }
+    if (completed !== undefined && typeof completed !== 'boolean') return res.status(400).json({ success: false, error: 'Invalid run completion state' });
 
     // SERVER-SIDE VALIDATION: Reject absurd values
     const MAX_REASONABLE_SCORE = 10_000_000;
@@ -194,6 +249,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: 'A valid run token is required' });
     }
     const playMode = mode || 'casual';
+    const rewardTokenKey = hashToken(runToken);
     const runs = await deps.collection<RunTokenDoc>('run_tokens');
     const consumed = await runs.findOneAndUpdate(
       {
@@ -207,6 +263,24 @@ router.post('/', async (req: Request, res: Response) => {
       { returnDocument: 'before' }
     );
     if (!consumed) return res.status(401).json({ success: false, error: 'Run token is invalid, expired, or already used' });
+
+    let settledWallet: { saveData: Record<string, any>; revision: number } | null = null;
+    if (rewards) {
+      const wallet = await creditClaimReward(userId, `run:${rewardTokenKey}`, {
+        coins: rewards.coins,
+        gems: rewards.gems ?? 0,
+        skillPoints: rewards.skillPoints,
+        xp: { [hero || 'jiju']: rewards.heroXp },
+        towerXp: rewards.towerXp,
+        games: completed === false ? 0 : 1,
+        highScore: score,
+        rankedScore: playMode === 'ranked' ? score : 0,
+        bestWave: wave || 1,
+        bestCombo: maxCombo || 0,
+      }, await deps.collection<CloudSaveDoc>('cloud_saves'));
+      if (!wallet) return res.status(500).json({ success: false, error: 'Could not settle run rewards' });
+      settledWallet = { saveData: wallet.saveData, revision: wallet.revision ?? 0 };
+    }
 
     const col = await deps.collection<LeaderboardDoc>('leaderboards');
 
@@ -275,6 +349,7 @@ router.post('/', async (req: Request, res: Response) => {
       rank: higherCount + 1,
       score,
       monthlyRank: catalog ? rankFromScore(monthlyScore, catalog.ranks) : undefined,
+      wallet: settledWallet,
     });
   } catch (err: any) {
     console.error('Error submitting score:', err);

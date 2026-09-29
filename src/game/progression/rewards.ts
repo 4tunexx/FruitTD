@@ -41,6 +41,7 @@ export interface RewardBundle {
   coins: number;
   heroXp: number;
   towerXp: number;
+  gems?: number;
   /** Human-readable reason, used for UI feedback/telemetry. */
   reason: RewardEventType;
 }
@@ -85,6 +86,7 @@ export const EMPTY_REWARD: Readonly<RewardBundle> = Object.freeze({
   coins: 0,
   heroXp: 0,
   towerXp: 0,
+  gems: 0,
   reason: 'fruit_sliced' as RewardEventType,
 });
 
@@ -107,6 +109,7 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
   let coins = 0;
   let heroXp = 0;
   let towerXp = 0;
+  let gems = 0;
 
   switch (event.type) {
     case 'fruit_sliced':
@@ -124,6 +127,7 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       heroXp = 12 * rule.xpMultiplier;
       towerXp = score / 4;
       coins = score * 0.8;
+      gems = 1;
       break;
     }
     case 'bomb_parry': {
@@ -181,6 +185,7 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
     coins: clampNonNegative(coins * mods.currencyMultiplier * mods.vipCoinMultiplier),
     heroXp: clampNonNegative(heroXp * mods.vipXpMultiplier * mods.heroXpMultiplier),
     towerXp: clampNonNegative(towerXp),
+    gems: clampNonNegative(gems),
     reason: event.type,
   };
 }
@@ -191,10 +196,11 @@ export function addRewards(a: RewardBundle, b: RewardBundle): RewardBundle {
     coins: a.coins + b.coins,
     heroXp: a.heroXp + b.heroXp,
     towerXp: a.towerXp + b.towerXp,
+    gems: (a.gems ?? 0) + (b.gems ?? 0),
     reason: b.reason,
   };
 }
 
 export function isEmptyReward(reward: RewardBundle): boolean {
-  return reward.score === 0 && reward.coins === 0 && reward.heroXp === 0 && reward.towerXp === 0;
+  return reward.score === 0 && reward.coins === 0 && reward.heroXp === 0 && reward.towerXp === 0 && (reward.gems ?? 0) === 0;
 }

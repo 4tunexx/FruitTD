@@ -90,14 +90,6 @@ export async function linkSteamAccount(
   };
 }
 
-export function applySteamBonusIfNeeded(bonus: boolean): void {
-  if (!bonus) return;
-  const save = loadSave();
-  save.coins += 500;
-  save.skillPoints += 1;
-  writeSave(save);
-}
-
 export function consumeAuthCallbackParams(): {
   token?: string;
   needsEmail?: boolean;

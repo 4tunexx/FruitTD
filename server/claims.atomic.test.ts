@@ -34,7 +34,7 @@ function evaluate(value: any, doc: any): any {
   return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, evaluate(child, doc)]));
 }
 
-function claimHarness(claimCollectionName: 'daily_bonus' | 'missions' | 'achievements', initialClaimDoc?: any, initialWallet?: any) {
+function claimHarness(claimCollectionName: 'daily_bonus' | 'missions' | 'achievements', initialClaimDoc?: any, initialWallet?: any, vipTiers?: any[]) {
   const state: { cloud: any; claim: any } = {
     cloud: initialWallet ? { userId: user.userId, saveData: structuredClone(initialWallet), revision: 7, claimReceipts: [], updatedAt: new Date() } : null,
     claim: initialClaimDoc ? { ...initialClaimDoc } : null,
@@ -71,13 +71,13 @@ function claimHarness(claimCollectionName: 'daily_bonus' | 'missions' | 'achieve
       return { matchedCount: 1, modifiedCount: 1 };
     },
   };
-  const missionDef = { id: 'daily-slice', type: 'daily' as const, title: 'Slice', desc: 'Slice fruit', icon: 'F', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 30, rewardSp: 2 };
-  const achievementDef = { id: 'first-slice', title: 'First Slice', desc: 'Slice once', icon: '1', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 40, rewardSp: 1 };
+  const missionDef = { id: 'daily-slice', type: 'daily' as const, title: 'Slice', desc: 'Slice fruit', icon: 'F', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 30, rewardSp: 2, rewardGems: 4 };
+  const achievementDef = { id: 'first-slice', title: 'First Slice', desc: 'Slice once', icon: '1', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 40, rewardSp: 1, rewardGems: 6 };
   const catalog = async () => ({ missions: [missionDef], achievements: [achievementDef], badges: [], ranks: [], slicers: [] }) as Awaited<ReturnType<typeof import('./catalog').loadQuestCatalog>>;
   const resolveUser = async () => user;
   const collection = async (name: string) => name === 'cloud_saves' ? walletCollection as any : markerCollection as any;
   const router = claimCollectionName === 'daily_bonus'
-    ? createDailyRouter({ resolveUser, collection, rewards: async () => [{ day: 1, coins: 25, skillPoints: 1, gems: 3, skinUnlock: 'blade-gold', label: 'Daily', iconType: 'gem' }], allowedSkinIds: async () => new Set(['blade-default', 'blade-gold', 'wall-brick']) })
+    ? createDailyRouter({ resolveUser, collection, rewards: async () => [{ day: 1, coins: 25, skillPoints: 1, gems: 3, skinUnlock: 'blade-gold', label: 'Daily', iconType: 'gem' }], allowedSkinIds: async () => new Set(['blade-default', 'blade-gold', 'wall-brick']), ...(vipTiers ? { vipTiers: async () => vipTiers } : {}) })
     : claimCollectionName === 'missions'
       ? createMissionsRouter({ resolveUser, collection, catalog })
       : createAchievementsRouter({ resolveUser, collection, catalog });
@@ -136,12 +136,30 @@ for (const claimType of ['daily_bonus', 'missions', 'achievements'] as const) {
     } else if (claimType === 'missions') {
       assert.equal(saveData.coins, 30);
       assert.equal(saveData.skillPoints, 2);
+      assert.equal(saveData.gems, 4);
     } else {
       assert.equal(saveData.coins, 40);
       assert.equal(saveData.skillPoints, 1);
+      assert.equal(saveData.gems, 6);
     }
   });
 }
+
+test('VIP daily coins and skill points are credited in the same one-time daily claim', async (t) => {
+  const vipSave = { ...defaultSave(), vipStatus: 'bronze' as const };
+  const harness = claimHarness('daily_bonus', undefined, vipSave, [
+    { tier: 'bronze', dailyCoins: 10, dailySp: 1 },
+  ]);
+  const { server, base } = await listen(harness.router, '/api/daily');
+  closeAfter(t, server);
+  const response = await fetch(`${base}/claim`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.saveData.coins, 35);
+  assert.equal(body.saveData.skillPoints, 2);
+  assert.equal(body.saveData.gems, 3);
+  assert.match(body.reward.label, /VIP \+10 Coins \+1 SP/);
+});
 
 test('daily claim caps authoritative wallet values instead of overflowing them', async (t) => {
   const highWallet = { ...defaultSave(), coins: 999_990, gems: 999_999, skillPoints: 9_999 };

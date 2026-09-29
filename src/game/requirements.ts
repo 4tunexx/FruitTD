@@ -200,16 +200,18 @@ export interface RankTier {
   minScore: number;
   color: string;
   icon: string;
+  rewardCoins?: number;
+  rewardGems?: number;
 }
 
 export const DEFAULT_RANK_TIERS: RankTier[] = [
-  { id: 'bronze', title: 'Bronze', minScore: 0, color: '#cd7f32', icon: 'B' },
-  { id: 'silver', title: 'Silver', minScore: 1500, color: '#c0c0c0', icon: 'S' },
-  { id: 'gold', title: 'Gold', minScore: 4000, color: '#f5c542', icon: 'G' },
-  { id: 'platinum', title: 'Platinum', minScore: 8000, color: '#7dd3fc', icon: 'P' },
-  { id: 'diamond', title: 'Diamond', minScore: 15000, color: '#67e8f9', icon: 'D' },
-  { id: 'master', title: 'Master', minScore: 25000, color: '#c084fc', icon: 'M' },
-  { id: 'grandmaster', title: 'Grandmaster', minScore: 40000, color: '#fb7185', icon: 'GM' },
+  { id: 'bronze', title: 'Bronze', minScore: 0, color: '#cd7f32', icon: 'B', rewardCoins: 100 },
+  { id: 'silver', title: 'Silver', minScore: 1500, color: '#c0c0c0', icon: 'S', rewardCoins: 250, rewardGems: 5 },
+  { id: 'gold', title: 'Gold', minScore: 4000, color: '#f5c542', icon: 'G', rewardCoins: 500, rewardGems: 10 },
+  { id: 'platinum', title: 'Platinum', minScore: 8000, color: '#7dd3fc', icon: 'P', rewardCoins: 750, rewardGems: 15 },
+  { id: 'diamond', title: 'Diamond', minScore: 15000, color: '#67e8f9', icon: 'D', rewardCoins: 1500, rewardGems: 30 },
+  { id: 'master', title: 'Master', minScore: 25000, color: '#c084fc', icon: 'M', rewardCoins: 2500, rewardGems: 60 },
+  { id: 'grandmaster', title: 'Grandmaster', minScore: 40000, color: '#fb7185', icon: 'GM', rewardCoins: 5000, rewardGems: 100 },
 ];
 
 export function rankFromScore(score: number, tiers: RankTier[] = DEFAULT_RANK_TIERS): RankTier {
@@ -231,6 +233,7 @@ export interface CatalogMission {
   requirement: Requirement;
   rewardCoins: number;
   rewardSp: number;
+  rewardGems?: number;
   rewardBadge?: string;
 }
 
@@ -243,6 +246,7 @@ export interface CatalogAchievement {
   requirement: Requirement;
   rewardCoins: number;
   rewardSp: number;
+  rewardGems?: number;
   rewardBadge?: string;
 }
 
@@ -254,6 +258,26 @@ export interface CatalogBadge {
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   enabled: boolean;
   requirement?: Requirement;
+  rewardCoins?: number;
+  rewardGems?: number;
+}
+
+export function mergeRewardDefaults<T extends { id: string; rewardCoins?: number; rewardGems?: number }>(
+  items: T[], defaults: T[],
+): T[] {
+  const byId = new Map(defaults.map((item) => [item.id, item]));
+  return items.map((item) => {
+    const fallback = byId.get(item.id);
+    const merged = { ...fallback, ...item } as T;
+    const rewardCoins = Math.max(0, Math.min(1_000_000, Math.floor(Number(item.rewardCoins ?? fallback?.rewardCoins) || 0)));
+    const rewardGems = Math.max(0, Math.min(1_000_000, Math.floor(Number(item.rewardGems ?? fallback?.rewardGems) || 0)));
+    return {
+      ...merged,
+      rewardCoins,
+      rewardGems,
+      ...('rewardSp' in merged ? { rewardSp: Math.max(0, Math.min(10_000, Math.floor(Number(merged.rewardSp) || 0))) } : {}),
+    } as T;
+  });
 }
 
 function req(type: string, goal: number, extra: Partial<Requirement> = {}): Requirement {
@@ -265,13 +289,13 @@ export const DEFAULT_MISSIONS: CatalogMission[] = [
   { id: 'daily_combos', type: 'daily', title: 'Combo Fiend', desc: 'Perform 4 combos of 3x or higher', icon: 'X', enabled: true, requirement: req('combo_count', 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
   { id: 'daily_wave', type: 'daily', title: 'Wave Survivor', desc: 'Survive to Wave 5 in any run', icon: 'W', enabled: true, requirement: req('wave_reach', 5), rewardCoins: 100, rewardSp: 0 },
   { id: 'weekly_fruits', type: 'weekly', title: 'Fruit Apocalypse', desc: 'Slice 250 total fruits this week', icon: 'F', enabled: true, requirement: req('slice_any', 250), rewardCoins: 350, rewardSp: 1 },
-  { id: 'monthly_ranked_climb', type: 'monthly', title: 'Monthly Climb', desc: 'Score 4,000 in Ranked this month to reach Gold', icon: 'G', enabled: true, requirement: req('reach_gold', 4000), rewardCoins: 500, rewardSp: 1, rewardBadge: 'gold-slicer' },
-  { id: 'monthly_silver_climb', type: 'monthly', title: 'Silver Season', desc: 'Score 1,500 in Ranked this month to reach Silver', icon: 'S', enabled: true, requirement: req('reach_silver', 1500), rewardCoins: 250, rewardSp: 0, rewardBadge: 'silver-slicer' },
-  { id: 'monthly_diamond_climb', type: 'monthly', title: 'Diamond Season', desc: 'Score 15,000 in Ranked this month to reach Diamond', icon: 'D', enabled: true, requirement: req('reach_diamond', 15000), rewardCoins: 800, rewardSp: 2, rewardBadge: 'diamond-slicer' },
+  { id: 'monthly_ranked_climb', type: 'monthly', title: 'Monthly Climb', desc: 'Score 4,000 in Ranked this month to reach Gold', icon: 'G', enabled: true, requirement: req('reach_gold', 4000), rewardCoins: 500, rewardSp: 1, rewardGems: 10, rewardBadge: 'gold-slicer' },
+  { id: 'monthly_silver_climb', type: 'monthly', title: 'Silver Season', desc: 'Score 1,500 in Ranked this month to reach Silver', icon: 'S', enabled: true, requirement: req('reach_silver', 1500), rewardCoins: 250, rewardSp: 0, rewardGems: 5, rewardBadge: 'silver-slicer' },
+  { id: 'monthly_diamond_climb', type: 'monthly', title: 'Diamond Season', desc: 'Score 15,000 in Ranked this month to reach Diamond', icon: 'D', enabled: true, requirement: req('reach_diamond', 15000), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: 'diamond-slicer' },
 ];
 
 export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [
-  { id: 'first_slice', title: 'First Blood', desc: 'Slice your very first fruit', icon: '1', enabled: true, requirement: req('slice_any', 1), rewardCoins: 50, rewardSp: 0, rewardBadge: 'first-cut' },
+  { id: 'first_slice', title: 'First Blood', desc: 'Slice your very first fruit', icon: '1', enabled: true, requirement: req('slice_any', 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: 'first-cut' },
   { id: 'combo_5', title: 'Combo Artist', desc: 'Execute a 5x or higher combo slice', icon: '5', enabled: true, requirement: req('combo_reach_5', 5), rewardCoins: 100, rewardSp: 0 },
   { id: 'combo_10', title: 'Blade Master', desc: 'Execute a massive 10x combo slice', icon: 'X', enabled: true, requirement: req('combo_reach_10', 10), rewardCoins: 250, rewardSp: 1, rewardBadge: 'combo-king' },
   { id: 'fruit_100', title: 'Fruit Peeler', desc: 'Slice 100 total fruits', icon: 'F', enabled: true, requirement: req('slice_any', 100), rewardCoins: 150, rewardSp: 0 },
@@ -283,19 +307,19 @@ export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [
   { id: 'untouchable', title: 'Pristine Wall', desc: 'Clear a wave with 100% wall integrity', icon: 'P', enabled: true, requirement: req('perfect_wave', 1), rewardCoins: 150, rewardSp: 0 },
   { id: 'turret_builder', title: 'Fortress Architect', desc: 'Place 3 turrets on your defensive wall', icon: 'T', enabled: true, requirement: req('turret_place', 3), rewardCoins: 150, rewardSp: 0 },
   { id: 'steam_connect', title: 'Steam Cadet', desc: 'Link your Steam profile to Fruit TD', icon: 'ST', enabled: true, requirement: req('steam_link', 1), rewardCoins: 500, rewardSp: 1, rewardBadge: 'steam-cadet' },
-  { id: 'diamond_rank', title: 'Diamond Slicer', desc: 'Reach Diamond on the monthly ranked ladder', icon: 'D', enabled: true, requirement: req('reach_diamond', 15000), rewardCoins: 800, rewardSp: 2, rewardBadge: 'diamond-slicer' },
+  { id: 'diamond_rank', title: 'Diamond Slicer', desc: 'Reach Diamond on the monthly ranked ladder', icon: 'D', enabled: true, requirement: req('reach_diamond', 15000), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: 'diamond-slicer' },
 ];
 
 export const DEFAULT_BADGES: CatalogBadge[] = [
-  { id: 'first-cut', title: 'First Cut', desc: 'Awarded for your first slice', icon: 'FC', rarity: 'common', enabled: true, requirement: req('slice_any', 1) },
-  { id: 'combo-king', title: 'Combo King', desc: 'Awarded for a 10x combo', icon: 'CK', rarity: 'rare', enabled: true, requirement: req('combo_reach_10', 10) },
-  { id: 'wall-guard', title: 'Wall Guard', desc: 'Hold the wall to wave 10', icon: 'WG', rarity: 'rare', enabled: true, requirement: req('wave_reach', 10) },
-  { id: 'steam-cadet', title: 'Steam Cadet', desc: 'Linked Steam account', icon: 'SC', rarity: 'common', enabled: true, requirement: req('steam_link', 1) },
-  { id: 'bronze-slicer', title: 'Bronze Slicer', desc: 'Finish a Ranked match this month', icon: 'BR', rarity: 'common', enabled: true, requirement: req('monthly_games', 1) },
-  { id: 'silver-slicer', title: 'Silver Slicer', desc: 'Monthly Silver rank', icon: 'SS', rarity: 'rare', enabled: true, requirement: req('reach_silver', 1500) },
-  { id: 'gold-slicer', title: 'Gold Slicer', desc: 'Monthly Gold rank', icon: 'GS', rarity: 'epic', enabled: true, requirement: req('reach_gold', 4000) },
-  { id: 'diamond-slicer', title: 'Diamond Slicer', desc: 'Monthly Diamond rank', icon: 'DS', rarity: 'legendary', enabled: true, requirement: req('reach_diamond', 15000) },
-  { id: 'daily-regular', title: 'Daily Regular', desc: 'Claim 7 daily bonuses', icon: 'DR', rarity: 'rare', enabled: true, requirement: req('claim_daily', 7) },
+  { id: 'first-cut', title: 'First Cut', desc: 'Awarded for your first slice', icon: 'FC', rarity: 'common', enabled: true, requirement: req('slice_any', 1), rewardCoins: 50 },
+  { id: 'combo-king', title: 'Combo King', desc: 'Awarded for a 10x combo', icon: 'CK', rarity: 'rare', enabled: true, requirement: req('combo_reach_10', 10), rewardCoins: 150, rewardGems: 2 },
+  { id: 'wall-guard', title: 'Wall Guard', desc: 'Hold the wall to wave 10', icon: 'WG', rarity: 'rare', enabled: true, requirement: req('wave_reach', 10), rewardCoins: 100, rewardGems: 2 },
+  { id: 'steam-cadet', title: 'Steam Cadet', desc: 'Linked Steam account', icon: 'SC', rarity: 'common', enabled: true, requirement: req('steam_link', 1), rewardCoins: 100 },
+  { id: 'bronze-slicer', title: 'Bronze Slicer', desc: 'Finish a Ranked match this month', icon: 'BR', rarity: 'common', enabled: true, requirement: req('monthly_games', 1), rewardCoins: 100 },
+  { id: 'silver-slicer', title: 'Silver Slicer', desc: 'Monthly Silver rank', icon: 'SS', rarity: 'rare', enabled: true, requirement: req('reach_silver', 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: 'gold-slicer', title: 'Gold Slicer', desc: 'Monthly Gold rank', icon: 'GS', rarity: 'epic', enabled: true, requirement: req('reach_gold', 4000), rewardCoins: 500, rewardGems: 10 },
+  { id: 'diamond-slicer', title: 'Diamond Slicer', desc: 'Monthly Diamond rank', icon: 'DS', rarity: 'legendary', enabled: true, requirement: req('reach_diamond', 15000), rewardCoins: 1000, rewardGems: 25 },
+  { id: 'daily-regular', title: 'Daily Regular', desc: 'Claim 7 daily bonuses', icon: 'DR', rarity: 'rare', enabled: true, requirement: req('claim_daily', 7), rewardCoins: 250, rewardGems: 5 },
 ];
 
 export function matchRequirement(
