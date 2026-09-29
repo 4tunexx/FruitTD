@@ -28,6 +28,7 @@ export type NavState =
   | 'CO_OP'
   | 'CAMPAIGN'
   | 'NEWS'
+  | 'SOCIAL'
   | 'CREATOR'
   | 'SETTINGS'
   | 'ADMIN';
@@ -44,6 +45,7 @@ export const OVERLAY_STATES: readonly NavState[] = [
   'CO_OP',
   'CAMPAIGN',
   'NEWS',
+  'SOCIAL',
   'CREATOR',
   'SETTINGS',
   'ADMIN',

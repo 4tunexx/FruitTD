@@ -51,7 +51,8 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
       boss.revealImage ? el('img', { src: boss.revealImage, alt: `${boss.name} boss artwork` }) : el('div', { class: 'ftd-boss-reveal__sigil' }, [icon(Swords), el('span', { text: `OVERLORD ${String(selected).padStart(2, '0')}` })]),
       el('span', { class: 'ftd-boss-reveal__stamp', text: 'BOSS INTEL' }),
     ]);
-    detail.append(art, el('div', { class: 'ftd-boss-reveal__copy' }, [
+    detail.appendChild(art);
+    detail.appendChild(el('div', { class: 'ftd-boss-reveal__copy' }, [
       el('p', { class: 'ftd-campaign__eyebrow', text: boss.title }),
       el('h2', { text: boss.name }),
       el('p', { class: 'ftd-boss-reveal__description', text: boss.description }),

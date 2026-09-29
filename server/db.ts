@@ -133,6 +133,13 @@ export async function getDb(): Promise<Db> {
     await db.collection('run_tokens').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection('admin_config').createIndex({ configKey: 1 }, { unique: true });
     await db.collection('badges').createIndex({ userId: 1, badgeId: 1 }, { unique: true });
+    await db.collection('friends').createIndex({ userId: 1, friendId: 1 }, { unique: true });
+    await db.collection('friends').createIndex({ userId: 1, state: 1, updatedAt: -1 });
+    await db.collection('friends').createIndex({ friendId: 1, state: 1, updatedAt: -1 });
+    await db.collection('notifications').createIndex({ userId: 1, createdAt: -1 });
+    await db.collection('notifications').createIndex({ notificationId: 1 }, { unique: true });
+    await db.collection('messages').createIndex({ conversationId: 1, createdAt: 1 });
+    await db.collection('messages').createIndex({ messageId: 1 }, { unique: true });
   } catch (err) {
     console.warn('Index creation notice:', err);
   }

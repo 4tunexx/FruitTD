@@ -45,6 +45,13 @@ async function getDb() {
     await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
     await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
+    await db.collection("friends").createIndex({ userId: 1, friendId: 1 }, { unique: true });
+    await db.collection("friends").createIndex({ userId: 1, state: 1, updatedAt: -1 });
+    await db.collection("friends").createIndex({ friendId: 1, state: 1, updatedAt: -1 });
+    await db.collection("notifications").createIndex({ userId: 1, createdAt: -1 });
+    await db.collection("notifications").createIndex({ notificationId: 1 }, { unique: true });
+    await db.collection("messages").createIndex({ conversationId: 1, createdAt: 1 });
+    await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
   } catch (err) {
     console.warn("Index creation notice:", err);
   }
@@ -75,10 +82,10 @@ function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
   const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
   return sorted.find((t) => score >= t.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
 }
-function mergeRewardDefaults(items, defaults) {
-  const byId = new Map(defaults.map((item) => [item.id, item]));
+function mergeRewardDefaults(items, defaults2) {
+  const byId = new Map(defaults2.map((item) => [item.id, item]));
   const configuredById = new Map(items.filter((item) => item?.id).map((item) => [item.id, item]));
-  const mergedItems = [...configuredById.values(), ...defaults.filter((item) => !configuredById.has(item.id))];
+  const mergedItems = [...configuredById.values(), ...defaults2.filter((item) => !configuredById.has(item.id))];
   return mergedItems.map((item) => {
     const fallback = byId.get(item.id);
     const merged = { ...fallback, ...item };
@@ -1507,8 +1514,8 @@ function normalizeDailyRewards(input) {
     };
   });
 }
-function normalizePrizeCatalog(input, defaults) {
-  const rows = mergeRewardDefaults(Array.isArray(input) && input.length ? input : defaults, defaults);
+function normalizePrizeCatalog(input, defaults2) {
+  const rows = mergeRewardDefaults(Array.isArray(input) && input.length ? input : defaults2, defaults2);
   return rows.map((item) => ({
     ...item,
     rewardCoins: Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins) || 0))),
@@ -2338,12 +2345,12 @@ async function verifySteamOpenId(query) {
 }
 steamRouter.get("/callback", async (req2, res) => {
   const front = frontendOrigin();
-  const fail = (msg) => res.redirect(`${front}/?auth_error=${encodeURIComponent(msg)}`);
+  const fail2 = (msg) => res.redirect(`${front}/?auth_error=${encodeURIComponent(msg)}`);
   try {
     const steamId = await verifySteamOpenId(req2.query);
-    if (!steamId) return fail("Steam login could not be verified.");
+    if (!steamId) return fail2("Steam login could not be verified.");
     const summary = await fetchSteamPlayerSummary(steamId);
-    if (!summary) return fail("Could not load your Steam profile.");
+    if (!summary) return fail2("Could not load your Steam profile.");
     const users = await getCollection("users");
     const mode = String(req2.query.mode || "login");
     const linkToken = typeof req2.query.linkToken === "string" ? req2.query.linkToken : "";
@@ -2353,7 +2360,7 @@ steamRouter.get("/callback", async (req2, res) => {
       const sessionUser = await resolveSession(linkToken);
       if (sessionUser) {
         const other = await users.findOne({ steamId, userId: { $ne: sessionUser.userId } });
-        if (other) return fail("That Steam account is already linked to another player.");
+        if (other) return fail2("That Steam account is already linked to another player.");
         const username = sanitizeSteamUsername(summary.personaName);
         await users.updateOne(
           { userId: sessionUser.userId },
@@ -2437,7 +2444,7 @@ steamRouter.get("/callback", async (req2, res) => {
     res.redirect(`${front}/?${qs.toString()}`);
   } catch (err) {
     console.error("Steam callback error", err);
-    return fail(err.message || "Steam login failed.");
+    return fail2(err.message || "Steam login failed.");
   }
 });
 steamRouter.post("/link", async (req2, res) => {
@@ -2717,8 +2724,194 @@ badgesRouter.post("/progress", async (req2, res) => {
   }
 });
 
-// server/routes/items.ts
+// server/routes/social.ts
 import { Router as Router10 } from "express";
+import { randomUUID } from "node:crypto";
+var defaults = { resolveUser: resolveRequestUser, collection: getCollection };
+var fail = (res, status, error) => res.status(status).json({ success: false, error });
+var safeName = (user) => String(user.username || user.nickname || "Slicer").slice(0, 32);
+var usernamePattern = /^[a-z0-9_]{3,24}$/i;
+var pairKey = (a, b) => [a, b].sort().join(":");
+async function byUsername(col, username) {
+  if (!usernamePattern.test(username)) return null;
+  const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return col.findOne({ username: { $regex: `^${escaped}$`, $options: "i" } });
+}
+async function notify(col, userId, actorId, actorName, type, title, body) {
+  try {
+    await col.insertOne({ notificationId: randomUUID(), userId, actorId, actorName, type, title, body: body.slice(0, 240), createdAt: /* @__PURE__ */ new Date() });
+  } catch (err) {
+    console.error("Could not save social notification:", err);
+  }
+}
+function createSocialRouter(deps = defaults) {
+  const router = Router10();
+  router.get("/profiles/:username", async (req2, res) => {
+    try {
+      const users = await deps.collection("users");
+      const profile = await byUsername(users, String(req2.params.username || ""));
+      if (!profile) return fail(res, 404, "Player not found");
+      const [save, best, badges] = await Promise.all([
+        (await deps.collection("cloud_saves")).findOne({ userId: profile.userId }),
+        (await deps.collection("leaderboards")).findOne({ userId: profile.userId }, { sort: { score: -1 } }),
+        (await deps.collection("badges")).find({ userId: profile.userId, unlocked: true }).limit(30).toArray()
+      ]);
+      const score = Math.max(Number(best?.score) || 0, Number(save?.saveData?.rankedScore) || 0);
+      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+      res.json({ success: true, profile: {
+        username: safeName(profile),
+        nickname: String(profile.nickname || safeName(profile)).slice(0, 32),
+        avatar: typeof profile.avatar === "string" ? profile.avatar.slice(0, 9e5) : "",
+        hero: String(save?.saveData?.hero || "jiju"),
+        highScore: Number(save?.saveData?.highScore) || 0,
+        rankedScore: score,
+        rank: rankFromScore(score).title,
+        bestWave: Number(save?.saveData?.bestWave) || 1,
+        games: Number(save?.saveData?.games) || 0,
+        badges: badges.map((badge) => String(badge.badgeId)).slice(0, 30)
+      } });
+    } catch (err) {
+      console.error("Error loading public player profile:", err);
+      fail(res, 500, "Could not load player profile");
+    }
+  });
+  router.get("/friends", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to view friends");
+      const relations = await (await deps.collection("friends")).find({ $or: [{ userId: user.userId }, { friendId: user.userId }] }).sort({ updatedAt: -1 }).limit(200).toArray();
+      const users = await deps.collection("users");
+      const uniqueRelations = [...new Map(relations.map((row) => {
+        const friendId = row.userId === user.userId ? row.friendId : row.userId;
+        return [friendId, row];
+      })).values()];
+      const friends = await Promise.all(uniqueRelations.map(async (row) => {
+        const friendId = row.userId === user.userId ? row.friendId : row.userId;
+        const friend = await users.findOne({ userId: friendId });
+        return friend ? { userId: friend.userId, username: safeName(friend), nickname: friend.nickname, avatar: friend.avatar, state: row.state, direction: row.userId === user.userId ? "incoming" : "outgoing" } : null;
+      }));
+      res.json({ success: true, friends: friends.filter(Boolean) });
+    } catch (err) {
+      console.error("Error loading friends:", err);
+      fail(res, 500, "Could not load friends");
+    }
+  });
+  router.post("/friends/request", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to add friends");
+      const target = await byUsername(await deps.collection("users"), String(req2.body?.username || "").trim());
+      if (!target) return fail(res, 404, "Player not found. Check the username and try again.");
+      if (target.userId === user.userId) return fail(res, 400, "You cannot add yourself as a friend");
+      const friends = await deps.collection("friends");
+      const existing = await friends.findOne({ $or: [
+        { userId: user.userId, friendId: target.userId },
+        { userId: target.userId, friendId: user.userId }
+      ] });
+      if (existing) return fail(res, 409, existing.state === "accepted" ? "You are already friends" : "A friend request is already waiting");
+      const now = /* @__PURE__ */ new Date();
+      await friends.insertOne({ userId: target.userId, friendId: user.userId, state: "pending", createdAt: now, updatedAt: now });
+      await notify(await deps.collection("notifications"), target.userId, user.userId, safeName(user), "friend_request", "Friend request", `${safeName(user)} wants to join your friends list.`);
+      res.status(201).json({ success: true, username: safeName(target) });
+    } catch (err) {
+      if (err?.code === 11e3) return fail(res, 409, "A friend request is already waiting");
+      console.error("Error sending friend request:", err);
+      fail(res, 500, "Could not send friend request");
+    }
+  });
+  router.post("/friends/respond", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to respond to friend requests");
+      const friendId = typeof req2.body?.friendId === "string" ? req2.body.friendId : "";
+      const accept = req2.body?.accept === true;
+      if (!friendId || friendId === user.userId) return fail(res, 400, "Invalid friend request");
+      const friends = await deps.collection("friends");
+      const update = accept ? await friends.updateOne({ userId: user.userId, friendId, state: "pending" }, { $set: { state: "accepted", updatedAt: /* @__PURE__ */ new Date() } }) : await friends.deleteOne({ userId: user.userId, friendId, state: "pending" });
+      if (!("matchedCount" in update ? update.matchedCount : update.deletedCount)) return fail(res, 404, "Friend request is no longer available");
+      if (accept) {
+        try {
+          await friends.insertOne({ userId: friendId, friendId: user.userId, state: "accepted", createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
+        } catch (err) {
+          if (err?.code !== 11e3) throw err;
+        }
+        const actor = await (await deps.collection("users")).findOne({ userId: user.userId });
+        await notify(await deps.collection("notifications"), friendId, user.userId, safeName(user), "friend_accepted", "Friend request accepted", `${safeName(actor || user)} accepted your request.`);
+      }
+      res.json({ success: true, state: accept ? "accepted" : "declined" });
+    } catch (err) {
+      console.error("Error responding to friend request:", err);
+      fail(res, 500, "Could not update friend request");
+    }
+  });
+  router.get("/notifications", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to view notifications");
+      const notifications = await (await deps.collection("notifications")).find({ userId: user.userId }).sort({ createdAt: -1 }).limit(50).toArray();
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json({ success: true, unread: notifications.filter((item) => !item.readAt).length, notifications });
+    } catch (err) {
+      console.error("Error loading notifications:", err);
+      fail(res, 500, "Could not load notifications");
+    }
+  });
+  router.post("/notifications/read", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to update notifications");
+      const ids = Array.isArray(req2.body?.ids) ? req2.body.ids.filter((id) => typeof id === "string").slice(0, 50) : [];
+      const filter = { userId: user.userId, readAt: { $exists: false } };
+      if (ids.length) filter.notificationId = { $in: ids };
+      const result = await (await deps.collection("notifications")).updateMany(filter, { $set: { readAt: /* @__PURE__ */ new Date() } });
+      res.json({ success: true, markedRead: result.modifiedCount });
+    } catch (err) {
+      console.error("Error updating notifications:", err);
+      fail(res, 500, "Could not update notifications");
+    }
+  });
+  router.get("/messages/:username", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to open messages");
+      const peer = await byUsername(await deps.collection("users"), String(req2.params.username || ""));
+      if (!peer) return fail(res, 404, "Player not found");
+      const relation = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: peer.userId, state: "accepted" });
+      if (!relation) return fail(res, 403, "You can message friends only");
+      const conversationId = pairKey(user.userId, peer.userId);
+      const messages = await (await deps.collection("messages")).find({ conversationId }).sort({ createdAt: 1 }).limit(100).toArray();
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json({ success: true, friend: { username: safeName(peer), nickname: peer.nickname, avatar: peer.avatar }, messages });
+    } catch (err) {
+      console.error("Error loading messages:", err);
+      fail(res, 500, "Could not load messages");
+    }
+  });
+  router.post("/messages/:username", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to send messages");
+      const peer = await byUsername(await deps.collection("users"), String(req2.params.username || ""));
+      if (!peer) return fail(res, 404, "Player not found");
+      const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
+      if (!body || body.length > 1e3) return fail(res, 400, "Messages must contain 1 to 1,000 characters");
+      const relation = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: peer.userId, state: "accepted" });
+      if (!relation) return fail(res, 403, "You can message friends only");
+      const message = { messageId: randomUUID(), conversationId: pairKey(user.userId, peer.userId), senderId: user.userId, recipientId: peer.userId, body, createdAt: /* @__PURE__ */ new Date() };
+      await (await deps.collection("messages")).insertOne(message);
+      await notify(await deps.collection("notifications"), peer.userId, user.userId, safeName(user), "message", "New message", body.slice(0, 100));
+      res.status(201).json({ success: true, message });
+    } catch (err) {
+      console.error("Error sending message:", err);
+      fail(res, 500, "Could not send message");
+    }
+  });
+  return router;
+}
+var socialRouter = createSocialRouter();
+
+// server/routes/items.ts
+import { Router as Router11 } from "express";
 var VIP_FALLBACK = {
   bronze: { price: 500, coins: 1e3 },
   silver: { price: 1500, coins: 2500 },
@@ -2736,7 +2929,7 @@ function isSlicer(id, slicers) {
   return slicers.find((item) => item.id === id && item.enabled !== false);
 }
 function createItemsRouter(deps = defaultDeps6) {
-  const router = Router10();
+  const router = Router11();
   router.post("/action", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -2914,6 +3107,7 @@ function createApp() {
   app2.use("/api/items", rateLimit(60, 6e4), itemsRouter);
   app2.use("/api/admin", rateLimit(30, 6e4), adminRouter);
   app2.use("/api/badges", badgesRouter);
+  app2.use("/api/social", rateLimit(90, 6e4), socialRouter);
   return app2;
 }
 

@@ -26,6 +26,10 @@
   color: #e2e8f0;
 }
 
+.ftd-hub-social { position: relative; }
+.ftd-hub-social__icon { width: 17px; height: 17px; }
+.ftd-hub-social__count:not([hidden]) { position: absolute; top: -3px; right: -3px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 3px; border: 1px solid #111b13; border-radius: 999px; background: #e9a92b; color: #151b12; font-size: 9px; font-weight: 900; line-height: 1; }
+
 /* ─────────────────── Panel 3: header ─────────────────── */
 
 .ftd-hub__header {

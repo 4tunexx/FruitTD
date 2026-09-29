@@ -21,7 +21,7 @@
 
 import { el, clear } from '../components/dom';
 import { GameButton, GameCurrency } from '../components/primitives';
-import { createElement, type Swords } from 'lucide';
+import { Bell, createElement, type Swords } from 'lucide';
 import { openScreen, back, home } from './registry';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef } from '../../game/heroes';
@@ -109,6 +109,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   ]);
 
   const utils = el('div', { class: 'ftd-hub-utils' }, [
+    el('button', { class: 'ftd-btn ftd-btn--ghost ftd-btn--sm ftd-hub-social', type: 'button', 'aria-label': 'Community and notifications', 'data-testid': 'nav-social' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { text: 'Community' }), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]),
     GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
     ...(opts.onOpenDaily ? [GameButton({ label: 'Daily', variant: 'outline', size: 'sm', onClick: opts.onOpenDaily })] : []),
     GameButton({ label: 'Settings', variant: 'ghost', size: 'sm', onClick: () => openScreen('SETTINGS') }),
@@ -129,6 +130,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   settings?.setAttribute('data-testid', 'nav-settings');
   const admin = utils.querySelector<HTMLButtonElement>('.ftd-hub-admin');
   admin?.setAttribute('data-testid', 'nav-admin');
+  utils.querySelector<HTMLButtonElement>('.ftd-hub-social')?.addEventListener('click', () => openScreen('SOCIAL'));
 
   return el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
 }

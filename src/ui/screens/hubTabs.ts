@@ -440,7 +440,7 @@ export function profileHubTab(getStats: () => ProfileStats, onPlay?: () => void)
   };
 }
 
-/* ─────────────────────────── CO-OP (placeholder) ─────────────────────────── */
+/* ─────────────────────────── CO-OP ─────────────────────────── */
 
 export function coopHubTab(onStart?: () => void): HubTab {
   return {
@@ -449,11 +449,10 @@ export function coopHubTab(onStart?: () => void): HubTab {
     icon: UsersRound,
     renderMain: (root) => {
       root.appendChild(el('section', { class: 'ftd-coop-card' }, [
-        el('p', { class: 'ftd-playcard__eyebrow', text: 'LOCAL GUEST ASSIST' }),
+        el('p', { class: 'ftd-playcard__eyebrow', text: 'CO-OP DEFENCE' }),
         el('h2', { text: 'DEFEND THE WALL TOGETHER' }),
-        el('p', { text: 'A second local helper joins your operative, slices nearby fruit and gives you extra wall lives.' }),
-        GameButton({ label: 'Start local co-op', tone: 'primary', size: 'lg', onClick: () => onStart?.() }),
-        el('p', { class: 'ftd-mode-card__note', text: 'Online matchmaking is not connected yet. Online Multiplayer stays unavailable until its server relay is ready.' }),
+        el('p', { text: 'Co-op is one game mode. Local guest assist is playable now; joining a friend online still needs its shared-match service.' }),
+        GameButton({ label: 'Start Co-op', tone: 'primary', size: 'lg', onClick: () => onStart?.() }),
       ]));
     },
   };
@@ -497,9 +496,8 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     });
     const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
-    const coop = el('button', { type: 'button', class: 'ftd-mode-card' }, [el('strong', { text: 'Local Co-op' }), el('small', { text: 'Second player guest assist' })]);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op' }), el('small', { text: 'Play together · local guest available' })]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
-    grid.appendChild(el('div', { class: 'ftd-mode-card ftd-mode-card--disabled', 'aria-disabled': 'true' }, [el('strong', { text: 'Online Multiplayer' }), el('small', { text: 'Coming soon · matchmaking not connected' })]));
     root.appendChild(modes);
   };
 }

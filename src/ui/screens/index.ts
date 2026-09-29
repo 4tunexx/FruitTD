@@ -110,6 +110,23 @@ function renderFor(state: NavState): void {
       if (root) renderCampaign(root, save, callbacks.onStartCampaign ?? (() => undefined));
       break;
     }
+    case 'SOCIAL': {
+      const root = host('screen-social');
+      if (root) void import('./social').then(({ renderSocial }) => {
+        if (navigation.state === 'SOCIAL' && !root.classList.contains('hidden')) renderSocial(root);
+      }).catch(() => {
+        if (navigation.state !== 'SOCIAL' || root.classList.contains('hidden')) return;
+        root.replaceChildren();
+        const fallback = document.createElement('section');
+        fallback.className = 'ftd-social__gate';
+        const title = document.createElement('h2'); title.textContent = 'Community could not load';
+        const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Try again';
+        retry.addEventListener('click', () => renderFor('SOCIAL'));
+        fallback.append(title, retry);
+        root.appendChild(fallback);
+      });
+      break;
+    }
     default:
       break;
   }
@@ -171,6 +188,12 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
     elementId: 'screen-campaign',
     overlay: true,
     onEnter: () => renderFor('CAMPAIGN'),
+  });
+  registerScreen({
+    id: 'SOCIAL',
+    elementId: 'screen-social',
+    overlay: true,
+    onEnter: () => renderFor('SOCIAL'),
   });
 
   // Legacy lobby pages: one element, different page per nav state.
