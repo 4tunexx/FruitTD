@@ -3,6 +3,25 @@ import { createServer, type Server } from 'node:http';
 import { test } from 'node:test';
 import { createApp } from './app';
 import { closeDb } from './db';
+import { normalizeMenuConfig } from './routes/admin';
+
+test('admin branding keeps safe logo, background and favicon assets', () => {
+  const background = 'https://cdn.example.com/menu.webp';
+  const logo = 'data:image/webp;base64,AAAA';
+  const config = normalizeMenuConfig({
+    eyebrow: 'Briefing', title: 'Fruit TD', subtitle: 'Hold the wall', announcement: 'Live',
+    themeColor: '#a3e635', backgroundImage: background, logoImage: logo, faviconImage: 'javascript:alert(1)',
+  });
+  assert.equal(config.backgroundImage, background);
+  assert.equal(config.logoImage, logo);
+  assert.equal(config.faviconImage, '');
+  assert.equal(config.themeColor, '#a3e635');
+
+  const partial = normalizeMenuConfig({ title: 'New title' }, config);
+  assert.equal(partial.title, 'New title');
+  assert.equal(partial.backgroundImage, background);
+  assert.equal(partial.logoImage, logo);
+});
 
 async function listen(app: ReturnType<typeof createApp>): Promise<{ server: Server; base: string }> {
   const server = createServer(app);

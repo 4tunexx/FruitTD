@@ -66,9 +66,11 @@ import {
   setStudioFxCallbacks,
 } from './game/studioRuntime';
 import { fireCreatorSlicerVfx, setCreatorVfxCallbacks } from './game/creatorVfx';
+import { mountLucideIcon, mountLucidePlaceholders } from './ui/lucideIcon';
 
 // Theme + layout must be applied before any UI renders.
 initThemeSystem();
+mountLucidePlaceholders();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -237,7 +239,6 @@ hud.onBuySkin = (id) => buySkin(id);
 hud.onEquipItem = (id) => equipItem(id);
 hud.onUnequipItem = (id) => unequipItem(id);
 hud.onSellItem = (id) => sellItem(id);
-hud.onDeleteItem = (id) => deleteItem(id);
 hud.onBuyVIP = (tier) => buyVIP(tier); // P1-2
 hud.onBuySkill = (id) => buySkill(id);
 hud.onSaveUpdate = (newSave) => {
@@ -505,7 +506,7 @@ function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
 
   // Check gems (live admin VIP price when available)
   if ((save.gems || 0) < cost) {
-    toast(state, `Not enough gems! Need ${cost} 💎`, 2);
+    toast(state, `Not enough gems! Need ${cost}`, 2);
     sfx.denied();
     return;
   }
@@ -522,23 +523,6 @@ function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
   sfx.place();
   persist();
   hud.mountShop(save);
-}
-
-function deleteItem(id: string): void {
-  if (id === 'blade-default' || id === 'wall-brick') {
-    sfx.denied();
-    return;
-  }
-  if (!save.ownedSkins.includes(id)) return;
-  save.ownedSkins = save.ownedSkins.filter((x) => x !== id);
-  if (save.bladeSkin === id) save.bladeSkin = '';
-  if (save.wallSkin === id) save.wallSkin = '';
-  if (!save.ownedSkins.includes('blade-default')) save.ownedSkins.push('blade-default');
-  if (!save.ownedSkins.includes('wall-brick')) save.ownedSkins.push('wall-brick');
-  applyEquippedBlade();
-  wallSkinApply();
-  persist();
-  sfx.select();
 }
 
 function wallSkinApply(): void {
@@ -761,7 +745,7 @@ function submitCurrentRun(completed: boolean): Promise<void> {
     }
     if (res && feedbackEl && completed) {
       const monthly = res.monthlyRank ? ` · Monthly ${res.monthlyRank.title}` : '';
-      feedbackEl.innerHTML = `<span class="font-bold text-lime-400">🏆 Global Rank: #${res.rank} ${res.isNewHigh ? '· NEW BEST SCORE!' : ''}${monthly}</span>`;
+      feedbackEl.innerHTML = `<span class="font-bold text-lime-400">Global Rank: #${res.rank} ${res.isNewHigh ? '· NEW BEST SCORE!' : ''}${monthly}</span>`;
     } else if (!res && feedbackEl && completed) {
       feedbackEl.innerHTML = '<span class="text-slate-400">Score saved locally</span>';
     }
@@ -1607,9 +1591,13 @@ quitMenuBtn.addEventListener('click', () => quitToMenu());
 retryBtn.addEventListener('click', () => restartMatch());
 overMenuBtn.addEventListener('click', () => quitToMenu());
 if (muteBtn) {
+  mountLucideIcon(muteBtn, 'Volume2', 20);
+  muteBtn.dataset.muted = 'false';
   muteBtn.addEventListener('click', () => {
     const muted = sfx.toggleMute();
-    muteBtn.textContent = muted ? '🔇' : '🔊';
+    muteBtn.dataset.muted = String(muted);
+    muteBtn.setAttribute('aria-pressed', String(muted));
+    mountLucideIcon(muteBtn, muted ? 'VolumeX' : 'Volume2', 20);
     muteBtn.title = muted ? 'Unmute' : 'Mute';
   });
 }

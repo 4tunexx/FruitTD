@@ -88,26 +88,18 @@
             <div class="player-name-row">
               <p id="player-name">Slicer</p>
               <span id="player-rank" class="rank-pill" title="Monthly ranked tier">Bronze</span>
-              <span id="steam-badge" class="steam-pill hidden" title="Steam Linked">🎮 STEAM</span>
+              <span id="steam-badge" class="steam-pill hidden" title="Steam Linked">STEAM</span>
             </div>
             <p id="player-mode">Casual</p>
           </div>
           <button id="btn-daily-chip" class="chip-btn" title="Daily Bonus">
-            <svg class="chip-svg-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="3" y="9" width="18" height="11" rx="2.5" fill="#F59E0B" stroke="#FDE68A" stroke-width="1.4"/>
-              <path d="M3 10C3 6.8 7 5.2 12 5.2C17 5.2 21 6.8 21 10H3Z" fill="#FBBF24" stroke="#FDE68A" stroke-width="1.4"/>
-              <rect x="10.4" y="9" width="3.2" height="5" rx="1.2" fill="#FEF3C7"/>
-            </svg>
+            <span class="chip-svg-icon" data-lucide="Gift" aria-hidden="true"></span>
             <span id="daily-chip-dot" class="alert-dot hidden"></span>
           </button>
           <button id="btn-steam-chip" class="chip-btn" title="Link Steam">
-            <svg class="chip-svg-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" fill="#0369A1" stroke="#7DD3FC" stroke-width="1.5"/>
-              <path d="M8 13.5C8 12.1 9.1 11 10.5 11C11.9 11 13 12.1 13 13.5C13 14.9 11.9 16 10.5 16C9.1 16 8 14.9 8 13.5Z" fill="#E0F2FE"/>
-              <path d="M13 13.2L16.2 9.4C16.7 10.1 17.5 10.5 18.4 10.5C20 10.5 21.2 9.3 21.2 7.8" stroke="#7DD3FC" stroke-width="1.4"/>
-            </svg>
+            <span class="chip-svg-icon" data-lucide="Gamepad2" aria-hidden="true"></span>
           </button>
-          <button id="btn-mute" class="chip-btn" title="Mute">🔊</button>
+          <button id="btn-mute" class="chip-btn" title="Mute"><span data-lucide="Volume2" aria-hidden="true"></span></button>
         </div>
 
         <!-- Super juice bar (left side) -->
@@ -139,14 +131,14 @@
         <div id="combo-layer" data-testid="combat-overlay"></div>
 
         <button type="button" id="btn-sidebar-toggle" class="sidebar-toggle" aria-label="Open build menu" aria-expanded="false">
-          <span class="sidebar-toggle-icon" aria-hidden="true">⚔</span>
+          <span class="sidebar-toggle-icon" data-lucide="Swords" aria-hidden="true"></span>
           <span class="sidebar-toggle-text">Build</span>
         </button>
         <button type="button" id="btn-sidebar-close" class="sidebar-backdrop hidden" aria-label="Close build menu"></button>
 
         <!-- ════ Right sidebar ════ -->
         <aside id="sidebar">
-          <button type="button" id="btn-sidebar-hide" class="sidebar-hide-btn" aria-label="Hide build menu">✕</button>
+          <button type="button" id="btn-sidebar-hide" class="sidebar-hide-btn" aria-label="Hide build menu"><span data-lucide="X" aria-hidden="true"></span></button>
           <!-- Header -->
           <div id="sidebar-header">
             <div>
@@ -194,7 +186,7 @@
 
           <!-- Wave progress bar -->
           <div style="position: relative;">
-            <button id="wave-toggle" class="hud-toggle-btn" style="right: auto; left: -2.5rem;" title="Toggle wave progress">🌊</button>
+            <button id="wave-toggle" class="hud-toggle-btn" style="right: auto; left: -2.5rem;" title="Toggle wave progress"><span data-lucide="Waves" aria-hidden="true"></span></button>
             <div id="wave-panel" class="collapsible-panel">
               <div id="hud-wave-prog" class="hidden">
                 <p class="stat-label">Wave progress</p>
@@ -207,9 +199,9 @@
 
           <!-- Juice + skill points -->
           <div id="resource-row">
-            <button id="juice-toggle" class="hud-toggle-btn" title="Toggle juice panel">🧃</button>
+            <button id="juice-toggle" class="hud-toggle-btn" title="Toggle juice panel"><span data-lucide="Droplets" aria-hidden="true"></span></button>
             <div id="juice-panel" class="collapsible-panel">
-              <p id="hud-juice">🍋0  🍓0  🍊0  🥝0</p>
+              <p id="hud-juice">Y 0 · P 0 · O 0 · G 0</p>
             </div>
             <p id="hud-points"></p>
           </div>
@@ -222,9 +214,9 @@
 
           <!-- Turret action buttons -->
           <div id="action-btns">
-            <button id="btn-place" class="hidden action-btn">＋ Place</button>
-            <button id="btn-upgrade" class="action-btn action-btn--primary">⬆ Level up</button>
-            <button id="btn-sell" class="hidden action-btn action-btn--danger">💰 Sell</button>
+            <button id="btn-place" class="hidden action-btn"><span data-lucide="Plus" aria-hidden="true"></span> Place</button>
+            <button id="btn-upgrade" class="action-btn action-btn--primary"><span data-lucide="ArrowUpCircle" aria-hidden="true"></span> Level up</button>
+            <button id="btn-sell" class="hidden action-btn action-btn--danger"><span data-lucide="Coins" aria-hidden="true"></span> Sell</button>
             <button id="btn-move" class="hidden action-btn action-btn--info">Move  M</button>
             <button id="btn-toggle" class="hidden action-btn">Toggle blender  B</button>
           </div>
@@ -277,23 +269,23 @@
               <!-- Menu buttons — chunky Borderlands bevel buttons -->
               <nav id="title-menu" class="title-menu" aria-label="Main menu">
                 <button type="button" id="btn-title-login" class="title-btn title-btn--primary" aria-label="Start Game">
-                  <span class="title-btn__icon">▶</span>
+                  <span class="title-btn__icon" data-lucide="Play" aria-hidden="true"></span>
                   <span class="title-btn__text">Start Game</span>
                 </button>
                 <button type="button" id="btn-title-continue" class="title-btn hidden" aria-label="Continue game">
-                  <span class="title-btn__icon">⟳</span>
+                  <span class="title-btn__icon" data-lucide="RotateCcw" aria-hidden="true"></span>
                   <span class="title-btn__text">Continue</span>
                 </button>
                 <button type="button" id="btn-title-register" class="title-btn" aria-label="Create account">
-                  <span class="title-btn__icon">＋</span>
+                  <span class="title-btn__icon" data-lucide="UserPlus" aria-hidden="true"></span>
                   <span class="title-btn__text">Create Account</span>
                 </button>
                 <button type="button" id="btn-title-settings" class="title-btn" aria-label="Settings">
-                  <span class="title-btn__icon">⚙</span>
+                  <span class="title-btn__icon" data-lucide="Settings" aria-hidden="true"></span>
                   <span class="title-btn__text">Settings</span>
                 </button>
                 <button type="button" id="btn-title-quit" class="title-btn title-btn--ghost" aria-label="Exit">
-                  <span class="title-btn__icon">✕</span>
+                  <span class="title-btn__icon" data-lucide="X" aria-hidden="true"></span>
                   <span class="title-btn__text">Exit</span>
                 </button>
               </nav>
@@ -418,12 +410,12 @@
                   <span id="topbar-xp-val">Lv 1</span>
                 </span>
                 <span class="menu-topbar__currency menu-topbar__currency--coins" id="topbar-coins" title="Coins">
-                  🪙 <span id="topbar-coins-val">0</span>
+                  <span data-lucide="Coins" aria-hidden="true"></span> <span id="topbar-coins-val">0</span>
                 </span>
                 <span class="menu-topbar__currency menu-topbar__currency--gems" id="topbar-gems" title="Gems">
-                  💎 <span id="topbar-gems-val">0</span>
+                  <span data-lucide="Gem" aria-hidden="true"></span> <span id="topbar-gems-val">0</span>
                 </span>
-                <span id="backend-status-pill" class="online-pill" style="margin-left:0.5rem;">🟢 Online</span>
+                <span id="backend-status-pill" class="online-pill" style="margin-left:0.5rem;">Online</span>
               </div>
               <div class="menu-topbar__player">
                 <img id="topbar-avatar" class="menu-topbar__avatar" alt="" />
@@ -434,11 +426,11 @@
                 </div>
               </div>
               <div class="menu-topbar__actions">
-                <button id="btn-daily-chip" class="menu-topbar__action-btn" title="Daily Bonus" aria-label="Daily Bonus">
-                  🎁<span id="daily-chip-dot" class="alert-dot hidden"></span>
+                <button id="legacy-btn-daily-chip" class="menu-topbar__action-btn" title="Daily Bonus" aria-label="Daily Bonus">
+                  <span data-lucide="Gift" aria-hidden="true"></span><span id="legacy-daily-chip-dot" class="alert-dot hidden"></span>
                 </button>
-                <button id="btn-mute-topbar" class="menu-topbar__action-btn" title="Mute/Unmute">🔊</button>
-                <button id="btn-settings-topbar" class="menu-topbar__action-btn" title="Settings" data-nav="SETTINGS">⚙</button>
+                <button id="btn-mute-topbar" class="menu-topbar__action-btn" title="Mute/Unmute"><span data-lucide="Volume2" aria-hidden="true"></span></button>
+                <button id="btn-settings-topbar" class="menu-topbar__action-btn" title="Settings" data-nav="SETTINGS"><span data-lucide="Settings" aria-hidden="true"></span></button>
               </div>
             </header>
 
@@ -446,15 +438,15 @@
             <nav id="menu-leftnav" aria-label="Legacy game navigation" hidden inert aria-hidden="true">
               <span class="menu-nav-section-label">Main</span>
               <button type="button" class="menu-navitem is-active" data-page="play" aria-label="Play">
-                <span class="menu-navitem__icon">▶</span>
+                <span class="menu-navitem__icon" data-lucide="Play" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Play</span>
               </button>
               <button type="button" class="menu-navitem" data-nav="HEROES" aria-label="Heroes">
-                <span class="menu-navitem__icon">⚔</span>
+                <span class="menu-navitem__icon" data-lucide="Swords" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Heroes</span>
               </button>
               <button type="button" class="menu-navitem" data-nav="INVENTORY" aria-label="Loadout">
-                <span class="menu-navitem__icon">🛡</span>
+                <span class="menu-navitem__icon" data-lucide="Shield" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Loadout</span>
               </button>
 
@@ -462,11 +454,11 @@
               <span class="menu-nav-section-label">Store</span>
 
               <button type="button" class="menu-navitem" data-nav="SHOP" aria-label="Shop">
-                <span class="menu-navitem__icon">🛒</span>
+                <span class="menu-navitem__icon" data-lucide="ShoppingCart" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Shop</span>
               </button>
               <button type="button" class="menu-navitem" data-nav="INVENTORY" aria-label="Inventory">
-                <span class="menu-navitem__icon">🎒</span>
+                <span class="menu-navitem__icon" data-lucide="Backpack" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Inventory</span>
               </button>
 
@@ -474,27 +466,27 @@
               <span class="menu-nav-section-label">Progress</span>
 
               <button type="button" class="menu-navitem" data-page="quests" aria-label="Missions">
-                <span class="menu-navitem__icon">📜</span>
+                <span class="menu-navitem__icon" data-lucide="ScrollText" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Missions</span>
                 <span id="quests-alert" class="menu-navitem__badge hidden">!</span>
               </button>
               <button type="button" class="menu-navitem" data-page="quests" aria-label="Achievements">
-                <span class="menu-navitem__icon">🏅</span>
+                <span class="menu-navitem__icon" data-lucide="Medal" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Achievements</span>
               </button>
               <button type="button" class="menu-navitem" data-page="leaderboard" aria-label="Ranked">
-                <span class="menu-navitem__icon">🏆</span>
+                <span class="menu-navitem__icon" data-lucide="Trophy" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Ranked</span>
               </button>
               <button type="button" class="menu-navitem" data-nav="CO_OP" aria-label="Co-op">
-                <span class="menu-navitem__icon">👥</span>
+                <span class="menu-navitem__icon" data-lucide="Users" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Co-op</span>
               </button>
 
               <div class="menu-nav-separator" role="separator"></div>
 
               <button type="button" class="menu-navitem" data-nav="PROFILE" aria-label="Profile">
-                <span class="menu-navitem__icon">👤</span>
+                <span class="menu-navitem__icon" data-lucide="User" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Profile</span>
               </button>
               <button type="button" class="menu-navitem" data-page="skills" aria-label="Skills">
@@ -506,7 +498,7 @@
 
               <!-- Admin (only shown when authenticated) -->
               <button id="btn-admin" class="menu-navitem" title="Admin (F2)" style="display:none;">
-                <span class="menu-navitem__icon">🛡</span>
+                <span class="menu-navitem__icon" data-lucide="Shield" aria-hidden="true"></span>
                 <span class="menu-navitem__label">Admin</span>
               </button>
 
@@ -610,13 +602,13 @@
                 <div class="shop-top-row">
                   <div style="display:flex; gap:1rem;">
                     <p id="shop-coins">0 coins</p>
-                    <p id="shop-gems" style="color:#60a5fa;">💎 0 gems</p>
+                    <p id="shop-gems" style="color:#60a5fa;">0 gems</p>
                   </div>
-                  <button id="btn-open-steam-shop" class="steam-link-btn">🎮 Link Steam (+500 Coins)</button>
+                  <button id="btn-open-steam-shop" class="steam-link-btn"><span data-lucide="Gamepad2" aria-hidden="true"></span> Link Steam (+500 Coins)</button>
                 </div>
                 <div class="play-actions-row" style="margin:1rem 0;">
-                  <button type="button" class="play-btn" data-nav="SHOP">🛒 Open Shop</button>
-                  <button type="button" class="bonus-btn" data-nav="INVENTORY">🎒 Open Inventory</button>
+                  <button type="button" class="play-btn" data-nav="SHOP"><span data-lucide="ShoppingCart" aria-hidden="true"></span> Open Shop</button>
+                  <button type="button" class="bonus-btn" data-nav="INVENTORY"><span data-lucide="Backpack" aria-hidden="true"></span> Open Inventory</button>
                 </div>
                 <div class="shop-section-head" style="margin-top:1.5rem;">
                   <h3>VIP Membership</h3>
@@ -628,9 +620,9 @@
                     <p class="vip-benefit-text">Unlock VIP with gems for permanent bonuses!</p>
                   </div>
                   <div class="vip-tiers">
-                    <button id="btn-vip-bronze" class="vip-tier-btn vip-bronze">Bronze VIP<br><small>100 💎</small></button>
-                    <button id="btn-vip-silver" class="vip-tier-btn vip-silver">Silver VIP<br><small>250 💎</small></button>
-                    <button id="btn-vip-gold" class="vip-tier-btn vip-gold">Gold VIP<br><small>500 💎</small></button>
+                    <button id="btn-vip-bronze" class="vip-tier-btn vip-bronze">Bronze VIP<br><small>100 gems</small></button>
+                    <button id="btn-vip-silver" class="vip-tier-btn vip-silver">Silver VIP<br><small>250 gems</small></button>
+                    <button id="btn-vip-gold" class="vip-tier-btn vip-gold">Gold VIP<br><small>500 gems</small></button>
                   </div>
                 </div>
                 <label class="name-label">Nickname<input id="name-input" maxlength="16" placeholder="Slicer" /></label>
@@ -706,14 +698,14 @@
 
               <!-- Daily bonus shortcut -->
               <button id="btn-open-daily" class="menu-play-cta" style="padding:0.55rem 1rem;font-size:0.78rem;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));animation:none;box-shadow:inset 0 0 0 1px rgba(251,191,36,0.4),0 0 16px rgba(251,191,36,0.15);" aria-label="Daily Bonus">
-                🎁 Daily Bonus <span id="daily-btn-badge" class="badge-pulse">FREE</span>
+                <span data-lucide="Gift" aria-hidden="true"></span> Daily Bonus <span id="daily-btn-badge" class="badge-pulse">FREE</span>
               </button>
             </aside>
 
             <!-- ── BOTTOM PLAY CTA ── -->
             <footer id="menu-bottombar" hidden inert aria-hidden="true">
               <button id="btn-start" class="menu-play-cta" aria-label="Play Now">
-                <span class="menu-play-cta__icon">▶</span>
+                <span class="menu-play-cta__icon" data-lucide="Play" aria-hidden="true"></span>
                 <span>
                   PLAY NOW
                   <span class="menu-play-cta__mode" id="bottombar-mode">CASUAL · WAVE DEFENCE</span>
@@ -748,7 +740,6 @@
           <p>All 100 overlords defeated. Your wall stands.</p>
           <button id="campaign-victory-map" type="button">VIEW CAMPAIGN MAP</button>
         </section>
-        <div id="screen-campaign" class="ftd-screen-host hidden"></div>
 
         <!-- ════════════════════════ MODALS ════════════════════════ -->
 
@@ -789,14 +780,14 @@
           <div class="modal-card modal-card--auth">
             <button type="button" id="btn-close-auth" class="modal-close-btn" data-testid="auth-close" aria-label="Close sign in">&times;</button>
             <div class="auth-hero">
-              <div class="auth-fruit" aria-hidden="true">🍉</div>
+              <div class="auth-fruit" data-lucide="Apple" data-lucide-size="30" aria-hidden="true"></div>
               <p class="auth-eyebrow">Fruit TD</p>
               <h2 id="auth-modal-title" class="modal-title" data-testid="auth-title">Login</h2>
               <p id="auth-modal-sub" class="modal-sub">Sign in with Steam or your email.</p>
             </div>
 
             <button type="button" id="btn-auth-open-steam" class="steam-openid-btn">
-              <span class="steam-openid-icon" aria-hidden="true">🎮</span>
+              <span class="steam-openid-icon" data-lucide="Gamepad2" aria-hidden="true"></span>
               Sign in through Steam
             </button>
             <p class="auth-divider"><span>or email</span></p>
@@ -822,14 +813,14 @@
           <div class="modal-card modal-card--steam">
             <button type="button" id="btn-close-steam" class="modal-close-btn">&times;</button>
             <div class="auth-hero">
-              <div class="auth-fruit auth-fruit--steam" aria-hidden="true">🎮</div>
+              <div class="auth-fruit auth-fruit--steam" data-lucide="Gamepad2" data-lucide-size="30" aria-hidden="true"></div>
               <p class="auth-eyebrow">Steam OpenID</p>
               <h2 id="steam-modal-title" class="modal-title">Steam Login</h2>
               <p id="steam-modal-sub" class="modal-sub">You will be redirected to Steam. After you approve, we bring back your Steam name and avatar.</p>
             </div>
 
             <div class="steam-reward-pill">
-              🎁 First Steam link: <strong>+500 Coins</strong> and <strong>+1 Skill Point</strong>
+              <span data-lucide="Gift" aria-hidden="true"></span> First Steam link: <strong>+500 Coins</strong> and <strong>+1 Skill Point</strong>
             </div>
 
             <div id="steam-link-form" class="steam-form">
@@ -885,7 +876,7 @@
           <div class="modal-card modal-card--auth">
             <button type="button" id="btn-close-profile-setup" class="modal-close-btn">&times;</button>
             <div class="auth-hero">
-              <div class="auth-fruit" aria-hidden="true">🗡️</div>
+              <div class="auth-fruit" data-lucide="Sword" data-lucide-size="30" aria-hidden="true"></div>
               <p class="auth-eyebrow">New slicer</p>
               <h2 class="modal-title">Create your slicer</h2>
               <p class="modal-sub">Pick a username (letters &amp; numbers only, no spaces) and upload an avatar.</p>
@@ -1393,7 +1384,7 @@
                 visual data only — never progression, currency or game rules.
               </p>
               <div class="admin-form-col">
-                <button type="button" id="btn-admin-open-design" class="admin-btn-action">🎨 Open Design Mode (theme editor + screen previews)</button>
+                <button type="button" id="btn-admin-open-design" class="admin-btn-action"><span data-lucide="Palette" aria-hidden="true"></span> Open Design Mode (theme editor + screen previews)</button>
                 <p class="text-xs text-slate-400">Shortcut: <code>Ctrl+Shift+D</code> anywhere, or append <code>?design=1</code> to the URL.</p>
                 <div id="admin-design-inline"></div>
               </div>
@@ -1551,12 +1542,12 @@
         <!-- ════ Pause overlay ════ -->
         <div id="hud-pause" class="hidden">
           <div class="modal-card">
-            <div class="modal-icon">⏸</div>
+            <div class="modal-icon" data-lucide="Pause" data-lucide-size="32"></div>
             <p class="modal-title">Paused</p>
             <p class="modal-sub">The fruit wait. The wall does not.</p>
             <div class="modal-btns">
-              <button id="btn-resume" class="modal-btn modal-btn--primary">▶ Resume</button>
-              <button id="btn-restart" class="modal-btn">↺ Restart</button>
+              <button id="btn-resume" class="modal-btn modal-btn--primary"><span data-lucide="Play" aria-hidden="true"></span> Resume</button>
+              <button id="btn-restart" class="modal-btn"><span data-lucide="RotateCcw" aria-hidden="true"></span> Restart</button>
               <button id="btn-quit-menu" class="modal-btn modal-btn--ghost">Main menu</button>
             </div>
           </div>
@@ -1565,7 +1556,7 @@
         <!-- ════ Game over overlay ════ -->
         <div id="hud-gameover" class="hidden">
           <div class="modal-card modal-card--over">
-            <div class="modal-icon modal-icon--over">💀</div>
+            <div class="modal-icon modal-icon--over" data-lucide="Skull" data-lucide-size="32"></div>
             <h2 class="modal-title modal-title--over">Game Over</h2>
             <p class="modal-sub">Final score</p>
             <p id="hud-final-score" class="over-score">0</p>
@@ -1576,7 +1567,7 @@
             </div>
 
             <div class="modal-btns">
-              <button id="btn-retry" class="modal-btn modal-btn--primary">↺ Retry</button>
+              <button id="btn-retry" class="modal-btn modal-btn--primary"><span data-lucide="RotateCcw" aria-hidden="true"></span> Retry</button>
               <button id="btn-over-menu" class="modal-btn modal-btn--ghost">Main menu</button>
             </div>
           </div>

@@ -4,7 +4,7 @@ import {
 } from './api';
 import { GameToast } from '../ui/components/surface';
 
-export function showAchievementToast(title: string, desc: string, icon = '🏆', reward?: string): void {
+export function showAchievementToast(title: string, desc: string, icon = 'Trophy', reward?: string): void {
   GameToast(desc, 'accent', 4500, {
     title: `ACHIEVEMENT · ${title}`,
     icon,

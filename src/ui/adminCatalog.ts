@@ -41,6 +41,8 @@ function reqFields(req: Requirement, prefix: string): string {
         <option value="ranked" ${req.mode === 'ranked' ? 'selected' : ''}>Ranked</option>
         <option value="arena" ${req.mode === 'arena' ? 'selected' : ''}>Arena</option>
         <option value="coop" ${req.mode === 'coop' ? 'selected' : ''}>Co-op</option>
+        <option value="horde" ${req.mode === 'horde' ? 'selected' : ''}>Horde</option>
+        <option value="campaign" ${req.mode === 'campaign' ? 'selected' : ''}>Campaign</option>
       </select>
     </label>
     <label><span>Hero filter</span>
@@ -113,7 +115,7 @@ export function renderMissionEditor(container: HTMLElement, items: CatalogMissio
       <div class="admin-reward-inputs">
         <label><span>Title</span><input class="admin-input m-title" value="${escapeAttr(item.title)}" /></label>
         <label class="flex-1"><span>Description</span><input class="admin-input m-desc" value="${escapeAttr(item.desc)}" /></label>
-        <label><span>Icon</span><input class="admin-input m-icon" value="${escapeAttr(item.icon)}" maxlength="4" /></label>
+        <label><span>Lucide icon</span><input class="admin-input m-icon" value="${escapeAttr(item.icon)}" maxlength="32" placeholder="e.g. Swords" /></label>
         <label><span>Period</span>
           <select class="admin-input m-period">
             <option value="daily" ${item.type === 'daily' ? 'selected' : ''}>Daily</option>
@@ -170,7 +172,7 @@ export function addMission(items: CatalogMission[]): void {
     type: 'daily',
     title: 'New Mission',
     desc: 'Describe what the player must do',
-    icon: 'M',
+    icon: 'Target',
     enabled: true,
     requirement: { type: 'slice_any', goal: 10 },
     rewardCoins: 100,
@@ -193,7 +195,7 @@ export function renderAchievementEditor(container: HTMLElement, items: CatalogAc
       <div class="admin-reward-inputs">
         <label><span>Title</span><input class="admin-input a-title" value="${escapeAttr(item.title)}" /></label>
         <label class="flex-1"><span>Description</span><input class="admin-input a-desc" value="${escapeAttr(item.desc)}" /></label>
-        <label><span>Icon</span><input class="admin-input a-icon" value="${escapeAttr(item.icon)}" maxlength="4" /></label>
+        <label><span>Lucide icon</span><input class="admin-input a-icon" value="${escapeAttr(item.icon)}" maxlength="32" placeholder="e.g. Trophy" /></label>
         <label><span>Coins</span><input type="number" class="admin-input a-coins" value="${item.rewardCoins}" min="0" /></label>
         <label><span>Gems</span><input type="number" class="admin-input a-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
         <label><span>Skill Pts</span><input type="number" class="admin-input a-sp" value="${item.rewardSp}" min="0" /></label>
@@ -239,7 +241,7 @@ export function addAchievement(items: CatalogAchievement[]): void {
     id: newCatalogId('ach'),
     title: 'New Achievement',
     desc: 'What the player must accomplish',
-    icon: 'A',
+    icon: 'Trophy',
     enabled: true,
     requirement: { type: 'slice_any', goal: 25 },
     rewardCoins: 150,
@@ -262,7 +264,7 @@ export function renderBadgeEditor(container: HTMLElement, items: CatalogBadge[])
       <div class="admin-reward-inputs">
         <label><span>Title</span><input class="admin-input b-title" value="${escapeAttr(item.title)}" /></label>
         <label class="flex-1"><span>Description</span><input class="admin-input b-desc" value="${escapeAttr(item.desc)}" /></label>
-        <label><span>Icon</span><input class="admin-input b-icon" value="${escapeAttr(item.icon)}" maxlength="4" /></label>
+        <label><span>Lucide icon</span><input class="admin-input b-icon" value="${escapeAttr(item.icon)}" maxlength="32" placeholder="e.g. BadgeCheck" /></label>
         <label><span>ID</span><input class="admin-input b-id" value="${escapeAttr(item.id)}" /></label>
         <label><span>Coins</span><input type="number" class="admin-input b-coins" value="${item.rewardCoins ?? 0}" min="0" /></label>
         <label><span>Gems</span><input type="number" class="admin-input b-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
@@ -315,7 +317,7 @@ export function addBadge(items: CatalogBadge[]): void {
     id: newCatalogId('badge'),
     title: 'New Badge',
     desc: 'Earned by completing the requirement',
-    icon: 'B',
+    icon: 'BadgeCheck',
     rarity: 'common',
     enabled: true,
     requirement: { type: 'slice_any', goal: 1 },
@@ -345,7 +347,7 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
           <label><span>Coins</span><input type="number" class="admin-input r-coins" value="${item.rewardCoins ?? 0}" min="0" /></label>
           <label><span>Gems</span><input type="number" class="admin-input r-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
           <label><span>Color</span><input type="color" class="admin-input admin-color r-color" value="${escapeAttr(item.color)}" /></label>
-          <label><span>Icon</span><input class="admin-input r-icon" value="${escapeAttr(item.icon)}" maxlength="3" /></label>
+          <label><span>Lucide icon</span><input class="admin-input r-icon" value="${escapeAttr(item.icon)}" maxlength="32" placeholder="e.g. Crown" /></label>
         </div>
       `;
       card.querySelector('.r-id')?.addEventListener('change', (e) => {
@@ -378,7 +380,7 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
 }
 
 export function addRank(items: RankTier[]): void {
-  items.push({ id: newCatalogId('rank'), title: 'New Rank', minScore: 1000, color: '#a3e635', icon: 'R', rewardCoins: 0, rewardGems: 0 });
+  items.push({ id: newCatalogId('rank'), title: 'New Rank', minScore: 1000, color: '#a3e635', icon: 'Shield', rewardCoins: 0, rewardGems: 0 });
 }
 
 function sliderField(

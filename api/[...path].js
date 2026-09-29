@@ -63,13 +63,13 @@ function monthlyLeaderboardMode(date = /* @__PURE__ */ new Date()) {
   return `monthly-${currentMonthKey(date)}`;
 }
 var DEFAULT_RANK_TIERS = [
-  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "B", rewardCoins: 100 },
-  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "S", rewardCoins: 250, rewardGems: 5 },
-  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "G", rewardCoins: 500, rewardGems: 10 },
-  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "P", rewardCoins: 750, rewardGems: 15 },
-  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "D", rewardCoins: 1500, rewardGems: 30 },
-  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "M", rewardCoins: 2500, rewardGems: 60 },
-  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "GM", rewardCoins: 5e3, rewardGems: 100 }
+  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "Shield", rewardCoins: 100 },
+  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "Medal", rewardCoins: 250, rewardGems: 5 },
+  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "Trophy", rewardCoins: 500, rewardGems: 10 },
+  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "BadgeCheck", rewardCoins: 750, rewardGems: 15 },
+  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "Diamond", rewardCoins: 1500, rewardGems: 30 },
+  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "Crown", rewardCoins: 2500, rewardGems: 60 },
+  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "Flame", rewardCoins: 5e3, rewardGems: 100 }
 ];
 function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
   const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
@@ -77,7 +77,9 @@ function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
 }
 function mergeRewardDefaults(items, defaults) {
   const byId = new Map(defaults.map((item) => [item.id, item]));
-  return items.map((item) => {
+  const configuredById = new Map(items.filter((item) => item?.id).map((item) => [item.id, item]));
+  const mergedItems = [...configuredById.values(), ...defaults.filter((item) => !configuredById.has(item.id))];
+  return mergedItems.map((item) => {
     const fallback = byId.get(item.id);
     const merged = { ...fallback, ...item };
     const rewardCoins = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins ?? fallback?.rewardCoins) || 0)));
@@ -94,39 +96,130 @@ function req(type, goal, extra = {}) {
   return { type, goal, ...extra };
 }
 var DEFAULT_MISSIONS = [
-  { id: "daily_lemons", type: "daily", title: "Citrus Squeeze", desc: "Slice 30 Lemons or Strawberries", icon: "C", enabled: true, requirement: req("slice_citrus_or_berry", 30), rewardCoins: 80, rewardSp: 0 },
-  { id: "daily_combos", type: "daily", title: "Combo Fiend", desc: "Perform 4 combos of 3x or higher", icon: "X", enabled: true, requirement: req("combo_count", 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
-  { id: "daily_wave", type: "daily", title: "Wave Survivor", desc: "Survive to Wave 5 in any run", icon: "W", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
-  { id: "weekly_fruits", type: "weekly", title: "Fruit Apocalypse", desc: "Slice 250 total fruits this week", icon: "F", enabled: true, requirement: req("slice_any", 250), rewardCoins: 350, rewardSp: 1 },
-  { id: "monthly_ranked_climb", type: "monthly", title: "Monthly Climb", desc: "Score 4,000 in Ranked this month to reach Gold", icon: "G", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardSp: 1, rewardGems: 10, rewardBadge: "gold-slicer" },
-  { id: "monthly_silver_climb", type: "monthly", title: "Silver Season", desc: "Score 1,500 in Ranked this month to reach Silver", icon: "S", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardSp: 0, rewardGems: 5, rewardBadge: "silver-slicer" },
-  { id: "monthly_diamond_climb", type: "monthly", title: "Diamond Season", desc: "Score 15,000 in Ranked this month to reach Diamond", icon: "D", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" }
+  { id: "daily_lemons", type: "daily", title: "Citrus Squeeze", desc: "Slice 30 lemons or strawberries", icon: "Citrus", enabled: true, requirement: req("slice_citrus_or_berry", 30), rewardCoins: 80, rewardSp: 0 },
+  { id: "daily_combos", type: "daily", title: "Combo Fiend", desc: "Perform 4 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
+  { id: "daily_wave", type: "daily", title: "Wave Survivor", desc: "Survive to wave 5 in any run", icon: "Waves", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
+  { id: "weekly_fruits", type: "weekly", title: "Fruit Apocalypse", desc: "Slice 250 total fruits this week", icon: "Swords", enabled: true, requirement: req("slice_any", 250), rewardCoins: 350, rewardSp: 1 },
+  { id: "monthly_ranked_climb", type: "monthly", title: "Monthly Climb", desc: "Score 4,000 in Ranked this month to reach Gold", icon: "Trophy", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardSp: 1, rewardGems: 10, rewardBadge: "gold-slicer" },
+  { id: "monthly_silver_climb", type: "monthly", title: "Silver Season", desc: "Score 1,500 in Ranked this month to reach Silver", icon: "Medal", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardSp: 0, rewardGems: 5, rewardBadge: "silver-slicer" },
+  { id: "monthly_diamond_climb", type: "monthly", title: "Diamond Season", desc: "Score 15,000 in Ranked this month to reach Diamond", icon: "Diamond", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" },
+  { id: "daily_apples", type: "daily", title: "Apple Purge", desc: "Slice 25 apples", icon: "Apple", enabled: true, requirement: req("slice_any", 25, { fruitKind: "apple" }), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_watermelons", type: "daily", title: "Crack the Rind", desc: "Slice 12 watermelons", icon: "CircleDot", enabled: true, requirement: req("slice_watermelon", 12), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_oranges", type: "daily", title: "Orange Alert", desc: "Slice 25 oranges", icon: "Citrus", enabled: true, requirement: req("slice_orange", 25), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_bananas", type: "daily", title: "Peel Patrol", desc: "Slice 25 bananas", icon: "Banana", enabled: true, requirement: req("slice_banana", 25), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_kiwis", type: "daily", title: "Kiwi Sweep", desc: "Slice 25 kiwis", icon: "Circle", enabled: true, requirement: req("slice_kiwi", 25), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_pineapples", type: "daily", title: "Crown Breaker", desc: "Slice 18 pineapples", icon: "Crown", enabled: true, requirement: req("slice_pineapple", 18), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_bombs", type: "daily", title: "Bomb Disposal", desc: "Parry 6 explosive fruits", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 6), rewardCoins: 130, rewardSp: 0 },
+  { id: "daily_juice", type: "daily", title: "Fresh Supply", desc: "Collect 120 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 120), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_damage", type: "daily", title: "Clean Cuts", desc: "Deal 1,500 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 1500), rewardCoins: 110, rewardSp: 0 },
+  { id: "daily_perfect", type: "daily", title: "Untouched Wall", desc: "Clear 2 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 2), rewardCoins: 130, rewardSp: 0 },
+  { id: "daily_super", type: "daily", title: "Vitamin Overdrive", desc: "Activate Super Juice twice", icon: "Sparkles", enabled: true, requirement: req("super_activate", 2), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_build", type: "daily", title: "Wall Engineer", desc: "Place 3 turrets", icon: "Hammer", enabled: true, requirement: req("turret_place", 3), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_upgrade", type: "daily", title: "Sharpen Defences", desc: "Upgrade 2 turrets", icon: "ArrowUpCircle", enabled: true, requirement: req("turret_upgrade", 2), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_move", type: "daily", title: "Tactical Shift", desc: "Move a turret once", icon: "Move", enabled: true, requirement: req("turret_move", 1), rewardCoins: 70, rewardSp: 0 },
+  { id: "daily_reslice", type: "daily", title: "Second Cut", desc: "Re-slice 12 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 12), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_score", type: "daily", title: "Score Run", desc: "Earn 2,000 score", icon: "Gauge", enabled: true, requirement: req("earn_score", 2e3), rewardCoins: 120, rewardSp: 0 },
+  { id: "daily_jiju", type: "daily", title: "Master on Duty", desc: "Start a run as Master Jiju", icon: "UserRound", enabled: true, requirement: req("play_jiju", 1), rewardCoins: 60, rewardSp: 0 },
+  { id: "daily_ranked", type: "daily", title: "Ranked Deployment", desc: "Finish a Ranked match", icon: "Medal", enabled: true, requirement: req("play_ranked_games", 1), rewardCoins: 140, rewardSp: 0, rewardGems: 1 },
+  { id: "weekly_fruit_raid", type: "weekly", title: "Orchard Raid", desc: "Slice 750 fruits", icon: "Swords", enabled: true, requirement: req("slice_any", 750), rewardCoins: 700, rewardSp: 1 },
+  { id: "weekly_melons", type: "weekly", title: "Melon Siege", desc: "Slice 80 watermelons", icon: "CircleDot", enabled: true, requirement: req("slice_watermelon", 80), rewardCoins: 500, rewardSp: 1 },
+  { id: "weekly_citrus", type: "weekly", title: "Citrus Storm", desc: "Slice 180 citrus fruits", icon: "Citrus", enabled: true, requirement: req("slice_citrus", 180), rewardCoins: 500, rewardSp: 1 },
+  { id: "weekly_berries", type: "weekly", title: "Berry Cleanup", desc: "Slice 150 berry fruits", icon: "Cherry", enabled: true, requirement: req("slice_berry", 150), rewardCoins: 500, rewardSp: 1 },
+  { id: "weekly_waves", type: "weekly", title: "Long Watch", desc: "Clear 30 waves", icon: "Waves", enabled: true, requirement: req("waves_cleared", 30), rewardCoins: 650, rewardSp: 1 },
+  { id: "weekly_perfect", type: "weekly", title: "Perfect Defence", desc: "Clear 12 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 12), rewardCoins: 700, rewardSp: 1, rewardGems: 3 },
+  { id: "weekly_combos", type: "weekly", title: "Chain Reaction", desc: "Land 30 combos of 5x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 30, { minValue: 5 }), rewardCoins: 650, rewardSp: 1 },
+  { id: "weekly_bosses", type: "weekly", title: "Overlord Hunter", desc: "Defeat 5 bosses", icon: "Skull", enabled: true, requirement: req("slice_boss", 5), rewardCoins: 800, rewardSp: 1, rewardGems: 5 },
+  { id: "weekly_guillotines", type: "weekly", title: "Falling Blades", desc: "Place 8 Guillotines", icon: "Scissors", enabled: true, requirement: req("place_guillotine", 8), rewardCoins: 450, rewardSp: 1 },
+  { id: "weekly_vortex", type: "weekly", title: "Drain the Horde", desc: "Place 8 Vortex Drains", icon: "Tornado", enabled: true, requirement: req("place_vortex", 8), rewardCoins: 450, rewardSp: 1 },
+  { id: "weekly_lasers", type: "weekly", title: "Lemon Lightshow", desc: "Place 8 Lemon Lasers", icon: "ScanLine", enabled: true, requirement: req("place_laser", 8), rewardCoins: 450, rewardSp: 1 },
+  { id: "weekly_upgrades", type: "weekly", title: "Fortified", desc: "Upgrade turrets 15 times", icon: "ChevronsUp", enabled: true, requirement: req("turret_upgrade", 15), rewardCoins: 550, rewardSp: 1 },
+  { id: "weekly_games", type: "weekly", title: "Active Defender", desc: "Finish 10 matches", icon: "Gamepad2", enabled: true, requirement: req("play_games", 10), rewardCoins: 600, rewardSp: 1 },
+  { id: "weekly_ranked", type: "weekly", title: "Ladder Duty", desc: "Finish 5 Ranked matches", icon: "Trophy", enabled: true, requirement: req("play_ranked_games", 5), rewardCoins: 700, rewardSp: 1, rewardGems: 5 },
+  { id: "weekly_horde", type: "weekly", title: "Horde Holdout", desc: "Clear 20 Horde waves", icon: "UsersRound", enabled: true, requirement: req("waves_cleared", 20, { mode: "horde" }), rewardCoins: 750, rewardSp: 1, rewardGems: 4 },
+  { id: "weekly_campaign", type: "weekly", title: "Road Through Rot", desc: "Clear 20 Campaign waves", icon: "Map", enabled: true, requirement: req("waves_cleared", 20, { mode: "campaign" }), rewardCoins: 750, rewardSp: 1, rewardGems: 4 },
+  { id: "weekly_damage", type: "weekly", title: "Blade Work", desc: "Deal 30,000 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 3e4), rewardCoins: 650, rewardSp: 1 },
+  { id: "weekly_juice", type: "weekly", title: "Full Reservoir", desc: "Collect 2,000 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 2e3), rewardCoins: 550, rewardSp: 1 },
+  { id: "weekly_reslice", type: "weekly", title: "No Pulp Wasted", desc: "Re-slice 100 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 100), rewardCoins: 600, rewardSp: 1 },
+  { id: "monthly_master", type: "monthly", title: "Master Season", desc: "Reach Master rank", icon: "Crown", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 2e3, rewardSp: 3, rewardGems: 60 },
+  { id: "monthly_grandmaster", type: "monthly", title: "Grandmaster Season", desc: "Reach Grandmaster rank", icon: "Flame", enabled: true, requirement: req("reach_grandmaster", 4e4), rewardCoins: 4e3, rewardSp: 5, rewardGems: 100 },
+  { id: "monthly_games_25", type: "monthly", title: "Season Regular", desc: "Finish 25 Ranked matches", icon: "CalendarCheck", enabled: true, requirement: req("monthly_games", 25), rewardCoins: 1200, rewardSp: 2, rewardGems: 15 },
+  { id: "monthly_games_75", type: "monthly", title: "Season Veteran", desc: "Finish 75 Ranked matches", icon: "BadgeCheck", enabled: true, requirement: req("monthly_games", 75), rewardCoins: 2500, rewardSp: 4, rewardGems: 40 },
+  { id: "monthly_score_50000", type: "monthly", title: "Score Vanguard", desc: "Earn a 50,000 Ranked score", icon: "Gauge", enabled: true, requirement: req("monthly_score", 5e4), rewardCoins: 3e3, rewardSp: 4, rewardGems: 60 },
+  { id: "monthly_waves", type: "monthly", title: "Unbroken Line", desc: "Clear 200 Ranked waves", icon: "Shield", enabled: true, requirement: req("wave_ranked", 200), rewardCoins: 3e3, rewardSp: 4, rewardGems: 50 }
 ];
 var DEFAULT_ACHIEVEMENTS = [
-  { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "1", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: "first-cut" },
-  { id: "combo_5", title: "Combo Artist", desc: "Execute a 5x or higher combo slice", icon: "5", enabled: true, requirement: req("combo_reach_5", 5), rewardCoins: 100, rewardSp: 0 },
-  { id: "combo_10", title: "Blade Master", desc: "Execute a massive 10x combo slice", icon: "X", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "combo-king" },
-  { id: "fruit_100", title: "Fruit Peeler", desc: "Slice 100 total fruits", icon: "F", enabled: true, requirement: req("slice_any", 100), rewardCoins: 150, rewardSp: 0 },
-  { id: "fruit_500", title: "Juice Tycoon", desc: "Slice 500 total fruits", icon: "J", enabled: true, requirement: req("slice_any", 500), rewardCoins: 300, rewardSp: 1 },
-  { id: "fruit_1000", title: "Legendary Samurai", desc: "Slice 1,000 total fruits", icon: "S", enabled: true, requirement: req("slice_any", 1e3), rewardCoins: 600, rewardSp: 2 },
-  { id: "wave_5", title: "Hold The Line", desc: "Survive to Wave 5", icon: "W", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
-  { id: "wave_10", title: "Citrus Citadel", desc: "Survive to Wave 10", icon: "C", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "wall-guard" },
-  { id: "super_juice", title: "Max Vitamin C", desc: "Activate Super Juice mode", icon: "V", enabled: true, requirement: req("super_activate", 1), rewardCoins: 100, rewardSp: 0 },
-  { id: "untouchable", title: "Pristine Wall", desc: "Clear a wave with 100% wall integrity", icon: "P", enabled: true, requirement: req("perfect_wave", 1), rewardCoins: 150, rewardSp: 0 },
-  { id: "turret_builder", title: "Fortress Architect", desc: "Place 3 turrets on your defensive wall", icon: "T", enabled: true, requirement: req("turret_place", 3), rewardCoins: 150, rewardSp: 0 },
-  { id: "steam_connect", title: "Steam Cadet", desc: "Link your Steam profile to Fruit TD", icon: "ST", enabled: true, requirement: req("steam_link", 1), rewardCoins: 500, rewardSp: 1, rewardBadge: "steam-cadet" },
-  { id: "diamond_rank", title: "Diamond Slicer", desc: "Reach Diamond on the monthly ranked ladder", icon: "D", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" }
+  { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "Sword", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: "first-cut" },
+  { id: "combo_5", title: "Combo Artist", desc: "Execute a 5x or higher combo slice", icon: "Zap", enabled: true, requirement: req("combo_reach_5", 5), rewardCoins: 100, rewardSp: 0 },
+  { id: "combo_10", title: "Blade Master", desc: "Execute a massive 10x combo slice", icon: "Swords", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "combo-king" },
+  { id: "fruit_100", title: "Fruit Peeler", desc: "Slice 100 total fruits", icon: "Apple", enabled: true, requirement: req("slice_any", 100), rewardCoins: 150, rewardSp: 0 },
+  { id: "fruit_500", title: "Juice Tycoon", desc: "Slice 500 total fruits", icon: "Droplets", enabled: true, requirement: req("slice_any", 500), rewardCoins: 300, rewardSp: 1 },
+  { id: "fruit_1000", title: "Legendary Samurai", desc: "Slice 1,000 total fruits", icon: "Medal", enabled: true, requirement: req("slice_any", 1e3), rewardCoins: 600, rewardSp: 2 },
+  { id: "wave_5", title: "Hold The Line", desc: "Survive to wave 5", icon: "Shield", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
+  { id: "wave_10", title: "Citrus Citadel", desc: "Survive to wave 10", icon: "Castle", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "wall-guard" },
+  { id: "super_juice", title: "Max Vitamin C", desc: "Activate Super Juice mode", icon: "Sparkles", enabled: true, requirement: req("super_activate", 1), rewardCoins: 100, rewardSp: 0 },
+  { id: "untouchable", title: "Pristine Wall", desc: "Clear a wave with 100% wall integrity", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 1), rewardCoins: 150, rewardSp: 0 },
+  { id: "turret_builder", title: "Fortress Architect", desc: "Place 3 turrets on your defensive wall", icon: "Hammer", enabled: true, requirement: req("turret_place", 3), rewardCoins: 150, rewardSp: 0 },
+  { id: "steam_connect", title: "Steam Cadet", desc: "Link your Steam profile to Fruit TD", icon: "Gamepad2", enabled: true, requirement: req("steam_link", 1), rewardCoins: 500, rewardSp: 1, rewardBadge: "steam-cadet" },
+  { id: "diamond_rank", title: "Diamond Slicer", desc: "Reach Diamond on the monthly ranked ladder", icon: "Diamond", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" },
+  { id: "combo_15", title: "Chain Commander", desc: "Reach a 15x combo", icon: "Link", enabled: true, requirement: req("combo_reach_15", 15), rewardCoins: 350, rewardSp: 1 },
+  { id: "combo_20", title: "Unbroken Edge", desc: "Reach a 20x combo", icon: "Infinity", enabled: true, requirement: req("combo_reach_20", 20), rewardCoins: 600, rewardSp: 2, rewardGems: 5, rewardBadge: "combo-legend" },
+  { id: "fruit_5000", title: "Orchard Reaper", desc: "Slice 5,000 total fruits", icon: "Skull", enabled: true, requirement: req("slice_any", 5e3), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "fruit-reaper" },
+  { id: "fruit_10000", title: "Extinction Event", desc: "Slice 10,000 total fruits", icon: "Flame", enabled: true, requirement: req("slice_any", 1e4), rewardCoins: 3e3, rewardSp: 5, rewardGems: 30 },
+  { id: "wave_25", title: "Iron Wall", desc: "Reach wave 25", icon: "ShieldCheck", enabled: true, requirement: req("wave_reach", 25), rewardCoins: 500, rewardSp: 1 },
+  { id: "wave_50", title: "Last Stronghold", desc: "Reach wave 50", icon: "Castle", enabled: true, requirement: req("wave_reach", 50), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
+  { id: "wave_100", title: "Century Hold", desc: "Reach wave 100", icon: "Landmark", enabled: true, requirement: req("wave_reach", 100), rewardCoins: 2500, rewardSp: 4, rewardGems: 30 },
+  { id: "boss_10", title: "Boss Breaker", desc: "Defeat 10 bosses", icon: "Skull", enabled: true, requirement: req("slice_boss", 10), rewardCoins: 700, rewardSp: 1, rewardBadge: "boss-breaker" },
+  { id: "boss_50", title: "Overlord Bane", desc: "Defeat 50 bosses", icon: "Crown", enabled: true, requirement: req("slice_boss", 50), rewardCoins: 2e3, rewardSp: 3, rewardGems: 25 },
+  { id: "bomb_50", title: "Blast Proof", desc: "Parry 50 bombs", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 50), rewardCoins: 600, rewardSp: 1, rewardBadge: "bomb-tech" },
+  { id: "reslice_250", title: "Pulp Specialist", desc: "Re-slice 250 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 250), rewardCoins: 700, rewardSp: 1 },
+  { id: "damage_100k", title: "Six Figures of Pain", desc: "Deal 100,000 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 1e5), rewardCoins: 1e3, rewardSp: 2 },
+  { id: "juice_5000", title: "Reservoir Master", desc: "Collect 5,000 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 5e3), rewardCoins: 800, rewardSp: 2 },
+  { id: "super_25", title: "Overcharged", desc: "Activate Super Juice 25 times", icon: "Sparkles", enabled: true, requirement: req("super_activate", 25), rewardCoins: 750, rewardSp: 2 },
+  { id: "perfect_25", title: "Flawless Defender", desc: "Clear 25 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 25), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10, rewardBadge: "perfect-guard" },
+  { id: "turrets_50", title: "Defence Network", desc: "Place 50 turrets", icon: "TowerControl", enabled: true, requirement: req("turret_place", 50), rewardCoins: 750, rewardSp: 2 },
+  { id: "upgrades_50", title: "Maximum Output", desc: "Upgrade turrets 50 times", icon: "ChevronsUp", enabled: true, requirement: req("turret_upgrade", 50), rewardCoins: 900, rewardSp: 2 },
+  { id: "sales_10", title: "Field Quartermaster", desc: "Sell 10 turrets", icon: "Coins", enabled: true, requirement: req("turret_sell", 10), rewardCoins: 400, rewardSp: 1 },
+  { id: "moves_25", title: "Mobile Defence", desc: "Move turrets 25 times", icon: "Move", enabled: true, requirement: req("turret_move", 25), rewardCoins: 500, rewardSp: 1 },
+  { id: "games_10", title: "Standing Orders", desc: "Finish 10 matches", icon: "Gamepad2", enabled: true, requirement: req("play_games", 10), rewardCoins: 400, rewardSp: 1 },
+  { id: "games_50", title: "Career Defender", desc: "Finish 50 matches", icon: "CalendarCheck", enabled: true, requirement: req("play_games", 50), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
+  { id: "games_200", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", enabled: true, requirement: req("play_games", 200), rewardCoins: 3e3, rewardSp: 5, rewardGems: 40, rewardBadge: "veteran" },
+  { id: "casual_25", title: "Casual Specialist", desc: "Finish 25 Casual matches", icon: "Leaf", enabled: true, requirement: req("play_casual_games", 25), rewardCoins: 700, rewardSp: 1 },
+  { id: "ranked_25", title: "Ranked Regular", desc: "Finish 25 Ranked matches", icon: "Trophy", enabled: true, requirement: req("play_ranked_games", 25), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
+  { id: "arena_25", title: "Arena Contender", desc: "Finish 25 Arena matches", icon: "Swords", enabled: true, requirement: req("play_arena_games", 25), rewardCoins: 900, rewardSp: 2 },
+  { id: "coop_25", title: "Reliable Partner", desc: "Finish 25 Co-op matches", icon: "UsersRound", enabled: true, requirement: req("play_coop_games", 25), rewardCoins: 900, rewardSp: 2 },
+  { id: "topfu_10", title: "Topfu Disciple", desc: "Start 10 runs as Topfu", icon: "UserRound", enabled: true, requirement: req("play_topfu", 10), rewardCoins: 500, rewardSp: 1 },
+  { id: "lagen_10", title: "Lagen Disciple", desc: "Start 10 runs as Lagen", icon: "UserRound", enabled: true, requirement: req("play_lagen", 10), rewardCoins: 500, rewardSp: 1 },
+  { id: "tripos_10", title: "Triple Path", desc: "Start 10 runs as Tripos", icon: "GitBranch", enabled: true, requirement: req("play_tripos", 10), rewardCoins: 600, rewardSp: 1 },
+  { id: "ki_10", title: "Spirit Path", desc: "Start 10 runs as Master Ki", icon: "Sparkles", enabled: true, requirement: req("play_ki", 10), rewardCoins: 600, rewardSp: 1 },
+  { id: "skills_10", title: "Trained Operative", desc: "Buy 10 skill ranks", icon: "BrainCircuit", enabled: true, requirement: req("buy_skill", 10), rewardCoins: 600, rewardSp: 2 },
+  { id: "skins_10", title: "Blade Collector", desc: "Buy 10 shop items", icon: "ShoppingBag", enabled: true, requirement: req("buy_skin", 10), rewardCoins: 700, rewardSp: 2, rewardBadge: "collector" },
+  { id: "daily_7", title: "One Week Strong", desc: "Claim 7 daily bonuses", icon: "CalendarCheck", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 500, rewardSp: 1, rewardGems: 5 },
+  { id: "daily_30", title: "Monthly Survivor", desc: "Claim 30 daily bonuses", icon: "CalendarDays", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 1500, rewardSp: 3, rewardGems: 25, rewardBadge: "daily-veteran" },
+  { id: "score_10000", title: "Five Digit Run", desc: "Reach 10,000 score in a run", icon: "Gauge", enabled: true, requirement: req("score_reach", 1e4), rewardCoins: 700, rewardSp: 1 },
+  { id: "score_50000", title: "Score Titan", desc: "Reach 50,000 score in a run", icon: "ChartNoAxesCombined", enabled: true, requirement: req("score_reach", 5e4), rewardCoins: 2e3, rewardSp: 3, rewardGems: 20 },
+  { id: "horde_wave_50", title: "Horde Holdout", desc: "Reach wave 50 in Horde", icon: "UsersRound", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "horde-veteran" }
 ];
 var DEFAULT_BADGES = [
-  { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "FC", rarity: "common", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50 },
-  { id: "combo-king", title: "Combo King", desc: "Awarded for a 10x combo", icon: "CK", rarity: "rare", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 150, rewardGems: 2 },
-  { id: "wall-guard", title: "Wall Guard", desc: "Hold the wall to wave 10", icon: "WG", rarity: "rare", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 100, rewardGems: 2 },
-  { id: "steam-cadet", title: "Steam Cadet", desc: "Linked Steam account", icon: "SC", rarity: "common", enabled: true, requirement: req("steam_link", 1), rewardCoins: 100 },
-  { id: "bronze-slicer", title: "Bronze Slicer", desc: "Finish a Ranked match this month", icon: "BR", rarity: "common", enabled: true, requirement: req("monthly_games", 1), rewardCoins: 100 },
-  { id: "silver-slicer", title: "Silver Slicer", desc: "Monthly Silver rank", icon: "SS", rarity: "rare", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
-  { id: "gold-slicer", title: "Gold Slicer", desc: "Monthly Gold rank", icon: "GS", rarity: "epic", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardGems: 10 },
-  { id: "diamond-slicer", title: "Diamond Slicer", desc: "Monthly Diamond rank", icon: "DS", rarity: "legendary", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 1e3, rewardGems: 25 },
-  { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "DR", rarity: "rare", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 250, rewardGems: 5 }
+  { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "Sword", rarity: "common", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50 },
+  { id: "combo-king", title: "Combo King", desc: "Awarded for a 10x combo", icon: "Zap", rarity: "rare", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 150, rewardGems: 2 },
+  { id: "wall-guard", title: "Wall Guard", desc: "Hold the wall to wave 10", icon: "Shield", rarity: "rare", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 100, rewardGems: 2 },
+  { id: "steam-cadet", title: "Steam Cadet", desc: "Linked Steam account", icon: "Gamepad2", rarity: "common", enabled: true, requirement: req("steam_link", 1), rewardCoins: 100 },
+  { id: "bronze-slicer", title: "Bronze Slicer", desc: "Finish a Ranked match this month", icon: "Shield", rarity: "common", enabled: true, requirement: req("monthly_games", 1), rewardCoins: 100 },
+  { id: "silver-slicer", title: "Silver Slicer", desc: "Monthly Silver rank", icon: "Medal", rarity: "rare", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: "gold-slicer", title: "Gold Slicer", desc: "Monthly Gold rank", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardGems: 10 },
+  { id: "diamond-slicer", title: "Diamond Slicer", desc: "Monthly Diamond rank", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "CalendarCheck", rarity: "rare", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 250, rewardGems: 5 },
+  { id: "combo-legend", title: "Combo Legend", desc: "Reach a 20x combo", icon: "Infinity", rarity: "epic", enabled: true, requirement: req("combo_reach_20", 20), rewardCoins: 400, rewardGems: 8 },
+  { id: "fruit-reaper", title: "Fruit Reaper", desc: "Slice 5,000 fruits", icon: "Skull", rarity: "epic", enabled: true, requirement: req("slice_any", 5e3), rewardCoins: 600, rewardGems: 10 },
+  { id: "boss-breaker", title: "Boss Breaker", desc: "Defeat 10 bosses", icon: "Crown", rarity: "epic", enabled: true, requirement: req("slice_boss", 10), rewardCoins: 500, rewardGems: 10 },
+  { id: "bomb-tech", title: "Bomb Technician", desc: "Parry 50 bombs", icon: "Bomb", rarity: "rare", enabled: true, requirement: req("bomb_parry", 50), rewardCoins: 350, rewardGems: 5 },
+  { id: "perfect-guard", title: "Perfect Guard", desc: "Clear 25 perfect waves", icon: "ShieldCheck", rarity: "epic", enabled: true, requirement: req("perfect_wave", 25), rewardCoins: 500, rewardGems: 10 },
+  { id: "collector", title: "Arsenal Collector", desc: "Buy 10 shop items", icon: "ShoppingBag", rarity: "rare", enabled: true, requirement: req("buy_skin", 10), rewardCoins: 400, rewardGems: 5 },
+  { id: "daily-veteran", title: "Daily Veteran", desc: "Claim 30 daily bonuses", icon: "CalendarDays", rarity: "epic", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 600, rewardGems: 15 },
+  { id: "master-slicer", title: "Master Slicer", desc: "Reach Master rank", icon: "Crown", rarity: "legendary", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "horde-veteran", title: "Horde Veteran", desc: "Clear 50 Horde waves", icon: "UsersRound", rarity: "legendary", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "campaign-pathfinder", title: "Campaign Pathfinder", desc: "Clear 100 Campaign waves", icon: "Map", rarity: "epic", enabled: true, requirement: req("waves_cleared", 100, { mode: "campaign" }), rewardCoins: 750, rewardGems: 15 },
+  { id: "veteran", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", rarity: "legendary", enabled: true, requirement: req("play_games", 200), rewardCoins: 1e3, rewardGems: 25 }
 ];
 
 // src/game/slicers.ts
@@ -1423,14 +1516,26 @@ function normalizePrizeCatalog(input, defaults) {
     ..."rewardSp" in item ? { rewardSp: Math.max(0, Math.min(1e4, Math.floor(Number(item.rewardSp) || 0))) } : {}
   }));
 }
-function normalizeMenuConfig(input) {
+function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG.menuConfig) {
   const row = input && typeof input === "object" ? input : {};
+  const text = (value, previous, max) => typeof value === "string" ? value.slice(0, max) : previous;
+  const asset = (value, previous = "") => {
+    if (value === void 0) return previous;
+    if (typeof value !== "string" || !value) return "";
+    if (/^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048) return value;
+    if (/^data:image\/(?:png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 9e5) return value;
+    return "";
+  };
+  const themeColor = typeof row.themeColor === "string" && /^#[0-9a-f]{6}$/i.test(row.themeColor) ? row.themeColor : fallback.themeColor;
   return {
-    eyebrow: String(row.eyebrow ?? DEFAULT_ADMIN_CONFIG.menuConfig.eyebrow),
-    title: String(row.title ?? DEFAULT_ADMIN_CONFIG.menuConfig.title),
-    subtitle: String(row.subtitle ?? DEFAULT_ADMIN_CONFIG.menuConfig.subtitle),
-    announcement: String(row.announcement ?? DEFAULT_ADMIN_CONFIG.menuConfig.announcement),
-    themeColor: String(row.themeColor ?? DEFAULT_ADMIN_CONFIG.menuConfig.themeColor)
+    eyebrow: text(row.eyebrow, fallback.eyebrow, 120),
+    title: text(row.title, fallback.title, 160),
+    subtitle: text(row.subtitle, fallback.subtitle, 500),
+    announcement: text(row.announcement, fallback.announcement, 500),
+    themeColor,
+    backgroundImage: asset(row.backgroundImage, fallback.backgroundImage),
+    logoImage: asset(row.logoImage, fallback.logoImage),
+    faviconImage: asset(row.faviconImage, fallback.faviconImage)
   };
 }
 function normalizeGameplayConfig(input) {
@@ -1455,13 +1560,13 @@ function normalizeGameplayConfig(input) {
 var DEFAULT_ADMIN_CONFIG = {
   configKey: "game_config",
   dailyRewards: [
-    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: "50 Coins + 5 \u{1F48E}", iconType: "coin" },
-    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: "100 Coins + 1 SP + 10 \u{1F48E}", iconType: "gem" },
-    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: "150 Coins + 15 \u{1F48E}", iconType: "coin" },
-    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: "200 Coins + 20 \u{1F48E}", iconType: "coin" },
-    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: "300 Coins + 2 SP + 25 \u{1F48E}", iconType: "gem" },
-    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: "450 Coins + 30 \u{1F48E}", iconType: "chest" },
-    { day: 7, coins: 1e3, skillPoints: 2, gems: 50, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade + 50 \u{1F48E}!", iconType: "blade" }
+    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: "50 Coins + 5 Gems", iconType: "coin" },
+    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: "100 Coins + 1 SP + 10 Gems", iconType: "gem" },
+    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: "150 Coins + 15 Gems", iconType: "coin" },
+    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: "200 Coins + 20 Gems", iconType: "coin" },
+    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: "300 Coins + 2 SP + 25 Gems", iconType: "gem" },
+    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: "450 Coins + 30 Gems", iconType: "chest" },
+    { day: 7, coins: 1e3, skillPoints: 2, gems: 50, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade + 50 Gems!", iconType: "blade" }
   ],
   vipTiers: [
     { tier: "bronze", title: "Bronze VIP", price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: "+10% coins, +5% XP, 25 daily coins" },
@@ -1473,7 +1578,10 @@ var DEFAULT_ADMIN_CONFIG = {
     title: "Slice.\nHold the Wall.",
     subtitle: "High-speed tower defense with fruit-slashing action.",
     announcement: "Welcome Slicers! Daily bonus is live. Climb the Global Leaderboard!",
-    themeColor: "#a3e635"
+    themeColor: "#a3e635",
+    backgroundImage: "",
+    logoImage: "",
+    faviconImage: ""
   },
   gameplayConfig: {
     startMoney: 140,
@@ -1511,6 +1619,7 @@ adminRouter.get("/config", async (_req, res) => {
       config: {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
+        menuConfig: normalizeMenuConfig(cfg.menuConfig),
         vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
         missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
         achievements: normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS),
@@ -1553,7 +1662,7 @@ adminRouter.post("/config", async (req2, res) => {
       configKey: "game_config",
       dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG.dailyRewards,
       vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
-      menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
+      menuConfig: menuConfig ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig)) : normalizeMenuConfig(existing?.menuConfig),
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
       achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),

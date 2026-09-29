@@ -36,7 +36,7 @@ export function screenShell(root: HTMLElement, opts: ScreenShellOptions): HTMLEl
   if (!opts.hideBack) {
     headerChildren.push(
       GameButton({
-        label: '‹ Back',
+        label: 'Back',
         variant: 'ghost',
         class: 'ftd-screen__back',
         onClick: () => back(),

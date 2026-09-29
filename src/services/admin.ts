@@ -74,13 +74,13 @@ export interface AdminConfig {
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   configKey: 'game_config',
   dailyRewards: [
-    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: '50 Coins + 5 💎', iconType: 'coin' },
-    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: '100 Coins + 1 SP + 10 💎', iconType: 'gem' },
-    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: '150 Coins + 15 💎', iconType: 'coin' },
-    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: '200 Coins + 20 💎', iconType: 'coin' },
-    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: '300 Coins + 2 SP + 25 💎', iconType: 'gem' },
-    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 💎', iconType: 'chest' },
-    { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 💎!', iconType: 'blade' },
+    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: '50 Coins + 5 Gems', iconType: 'coin' },
+    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: '100 Coins + 1 SP + 10 Gems', iconType: 'gem' },
+    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: '150 Coins + 15 Gems', iconType: 'coin' },
+    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: '200 Coins + 20 Gems', iconType: 'coin' },
+    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: '300 Coins + 2 SP + 25 Gems', iconType: 'gem' },
+    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 Gems', iconType: 'chest' },
+    { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 Gems!', iconType: 'blade' },
   ],
   vipTiers: [
     { tier: 'bronze', title: 'Bronze VIP', price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: '+10% coins, +5% XP, 25 daily coins' },

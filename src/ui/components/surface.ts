@@ -7,6 +7,7 @@
  */
 import { currentBreakpoint, presentationFor, type ScreenId, type SurfaceKind } from '../theme/layout';
 import { classNames, el, type Child } from './dom';
+import { lucideIcon } from '../lucideIcon';
 
 export type SurfaceAnimation = 'fade' | 'scale' | 'slide' | 'none';
 export type SurfaceSize = 'sm' | 'md' | 'lg' | 'full';
@@ -18,7 +19,7 @@ export interface SurfaceOptions {
   kind?: SurfaceKind;
   size?: SurfaceSize;
   animation?: SurfaceAnimation;
-  /** Show the ✕ button (default true). */
+  /** Show the close button (default true). */
   closable?: boolean;
   /** Clicking the backdrop closes (default true). */
   dismissOnBackdrop?: boolean;
@@ -84,7 +85,7 @@ export function openSurface(opts: SurfaceOptions = {}): SurfaceHandle {
   const head = el('header', { class: 'ftd-surface__head' });
 
   if (opts.onBack) {
-    const back = el('button', { type: 'button', class: 'ftd-surface__back', 'aria-label': 'Back', text: '←' });
+    const back = el('button', { type: 'button', class: 'ftd-surface__back', 'aria-label': 'Back' }, [lucideIcon('ArrowLeft', '', 20)]);
     back.addEventListener('click', () => opts.onBack?.());
     head.appendChild(back);
   }
@@ -113,7 +114,7 @@ export function openSurface(opts: SurfaceOptions = {}): SurfaceHandle {
   };
 
   if (opts.closable !== false) {
-    const close = el('button', { type: 'button', class: 'ftd-surface__close', 'aria-label': 'Close', text: '×' });
+    const close = el('button', { type: 'button', class: 'ftd-surface__close', 'aria-label': 'Close' }, [lucideIcon('X', '', 20)]);
     close.addEventListener('click', () => handle.close());
     head.appendChild(close);
   }
@@ -214,7 +215,7 @@ export function GameToast(
     document.body.appendChild(host);
   }
   const toast = el('div', { class: classNames('ftd-toast', `ftd-tone-${tone}`), role: tone === 'danger' || tone === 'warning' ? 'alert' : 'status', 'aria-atomic': 'true' }, [
-    details.icon ? el('span', { class: 'ftd-toast__icon', 'aria-hidden': 'true', text: details.icon }) : null,
+    details.icon ? el('span', { class: 'ftd-toast__icon', 'aria-hidden': 'true' }, [lucideIcon(details.icon, '', 20)]) : null,
     el('span', { class: 'ftd-toast__copy' }, [
       details.title ? el('strong', { class: 'ftd-toast__title', text: details.title }) : null,
       el('span', { class: 'ftd-toast__message', text: message }),

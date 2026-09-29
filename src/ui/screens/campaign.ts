@@ -1,4 +1,4 @@
-import { createElement, Shield, LockKeyhole, Swords, Sparkles } from 'lucide';
+import { createElement, ArrowLeft, Shield, LockKeyhole, Swords, Sparkles } from 'lucide';
 import { campaignBoss, campaignWaves, type CampaignProgress } from '../../game/campaign';
 import type { SaveData } from '../../game/save';
 import { getLiveConfig } from '../../services/liveConfig';
@@ -17,7 +17,7 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
   let selected = Math.min(progress.unlocked, Math.max(start, progress.unlocked));
   const roster = getLiveConfig().campaignBosses;
   const head = el('header', { class: 'ftd-campaign__header' }, [
-    el('button', { class: 'ftd-campaign__back', type: 'button', 'aria-label': 'Back to hub' }, ['‹', el('span', { text: 'BACK' })]),
+    el('button', { class: 'ftd-campaign__back', type: 'button', 'aria-label': 'Back to hub' }, [icon(ArrowLeft), el('span', { text: 'BACK' })]),
     el('div', {}, [el('p', { class: 'ftd-campaign__eyebrow', text: 'THE ROTTEN ORCHARD' }), el('h1', { text: 'CAMPAIGN' }), el('p', { text: '100 stages · 100 overlords · one wall to hold' })]),
     el('div', { class: 'ftd-campaign__progress' }, [el('strong', { text: `${progress.cleared.length}/100` }), el('span', { text: 'STAGES CLEARED' })]),
   ]);

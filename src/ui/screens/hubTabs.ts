@@ -333,7 +333,7 @@ function heroesSub(cb: HeroScreenCallbacks) {
       );
     } else {
       actions.appendChild(
-        GameButton({ label: `🔒 ${status.requirement}`, variant: 'outline', size: 'lg', block: true, disabled: true }),
+        GameButton({ label: status.requirement, variant: 'outline', size: 'lg', block: true, disabled: true }),
       );
     }
     detail.appendChild(actions);

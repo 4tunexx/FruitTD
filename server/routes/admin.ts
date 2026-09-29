@@ -46,6 +46,9 @@ export interface AdminConfigDoc {
     subtitle: string;
     announcement: string;
     themeColor: string;
+    backgroundImage?: string;
+    logoImage?: string;
+    faviconImage?: string;
   };
   gameplayConfig: {
     startMoney: number;
@@ -60,6 +63,7 @@ export interface AdminConfigDoc {
   slicers?: any[];
   enemies?: any[];
   waves?: any;
+  campaignBosses?: any[];
   updatedAt: Date;
 }
 
@@ -101,14 +105,30 @@ function normalizePrizeCatalog<T extends { id: string; rewardCoins?: number; rew
   }));
 }
 
-function normalizeMenuConfig(input: unknown): AdminConfigDoc['menuConfig'] {
+export function normalizeMenuConfig(
+  input: unknown,
+  fallback: AdminConfigDoc['menuConfig'] = DEFAULT_ADMIN_CONFIG.menuConfig,
+): AdminConfigDoc['menuConfig'] {
   const row = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
+  const text = (value: unknown, previous: string, max: number) => typeof value === 'string' ? value.slice(0, max) : previous;
+  const asset = (value: unknown, previous = '') => {
+    if (value === undefined) return previous;
+    if (typeof value !== 'string' || !value) return '';
+    if (/^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048) return value;
+    if (/^data:image\/(?:png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 900_000) return value;
+    return '';
+  };
+  const themeColor = typeof row.themeColor === 'string' && /^#[0-9a-f]{6}$/i.test(row.themeColor)
+    ? row.themeColor : fallback.themeColor;
   return {
-    eyebrow: String(row.eyebrow ?? DEFAULT_ADMIN_CONFIG.menuConfig.eyebrow),
-    title: String(row.title ?? DEFAULT_ADMIN_CONFIG.menuConfig.title),
-    subtitle: String(row.subtitle ?? DEFAULT_ADMIN_CONFIG.menuConfig.subtitle),
-    announcement: String(row.announcement ?? DEFAULT_ADMIN_CONFIG.menuConfig.announcement),
-    themeColor: String(row.themeColor ?? DEFAULT_ADMIN_CONFIG.menuConfig.themeColor),
+    eyebrow: text(row.eyebrow, fallback.eyebrow, 120),
+    title: text(row.title, fallback.title, 160),
+    subtitle: text(row.subtitle, fallback.subtitle, 500),
+    announcement: text(row.announcement, fallback.announcement, 500),
+    themeColor,
+    backgroundImage: asset(row.backgroundImage, fallback.backgroundImage),
+    logoImage: asset(row.logoImage, fallback.logoImage),
+    faviconImage: asset(row.faviconImage, fallback.faviconImage),
   };
 }
 
@@ -135,13 +155,13 @@ function normalizeGameplayConfig(input: unknown): AdminConfigDoc['gameplayConfig
 export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   configKey: 'game_config',
   dailyRewards: [
-    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: '50 Coins + 5 💎', iconType: 'coin' },
-    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: '100 Coins + 1 SP + 10 💎', iconType: 'gem' },
-    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: '150 Coins + 15 💎', iconType: 'coin' },
-    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: '200 Coins + 20 💎', iconType: 'coin' },
-    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: '300 Coins + 2 SP + 25 💎', iconType: 'gem' },
-    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 💎', iconType: 'chest' },
-    { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 💎!', iconType: 'blade' },
+    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: '50 Coins + 5 Gems', iconType: 'coin' },
+    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: '100 Coins + 1 SP + 10 Gems', iconType: 'gem' },
+    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: '150 Coins + 15 Gems', iconType: 'coin' },
+    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: '200 Coins + 20 Gems', iconType: 'coin' },
+    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: '300 Coins + 2 SP + 25 Gems', iconType: 'gem' },
+    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: '450 Coins + 30 Gems', iconType: 'chest' },
+    { day: 7, coins: 1000, skillPoints: 2, gems: 50, skinUnlock: 'blade-gold', label: '1,000 Coins + Gold Blade + 50 Gems!', iconType: 'blade' },
   ],
   vipTiers: [
     { tier: 'bronze', title: 'Bronze VIP', price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: '+10% coins, +5% XP, 25 daily coins' },
@@ -154,6 +174,9 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
     subtitle: 'High-speed tower defense with fruit-slashing action.',
     announcement: 'Welcome Slicers! Daily bonus is live. Climb the Global Leaderboard!',
     themeColor: '#a3e635',
+    backgroundImage: '',
+    logoImage: '',
+    faviconImage: '',
   },
   gameplayConfig: {
     startMoney: 140,
@@ -195,6 +218,7 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
       config: {
         ...DEFAULT_ADMIN_CONFIG,
         ...cfg,
+        menuConfig: normalizeMenuConfig(cfg.menuConfig),
         vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
         missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
         achievements: normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS),
@@ -243,7 +267,9 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       configKey: 'game_config',
       dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG.dailyRewards,
       vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
-      menuConfig: menuConfig ? normalizeMenuConfig(menuConfig) : existing?.menuConfig || DEFAULT_ADMIN_CONFIG.menuConfig,
+      menuConfig: menuConfig
+        ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig))
+        : normalizeMenuConfig(existing?.menuConfig),
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
       achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),

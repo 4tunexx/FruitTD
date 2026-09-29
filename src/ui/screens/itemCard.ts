@@ -9,6 +9,7 @@
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import type { CatalogItem } from '../../game/catalog';
+import { lucideIcon } from '../lucideIcon';
 
 export type ItemCardMode = 'shop' | 'inventory';
 
@@ -112,7 +113,7 @@ export function renderItemCard(
   if (state.mode === 'shop') {
     footer.appendChild(
       el('p', { class: 'ftd-item-card__price' }, [
-        el('span', { text: '🪙', 'aria-hidden': 'true' }),
+        el('span', { 'aria-hidden': 'true' }, [lucideIcon('Coins', '', 16)]),
         el('span', { text: item.price.toLocaleString() }),
       ]),
     );

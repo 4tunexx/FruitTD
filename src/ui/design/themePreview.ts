@@ -109,9 +109,9 @@ export function renderThemePreview(): HTMLElement {
         GameHeroCard({ name: 'Lagen', role: 'Locked', locked: true }),
       ]),
       el('div', { class: 'ftd-grid' }, [
-        GameItemCard({ name: 'Gold Blade', rarity: 'Legendary', price: 1200, icon: '🗡️' }),
-        GameItemCard({ name: 'Melon Wall', rarity: 'Epic', price: 800, icon: '🍉', owned: true }),
-        GameItemCard({ name: 'Juice Pack', rarity: 'Common', price: 120, icon: '🧃' }),
+        GameItemCard({ name: 'Gold Blade', rarity: 'Legendary', price: 1200, icon: 'Sword' }),
+        GameItemCard({ name: 'Melon Wall', rarity: 'Epic', price: 800, icon: 'Shield' , owned: true }),
+        GameItemCard({ name: 'Juice Pack', rarity: 'Common', price: 120, icon: 'Droplets' }),
       ]),
     ]),
   );

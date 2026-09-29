@@ -129,7 +129,7 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
   } else {
     actions.appendChild(
       GameButton({
-        label: `🔒 ${status.requirement}`,
+        label: status.requirement,
         variant: 'outline',
         size: 'lg',
         block: true,
@@ -197,4 +197,3 @@ export function renderHeroScreen(root: HTMLElement, save: SaveData, cb: HeroScre
 export function resetHeroView(): void {
   selected = null;
 }
-

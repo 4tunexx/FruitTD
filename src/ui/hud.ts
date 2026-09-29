@@ -58,10 +58,11 @@ import { getHeroXpState } from '../game/progression';
 import { getAllHeroStatuses } from '../game/progression/heroStatus';
 import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
-import { getRewardSvg } from './icons';
 import { AdminController } from './admin';
 import type { Sfx } from '../audio/sfx';
 import { isUserAdmin } from '../services/admin';
+import { escapeHtml } from './components/dom';
+import { mountLucideIcon } from './lucideIcon';
 
 export class Hud {
   private readonly score = document.getElementById('hud-score')!;
@@ -134,7 +135,6 @@ export class Hud {
   onEquipItem: ((id: string) => void) | null = null;
   onUnequipItem: ((id: string) => void) | null = null;
   onSellItem: ((id: string) => void) | null = null;
-  onDeleteItem: ((id: string) => void) | null = null;
   onBuySkill: ((id: SkillId) => void) | null = null;
   onRename: ((name: string) => void) | null = null;
   onSuper: (() => void) | null = null;
@@ -316,7 +316,7 @@ export class Hud {
     showAchievementToast(
       'Admin access required',
       'Sign in with the Steam account configured for this server.',
-      '🔒',
+      'LockKeyhole',
     );
   }
 
@@ -548,7 +548,7 @@ export class Hud {
     const mute = document.getElementById('btn-mute');
     const settingsMute = document.getElementById('btn-settings-mute');
     if (settingsMute) {
-      settingsMute.textContent = mute?.textContent === '🔇' ? 'Unmute sound' : 'Mute sound';
+      settingsMute.textContent = mute?.dataset.muted === 'true' ? 'Unmute sound' : 'Mute sound';
     }
   }
 
@@ -731,7 +731,7 @@ export class Hud {
     const coinEl = document.getElementById('shop-coins');
     if (coinEl) coinEl.textContent = `${save.coins} coins`;
     const gemEl = document.getElementById('shop-gems');
-    if (gemEl) gemEl.textContent = `💎 ${save.gems || 0} gems`;
+    if (gemEl) gemEl.textContent = `${save.gems || 0} gems`;
     this.updateVIPStatus(save);
   }
 
@@ -1031,8 +1031,8 @@ export class Hud {
     this.lives.textContent = String(state.lives);
     this.wave.textContent = String(state.wave);
     this.fps.textContent = `${Math.round(fps)} FPS`;
-    this.juice.textContent = `🍋${bank.yellow}  🍓${bank.pink}  🍊${bank.orange}  🥝${bank.green}`;
-    this.points.textContent = points > 0 ? `✨ ${points} skill point${points !== 1 ? 's' : ''} available` : '';
+    this.juice.textContent = `Y ${bank.yellow}  P ${bank.pink}  O ${bank.orange}  G ${bank.green}`;
+    this.points.textContent = points > 0 ? `${points} skill point${points !== 1 ? 's' : ''} available` : '';
     const hero = heroDef(state.hero);
     // Central hero XP state — never recomputed locally.
     const xpState = getHeroXpState(this.currentSave ?? loadSave(), state.hero);
@@ -1115,7 +1115,7 @@ export class Hud {
       this.shop.classList.add('hidden');
       this.upgrade.classList.remove('hidden');
       this.sell.classList.remove('hidden');
-      this.sell.textContent = `💰 Sell  +$${sellRefund(slot.kind, slot.level)}`;
+      this.sell.textContent = `Sell  +$${sellRefund(slot.kind, slot.level)}`;
       this.move.classList.remove('hidden');
       this.move.textContent = 'Move  M';
       this.toggle.classList.toggle('hidden', slot.kind !== 'blender');
@@ -1133,7 +1133,7 @@ export class Hud {
         const affordable = state.currency >= def.cost;
         const fits = canPlaceTurret(kind, pad);
         btn.disabled = !fits || !affordable;
-        btn.textContent = `${def.name}  $${def.cost}${fits ? '' : '  (floor only)'}${!affordable && fits ? '  💸' : ''}`;
+        btn.textContent = `${def.name}  $${def.cost}${fits ? '' : '  (floor only)'}${!affordable && fits ? '  insufficient' : ''}`;
       }
     }
 
@@ -1169,7 +1169,7 @@ export class Hud {
       this.upgrade.toggleAttribute('disabled', true);
       return;
     }
-    this.upgrade.textContent = `⬆ Level up ${label}  $${cost}`;
+    this.upgrade.textContent = `Level up ${label}  $${cost}`;
     this.upgrade.toggleAttribute('disabled', money < cost);
   }
 
@@ -1213,13 +1213,13 @@ export class Hud {
       let rankDisplay = `#${entry.rank}`;
       let rankClass = '';
       if (entry.rank === 1) {
-        rankDisplay = '🥇';
+        rankDisplay = '#1';
         rankClass = 'lb-rank--1';
       } else if (entry.rank === 2) {
-        rankDisplay = '🥈';
+        rankDisplay = '#2';
         rankClass = 'lb-rank--2';
       } else if (entry.rank === 3) {
-        rankDisplay = '🥉';
+        rankDisplay = '#3';
         rankClass = 'lb-rank--3';
       }
 
@@ -1301,13 +1301,13 @@ export class Hud {
 
       card.innerHTML = `
         <div class="mission-top">
-          <div class="mission-icon">${m.icon}</div>
+          <div class="mission-icon" data-lucide-icon></div>
           <div class="flex-1 min-w-0">
             <div class="mission-title-row">
-              <div class="mission-title">${m.title}</div>
-              <span class="mission-type-pill mission-type-pill--${m.type}">${m.type}</span>
+              <div class="mission-title">${escapeHtml(m.title)}</div>
+              <span class="mission-type-pill mission-type-pill--${m.type}">${escapeHtml(m.type)}</span>
             </div>
-            <div class="mission-desc">${m.desc}</div>
+            <div class="mission-desc">${escapeHtml(m.desc)}</div>
           </div>
         </div>
         <div class="bar-track">
@@ -1321,6 +1321,7 @@ export class Hud {
           </button>
         </div>
       `;
+      mountLucideIcon(card.querySelector('[data-lucide-icon]'), m.icon, 24);
 
       const claimBtn = card.querySelector('.claim-btn') as HTMLButtonElement;
       if (m.completed && !m.claimed) {
@@ -1332,7 +1333,7 @@ export class Hud {
             Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
-            showAchievementToast('Mission Complete!', m.title, '🎁', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
+            showAchievementToast('Mission Complete!', m.title, 'Gift', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
             void reportGameEvent({ type: 'mission_claim' });
             this.renderMissions();
             this.renderBadges();
@@ -1376,14 +1377,14 @@ export class Hud {
       card.className = `ach-card${ach.unlocked ? ' is-unlocked' : ''}`;
 
       const pct = Math.min(100, (ach.progress / ach.maxProgress) * 100);
-      const rewardStr = `${ach.rewardCoins} 🪙${ach.rewardGems ? ` + ${ach.rewardGems} 💎` : ''}${ach.rewardSp ? ` + ${ach.rewardSp} ⚡` : ''}`;
+      const rewardStr = `${ach.rewardCoins} coins${ach.rewardGems ? ` + ${ach.rewardGems} gems` : ''}${ach.rewardSp ? ` + ${ach.rewardSp} SP` : ''}`;
 
       card.innerHTML = `
         <div class="ach-top">
-          <div class="ach-icon">${ach.icon}</div>
+          <div class="ach-icon" data-lucide-icon></div>
           <div class="flex-1 min-w-0">
-            <div class="ach-title">${ach.title}</div>
-            <div class="ach-desc">${ach.desc}</div>
+            <div class="ach-title">${escapeHtml(ach.title)}</div>
+            <div class="ach-desc">${escapeHtml(ach.desc)}</div>
           </div>
         </div>
         <div class="bar-track">
@@ -1397,6 +1398,7 @@ export class Hud {
           </button>
         </div>
       `;
+      mountLucideIcon(card.querySelector('[data-lucide-icon]'), ach.icon, 24);
 
       const claimBtn = card.querySelector('.claim-btn') as HTMLButtonElement;
       if (ach.unlocked && !ach.claimed) {
@@ -1408,7 +1410,7 @@ export class Hud {
             Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
-            showAchievementToast('Trophy Claimed!', ach.title, '🏆', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
+            showAchievementToast('Trophy Claimed!', ach.title, 'Trophy', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
             this.renderAchievements();
           } else {
             claimBtn.disabled = false;
@@ -1439,10 +1441,10 @@ export class Hud {
       card.className = `badge-card rarity-${badge.rarity}${badge.unlocked ? ' is-unlocked' : ''}`;
       card.innerHTML = `
         <div class="ach-top">
-          <div class="ach-icon">${badge.icon}</div>
+          <div class="ach-icon" data-lucide-icon></div>
           <div class="flex-1 min-w-0">
-            <div class="ach-title">${badge.title}</div>
-            <div class="ach-desc">${badge.desc}</div>
+            <div class="ach-title">${escapeHtml(badge.title)}</div>
+            <div class="ach-desc">${escapeHtml(badge.desc)}</div>
           </div>
           <span class="badge-rarity">${badge.rarity}</span>
         </div>
@@ -1455,6 +1457,7 @@ export class Hud {
           ${badge.unlocked && (badge.rewardCoins || badge.rewardGems) ? `<button class="claim-btn" ${badge.claimed ? 'disabled' : ''}>${badge.claimed ? 'Claimed' : 'Claim prize'}</button>` : ''}
         </div>
       `;
+      mountLucideIcon(card.querySelector('[data-lucide-icon]'), badge.icon, 24);
       const prizeButton = card.querySelector('.claim-btn') as HTMLButtonElement | null;
       prizeButton?.addEventListener('click', async () => {
         prizeButton.disabled = true;
@@ -1491,7 +1494,7 @@ export class Hud {
     const pct = next ? Math.min(100, (into / span) * 100) : 100;
 
     currentEl.innerHTML = `
-      <div class="rank-now-icon" style="color:${current.color};border-color:${current.color}">${current.icon}</div>
+      <div class="rank-now-icon" data-rank-icon style="color:${current.color};border-color:${current.color}"></div>
       <div class="flex-1 min-w-0">
         <p class="rank-now-title" style="color:${current.color}">${current.title}</p>
         <p class="mission-desc">${rank?.season || 'This month'} · ${score.toLocaleString()} seasonal points</p>
@@ -1501,6 +1504,7 @@ export class Hud {
         }</p>
       </div>
     `;
+    mountLucideIcon(currentEl.querySelector('[data-rank-icon]'), current.icon, 28);
 
     tiersEl.innerHTML = tiers
       .map((tier) => {
@@ -1510,13 +1514,14 @@ export class Hud {
           ? `<button class="claim-btn rank-prize-btn" data-rank-id="${tier.id}" ${!rank?.hasEntry || !reached || claimed ? 'disabled' : ''}>${claimed ? 'Claimed' : `${tier.rewardCoins || 0} coins${tier.rewardGems ? ` + ${tier.rewardGems} gems` : ''}`}</button>`
           : '';
         return `<div class="rank-tier-row${reached ? ' is-reached' : ''}${tier.id === current.id ? ' is-current' : ''}">
-          <span class="rank-tier-icon" style="color:${tier.color}">${tier.icon}</span>
+          <span class="rank-tier-icon" data-tier-icon="${escapeHtml(tier.id)}" style="color:${tier.color}"></span>
           <strong style="color:${tier.color}">${tier.title}</strong>
           <span>${tier.minScore.toLocaleString()} pts</span>
           ${prize}
         </div>`;
       })
       .join('');
+    tiersEl.querySelectorAll('.rank-tier-icon').forEach((host, index) => mountLucideIcon(host, tiers[index]?.icon, 20));
 
     tiersEl.querySelectorAll<HTMLButtonElement>('.rank-prize-btn').forEach((button) => {
       button.addEventListener('click', async () => {
@@ -1627,7 +1632,11 @@ export class Hud {
       unlocked.forEach(ach => {
         const badge = document.createElement('div');
         badge.className = 'profile-badge-mini';
-        badge.innerHTML = `<span>${ach.icon}</span><span>${ach.title}</span>`;
+        const icon = document.createElement('span');
+        mountLucideIcon(icon, ach.icon, 18);
+        const title = document.createElement('span');
+        title.textContent = ach.title;
+        badge.append(icon, title);
         container.appendChild(badge);
       });
     }
@@ -1637,7 +1646,11 @@ export class Hud {
       unlocked.forEach(badge => {
         const el = document.createElement('div');
         el.className = 'profile-badge-mini';
-        el.innerHTML = `<span>${badge.icon}</span><span>${badge.title}</span>`;
+        const icon = document.createElement('span');
+        mountLucideIcon(icon, badge.icon, 18);
+        const title = document.createElement('span');
+        title.textContent = badge.title;
+        el.append(icon, title);
         container.appendChild(el);
       });
     }
@@ -1661,7 +1674,7 @@ export class Hud {
     const pct = next ? Math.min(100, (into / span) * 100) : 100;
     
     container.innerHTML = `
-      <div class="rank-now-icon" style="color:${current.color};border-color:${current.color};font-size:2rem;margin-bottom:0.5rem">${current.icon}</div>
+      <div class="rank-now-icon" data-rank-icon style="color:${current.color};border-color:${current.color};font-size:2rem;margin-bottom:0.5rem"></div>
       <div>
         <p class="rank-now-title" style="color:${current.color};font-size:1.25rem;font-weight:900;margin:0">${current.title}</p>
         <p class="text-sm text-slate-400" style="margin:0.25rem 0">${score.toLocaleString()} seasonal points</p>
@@ -1671,6 +1684,7 @@ export class Hud {
         }</p>
       </div>
     `;
+    mountLucideIcon(container.querySelector('[data-rank-icon]'), current.icon, 30);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1724,7 +1738,7 @@ export class Hud {
       const isClaimed = tier.day < status.streak || (!status.canClaim && tier.day === status.streak);
       const isReady = isCurrent && status.canClaim;
       const isDay7 = tier.day === 7;
-      const icon = getRewardSvg(tier.iconType, tier.coins);
+      const icon = tier.iconType === 'gem' ? 'Gem' : tier.iconType === 'blade' ? 'Swords' : tier.iconType === 'chest' ? 'Gift' : 'Coins';
       const extras: string[] = [];
       if (tier.skillPoints > 0) extras.push(`+${tier.skillPoints} SP`);
       if (tier.skinUnlock) extras.push('Legendary unlock');
@@ -1735,11 +1749,12 @@ export class Hud {
       card.className = `daily-reward-card${isCurrent ? ' is-current' : ''}${isClaimed ? ' is-claimed' : ''}${isDay7 ? ' is-day-7' : ''}${celebrateDay === tier.day ? ' is-claiming' : ''}`;
       card.innerHTML = `
         <span class="daily-day-label">Day ${tier.day}</span>
-        <div class="daily-reward-svg">${icon}</div>
+        <div class="daily-reward-svg" data-lucide-icon></div>
         <span class="daily-reward-amount">+${tier.coins.toLocaleString()}</span>
         <span class="daily-reward-extra">${extras.join(' · ') || tier.label}</span>
         <span class="daily-status-tag ${tagClass}">${tag}</span>
       `;
+      mountLucideIcon(card.querySelector('[data-lucide-icon]'), icon, 38);
       calendar.appendChild(card);
     });
   }
@@ -1777,10 +1792,10 @@ export class Hud {
   private async initSteamIntegration(): Promise<void> {
     const cb = consumeAuthCallbackParams();
     if (cb.error) {
-      showAchievementToast('Steam login failed', cb.error, '⚠️');
+      showAchievementToast('Steam login failed', cb.error, 'AlertTriangle');
     }
     if (cb.bonus) {
-      showAchievementToast('Steam Connected!', 'Welcome bonus', '🎮', '500 Coins + 1 SP');
+      showAchievementToast('Steam Connected!', 'Welcome bonus', 'Gamepad2', '500 Coins + 1 SP');
       void reportGameEvent({ type: 'steam_link' });
     }
 
@@ -1876,9 +1891,9 @@ export class Hud {
         Object.assign(this.currentSave, res.saveData);
         this.onSaveUpdate?.(this.currentSave);
         this.mountMeta(this.currentSave);
-        const rewardIcon = res.reward.iconType === 'gem' ? '💎'
-          : res.reward.iconType === 'blade' ? '⚔️'
-            : res.reward.iconType === 'chest' ? '🎁' : '🪙';
+        const rewardIcon = res.reward.iconType === 'gem' ? 'Gem'
+          : res.reward.iconType === 'blade' ? 'Swords'
+            : res.reward.iconType === 'chest' ? 'Gift' : 'Coins';
         showAchievementToast('Daily Login Reward!', res.reward.label, rewardIcon);
         void reportGameEvent({ type: 'daily_claim', streak: res.streak });
         this.setDailyClaimable(false);

@@ -161,6 +161,11 @@ test('legacy lobby navigation and Play markup are hidden, inert, and unwired', (
   assert.doesNotMatch(hud, /querySelectorAll<HTMLButtonElement>\('\[data-page\]'\)/);
   assert.doesNotMatch(hud, /#menu-leftnav/);
   assert.doesNotMatch(hud, /getElementById\(['"]btn-dash-main-menu['"]\).*addEventListener/);
+
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+  const duplicates = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+  assert.deepEqual(duplicates, [], `duplicate DOM ids can route into the wrong screen: ${duplicates.join(', ')}`);
+  assert.equal(ids.filter((id) => id === 'screen-campaign').length, 1, 'Campaign must own one screen host');
 });
 
 test('the footer presents five core destinations and keeps the home state explicit', () => {

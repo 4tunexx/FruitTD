@@ -6,6 +6,7 @@
  * variables. No colours, radii or spacing are hardcoded here.
  */
 import { classNames, el, type Child } from './dom';
+import { lucideIcon } from '../lucideIcon';
 
 export type Tone = 'default' | 'primary' | 'accent' | 'success' | 'warning' | 'danger' | 'xp' | 'coins' | 'tower' | 'combo';
 export type Size = 'sm' | 'md' | 'lg';
@@ -157,7 +158,7 @@ export function GameXPBar(xp: number, xpToNext: number, level: number): HTMLElem
 export function GameCurrency(amount: number, kind: 'coins' | 'xp' | 'gems' = 'coins', icon?: string): HTMLElement {
   const tone: Tone = kind === 'xp' ? 'xp' : kind === 'gems' ? 'tower' : 'coins';
   return el('span', { class: classNames('ftd-currency', `ftd-tone-${tone}`) }, [
-    el('span', { class: 'ftd-currency__icon', 'aria-hidden': 'true', text: icon ?? (kind === 'coins' ? '🪙' : kind === 'gems' ? '💎' : '✦') }),
+    el('span', { class: 'ftd-currency__icon', 'aria-hidden': 'true' }, [lucideIcon(icon ?? (kind === 'coins' ? 'Coins' : kind === 'gems' ? 'Gem' : 'Sparkles'), '', 16)]),
     el('span', { class: 'ftd-currency__value ftd-num', text: amount.toLocaleString() }),
   ]);
 }
@@ -263,7 +264,7 @@ export interface ItemCardOptions {
 
 export function GameItemCard(opts: ItemCardOptions): HTMLElement {
   const card = el('article', { class: classNames('ftd-item-card', opts.owned && 'is-owned'), tabindex: '0' }, [
-    el('div', { class: 'ftd-item-card__icon', 'aria-hidden': 'true', text: opts.icon ?? '🍉' }),
+    el('div', { class: 'ftd-item-card__icon', 'aria-hidden': 'true' }, [lucideIcon(opts.icon ?? 'ShoppingBag', '', 28)]),
     el('h4', { class: 'ftd-item-card__name', text: opts.name }),
     opts.rarity ? el('p', { class: 'ftd-item-card__rarity', text: opts.rarity }) : null,
     typeof opts.price === 'number' ? GameCurrency(opts.price, 'coins') : null,
