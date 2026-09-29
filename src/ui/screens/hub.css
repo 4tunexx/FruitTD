@@ -425,4 +425,42 @@
   .ftd-hub.is-home .ftd-playcard__tagline { display: none; }
   .ftd-hub.is-home .ftd-playcard__cta { width: 100%; min-height: 54px; align-self: stretch; }
   .ftd-hub.is-home .ftd-playcard__mode { font-size: 0.62rem; letter-spacing: 0.14em; }
+
+  /* Shop and Inventory are full-height game inventories on phones. Their
+     contextual desktop side panel must not steal half the scrolling space. */
+  body[data-ftd-screen='SHOP'] .ftd-hub__body,
+  body[data-ftd-screen='INVENTORY'] .ftd-hub__body {
+    display: block;
+    overflow: hidden;
+  }
+  body[data-ftd-screen='SHOP'] .ftd-hub__main,
+  body[data-ftd-screen='INVENTORY'] .ftd-hub__main {
+    height: 100%;
+    padding: 0.1rem 0.15rem 0.5rem;
+  }
+  body[data-ftd-screen='SHOP'] .ftd-hub__sub,
+  body[data-ftd-screen='INVENTORY'] .ftd-hub__sub { display: none; }
+
+  .ftd-hub .ftd-item-card {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-areas: 'preview info' 'footer footer';
+    align-items: center;
+    gap: 0.4rem 0.7rem;
+    padding: 0.65rem;
+    text-align: left;
+  }
+  .ftd-hub .ftd-item-card > .ftd-blade-preview,
+  .ftd-hub .ftd-item-card > .ftd-item-card__swatch {
+    grid-area: preview;
+    width: 72px;
+    height: 76px;
+    align-self: stretch;
+  }
+  .ftd-hub .ftd-item-card__info { grid-area: info; min-width: 0; }
+  .ftd-hub .ftd-item-card__name { font-size: 0.9rem; }
+  .ftd-hub .ftd-item-card__desc { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 0.72rem; }
+  .ftd-hub .ftd-item-card__stats { margin-top: 0.3rem; }
+  .ftd-hub .ftd-item-card__stats li { padding: 0.12rem 0.32rem; font-size: 0.64rem; }
+  .ftd-hub .ftd-item-card__footer { grid-area: footer; width: 100%; padding-top: 0.4rem; }
 }

@@ -28,6 +28,8 @@ export interface GameState {
   waveTotal: number;
   waveKilled: number;
   waveLeaks: number;
+  /** True only for the currently spawning/active overlord wave. */
+  waveIsBoss: boolean;
   bossIntro: boolean;
   bossIntroTimer: number;
   hero: HeroId;
@@ -66,6 +68,7 @@ export function createState(): GameState {
     waveTotal: 0,
     waveKilled: 0,
     waveLeaks: 0,
+    waveIsBoss: false,
     bossIntro: false,
     bossIntroTimer: 0,
     hero: 'jiju',
@@ -173,6 +176,13 @@ export function recordWaveKill(state: GameState, splitChild = false): void {
   if (!splitChild) state.waveKilled += 1;
 }
 
+/** Consume the boss marker for this wave; dead pooled enemies are not history. */
+export function consumeBossWaveCompletion(state: GameState): boolean {
+  const wasBoss = state.waveIsBoss;
+  state.waveIsBoss = false;
+  return wasBoss;
+}
+
 /** @deprecated Superseded by the central reward pipeline (progression/rewards). */
 export function awardPerfectWave(state: GameState): number {
   if (!isPerfectWave(state)) return 0;
@@ -207,4 +217,3 @@ export function toast(state: GameState, message: string, seconds = 1.8): void {
   state.toast = message;
   state.toastTimer = seconds;
 }
-

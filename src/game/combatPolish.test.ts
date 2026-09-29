@@ -95,6 +95,15 @@ describe('combat polish regressions', () => {
     assert.equal(isPerfectWave(s), false, 'any leak invalidates perfect wave');
   });
 
+  it('boss completion is consumed once and cannot leak into later pooled-enemy waves', async () => {
+    installStorageShim();
+    const { createState, consumeBossWaveCompletion } = await import('./state');
+    const state = createState();
+    state.waveIsBoss = true;
+    assert.equal(consumeBossWaveCompletion(state), true, 'the active boss wave advances the level');
+    assert.equal(consumeBossWaveCompletion(state), false, 'old pooled boss objects cannot advance later waves');
+  });
+
   it('splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure', async () => {
     installStorageShim();
     const [{ FruitField }, { createState }] = await Promise.all([import('./fruits'), import('./state')]);
@@ -116,5 +125,42 @@ describe('combat polish regressions', () => {
     field.update(0.016, state, () => undefined);
     splitChildren = field.fruits.filter((f) => f.alive && f.splitChild);
     assert.equal(splitChildren.length, 2, 'queued child should spawn later instead of being dropped');
+  });
+
+  it('a full fruit pool resumes queued wave spawns as soon as one slot is released', async () => {
+    installStorageShim();
+    const [{ FruitField }, { createState }] = await Promise.all([import('./fruits'), import('./state')]);
+    const field = new FruitField(() => undefined);
+    const state = createState();
+    for (let i = 0; i < 64; i++) assert.ok(field.spawn('lemon'));
+
+    field.beginWave([{ kind: 'orange', boss: false }], 0.3, 1);
+    field.update(0.2, state, () => undefined);
+    assert.equal(field.queueLength, 1, 'spawn must wait rather than overwrite a live pooled enemy');
+
+    const freed = field.fruits.find((fruit) => fruit.alive)!;
+    field.kill(freed, false);
+    field.update(0.31, state, () => undefined);
+    assert.equal(field.queueLength, 0, 'queued wave should continue once the pool has a free slot');
+    assert.equal(field.waveBusy, true, 'the spawned enemy keeps the wave active');
+  });
+
+  it('explosive fruit hits damage the tower more in later waves', async () => {
+    installStorageShim();
+    const [{ FruitField }, { createState }] = await Promise.all([import('./fruits'), import('./state')]);
+    const field = new FruitField(() => undefined);
+    const state = createState();
+    const early = field.spawn('bomb', false, 'explosive')!;
+    field.update(0.016, state, () => undefined);
+    const earlyLives = state.lives;
+    field.hurt(early, 1);
+    assert.equal(earlyLives - state.lives, 2, 'early Chem-Burst damage starts fair');
+
+    state.wave = 11;
+    const later = field.spawn('bomb', false, 'explosive')!;
+    field.update(0.016, state, () => undefined);
+    const laterLives = state.lives;
+    field.hurt(later, 1);
+    assert.equal(laterLives - state.lives, 3, 'later Chem-Burst damage rises with wave pressure');
   });
 });

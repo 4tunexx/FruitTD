@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HEROES, MAX_HERO_LEVEL, heroXpForLevel, heroXpToLevel } from './heroes';
-import { ENEMY_RULES, specialEnemyForWave } from './enemies';
+import { dangerousLeakMultiplier, ENEMY_RULES, specialEnemyForWave } from './enemies';
 
  test('hero progression reaches level 100 and keeps unlock milestones', () => {
   assert.equal(MAX_HERO_LEVEL, 100);
@@ -22,6 +22,13 @@ test('special enemies become available in later waves', () => {
   assert.equal(specialEnemyForWave(12, 0.01), 'splitter');
   assert.equal(ENEMY_RULES.explosive.towerDamageOnHit, 2);
   assert.equal(ENEMY_RULES.explosive.towerDamageOnLeak, 3);
+});
+
+test('bomb and boss leak damage scales by wave tiers and has a hard cap', () => {
+  assert.equal(dangerousLeakMultiplier(1), 1);
+  assert.equal(dangerousLeakMultiplier(6), 1.15);
+  assert.equal(dangerousLeakMultiplier(11), 1.3);
+  assert.equal(dangerousLeakMultiplier(1000), 1.75);
 });
 
 

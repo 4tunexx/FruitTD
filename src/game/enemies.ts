@@ -90,3 +90,12 @@ export function enemyXpReward(kind: EnemyKind, base: number): number {
   const rule = enemyRule(kind);
   return Math.max(1, Math.round(base * rule.xpMultiplier));
 }
+
+/**
+ * Raise explosive/boss impact as waves get harder without scaling ordinary
+ * fruit leaks. The multiplier steps every five waves and caps at +75%.
+ */
+export function dangerousLeakMultiplier(wave: number): number {
+  const tier = Math.floor(Math.max(0, wave - 1) / 5);
+  return 1 + Math.min(0.75, tier * 0.15);
+}

@@ -1073,7 +1073,6 @@ export class Hud {
       this.combo.style.display = 'none';
     }
     const juicePct = Math.min(100, state.superJuice);
-    this.superFill.style.height = `${juicePct}%`;
     this.superFill.style.setProperty('--juice', String(juicePct));
     this.superFill.classList.toggle('is-full', juicePct >= 100);
     this.superFill.classList.toggle('is-low', juicePct > 0 && juicePct < 28);
@@ -1877,7 +1876,10 @@ export class Hud {
         Object.assign(this.currentSave, res.saveData);
         this.onSaveUpdate?.(this.currentSave);
         this.mountMeta(this.currentSave);
-        showAchievementToast('Daily Login Reward!', res.reward.label, getRewardSvg(res.reward.iconType, res.reward.coins));
+        const rewardIcon = res.reward.iconType === 'gem' ? '💎'
+          : res.reward.iconType === 'blade' ? '⚔️'
+            : res.reward.iconType === 'chest' ? '🎁' : '🪙';
+        showAchievementToast('Daily Login Reward!', res.reward.label, rewardIcon);
         void reportGameEvent({ type: 'daily_claim', streak: res.streak });
         this.setDailyClaimable(false);
         await this.openDailyModal(res.streak);

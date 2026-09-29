@@ -97,9 +97,13 @@ export class GameRenderer {
   resize(): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    // Portrait phones need the wall lower in the playable viewport, with room
+    // for the compact top HUD. Keep landscape/desktop composition unchanged.
+    this.lookZ = w / Math.max(1, h) < 0.75 ? 4 : 0.4;
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     Object.assign(this.camera, arenaFrustum(w, h, this.viewH));
+    this.camera.lookAt(this.panX, 0.2, this.lookZ + this.panZ);
     this.camera.updateProjectionMatrix();
   }
 

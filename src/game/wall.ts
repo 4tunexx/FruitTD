@@ -95,11 +95,14 @@ export class WallBase {
     );
     this.keepMesh.position.set(0, 1.15, WALL_Z);
     this.group.add(this.keepMesh);
-    const hpTrack = new Mesh(new BoxGeometry(1.72, 0.12, 0.035), new MeshBasicMaterial({ color: 0x241b18, transparent: true, opacity: 0.92, depthWrite: false }));
-    hpTrack.position.set(0, 0.12, WALL_Z - 1.35);
-    this.towerHpFill = new Mesh(new BoxGeometry(1.58, 0.075, 0.04), new MeshBasicMaterial({ color: 0x84cc16, depthWrite: false }));
-    this.towerHpFill.position.set(0, 0.13, WALL_Z - 1.38);
-    this.group.add(hpTrack, this.towerHpFill);
+    // A broad, high-contrast health rail sits at the foot of the wall and is
+    // legible at phone scale. Keep it in the 3D scene so it stays attached to
+    // the tower as the camera framing changes.
+    const towerHpTrack = new Mesh(new BoxGeometry(ARENA_W - 2.4, 0.24, 0.06), new MeshBasicMaterial({ color: 0x7f1d1d, depthWrite: false }));
+    towerHpTrack.position.set(0, 0.14, WALL_Z - 1.4);
+    this.towerHpFill = new Mesh(new BoxGeometry(ARENA_W - 2.8, 0.16, 0.08), new MeshBasicMaterial({ color: 0x84cc16, depthWrite: false }));
+    this.towerHpFill.position.set(0, 0.15, WALL_Z - 1.44);
+    this.group.add(towerHpTrack, this.towerHpFill);
     for (let i = 0; i < 6; i++) {
       const merlon = new Mesh(new BoxGeometry(0.32, 0.38, 0.28), new MeshLambertMaterial({ color: 0x5a271f }));
       const a = (i / 6) * Math.PI * 2;
@@ -413,7 +416,7 @@ export class WallBase {
   setTowerHealth(ratio: number): void {
     const t = Math.max(0, Math.min(1, ratio));
     this.towerHpFill.scale.x = t;
-    this.towerHpFill.position.x = -0.79 * (1 - t);
+    this.towerHpFill.position.x = -((ARENA_W - 2.8) / 2) * (1 - t);
     (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf43f5e : t <= 0.6 ? 0xf59e0b : 0x84cc16);
   }
 

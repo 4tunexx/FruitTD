@@ -123,8 +123,12 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
     }
     case 'boss_defeated': {
       const base = Math.max(0, event.baseScore ?? 0);
-      score = base * 4 * rule.scoreMultiplier * comboMul * lastStand;
-      heroXp = 12 * rule.xpMultiplier;
+      // Bosses arrive on the level cadence (roughly every five waves). Make
+      // each later overlord bounty grow with that pressure, with a firm cap so
+      // a long endless run cannot flood the shop economy.
+      const bossTier = Math.min(1.75, 1 + Math.floor(Math.max(0, (event.wave ?? 1) - 1) / 5) * 0.25);
+      score = base * 4 * bossTier * rule.scoreMultiplier * comboMul * lastStand;
+      heroXp = 12 * bossTier * rule.xpMultiplier;
       towerXp = score / 4;
       coins = score * 0.8;
       gems = 1;

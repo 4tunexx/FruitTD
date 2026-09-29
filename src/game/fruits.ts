@@ -5,7 +5,7 @@ import { modeRules } from './modes';
 import { damageTower, toast, type GameState } from './state';
 import type { Slash } from '../input/blade';
 import type { SpawnItem } from './waves';
-import { ENEMY_RULES, type EnemyKind } from './enemies';
+import { dangerousLeakMultiplier, ENEMY_RULES, type EnemyKind } from './enemies';
 import { getAdminTexture } from './adminTextureLoader';
 import {
   createStudioAnimState,
@@ -54,15 +54,15 @@ export interface Fruit {
 }
 
 const BODY_GEO = new SphereGeometry(1, 18, 14);
-const BAR_GEO = new BoxGeometry(1, 0.14, 0.14);
+const BAR_GEO = new BoxGeometry(1, 0.2, 0.16);
 const HAZARD_GEO = new SphereGeometry(1.2, 16, 12);
 const ARMOR_GEO = new BoxGeometry(1.4, 0.2, 1.4);
 
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
   const barY = fruit.boss ? 1.6 / s : 1.35 / s;
-  const barW = fruit.boss ? 2.2 / s : 1.4 / s;
-  const barH = fruit.boss ? 0.36 / s : 0.28 / s;
+  const barW = fruit.boss ? 2.65 / s : 1.8 / s;
+  const barH = fruit.boss ? 0.48 / s : 0.4 / s;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, barH);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, 0.07 / s);
@@ -254,7 +254,10 @@ export class FruitField {
     if (fruit.enemyKind === 'explosive' && !fruit.volatileTriggered && this.activeState) {
       const rule = ENEMY_RULES.explosive;
       fruit.volatileTriggered = true;
-      const damage = damageTower(this.activeState, rule.towerDamageOnHit);
+      const damage = damageTower(
+        this.activeState,
+        Math.round(rule.towerDamageOnHit * dangerousLeakMultiplier(this.activeState.wave) * modeRules(this.activeState.mode).leakMul),
+      );
       if (damage > 0) {
         const hitLabel = rule.warning || rule.label;
         toast(this.activeState, `${hitLabel}! Tower -${damage} HP`, 1.1);

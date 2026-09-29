@@ -17,6 +17,7 @@ test('tower range is shown only after selection and tower HP updates the ground 
   const wall = new WallBase();
   const range = (wall as any).rangeRing as import('three').Mesh;
   const hp = (wall as any).towerHpFill as import('three').Mesh;
+  const hpTrack = wall.group.children.find((child: any) => child.type === 'Mesh' && child !== hp && child.geometry?.type === 'BoxGeometry' && child.geometry.parameters.width > 18);
 
   assert.equal(range.visible, false, 'initial main tower selection should not cover the arena with a range ring');
   wall.select(MAIN_INDEX);
@@ -24,4 +25,6 @@ test('tower range is shown only after selection and tower HP updates the ground 
   wall.setTowerHealth(0.5);
   assert.ok(hp.scale.x > 0 && hp.scale.x < 1, 'tower health should visibly shorten the world-space health bar');
   assert.equal((hp.material as import('three').MeshBasicMaterial).color.getHex(), 0xf59e0b, 'mid health should use warning amber');
+  assert.ok(hpTrack, 'a contrasting full-length health rail should sit below the tower');
+  assert.ok((hp.geometry as any).parameters.width > 18, 'tower health rail should span most of the wall');
 });

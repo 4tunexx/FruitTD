@@ -14,7 +14,8 @@ import { SKILLS, type SkillId } from './game/skills';
 import { SlashFx } from './game/slashfx';
 import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
-import { chargeSuper, createState, damageTower, isPerfectWave, leakCost, recordWaveKill, resetState, toast } from './game/state';
+import { dangerousLeakMultiplier } from './game/enemies';
+import { chargeSuper, consumeBossWaveCompletion, createState, damageTower, isPerfectWave, leakCost, recordWaveKill, resetState, toast } from './game/state';
 import {
   applyRewards,
   calculateReward,
@@ -675,6 +676,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
     baseScore: FRUIT_DEFS[fruit.kind].score,
     enemyKind: fruit.enemyKind,
     boss: !!fruit.boss,
+    wave: state.wave,
     combo: state.combo,
   });
   const scoreReward = result.scoreGained;
@@ -1012,9 +1014,9 @@ function resolveSlash(slash: Slash): void {
           emit({ type: 'bomb_parry' });
         } else {
           sfx.bombExplode();
-          damageTower(state, 2);
+          const damage = damageTower(state, Math.round(2 * dangerousLeakMultiplier(state.wave) * modeRules(state.mode).leakMul));
           state.waveLeaks += 1;
-          toast(state, 'Bomb!');
+          toast(state, damage > 0 ? `Bomb blast · Tower −${damage} HP` : 'Bomb blast');
           maybeOver();
         }
         fruits.kill(fruit);
@@ -1367,6 +1369,7 @@ function simulate(dt: number): void {
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
       state.waveLeaks = 0;
+      state.waveIsBoss = true;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
       toast(state, plan.subtitle ? `${plan.title} — ${plan.subtitle}` : plan.title, 1.8);
       sfx.wave();
@@ -1381,6 +1384,7 @@ function simulate(dt: number): void {
       state.waveTotal = plan.items.length;
       state.waveKilled = 0;
       state.waveLeaks = 0;
+      state.waveIsBoss = plan.boss;
       state.wavesInLevel = totalWavesInLevel;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
       
@@ -1396,7 +1400,9 @@ function simulate(dt: number): void {
     state.waveSpawning = false;
     const totalWavesInLevel = wavesPerLevel(state.level);
     const completedWavesInLevel = ((state.wave - 1) % totalWavesInLevel) + 1;
-    const wasBoss = fruits.fruits.some(f => !f.alive && f.boss);
+    // Pool objects retain their last kind after death, so inspecting all dead
+    // pooled fruits can accidentally classify many later waves as boss waves.
+    const wasBoss = consumeBossWaveCompletion(state);
 
     // Perfect wave: every fruit killed (no leaks that wave)
     const perfect = isPerfectWave(state);
@@ -1430,7 +1436,10 @@ function simulate(dt: number): void {
     const enemy = enemyRule(fruit.enemyKind);
     const baseCost = leakCost(state, fruit.kind, fruit.boss);
     const towerGuardianMul = heroCombatPerkMultiplier(state.hero, 'tower');
-    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul);
+    const dangerScale = fruit.boss || fruit.kind === 'bomb' || fruit.enemyKind === 'explosive'
+      ? dangerousLeakMultiplier(state.wave)
+      : 1;
+    const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul * dangerScale);
     damageTower(state, leakDamage);
     sessionLeaks += 1;
     state.waveLeaks += 1;

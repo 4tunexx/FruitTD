@@ -381,6 +381,17 @@ test('boss kills award a premium gem through the same progression pipeline', () 
   assert.equal(result.gemsGained, 1);
 });
 
+test('boss score, coins and XP rise with later waves and stop at a fair tier cap', () => {
+  const early = calculateReward({ type: 'boss_defeated', baseScore: 55, wave: 6 });
+  const later = calculateReward({ type: 'boss_defeated', baseScore: 55, wave: 16 });
+  const capped = calculateReward({ type: 'boss_defeated', baseScore: 55, wave: 500 });
+  assert.ok(later.score > early.score);
+  assert.ok(later.coins > early.coins);
+  assert.ok(later.heroXp > early.heroXp);
+  assert.equal(capped.score, calculateReward({ type: 'boss_defeated', baseScore: 55, wave: 21 }).score);
+  assert.equal(later.gems, 1, 'each boss keeps a clear one-gem bounty while other rewards scale');
+});
+
 test('combo increases rewards up to a fair cap', () => {
   const none = calculateReward({ type: 'fruit_sliced', baseScore: 100, combo: 0 });
   const some = calculateReward({ type: 'fruit_sliced', baseScore: 100, combo: 10 });
