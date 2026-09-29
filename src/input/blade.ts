@@ -48,6 +48,7 @@ export class BladeInput {
   private endedStroke: number | null = null;
   private trailIdleTime = 0;
   private freshTrail = false;
+  private lastPointerEvent: { type: string; pointerId: number; pointerType: string; clientX: number; clientY: number } | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -101,6 +102,7 @@ export class BladeInput {
   }
 
   private onDown(e: PointerEvent): void {
+    this.recordPointerEvent(e);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.lastPointer = this.kind(e);
     this.panning = e.button === 1 || e.button === 2 || e.shiftKey || this.pointers.size >= 2;
@@ -123,7 +125,13 @@ export class BladeInput {
     }
     if (e.button !== 0) return;
     this.activePointer = e.pointerId;
-    this.canvas.setPointerCapture?.(e.pointerId);
+    // Synthetic pointer events have no native active pointer, so browsers may
+    // throw NotFoundError here. The stroke remains valid without capture.
+    try {
+      this.canvas.setPointerCapture?.(e.pointerId);
+    } catch {
+      // Pointer capture is an input robustness enhancement, not a hit gate.
+    }
     this.lastX = e.clientX;
     this.lastY = e.clientY;
     this.down = true;
@@ -144,6 +152,7 @@ export class BladeInput {
   }
 
   private onMove(e: PointerEvent): void {
+    this.recordPointerEvent(e);
     if (this.pointers.has(e.pointerId)) {
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
@@ -175,6 +184,7 @@ export class BladeInput {
   }
 
   private onUp(e: PointerEvent): void {
+    this.recordPointerEvent(e);
     this.pointers.delete(e.pointerId);
     if (e.pointerId !== this.activePointer) {
       this.panning = this.pointers.size >= 2;
@@ -241,6 +251,27 @@ export class BladeInput {
     const id = this.endedStroke;
     this.endedStroke = null;
     return id;
+  }
+
+  diagnostics(): Record<string, unknown> {
+    return {
+      down: this.down,
+      activePointer: this.activePointer,
+      activePointers: Array.from(this.pointers.entries()).map(([pointerId, point]) => ({ pointerId, ...point })),
+      lastPointerEvent: this.lastPointerEvent ? { ...this.lastPointerEvent } : null,
+      pendingSegments: this.pendingSegments.length,
+      trailPoints: this.trail.length,
+    };
+  }
+
+  private recordPointerEvent(e: PointerEvent): void {
+    this.lastPointerEvent = {
+      type: e.type,
+      pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      clientX: e.clientX,
+      clientY: e.clientY,
+    };
   }
 
   reset(): void {

@@ -1509,31 +1509,55 @@ navigation.onChange((change) => {
   if (change.to === 'MAIN_MENU') gate?.classList.add('hidden');
 });
 
-installCombatDiagnostics(() => ({
-  phase: navigation.state,
-  elapsed: state.elapsed,
-  lastSlash: blade.lastSlash ? { id: blade.lastSlash.id, speed: blade.lastSlash.speed, pointer: blade.lastSlash.pointer } : null,
-  score: state.score,
-  combo: state.combo,
-  comboTimer: state.comboTimer,
-  wave: state.wave,
-  waveTotal: state.waveTotal,
-  waveKilled: state.waveKilled,
-  waveLeaks: state.waveLeaks,
-  lives: state.lives,
-  heroXp: state.heroXp,
-  heroLevel: state.heroLevel,
-  coins: save.coins,
-  towerXp: save.towerXp,
-  activeSlashes: slashFx.group.children.filter((mesh) => mesh.visible).length,
-  trailDrawCount: trail.line.geometry.drawRange.count,
-  trailVertices: Array.from(trail.line.geometry.getAttribute('position').array),
-  targets: fruits.fruits.filter((fruit) => fruit.alive).map((fruit) => {
+installCombatDiagnostics(() => {
+  const targets = fruits.fruits.filter((fruit) => fruit.alive).map((fruit) => {
     const pos = worldPct(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z);
     return { id: fruit.spawnSerial, kind: fruit.kind, enemyKind: fruit.enemyKind, hp: fruit.hp,
       splitChild: fruit.splitChild, x: pos.nx * window.innerWidth / 100, y: pos.ny * window.innerHeight / 100 };
-  }),
-}));
+  });
+  const firstTarget = targets[0];
+  const canvasRect = canvas.getBoundingClientRect();
+  const stack = firstTarget && document.elementsFromPoint
+    ? document.elementsFromPoint(firstTarget.x, firstTarget.y).map((element) => ({
+      tag: element.tagName.toLowerCase(), id: element.id, className: String(element.className || ''),
+    }))
+    : [];
+  const topElement = firstTarget ? document.elementFromPoint(firstTarget.x, firstTarget.y) : null;
+  return {
+    phase: navigation.state,
+    elapsed: state.elapsed,
+    lastSlash: blade.lastSlash ? { id: blade.lastSlash.id, speed: blade.lastSlash.speed, pointer: blade.lastSlash.pointer } : null,
+    pointer: blade.diagnostics(),
+    canvasRect: { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height },
+    devicePixelRatio: window.devicePixelRatio,
+    camera: {
+      position: renderer.camera.position.toArray(),
+      projectionMatrix: renderer.camera.projectionMatrix.toArray(),
+      frustum: { left: renderer.camera.left, right: renderer.camera.right, top: renderer.camera.top, bottom: renderer.camera.bottom },
+    },
+    projectedTargetHitTest: firstTarget ? {
+      x: firstTarget.x,
+      y: firstTarget.y,
+      elementFromPoint: topElement ? { tag: topElement.tagName.toLowerCase(), id: topElement.id, className: String(topElement.className || '') } : null,
+      elementsFromPoint: stack,
+    } : null,
+    score: state.score,
+    combo: state.combo,
+    comboTimer: state.comboTimer,
+    wave: state.wave,
+    waveTotal: state.waveTotal,
+    waveKilled: state.waveKilled,
+    waveLeaks: state.waveLeaks,
+    lives: state.lives,
+    heroXp: state.heroXp,
+    heroLevel: state.heroLevel,
+    coins: save.coins,
+    towerXp: save.towerXp,
+    activeSlashes: slashFx.group.children.filter((mesh) => mesh.visible).length,
+    trailDrawCount: trail.line.geometry.drawRange.count,
+    trailVertices: Array.from(trail.line.geometry.getAttribute('position').array),
+    targets,
+  };
+});
 
 loop.start();
-
