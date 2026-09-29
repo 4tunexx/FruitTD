@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 /** Only client input is inspected. Server-created Mongo operators remain allowed. */
 export function safeInput(value: unknown, depth = 0): boolean {
   if (depth > 24) return false;
@@ -16,10 +18,36 @@ export function boundedInteger(value: unknown, max: number, min = 0): value is n
 }
 
 const HEROES = ['jiju', 'topfu', 'lagen', 'tripos', 'ki'];
+const SKILLS = ['edge', 'reach', 'flow', 'steel', 'storm'];
+const HERO_PERKS = ['combo', 'juice', 'tower', 'critical', 'survival'];
+const DEFAULT_OWNABLE_SKINS = new Set(['blade-default', 'blade-gold', 'blade-ink', 'blade-cherry', 'wall-brick', 'wall-stone', 'wall-night']);
 const SAVE_KEYS = new Set(['hero', 'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore', 'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'nickname', 'avatar', 'skillPoints', 'skills', 'ownedSkins', 'bladeSkin', 'wallSkin', 'mode', 'heroPerkRanks', 'vipStatus', 'saveRevision', 'savedAt']);
 
+export const SERVER_OWNED_SAVE_KEYS = [
+  'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore',
+  'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'skillPoints', 'skills',
+  'ownedSkins', 'heroPerkRanks', 'vipStatus',
+] as const;
+
+function sameJsonValue(a: unknown, b: unknown): boolean {
+  return isDeepStrictEqual(a, b);
+}
+
+/** Generic cloud sync may carry server-owned fields, but may not mutate them. */
+export function serverOwnedSaveError(
+  incoming: Record<string, unknown>,
+  authoritative: Record<string, unknown>
+): string | null {
+  for (const key of SERVER_OWNED_SAVE_KEYS) {
+    if (incoming[key] !== undefined && !sameJsonValue(incoming[key], authoritative[key])) {
+      return `Server-owned field cannot be changed by profile sync: ${key}`;
+    }
+  }
+  return null;
+}
+
 /** Schema validation is not proof of legitimate rewards/ownership. */
-export function saveValidationError(value: unknown): string | null {
+export function saveValidationError(value: unknown, allowedSkinIds: ReadonlySet<string> = DEFAULT_OWNABLE_SKINS): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value) || !safeInput(value)) return 'Invalid save object';
   const save = value as Record<string, unknown>;
   if (Object.keys(save).some((key) => !SAVE_KEYS.has(key))) return 'Unknown save field';
@@ -32,18 +60,26 @@ export function saveValidationError(value: unknown): string | null {
     if (field !== undefined && (!field || typeof field !== 'object' || Array.isArray(field))) return `Invalid ${key}`;
   }
   if (save.xp && Object.entries(save.xp).some(([hero, xp]) => !HEROES.includes(hero) || !boundedInteger(xp, 1_000_000))) return 'Invalid hero XP';
-  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !validId(id) || !boundedInteger(rank, 100))) return 'Invalid skill ranks';
-  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== 'object' || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !validId(id) || !boundedInteger(rank, 100)))) return 'Invalid hero perk ranks';
+  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !SKILLS.includes(id) || !boundedInteger(rank, 3))) return 'Invalid skill ranks';
+  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== 'object' || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS.includes(id) || !boundedInteger(rank, 3)))) return 'Invalid hero perk ranks';
   for (const key of ['ownedSkins', 'ownedHeroes']) {
     const list = save[key];
     if (list !== undefined && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
   }
   if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES.includes(id))) return 'Unknown hero';
+  if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return 'Unknown owned skin';
+  if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return 'Duplicate owned skin';
+  if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return 'Duplicate owned hero';
   if (save.hero !== undefined && (typeof save.hero !== 'string' || !HEROES.includes(save.hero))) return 'Invalid hero';
   if (save.mode !== undefined && (typeof save.mode !== 'string' || !['casual', 'ranked', 'coop', 'arena'].includes(save.mode))) return 'Invalid mode';
   if (save.vipStatus !== undefined && (typeof save.vipStatus !== 'string' || !['none', 'bronze', 'silver', 'gold'].includes(save.vipStatus))) return 'Invalid VIP status';
   for (const [key, max] of [['nickname', 64], ['avatar', 900_000], ['bladeSkin', 120], ['wallSkin', 120]] as const) {
     if (save[key] !== undefined && (typeof save[key] !== 'string' || (save[key] as string).length > max)) return `Invalid ${key}`;
+  }
+  for (const key of ['bladeSkin', 'wallSkin'] as const) {
+    const equipped = save[key];
+    if (typeof equipped === 'string' && equipped !== '' && equipped !== 'none' && !allowedSkinIds.has(equipped)) return `Unknown ${key}`;
+    if (typeof equipped === 'string' && equipped !== '' && equipped !== 'none' && Array.isArray(save.ownedSkins) && !save.ownedSkins.includes(equipped)) return `${key} is not owned`;
   }
   return null;
 }

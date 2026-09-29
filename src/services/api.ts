@@ -108,6 +108,15 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 }
 
 // ----------------- LEADERBOARD -----------------
+let activeRunToken: Promise<string | null> | null = null;
+
+export function startLeaderboardRun(mode: string): void {
+  activeRunToken = apiRequest<{ success: boolean; runToken: string }>('/api/leaderboard/run', {
+    method: 'POST',
+    body: JSON.stringify({ mode }),
+  }).then((res) => res?.success ? res.runToken : null);
+}
+
 export async function submitScore(payload: {
   nickname: string;
   avatar: string;
@@ -125,7 +134,10 @@ export async function submitScore(payload: {
   rank: number;
   monthlyRank?: { id: string; title: string; minScore: number; color: string; icon: string };
 } | null> {
-  const userId = getUserId();
+  const tokenPromise = activeRunToken;
+  activeRunToken = null;
+  const runToken = tokenPromise ? await tokenPromise : null;
+  if (!runToken) return null;
   const res = await apiRequest<{
     success: boolean;
     isNewHigh: boolean;
@@ -133,7 +145,7 @@ export async function submitScore(payload: {
     monthlyRank?: { id: string; title: string; minScore: number; color: string; icon: string };
   }>('/api/leaderboard', {
     method: 'POST',
-    body: JSON.stringify({ userId, ...payload }),
+    body: JSON.stringify({ ...payload, runToken }),
   });
   return res && res.success
     ? { isNewHigh: res.isNewHigh, rank: res.rank, monthlyRank: res.monthlyRank }
@@ -310,19 +322,27 @@ export async function getSteamStatus(): Promise<{
 
 // ----------------- CLOUD SAVE -----------------
 export async function fetchCloudSave(): Promise<Record<string, any> | null> {
-  const userId = getUserId();
   const res = await apiRequest<{
     success: boolean;
     saveData: Record<string, any> | null;
-  }>(`/api/profile?userId=${encodeURIComponent(userId)}`);
+    revision: number;
+  }>('/api/profile');
+  if (res?.success && Number.isSafeInteger(res.revision) && res.revision >= 0) {
+    cloudRevision = res.revision;
+    cloudRevisionAuthToken = getAuthToken();
+  }
   return res && res.success ? res.saveData : null;
 }
 
 let pendingSave: { userId: string; saveData: Record<string, any> } | null = null;
 let syncInFlight: Promise<boolean> | null = null;
+let cloudRevision: number | null = null;
+let cloudRevisionAuthToken: string | null = null;
 
 export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
-  if (!getAuthToken()) return Promise.resolve(false);
+  const authToken = getAuthToken();
+  if (!authToken) return Promise.resolve(false);
+  if (cloudRevisionAuthToken !== authToken) cloudRevision = null;
   pendingSave = { userId: getUserId(), saveData: structuredClone(saveData) };
   if (!syncInFlight) {
     syncInFlight = (async () => {
@@ -331,7 +351,16 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
         const snapshot = pendingSave;
         pendingSave = null;
         if (snapshot.userId !== getUserId() || !getAuthToken()) continue;
-        const res = await apiRequest<{ success: boolean }>('/api/profile/sync', { method: 'POST', body: JSON.stringify(snapshot) });
+        if (cloudRevision === null) await fetchCloudSave();
+        if (cloudRevision === null) {
+          success = false;
+          continue;
+        }
+        const res = await apiRequest<{ success: boolean; revision: number }>('/api/profile/sync', {
+          method: 'POST',
+          body: JSON.stringify({ ...snapshot, revision: cloudRevision }),
+        });
+        if (res?.success && Number.isSafeInteger(res.revision)) cloudRevision = res.revision;
         success = Boolean(res?.success) && success;
       }
       return success;

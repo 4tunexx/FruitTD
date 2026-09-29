@@ -7,6 +7,7 @@ import cors from "cors";
 
 // server/routes/leaderboard.ts
 import { Router } from "express";
+import crypto2 from "node:crypto";
 
 // server/db.ts
 import dotenv from "dotenv";
@@ -40,6 +41,8 @@ async function getDb() {
     await db.collection("missions").createIndex({ userId: 1, missionId: 1, dayKey: 1 }, { unique: true });
     await db.collection("daily_bonus").createIndex({ userId: 1 }, { unique: true });
     await db.collection("cloud_saves").createIndex({ userId: 1 }, { unique: true });
+    await db.collection("run_tokens").createIndex({ tokenHash: 1 }, { unique: true });
+    await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
     await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
   } catch (err) {
@@ -394,6 +397,7 @@ async function deliverVerifyCode(email, code) {
 }
 
 // server/validation.ts
+import { isDeepStrictEqual } from "node:util";
 function safeInput(value, depth = 0) {
   if (depth > 24) return false;
   if (value === null || typeof value !== "object") return true;
@@ -406,8 +410,40 @@ function boundedInteger(value, max, min = 0) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
 }
 var HEROES = ["jiju", "topfu", "lagen", "tripos", "ki"];
+var SKILLS = ["edge", "reach", "flow", "steel", "storm"];
+var HERO_PERKS = ["combo", "juice", "tower", "critical", "survival"];
+var DEFAULT_OWNABLE_SKINS = /* @__PURE__ */ new Set(["blade-default", "blade-gold", "blade-ink", "blade-cherry", "wall-brick", "wall-stone", "wall-night"]);
 var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt"]);
-function saveValidationError(value) {
+var SERVER_OWNED_SAVE_KEYS = [
+  "xp",
+  "ownedHeroes",
+  "towerXp",
+  "towerLifetimeXp",
+  "highScore",
+  "rankedScore",
+  "bestWave",
+  "bestCombo",
+  "games",
+  "coins",
+  "gems",
+  "skillPoints",
+  "skills",
+  "ownedSkins",
+  "heroPerkRanks",
+  "vipStatus"
+];
+function sameJsonValue(a, b) {
+  return isDeepStrictEqual(a, b);
+}
+function serverOwnedSaveError(incoming, authoritative) {
+  for (const key of SERVER_OWNED_SAVE_KEYS) {
+    if (incoming[key] !== void 0 && !sameJsonValue(incoming[key], authoritative[key])) {
+      return `Server-owned field cannot be changed by profile sync: ${key}`;
+    }
+  }
+  return null;
+}
+function saveValidationError(value, allowedSkinIds = DEFAULT_OWNABLE_SKINS) {
   if (!value || typeof value !== "object" || Array.isArray(value) || !safeInput(value)) return "Invalid save object";
   const save = value;
   if (Object.keys(save).some((key) => !SAVE_KEYS.has(key))) return "Unknown save field";
@@ -420,18 +456,26 @@ function saveValidationError(value) {
     if (field !== void 0 && (!field || typeof field !== "object" || Array.isArray(field))) return `Invalid ${key}`;
   }
   if (save.xp && Object.entries(save.xp).some(([hero, xp]) => !HEROES.includes(hero) || !boundedInteger(xp, 1e6))) return "Invalid hero XP";
-  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !validId(id) || !boundedInteger(rank, 100))) return "Invalid skill ranks";
-  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !validId(id) || !boundedInteger(rank, 100)))) return "Invalid hero perk ranks";
+  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !SKILLS.includes(id) || !boundedInteger(rank, 3))) return "Invalid skill ranks";
+  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS.includes(id) || !boundedInteger(rank, 3)))) return "Invalid hero perk ranks";
   for (const key of ["ownedSkins", "ownedHeroes"]) {
     const list = save[key];
     if (list !== void 0 && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
   }
   if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES.includes(id))) return "Unknown hero";
+  if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return "Unknown owned skin";
+  if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return "Duplicate owned skin";
+  if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return "Duplicate owned hero";
   if (save.hero !== void 0 && (typeof save.hero !== "string" || !HEROES.includes(save.hero))) return "Invalid hero";
   if (save.mode !== void 0 && (typeof save.mode !== "string" || !["casual", "ranked", "coop", "arena"].includes(save.mode))) return "Invalid mode";
   if (save.vipStatus !== void 0 && (typeof save.vipStatus !== "string" || !["none", "bronze", "silver", "gold"].includes(save.vipStatus))) return "Invalid VIP status";
   for (const [key, max] of [["nickname", 64], ["avatar", 9e5], ["bladeSkin", 120], ["wallSkin", 120]]) {
     if (save[key] !== void 0 && (typeof save[key] !== "string" || save[key].length > max)) return `Invalid ${key}`;
+  }
+  for (const key of ["bladeSkin", "wallSkin"]) {
+    const equipped = save[key];
+    if (typeof equipped === "string" && equipped !== "" && equipped !== "none" && !allowedSkinIds.has(equipped)) return `Unknown ${key}`;
+    if (typeof equipped === "string" && equipped !== "" && equipped !== "none" && Array.isArray(save.ownedSkins) && !save.ownedSkins.includes(equipped)) return `${key} is not owned`;
   }
   return null;
 }
@@ -440,195 +484,239 @@ function validProgressUpdates(value, idKey) {
 }
 
 // server/routes/leaderboard.ts
-var leaderboardRouter = Router();
+var defaultDeps = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  catalog: loadQuestCatalog
+};
+var RUN_TOKEN_TTL_MS = 15 * 60 * 1e3;
 function resolveMode(mode) {
   if (mode === "monthly") return monthlyLeaderboardMode();
   return mode || "ranked";
 }
-leaderboardRouter.get("/monthly-rank", async (req2, res) => {
-  try {
-    const userId = (await resolveRequestUser(req2))?.userId;
-    const catalog = await loadQuestCatalog();
-    const seasonMode = monthlyLeaderboardMode();
-    const col = await getCollection("leaderboards");
-    const entry = userId ? await col.findOne({ userId, mode: seasonMode }, { sort: { score: -1 } }) : null;
-    const score = entry?.score || 0;
-    const rank = rankFromScore(score, catalog.ranks);
-    const sorted = [...catalog.ranks].sort((a, b) => a.minScore - b.minScore);
-    const next = sorted.find((t) => t.minScore > rank.minScore) || null;
-    res.json({
-      success: true,
-      season: seasonMode,
-      score,
-      rank,
-      next
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-leaderboardRouter.get("/", async (req2, res) => {
-  try {
-    if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
-    const mode = resolveMode(req2.query.mode || "ranked");
-    const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
-    const userId = (await resolveRequestUser(req2))?.userId;
-    const col = await getCollection("leaderboards");
-    const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
-    const leaderboard = topEntries.map((entry, idx) => ({
-      rank: idx + 1,
-      userId: entry.userId,
-      nickname: entry.nickname,
-      avatar: entry.avatar,
-      hero: entry.hero,
-      mode: entry.mode,
-      score: entry.score,
-      wave: entry.wave,
-      fruitsSliced: entry.fruitsSliced,
-      maxCombo: entry.maxCombo,
-      steamId: entry.steamId,
-      steamPersona: entry.steamPersona,
-      steamAvatar: entry.steamAvatar,
-      date: entry.createdAt
-    }));
-    let userRank = null;
-    if (userId) {
-      const userBest = await col.findOne({ userId, mode }, { sort: { score: -1 } });
-      if (userBest) {
-        const higherCount = await col.countDocuments({
-          mode,
-          $or: [
-            { score: { $gt: userBest.score } },
-            { score: userBest.score, wave: { $gt: userBest.wave } }
-          ]
-        });
-        userRank = {
-          rank: higherCount + 1,
-          score: userBest.score,
-          wave: userBest.wave,
-          hero: userBest.hero
-        };
+function createLeaderboardRouter(deps = defaultDeps) {
+  const router = Router();
+  router.post("/run", async (req2, res) => {
+    try {
+      const mode = req2.body?.mode ?? "casual";
+      if (!["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to start a leaderboard run" });
+      const runToken = crypto2.randomBytes(32).toString("hex");
+      const createdAt = /* @__PURE__ */ new Date();
+      const expiresAt = new Date(createdAt.getTime() + RUN_TOKEN_TTL_MS);
+      const col = await deps.collection("run_tokens");
+      await col.insertOne({ tokenHash: hashToken(runToken), userId: user.userId, mode, createdAt, expiresAt });
+      res.status(201).json({ success: true, runToken, expiresAt });
+    } catch (err) {
+      console.error("Error issuing run token:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.get("/monthly-rank", async (req2, res) => {
+    try {
+      const userId = (await deps.resolveUser(req2))?.userId;
+      const catalog = await deps.catalog();
+      const seasonMode = monthlyLeaderboardMode();
+      const col = await deps.collection("leaderboards");
+      const entry = userId ? await col.findOne({ userId, mode: seasonMode }, { sort: { score: -1 } }) : null;
+      const score = entry?.score || 0;
+      const rank = rankFromScore(score, catalog.ranks);
+      const sorted = [...catalog.ranks].sort((a, b) => a.minScore - b.minScore);
+      const next = sorted.find((t) => t.minScore > rank.minScore) || null;
+      res.json({
+        success: true,
+        season: seasonMode,
+        score,
+        rank,
+        next
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.get("/", async (req2, res) => {
+    try {
+      if (req2.query.mode !== void 0 && (typeof req2.query.mode !== "string" || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req2.query.mode))) return res.status(400).json({ success: false, error: "Invalid mode" });
+      const mode = resolveMode(req2.query.mode || "ranked");
+      const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
+      const userId = (await deps.resolveUser(req2))?.userId;
+      const col = await deps.collection("leaderboards");
+      const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
+      const leaderboard = topEntries.map((entry, idx) => ({
+        rank: idx + 1,
+        userId: entry.userId,
+        nickname: entry.nickname,
+        avatar: entry.avatar,
+        hero: entry.hero,
+        mode: entry.mode,
+        score: entry.score,
+        wave: entry.wave,
+        fruitsSliced: entry.fruitsSliced,
+        maxCombo: entry.maxCombo,
+        steamId: entry.steamId,
+        steamPersona: entry.steamPersona,
+        steamAvatar: entry.steamAvatar,
+        date: entry.createdAt
+      }));
+      let userRank = null;
+      if (userId) {
+        const userBest = await col.findOne({ userId, mode }, { sort: { score: -1 } });
+        if (userBest) {
+          const higherCount = await col.countDocuments({
+            mode,
+            $or: [
+              { score: { $gt: userBest.score } },
+              { score: userBest.score, wave: { $gt: userBest.wave } }
+            ]
+          });
+          userRank = {
+            rank: higherCount + 1,
+            score: userBest.score,
+            wave: userBest.wave,
+            hero: userBest.hero
+          };
+        }
       }
+      res.json({
+        success: true,
+        mode,
+        leaderboard,
+        userRank,
+        totalEntries: await col.countDocuments({ mode })
+      });
+    } catch (err) {
+      console.error("Error fetching leaderboard:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
-    res.json({
-      success: true,
-      mode,
-      leaderboard,
-      userRank,
-      totalEntries: await col.countDocuments({ mode })
-    });
-  } catch (err) {
-    console.error("Error fetching leaderboard:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-leaderboardRouter.post("/", async (req2, res) => {
-  try {
-    const {
-      nickname,
-      avatar,
-      hero,
-      mode,
-      score,
-      wave,
-      fruitsSliced,
-      maxCombo
-    } = req2.body;
-    if (mode !== void 0 && !["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
-    if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
-    if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
-    if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
-    if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
-      return res.status(400).json({ success: false, error: "Invalid score submission payload" });
-    }
-    const MAX_REASONABLE_SCORE = 1e7;
-    const MAX_REASONABLE_WAVE = 1e3;
-    const MAX_REASONABLE_FRUITS = 1e5;
-    const MAX_REASONABLE_COMBO = 5e3;
-    if (score > MAX_REASONABLE_SCORE) {
-      return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
-    }
-    if (wave && wave > MAX_REASONABLE_WAVE) {
-      return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
-    }
-    if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
-      return res.status(400).json({ success: false, error: "Fruits sliced exceeds reasonable maximum" });
-    }
-    if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
-      return res.status(400).json({ success: false, error: "Combo exceeds reasonable maximum" });
-    }
-    const user = await resolveRequestUser(req2);
-    if (!user) {
-      return res.status(401).json({ success: false, error: "Sign in to submit leaderboard scores" });
-    }
-    const userId = user.userId;
-    const col = await getCollection("leaderboards");
-    const playMode = mode || "casual";
-    const upsertBest = async (modeKey) => {
-      const existing = await col.findOne({ userId, mode: modeKey });
-      if (!existing) {
-        await col.insertOne({
+  });
+  router.post("/", async (req2, res) => {
+    try {
+      const {
+        nickname,
+        avatar,
+        hero,
+        mode,
+        score,
+        wave,
+        fruitsSliced,
+        maxCombo,
+        runToken
+      } = req2.body;
+      if (mode !== void 0 && !["casual", "ranked", "coop", "arena"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
+      if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
+      if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
+      if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
+      if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
+        return res.status(400).json({ success: false, error: "Invalid score submission payload" });
+      }
+      const MAX_REASONABLE_SCORE = 1e7;
+      const MAX_REASONABLE_WAVE = 1e3;
+      const MAX_REASONABLE_FRUITS = 1e5;
+      const MAX_REASONABLE_COMBO = 5e3;
+      if (score > MAX_REASONABLE_SCORE) {
+        return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
+      }
+      if (wave && wave > MAX_REASONABLE_WAVE) {
+        return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
+      }
+      if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
+        return res.status(400).json({ success: false, error: "Fruits sliced exceeds reasonable maximum" });
+      }
+      if (maxCombo && maxCombo > MAX_REASONABLE_COMBO) {
+        return res.status(400).json({ success: false, error: "Combo exceeds reasonable maximum" });
+      }
+      const user = await deps.resolveUser(req2);
+      if (!user) {
+        return res.status(401).json({ success: false, error: "Sign in to submit leaderboard scores" });
+      }
+      const userId = user.userId;
+      if (typeof runToken !== "string" || !/^[a-f0-9]{64}$/.test(runToken)) {
+        return res.status(401).json({ success: false, error: "A valid run token is required" });
+      }
+      const playMode = mode || "casual";
+      const runs = await deps.collection("run_tokens");
+      const consumed = await runs.findOneAndUpdate(
+        {
+          tokenHash: hashToken(runToken),
           userId,
-          nickname: nickname || user.nickname || "Slicer",
-          avatar: avatar || user.avatar || "",
-          hero: hero || "jiju",
-          mode: modeKey,
-          score,
-          wave: wave || 1,
-          fruitsSliced: fruitsSliced || 0,
-          maxCombo: maxCombo || 0,
-          steamId: user.steamId,
-          steamPersona: user.steamPersona,
-          steamAvatar: user.steamAvatar,
-          createdAt: /* @__PURE__ */ new Date()
-        });
-        return true;
-      }
-      if (score > existing.score || score === existing.score && (wave || 1) > existing.wave) {
-        await col.updateOne(
-          { _id: existing._id },
-          {
-            $set: {
-              nickname: nickname || existing.nickname,
-              avatar: avatar || existing.avatar,
-              hero: hero || existing.hero,
-              score,
-              wave: wave || existing.wave,
-              fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
-              maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
-              steamId: user.steamId || existing.steamId,
-              steamPersona: user.steamPersona || existing.steamPersona,
-              steamAvatar: user.steamAvatar || existing.steamAvatar,
-              createdAt: /* @__PURE__ */ new Date()
+          mode: playMode,
+          expiresAt: { $gt: /* @__PURE__ */ new Date() },
+          consumedAt: { $exists: false }
+        },
+        { $set: { consumedAt: /* @__PURE__ */ new Date() } },
+        { returnDocument: "before" }
+      );
+      if (!consumed) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
+      const col = await deps.collection("leaderboards");
+      const upsertBest = async (modeKey) => {
+        const existing = await col.findOne({ userId, mode: modeKey });
+        if (!existing) {
+          await col.insertOne({
+            userId,
+            nickname: nickname || user.nickname || "Slicer",
+            avatar: avatar || user.avatar || "",
+            hero: hero || "jiju",
+            mode: modeKey,
+            score,
+            wave: wave || 1,
+            fruitsSliced: fruitsSliced || 0,
+            maxCombo: maxCombo || 0,
+            steamId: user.steamId,
+            steamPersona: user.steamPersona,
+            steamAvatar: user.steamAvatar,
+            createdAt: /* @__PURE__ */ new Date()
+          });
+          return true;
+        }
+        if (score > existing.score || score === existing.score && (wave || 1) > existing.wave) {
+          await col.updateOne(
+            { _id: existing._id },
+            {
+              $set: {
+                nickname: nickname || existing.nickname,
+                avatar: avatar || existing.avatar,
+                hero: hero || existing.hero,
+                score,
+                wave: wave || existing.wave,
+                fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
+                maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
+                steamId: user.steamId || existing.steamId,
+                steamPersona: user.steamPersona || existing.steamPersona,
+                steamAvatar: user.steamAvatar || existing.steamAvatar,
+                createdAt: /* @__PURE__ */ new Date()
+              }
             }
-          }
-        );
-        return true;
+          );
+          return true;
+        }
+        return false;
+      };
+      const isNewHigh = await upsertBest(playMode);
+      if (playMode === "ranked") {
+        await upsertBest(monthlyLeaderboardMode());
       }
-      return false;
-    };
-    const isNewHigh = await upsertBest(playMode);
-    if (playMode === "ranked") {
-      await upsertBest(monthlyLeaderboardMode());
+      const higherCount = await col.countDocuments({
+        mode: playMode,
+        score: { $gt: score }
+      });
+      const catalog = playMode === "ranked" ? await deps.catalog() : null;
+      const monthlyScore = playMode === "ranked" ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score : score;
+      res.json({
+        success: true,
+        isNewHigh,
+        rank: higherCount + 1,
+        score,
+        monthlyRank: catalog ? rankFromScore(monthlyScore, catalog.ranks) : void 0
+      });
+    } catch (err) {
+      console.error("Error submitting score:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
-    const higherCount = await col.countDocuments({
-      mode: playMode,
-      score: { $gt: score }
-    });
-    const catalog = playMode === "ranked" ? await loadQuestCatalog() : null;
-    const monthlyScore = playMode === "ranked" ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score : score;
-    res.json({
-      success: true,
-      isNewHigh,
-      rank: higherCount + 1,
-      score,
-      monthlyRank: catalog ? rankFromScore(monthlyScore, catalog.ranks) : void 0
-    });
-  } catch (err) {
-    console.error("Error submitting score:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  });
+  return router;
+}
+var leaderboardRouter = createLeaderboardRouter();
 
 // server/routes/achievements.ts
 import { Router as Router2 } from "express";
@@ -1244,7 +1332,7 @@ dailyRouter.post("/claim", async (req2, res) => {
 
 // server/routes/steam.ts
 import { Router as Router7 } from "express";
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 
 // server/steam.ts
 import dotenv2 from "dotenv";
@@ -1347,7 +1435,7 @@ function validateUsername(raw) {
 
 // server/routes/auth.ts
 import { Router as Router6 } from "express";
-import crypto2 from "crypto";
+import crypto3 from "crypto";
 var authRouter = Router6();
 function bearer(req2) {
   const h = req2.headers.authorization;
@@ -1409,7 +1497,7 @@ authRouter.post("/register", async (req2, res) => {
     if (existing) {
       return res.status(409).json({ success: false, error: "An account with that email already exists. Log in instead." });
     }
-    const userId = "user_" + crypto2.randomBytes(8).toString("hex");
+    const userId = "user_" + crypto3.randomBytes(8).toString("hex");
     const code = makeVerifyCode();
     const now = /* @__PURE__ */ new Date();
     const doc = {
@@ -1721,7 +1809,7 @@ steamRouter.get("/callback", async (req2, res) => {
       user = await users.findOne({ steamId });
     }
     if (!user) {
-      const userId = "user_" + crypto3.randomBytes(8).toString("hex");
+      const userId = "user_" + crypto4.randomBytes(8).toString("hex");
       const username = sanitizeSteamUsername(summary.personaName);
       const now = /* @__PURE__ */ new Date();
       const doc = {
@@ -1812,96 +1900,231 @@ steamRouter.get("/status", async (req2, res) => {
 
 // server/routes/profile.ts
 import { Router as Router8 } from "express";
-var profileRouter = Router8();
-profileRouter.get("/", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to view a cloud save" });
-    const userId = user.userId;
-    const col = await getCollection("cloud_saves");
-    const doc = await col.findOne({ userId });
-    const usersCol = await getCollection("users");
-    const userDoc = await usersCol.findOne({ userId });
-    res.json({
-      success: true,
-      saveData: doc?.saveData || null,
-      updatedAt: doc?.updatedAt || null,
-      user: userDoc ? {
-        nickname: userDoc.nickname,
-        avatar: userDoc.avatar,
-        steamId: userDoc.steamId,
-        steamPersona: userDoc.steamPersona,
-        steamAvatar: userDoc.steamAvatar
-      } : null
-    });
-  } catch (err) {
-    console.error("Error fetching profile cloud save:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
+
+// src/game/progression/heroEconomy.ts
+var HERO_PRICES = {
+  tripos: { cost: 1800 },
+  ki: { cost: 3e3 }
+};
+function heroPrice(id) {
+  return HERO_PRICES[id]?.cost ?? null;
+}
+
+// src/game/heroes.ts
+var HEROES2 = [
+  { id: "jiju", name: "Master Jiju", title: "Clean blade", color: 3108845, trail: 1920728, blurb: "Classic wide cuts. Combos stack if you keep slicing.", mouse: "Precise flicks. Combo builds fast.", touch: "Wider finger slash. Easier to clip packs.", damage: 18, radius: 0.16, shake: 0.55, unlockLevel: 1 },
+  { id: "topfu", name: "Topfu", title: "Soft pressure", color: 16040810, trail: 15251530, blurb: "Shorter reach, but fruit go brittle and slow.", mouse: "Short snap cuts. Stacks brittle.", touch: "Fat squash pad. Bigger slow zone.", damage: 13, radius: 0.1, shake: 0.35, unlockLevel: 10 },
+  { id: "lagen", name: "Lagen", title: "Long reach", color: 3842906, trail: 2278750, blurb: "Lance slash. The swipe keeps going past your cursor.", mouse: "Fast flick = extra spear length.", touch: "Stable long line, a bit less extra reach.", damage: 16, radius: 0.12, shake: 0.45, unlockLevel: 25 },
+  { id: "tripos", name: "Tripos", title: "Triple path", color: 12860298, trail: 15235520, blurb: "One swipe becomes three parallel cuts.", mouse: "Tight triple lines.", touch: "Wider triple spread.", damage: 11, radius: 0.1, shake: 0.4, unlockLevel: 50, purchaseOnly: true, purchaseCost: heroPrice("tripos") ?? 1800 },
+  { id: "ki", name: "Master Ki", title: "Charged spirit", color: 8141549, trail: 10980346, blurb: "Hold to charge. Tap empty grass for a Ki pulse.", mouse: "Hold, then flick for a heavy cut.", touch: "Tap to pulse. Swipe to slash.", damage: 15, radius: 0.14, shake: 0.7, unlockLevel: 75, purchaseOnly: true, purchaseCost: heroPrice("ki") ?? 3e3 }
+];
+var MAX_HERO_LEVEL = 100;
+function heroXpForLevel(level) {
+  const lv = Math.max(1, Math.min(MAX_HERO_LEVEL, Math.floor(level)));
+  return lv === 1 ? 0 : Math.floor(35 * Math.pow(lv - 1, 1.58) + 20 * (lv - 1));
+}
+
+// src/game/skills.ts
+function emptySkills() {
+  return { edge: 0, reach: 0, flow: 0, steel: 0, storm: 0 };
+}
+
+// src/game/world.ts
+var SIM_DT = 1 / 60;
+var IMPACT_FREEZE = 1 / 60;
+var WALL_Z = -9.2;
+var EXTRA_Z = -7.85;
+function buildPads() {
+  return [
+    { x: -6.2, z: WALL_Z, main: false, floor: false },
+    { x: -3.8, z: WALL_Z, main: false, floor: false },
+    { x: 0, z: WALL_Z, main: true, floor: false },
+    { x: 3.8, z: WALL_Z, main: false, floor: false },
+    { x: 6.2, z: WALL_Z, main: false, floor: false },
+    { x: -4.8, z: EXTRA_Z, main: false, floor: true },
+    { x: -2.2, z: EXTRA_Z, main: false, floor: true },
+    { x: 2.2, z: EXTRA_Z, main: false, floor: true },
+    { x: 4.8, z: EXTRA_Z, main: false, floor: true }
+  ];
+}
+var PADS = buildPads();
+var MAIN_INDEX = PADS.findIndex((p) => p.main);
+
+// src/game/progression/rewards.ts
+var EMPTY_REWARD = Object.freeze({
+  score: 0,
+  coins: 0,
+  heroXp: 0,
+  towerXp: 0,
+  reason: "fruit_sliced"
 });
-profileRouter.post("/sync", async (req2, res) => {
-  try {
-    const { saveData: incoming } = req2.body ?? {};
-    const invalid = saveValidationError(incoming);
-    if (invalid) return res.status(400).json({ success: false, error: invalid });
-    const saveData = { ...incoming, saveRevision: incoming.saveRevision ?? 0 };
-    if (!saveData) {
-      return res.status(400).json({ success: false, error: "saveData is required" });
+
+// src/game/progression/index.ts
+var MAX_HERO_XP = heroXpForLevel(MAX_HERO_LEVEL);
+
+// src/game/save.ts
+function emptyXp() {
+  return { jiju: 0, topfu: 0, lagen: 0, tripos: 0, ki: 0 };
+}
+function emptyPerkRanks() {
+  return { jiju: {}, topfu: {}, lagen: {}, tripos: {}, ki: {} };
+}
+function defaultAvatar(name) {
+  const letter = (name[0] || "S").toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1d4ed8"/><text x="32" y="42" text-anchor="middle" font-size="28" font-family="Arial" fill="white" font-weight="700">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+function defaultSave() {
+  return {
+    hero: "jiju",
+    xp: emptyXp(),
+    ownedHeroes: ["jiju"],
+    towerXp: 0,
+    towerLifetimeXp: 0,
+    highScore: 0,
+    rankedScore: 0,
+    bestWave: 1,
+    bestCombo: 0,
+    games: 0,
+    coins: 0,
+    gems: 0,
+    nickname: "Slicer",
+    avatar: defaultAvatar("Slicer"),
+    skillPoints: 0,
+    skills: emptySkills(),
+    ownedSkins: ["blade-default", "wall-brick"],
+    bladeSkin: "blade-default",
+    wallSkin: "wall-brick",
+    mode: "casual",
+    heroPerkRanks: emptyPerkRanks(),
+    vipStatus: "none",
+    saveRevision: 0,
+    savedAt: 0
+  };
+}
+var WALL_SKINS = [
+  { id: "wall-brick", name: "Brick wall", kind: "wall", cost: 0, sellValue: 0, color: 10698034, blurb: "Default clay bricks." },
+  { id: "wall-stone", name: "Stone wall", kind: "wall", cost: 200, sellValue: 70, color: 9146265, blurb: "Cool grey stone." },
+  { id: "wall-night", name: "Night wall", kind: "wall", cost: 280, sellValue: 95, color: 2831184, blurb: "Dark midnight fort." }
+];
+
+// server/routes/profile.ts
+var defaultDeps2 = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  allowedSkinIds: async () => {
+    const catalog = await loadQuestCatalog();
+    return /* @__PURE__ */ new Set([...catalog.slicers.map((item) => item.id), ...WALL_SKINS.map((item) => item.id)]);
+  }
+};
+function etag(revision) {
+  return `"${revision}"`;
+}
+function serverRevision(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+function createProfileRouter(deps = defaultDeps2) {
+  const router = Router8();
+  router.get("/", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to view a cloud save" });
+      const userId = user.userId;
+      const col = await deps.collection("cloud_saves");
+      const doc = await col.findOne({ userId });
+      const revision = serverRevision(doc?.revision);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("ETag", etag(revision));
+      const usersCol = await deps.collection("users");
+      const userDoc = await usersCol.findOne({ userId });
+      res.json({
+        success: true,
+        saveData: doc?.saveData || null,
+        revision,
+        updatedAt: doc?.updatedAt || null,
+        user: userDoc ? {
+          nickname: userDoc.nickname,
+          avatar: userDoc.avatar,
+          steamId: userDoc.steamId,
+          steamPersona: userDoc.steamPersona,
+          steamAvatar: userDoc.steamAvatar
+        } : null
+      });
+    } catch (err) {
+      console.error("Error fetching profile cloud save:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
-    const MAX_REASONABLE_COINS = 1e6;
-    const MAX_REASONABLE_SKILL_POINTS = 1e4;
-    const MAX_REASONABLE_XP = 1e6;
-    if (saveData.coins && saveData.coins > MAX_REASONABLE_COINS) {
-      return res.status(400).json({ success: false, error: "Coins exceed reasonable maximum" });
-    }
-    if (saveData.skillPoints && saveData.skillPoints > MAX_REASONABLE_SKILL_POINTS) {
-      return res.status(400).json({ success: false, error: "Skill points exceed reasonable maximum" });
-    }
-    if (saveData.xp) {
-      for (const heroXp of Object.values(saveData.xp)) {
-        if (typeof heroXp === "number" && heroXp > MAX_REASONABLE_XP) {
-          return res.status(400).json({ success: false, error: "Hero XP exceeds reasonable maximum" });
+  });
+  router.post("/sync", async (req2, res) => {
+    try {
+      const { saveData: incoming, revision } = req2.body ?? {};
+      const allowedSkinIds = await deps.allowedSkinIds();
+      const invalid = saveValidationError(incoming, allowedSkinIds);
+      if (invalid) return res.status(400).json({ success: false, error: invalid });
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to sync a profile" });
+      if (!Number.isSafeInteger(revision) || revision < 0) {
+        return res.status(428).json({ success: false, error: "A current server revision is required" });
+      }
+      const userId = user.userId;
+      const col = await deps.collection("cloud_saves");
+      const current = await col.findOne({ userId });
+      const currentRevision = serverRevision(current?.revision);
+      if (revision !== currentRevision) {
+        res.setHeader("ETag", etag(currentRevision));
+        return res.status(409).json({ success: false, error: "Save conflict: reload the current server revision", revision: currentRevision });
+      }
+      const authoritative = current?.saveData ?? defaultSave();
+      const authorityError = serverOwnedSaveError(incoming, authoritative);
+      if (authorityError) return res.status(422).json({ success: false, error: authorityError, revision: currentRevision });
+      const saveData = { ...authoritative, ...incoming };
+      const nextRevision = currentRevision + 1;
+      const updatedAt = /* @__PURE__ */ new Date();
+      let written = false;
+      if (current) {
+        const result = await col.updateOne(
+          current.revision === void 0 ? { userId, revision: { $exists: false } } : { userId, revision: currentRevision },
+          { $set: { saveData, revision: nextRevision, updatedAt } }
+        );
+        written = result.matchedCount === 1;
+      } else {
+        try {
+          await col.insertOne({ userId, saveData, revision: nextRevision, updatedAt });
+          written = true;
+        } catch (err) {
+          if (err?.code !== 11e3) throw err;
         }
       }
-    }
-    const user = await resolveRequestUser(req2);
-    if (!user) {
-      return res.status(401).json({ success: false, error: "Sign in to sync a profile" });
-    }
-    const userId = user.userId;
-    const col = await getCollection("cloud_saves");
-    await col.updateOne(
-      { userId, $or: [{ "saveData.saveRevision": { $lt: saveData.saveRevision } }, { "saveData.saveRevision": { $exists: false } }] },
-      {
-        $set: {
-          saveData,
-          updatedAt: /* @__PURE__ */ new Date()
-        }
-      },
-      { upsert: true }
-    );
-    const usersCol = await getCollection("users");
-    await usersCol.updateOne(
-      { userId },
-      {
-        $set: {
-          nickname: saveData.nickname || user.nickname || "Slicer",
-          avatar: saveData.avatar || user.avatar || "",
-          updatedAt: /* @__PURE__ */ new Date()
+      if (!written) {
+        const latest = await col.findOne({ userId });
+        const latestRevision = latest ? serverRevision(latest.revision) : currentRevision;
+        res.setHeader("ETag", etag(latestRevision));
+        return res.status(409).json({ success: false, error: "Save conflict: reload the current server revision", revision: latestRevision });
+      }
+      const usersCol = await deps.collection("users");
+      await usersCol.updateOne(
+        { userId },
+        {
+          $set: {
+            nickname: saveData.nickname || user.nickname || "Slicer",
+            avatar: saveData.avatar || user.avatar || "",
+            updatedAt
+          },
+          $setOnInsert: { createdAt: updatedAt }
         },
-        $setOnInsert: {
-          createdAt: /* @__PURE__ */ new Date()
-        }
-      },
-      { upsert: true }
-    );
-    res.json({ success: true, timestamp: /* @__PURE__ */ new Date() });
-  } catch (err) {
-    if (err?.code === 11e3) return res.status(409).json({ success: false, error: "Save conflict: a newer or equal revision already exists. Reload to reconcile." });
-    console.error("Error syncing cloud save:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+        { upsert: true }
+      );
+      res.setHeader("ETag", etag(nextRevision));
+      res.json({ success: true, revision: nextRevision, saveData, timestamp: updatedAt });
+    } catch (err) {
+      if (err?.code === 11e3) return res.status(409).json({ success: false, error: "Save conflict: reload the current server revision" });
+      console.error("Error syncing cloud save:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  return router;
+}
+var profileRouter = createProfileRouter();
 
 // server/routes/badges.ts
 import { Router as Router9 } from "express";

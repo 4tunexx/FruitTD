@@ -88,7 +88,18 @@ export interface DailyBonusDoc {
 export interface CloudSaveDoc {
   userId: string;
   saveData: Record<string, any>;
+  /** Monotonic server-owned compare-and-swap revision. */
+  revision?: number;
   updatedAt: Date;
+}
+
+export interface RunTokenDoc {
+  tokenHash: string;
+  userId: string;
+  mode: string;
+  createdAt: Date;
+  expiresAt: Date;
+  consumedAt?: Date;
 }
 
 export async function getDb(): Promise<Db> {
@@ -116,6 +127,8 @@ export async function getDb(): Promise<Db> {
     await db.collection('missions').createIndex({ userId: 1, missionId: 1, dayKey: 1 }, { unique: true });
     await db.collection('daily_bonus').createIndex({ userId: 1 }, { unique: true });
     await db.collection('cloud_saves').createIndex({ userId: 1 }, { unique: true });
+    await db.collection('run_tokens').createIndex({ tokenHash: 1 }, { unique: true });
+    await db.collection('run_tokens').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection('admin_config').createIndex({ configKey: 1 }, { unique: true });
     await db.collection('badges').createIndex({ userId: 1, badgeId: 1 }, { unique: true });
   } catch (err) {

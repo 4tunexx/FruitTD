@@ -36,7 +36,7 @@ import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
-import { submitScore, syncCloudSave, fetchCloudSave } from './services/api';
+import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun } from './services/api';
 import { initAchievementsCache } from './services/achievements';
 import { reportGameEvent } from './services/progress';
 import { getCachedSteamState } from './services/steam';
@@ -725,6 +725,7 @@ function restart(): void {
   wall.setHero(save.hero);
   sfx.stopAllLoops();
   state.running = true;
+  startLeaderboardRun(state.mode);
   const rules = modeRules(state.mode);
   bank.add('yellow', rules.yellow);
   bank.add('pink', rules.pink);

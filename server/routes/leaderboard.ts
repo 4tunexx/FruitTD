@@ -1,23 +1,61 @@
 import { Router, Request, Response } from 'express';
-import { getCollection, LeaderboardDoc } from '../db';
+import crypto from 'node:crypto';
+import type { Collection } from 'mongodb';
+import { getCollection, LeaderboardDoc, RunTokenDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { monthlyLeaderboardMode, rankFromScore } from '../../src/game/requirements';
-import { resolveRequestUser } from '../auth';
+import { hashToken, resolveRequestUser } from '../auth';
 import { boundedInteger } from '../validation';
 
-export const leaderboardRouter = Router();
+type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
+
+export interface LeaderboardRouteDeps {
+  resolveUser(req: Request): Promise<RequestUser>;
+  collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
+  catalog(): ReturnType<typeof loadQuestCatalog>;
+}
+
+const defaultDeps: LeaderboardRouteDeps = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  catalog: loadQuestCatalog,
+};
+
+const RUN_TOKEN_TTL_MS = 15 * 60 * 1000;
 
 function resolveMode(mode: string): string {
   if (mode === 'monthly') return monthlyLeaderboardMode();
   return mode || 'ranked';
 }
 
-leaderboardRouter.get('/monthly-rank', async (req: Request, res: Response) => {
+export function createLeaderboardRouter(deps: LeaderboardRouteDeps = defaultDeps): Router {
+const router = Router();
+
+router.post('/run', async (req: Request, res: Response) => {
   try {
-    const userId = (await resolveRequestUser(req))?.userId;
-    const catalog = await loadQuestCatalog();
+    const mode = req.body?.mode ?? 'casual';
+    if (!['casual', 'ranked', 'coop', 'arena'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
+    const user = await deps.resolveUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Sign in to start a leaderboard run' });
+
+    const runToken = crypto.randomBytes(32).toString('hex');
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + RUN_TOKEN_TTL_MS);
+    const col = await deps.collection<RunTokenDoc>('run_tokens');
+    await col.insertOne({ tokenHash: hashToken(runToken), userId: user.userId, mode, createdAt, expiresAt });
+    res.status(201).json({ success: true, runToken, expiresAt });
+  } catch (err: any) {
+    console.error('Error issuing run token:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/monthly-rank', async (req: Request, res: Response) => {
+  try {
+    const userId = (await deps.resolveUser(req))?.userId;
+    const catalog = await deps.catalog();
     const seasonMode = monthlyLeaderboardMode();
-    const col = await getCollection<LeaderboardDoc>('leaderboards');
+    const col = await deps.collection<LeaderboardDoc>('leaderboards');
     const entry = userId ? await col.findOne({ userId, mode: seasonMode }, { sort: { score: -1 } }) : null;
     const score = entry?.score || 0;
     const rank = rankFromScore(score, catalog.ranks);
@@ -36,14 +74,14 @@ leaderboardRouter.get('/monthly-rank', async (req: Request, res: Response) => {
 });
 
 // GET /api/leaderboard?mode=ranked&limit=50&userId=xxx
-leaderboardRouter.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     if (req.query.mode !== undefined && (typeof req.query.mode !== 'string' || !/^(casual|ranked|coop|arena|monthly|monthly-\d{4}-\d{2})$/.test(req.query.mode))) return res.status(400).json({ success: false, error: 'Invalid mode' });
     const mode = resolveMode((req.query.mode as string) || 'ranked');
     const limit = Math.max(1, Math.min(parseInt(String(req.query.limit)) || 50, 100));
-    const userId = (await resolveRequestUser(req))?.userId;
+    const userId = (await deps.resolveUser(req))?.userId;
 
-    const col = await getCollection<LeaderboardDoc>('leaderboards');
+    const col = await deps.collection<LeaderboardDoc>('leaderboards');
 
     // Retrieve top entries sorted by score desc, wave desc
     const topEntries = await col
@@ -105,7 +143,7 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/leaderboard - Submit a new game score
-leaderboardRouter.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const {
       nickname,
@@ -116,6 +154,7 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       wave,
       fruitsSliced,
       maxCombo,
+      runToken,
     } = req.body;
     if (mode !== undefined && !['casual', 'ranked', 'coop', 'arena'].includes(mode)) return res.status(400).json({ success: false, error: 'Invalid mode' });
     if (hero !== undefined && !['jiju', 'topfu', 'lagen', 'tripos', 'ki'].includes(hero)) return res.status(400).json({ success: false, error: 'Invalid hero' });
@@ -145,14 +184,31 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Combo exceeds reasonable maximum' });
     }
 
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) {
       return res.status(401).json({ success: false, error: 'Sign in to submit leaderboard scores' });
     }
     const userId = user.userId;
 
-    const col = await getCollection<LeaderboardDoc>('leaderboards');
+    if (typeof runToken !== 'string' || !/^[a-f0-9]{64}$/.test(runToken)) {
+      return res.status(401).json({ success: false, error: 'A valid run token is required' });
+    }
     const playMode = mode || 'casual';
+    const runs = await deps.collection<RunTokenDoc>('run_tokens');
+    const consumed = await runs.findOneAndUpdate(
+      {
+        tokenHash: hashToken(runToken),
+        userId,
+        mode: playMode,
+        expiresAt: { $gt: new Date() },
+        consumedAt: { $exists: false },
+      },
+      { $set: { consumedAt: new Date() } },
+      { returnDocument: 'before' }
+    );
+    if (!consumed) return res.status(401).json({ success: false, error: 'Run token is invalid, expired, or already used' });
+
+    const col = await deps.collection<LeaderboardDoc>('leaderboards');
 
     const upsertBest = async (modeKey: string) => {
       const existing = await col.findOne({ userId, mode: modeKey });
@@ -208,7 +264,7 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
       score: { $gt: score },
     });
 
-    const catalog = playMode === 'ranked' ? await loadQuestCatalog() : null;
+    const catalog = playMode === 'ranked' ? await deps.catalog() : null;
     const monthlyScore = playMode === 'ranked'
       ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score
       : score;
@@ -225,3 +281,8 @@ leaderboardRouter.post('/', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+return router;
+}
+
+export const leaderboardRouter = createLeaderboardRouter();
