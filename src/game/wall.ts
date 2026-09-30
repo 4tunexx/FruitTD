@@ -98,10 +98,12 @@ export class WallBase {
     // A broad, high-contrast health rail sits at the foot of the wall and is
     // legible at phone scale. Keep it in the 3D scene so it stays attached to
     // the tower as the camera framing changes.
-    const towerHpTrack = new Mesh(new BoxGeometry(ARENA_W - 2.4, 0.24, 0.06), new MeshBasicMaterial({ color: 0x7f1d1d, depthWrite: false }));
+    const towerHpTrack = new Mesh(new BoxGeometry(ARENA_W - 2.4, 0.24, 0.06), new MeshBasicMaterial({ color: 0x450a0a, depthWrite: false, depthTest: false }));
     towerHpTrack.position.set(0, 0.14, WALL_Z - 1.4);
-    this.towerHpFill = new Mesh(new BoxGeometry(ARENA_W - 2.8, 0.16, 0.08), new MeshBasicMaterial({ color: 0x84cc16, depthWrite: false }));
+    this.towerHpFill = new Mesh(new BoxGeometry(ARENA_W - 2.8, 0.16, 0.08), new MeshBasicMaterial({ color: 0x84cc16, depthWrite: false, depthTest: false }));
     this.towerHpFill.position.set(0, 0.15, WALL_Z - 1.44);
+    towerHpTrack.renderOrder = 90;
+    this.towerHpFill.renderOrder = 91;
     this.group.add(towerHpTrack, this.towerHpFill);
     for (let i = 0; i < 6; i++) {
       const merlon = new Mesh(new BoxGeometry(0.32, 0.38, 0.28), new MeshLambertMaterial({ color: 0x5a271f }));

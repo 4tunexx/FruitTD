@@ -27,4 +27,6 @@ test('tower range is shown only after selection and tower HP updates the ground 
   assert.equal((hp.material as import('three').MeshBasicMaterial).color.getHex(), 0xf59e0b, 'mid health should use warning amber');
   assert.ok(hpTrack, 'a contrasting full-length health rail should sit below the tower');
   assert.ok((hp.geometry as any).parameters.width > 18, 'tower health rail should span most of the wall');
+  assert.equal((hp.material as import('three').MeshBasicMaterial).depthTest, false, 'tower health must not disappear inside battlefield geometry');
+  assert.ok(hp.renderOrder > (hpTrack as import('three').Mesh).renderOrder, 'health fill should render over its track');
 });

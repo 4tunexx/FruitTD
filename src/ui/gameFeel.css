@@ -4,7 +4,7 @@
 .auth-mode-switch:focus-visible { outline: 2px solid var(--ftd-color-primary); outline-offset: 2px; }
 .combat-feedback {
   position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 22px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -266,7 +266,7 @@ body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
   .menu-page button,
   #hud-start button,
   .modal button { min-height: 46px; }
-  .combat-feedback { top: calc(env(safe-area-inset-top, 0px) + 88px); gap: 8px; }
+  .combat-feedback { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); gap: 8px; }
   .combo-meter__value { font-size: 14px; }
   .combat-feedback__notice { font-size: 11px; max-width: 160px; }
   .slicer-live-preview { min-height: 150px; }

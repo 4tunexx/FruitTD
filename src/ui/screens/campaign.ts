@@ -1,5 +1,5 @@
 import { createElement, ArrowLeft, Shield, LockKeyhole, Swords, Sparkles } from 'lucide';
-import { campaignBoss, campaignWaves, type CampaignProgress } from '../../game/campaign';
+import { campaignBoss, campaignWaves, sanitizeCampaignProgress, type CampaignProgress } from '../../game/campaign';
 import type { SaveData } from '../../game/save';
 import { getLiveConfig } from '../../services/liveConfig';
 import { el, clear } from '../components/dom';
@@ -11,7 +11,7 @@ const icon = (node: typeof Shield) => typeof document.createElementNS === 'funct
 export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stage: number) => void): void {
   clear(root);
   root.className = 'ftd-screen-host ftd-campaign';
-  const progress: CampaignProgress = save.campaignProgress;
+  const progress: CampaignProgress = sanitizeCampaignProgress(save.campaignProgress);
   const start = Math.max(1, Math.min(96, progress.unlocked - 2));
   const end = Math.min(100, start + 4);
   let selected = Math.min(progress.unlocked, Math.max(start, progress.unlocked));
@@ -60,7 +60,7 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
         el('span', { text: `${campaignWaves(selected)} WAVES` }), el('span', { text: `THREAT ×${boss.difficulty.toFixed(1)}` }),
         el('span', { text: `REWARD  ${boss.rewardCoins.toLocaleString()} COINS${boss.rewardGems ? ` · ${boss.rewardGems} GEMS` : ''}` }),
       ]),
-      el('button', { type: 'button', class: 'ftd-campaign__launch', 'data-testid': 'campaign-start-stage' }, [icon(Swords), el('span', { text: selected < progress.unlocked ? 'REPLAY STAGE' : `ENTER STAGE ${String(selected).padStart(2, '0')}` })]),
+      el('button', { type: 'button', class: 'ftd-campaign__launch', 'data-testid': 'campaign-start-stage' }, [icon(Swords), el('span', { text: progress.cleared.includes(selected) ? 'REPLAY STAGE' : `ENTER STAGE ${String(selected).padStart(2, '0')}` })]),
     ]));
     detail.querySelector('.ftd-campaign__launch')?.addEventListener('click', () => onStart(selected));
     nodes.forEach((node) => node.classList.toggle('is-selected', Number(node.querySelector('strong')?.textContent) === selected));
