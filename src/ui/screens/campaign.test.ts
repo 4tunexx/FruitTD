@@ -39,3 +39,11 @@ test('Campaign clamps corrupt progress and disables locked stages', () => {
   assert.ok(second);
   assert.ok(second.hasAttribute('disabled'));
 });
+
+test('Campaign labels the cleared final stage as replayable', () => {
+  const root = document.createElement('main');
+  const save = defaultSave();
+  save.campaignProgress = { unlocked: 100, cleared: Array.from({ length: 100 }, (_, i) => i + 1) };
+  renderCampaign(root, save, () => undefined);
+  assert.match(root.querySelector('[data-testid="campaign-start-stage"]')?.textContent || '', /REPLAY STAGE/);
+});
