@@ -73,6 +73,13 @@ test('admin API routes are registered and authorized', async (t) => {
   });
   assert.equal((await verifySpoofedHeader.json()).isAdmin, false, 'Spoofed Steam ID should not grant admin access');
 
+  const largeAdminPayload = await fetch(`${base}/api/admin/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payload: 'x'.repeat(3_200_000) }),
+  });
+  assert.equal(largeAdminPayload.status, 200, 'Admin image config payloads below 4 MB must pass JSON parsing');
+
   const denySave = await fetch(`${base}/api/admin/config`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
