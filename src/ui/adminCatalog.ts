@@ -118,9 +118,8 @@ export function renderMissionEditor(container: HTMLElement, items: CatalogMissio
         <label><span>Lucide icon</span><input class="admin-input m-icon" value="${escapeAttr(item.icon)}" maxlength="32" placeholder="e.g. Swords" /></label>
         <label><span>Period</span>
           <select class="admin-input m-period">
-            <option value="daily" ${item.type === 'daily' ? 'selected' : ''}>Daily</option>
-            <option value="weekly" ${item.type === 'weekly' ? 'selected' : ''}>Weekly</option>
-            <option value="monthly" ${item.type === 'monthly' ? 'selected' : ''}>Monthly</option>
+            <option value="main" ${item.type === 'main' ? 'selected' : ''}>Main mission</option>
+            <option value="daily" ${item.type === 'daily' ? 'selected' : ''}>Daily mission</option>
           </select>
         </label>
         <label><span>Coins</span><input type="number" class="admin-input m-coins" value="${item.rewardCoins}" min="0" /></label>
@@ -166,10 +165,10 @@ export function renderMissionEditor(container: HTMLElement, items: CatalogMissio
   });
 }
 
-export function addMission(items: CatalogMission[]): void {
+export function addMission(items: CatalogMission[], type: CatalogMission['type'] = 'main'): void {
   items.push({
     id: newCatalogId('mission'),
-    type: 'daily',
+    type,
     title: 'New Mission',
     desc: 'Describe what the player must do',
     icon: 'Target',

@@ -42,7 +42,6 @@ import { Hud } from './ui/hud';
 import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, adoptAuthoritativeSave, type CatalogueAction } from './services/api';
 import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
-import { reportGameEvent } from './services/progress';
 import { confirmModal } from './ui/components/surface';
 import { getCachedSteamState } from './services/steam';
 import type { GameEvent } from './game/requirements';
@@ -163,14 +162,14 @@ let campaignStoryFinal = false;
 let campaignRunSettled = false;
 
 function emit(event: GameEvent): void {
-  void reportGameEvent({
+  void import('./services/progress').then(({ reportGameEvent }) => reportGameEvent({
     mode: state.mode,
     hero: state.hero,
     wave: state.wave,
     combo: state.combo,
     score: state.score,
     ...event,
-  });
+  }));
 }
 
 function resetCombo(_reason: ComboResetReason): void {

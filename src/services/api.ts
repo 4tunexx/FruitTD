@@ -31,7 +31,7 @@ export interface AchievementItem {
 
 export interface MissionItem {
   id: string;
-  type: 'daily' | 'weekly' | 'monthly';
+  type: 'main' | 'daily';
   title: string;
   desc: string;
   icon: string;
@@ -281,13 +281,13 @@ export async function fetchMissions(): Promise<{
 
 export async function updateMissionProgress(
   updates: Array<{ missionId: string; progressDelta?: number; setProgress?: number }>
-): Promise<boolean> {
+): Promise<string[]> {
   const userId = getUserId();
-  const res = await apiRequest<{ success: boolean }>('/api/missions/progress', {
+  const res = await apiRequest<{ success: boolean; newlyCompleted?: string[] }>('/api/missions/progress', {
     method: 'POST',
     body: JSON.stringify({ userId, updates }),
   });
-  return !!res?.success;
+  return res?.success ? (res.newlyCompleted ?? []) : [];
 }
 
 export async function claimMission(missionId: string): Promise<{ rewardCoins: number; rewardSp: number; rewardGems: number; saveData: Record<string, any>; revision: number } | null> {

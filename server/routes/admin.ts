@@ -7,7 +7,6 @@ import {
   DEFAULT_BADGES,
   DEFAULT_MISSIONS,
   DEFAULT_RANK_TIERS,
-  mergeRewardDefaults,
   monthlyLeaderboardMode,
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
@@ -96,7 +95,7 @@ function normalizePrizeCatalog<T extends { id: string; rewardCoins?: number; rew
   input: unknown,
   defaults: T[],
 ): T[] {
-  const rows = mergeRewardDefaults(Array.isArray(input) && input.length ? input as T[] : defaults, defaults);
+  const rows = Array.isArray(input) ? input as T[] : defaults;
   return rows.map((item) => ({
     ...item,
     rewardCoins: Math.max(0, Math.min(1_000_000, Math.floor(Number(item.rewardCoins) || 0))),

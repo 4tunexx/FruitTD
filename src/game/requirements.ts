@@ -225,7 +225,7 @@ export function rankThreshold(rankId: string, tiers: RankTier[] = DEFAULT_RANK_T
 
 export interface CatalogMission {
   id: string;
-  type: 'daily' | 'weekly' | 'monthly';
+  type: 'main' | 'daily';
   title: string;
   desc: string;
   icon: string;
@@ -286,7 +286,8 @@ function req(type: string, goal: number, extra: Partial<Requirement> = {}): Requ
   return { type, goal, ...extra };
 }
 
-export const DEFAULT_MISSIONS: CatalogMission[] = [
+type MissionSeed = Omit<CatalogMission, 'type'> & { type: 'daily' | 'weekly' | 'monthly' };
+const MISSION_SEEDS: MissionSeed[] = [
   { id: 'daily_lemons', type: 'daily', title: 'Citrus Squeeze', desc: 'Slice 30 lemons or strawberries', icon: 'Citrus', enabled: true, requirement: req('slice_citrus_or_berry', 30), rewardCoins: 80, rewardSp: 0 },
   { id: 'daily_combos', type: 'daily', title: 'Combo Fiend', desc: 'Perform 4 combos of 3x or higher', icon: 'Zap', enabled: true, requirement: req('combo_count', 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
   { id: 'daily_wave', type: 'daily', title: 'Wave Survivor', desc: 'Survive to wave 5 in any run', icon: 'Waves', enabled: true, requirement: req('wave_reach', 5), rewardCoins: 100, rewardSp: 0 },
@@ -337,6 +338,15 @@ export const DEFAULT_MISSIONS: CatalogMission[] = [
   { id: 'monthly_games_75', type: 'monthly', title: 'Season Veteran', desc: 'Finish 75 Ranked matches', icon: 'BadgeCheck', enabled: true, requirement: req('monthly_games', 75), rewardCoins: 2500, rewardSp: 4, rewardGems: 40 },
   { id: 'monthly_score_50000', type: 'monthly', title: 'Score Vanguard', desc: 'Earn a 50,000 Ranked score', icon: 'Gauge', enabled: true, requirement: req('monthly_score', 50000), rewardCoins: 3000, rewardSp: 4, rewardGems: 60 },
   { id: 'monthly_waves', type: 'monthly', title: 'Unbroken Line', desc: 'Clear 200 Ranked waves', icon: 'Shield', enabled: true, requirement: req('wave_ranked', 200), rewardCoins: 3000, rewardSp: 4, rewardGems: 50 },
+];
+
+export const DEFAULT_MISSIONS: CatalogMission[] = [
+  ...MISSION_SEEDS.map((mission) => ({ ...mission, type: 'main' as const })),
+  { id: 'daily_slice', type: 'daily', title: 'Fresh Cut', desc: 'Slice 20 fruits', icon: 'Slice', enabled: true, requirement: req('slice_any', 20), rewardCoins: 80, rewardSp: 0 },
+  { id: 'daily_combo', type: 'daily', title: 'Quick Combo', desc: 'Land 3 combos of 3x or higher', icon: 'Zap', enabled: true, requirement: req('combo_count', 3, { minValue: 3 }), rewardCoins: 100, rewardSp: 0 },
+  { id: 'daily_hold', type: 'daily', title: 'Hold the Line', desc: 'Reach wave 5', icon: 'Shield', enabled: true, requirement: req('wave_reach', 5), rewardCoins: 120, rewardSp: 0 },
+  { id: 'daily_boss', type: 'daily', title: 'Overlord Patrol', desc: 'Defeat 1 boss', icon: 'Crown', enabled: true, requirement: req('slice_boss', 1), rewardCoins: 150, rewardSp: 0, rewardGems: 1 },
+  { id: 'daily_bomb', type: 'daily', title: 'Bomb Squad', desc: 'Parry 3 explosive fruits', icon: 'Bomb', enabled: true, requirement: req('bomb_parry', 3), rewardCoins: 120, rewardSp: 0 },
 ];
 
 export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [

@@ -102,7 +102,7 @@ function mergeRewardDefaults(items, defaults2) {
 function req(type, goal, extra = {}) {
   return { type, goal, ...extra };
 }
-var DEFAULT_MISSIONS = [
+var MISSION_SEEDS = [
   { id: "daily_lemons", type: "daily", title: "Citrus Squeeze", desc: "Slice 30 lemons or strawberries", icon: "Citrus", enabled: true, requirement: req("slice_citrus_or_berry", 30), rewardCoins: 80, rewardSp: 0 },
   { id: "daily_combos", type: "daily", title: "Combo Fiend", desc: "Perform 4 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
   { id: "daily_wave", type: "daily", title: "Wave Survivor", desc: "Survive to wave 5 in any run", icon: "Waves", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
@@ -153,6 +153,14 @@ var DEFAULT_MISSIONS = [
   { id: "monthly_games_75", type: "monthly", title: "Season Veteran", desc: "Finish 75 Ranked matches", icon: "BadgeCheck", enabled: true, requirement: req("monthly_games", 75), rewardCoins: 2500, rewardSp: 4, rewardGems: 40 },
   { id: "monthly_score_50000", type: "monthly", title: "Score Vanguard", desc: "Earn a 50,000 Ranked score", icon: "Gauge", enabled: true, requirement: req("monthly_score", 5e4), rewardCoins: 3e3, rewardSp: 4, rewardGems: 60 },
   { id: "monthly_waves", type: "monthly", title: "Unbroken Line", desc: "Clear 200 Ranked waves", icon: "Shield", enabled: true, requirement: req("wave_ranked", 200), rewardCoins: 3e3, rewardSp: 4, rewardGems: 50 }
+];
+var DEFAULT_MISSIONS = [
+  ...MISSION_SEEDS.map((mission) => ({ ...mission, type: "main" })),
+  { id: "daily_slice", type: "daily", title: "Fresh Cut", desc: "Slice 20 fruits", icon: "Slice", enabled: true, requirement: req("slice_any", 20), rewardCoins: 80, rewardSp: 0 },
+  { id: "daily_combo", type: "daily", title: "Quick Combo", desc: "Land 3 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 3, { minValue: 3 }), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_hold", type: "daily", title: "Hold the Line", desc: "Reach wave 5", icon: "Shield", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 120, rewardSp: 0 },
+  { id: "daily_boss", type: "daily", title: "Overlord Patrol", desc: "Defeat 1 boss", icon: "Crown", enabled: true, requirement: req("slice_boss", 1), rewardCoins: 150, rewardSp: 0, rewardGems: 1 },
+  { id: "daily_bomb", type: "daily", title: "Bomb Squad", desc: "Parry 3 explosive fruits", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 3), rewardCoins: 120, rewardSp: 0 }
 ];
 var DEFAULT_ACHIEVEMENTS = [
   { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "Sword", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: "first-cut" },
@@ -317,9 +325,9 @@ async function loadQuestCatalog() {
     const doc = await col.findOne({ configKey: "game_config" });
     cache = {
       at: Date.now(),
-      missions: mergeRewardDefaults(Array.isArray(doc?.missions) && doc.missions.length ? doc.missions : DEFAULT_MISSIONS, DEFAULT_MISSIONS),
-      achievements: mergeRewardDefaults(Array.isArray(doc?.achievements) && doc.achievements.length ? doc.achievements : DEFAULT_ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS),
-      badges: mergeRewardDefaults(Array.isArray(doc?.badges) && doc.badges.length ? doc.badges : DEFAULT_BADGES, DEFAULT_BADGES),
+      missions: Array.isArray(doc?.missions) ? doc.missions : DEFAULT_MISSIONS,
+      achievements: Array.isArray(doc?.achievements) ? doc.achievements : DEFAULT_ACHIEVEMENTS,
+      badges: Array.isArray(doc?.badges) ? doc.badges : DEFAULT_BADGES,
       ranks: mergeRewardDefaults(Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(doc?.slicers) && doc.slicers.length ? doc.slicers : DEFAULT_SLICERS
     };
@@ -1342,6 +1350,7 @@ function getWeekKey() {
   return `${d.getUTCFullYear()}-W${weekNum}`;
 }
 function periodKey(type) {
+  if (type === "main") return "MAIN";
   if (type === "weekly") return getWeekKey();
   if (type === "monthly") return `M-${getMonthKey()}`;
   return getDayKey();
@@ -1405,6 +1414,7 @@ function createMissionsRouter(deps = defaultDeps3) {
       const userId = user.userId;
       const catalog = await deps.catalog();
       const col = await deps.collection("missions");
+      const newlyCompleted = [];
       for (const update of updates) {
         const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
         if (!def) continue;
@@ -1417,6 +1427,7 @@ function createMissionsRouter(deps = defaultDeps3) {
         } else if (typeof update.progressDelta === "number") {
           currentProgress += update.progressDelta;
         }
+        if (currentProgress >= goal && !existing?.completed) newlyCompleted.push(def.id);
         await col.updateOne(
           { userId, missionId: def.id, dayKey: activeKey },
           {
@@ -1431,7 +1442,7 @@ function createMissionsRouter(deps = defaultDeps3) {
           { upsert: true }
         );
       }
-      res.json({ success: true });
+      res.json({ success: true, newlyCompleted });
     } catch (err) {
       console.error("Error updating missions:", err);
       res.status(500).json({ success: false, error: err.message });
@@ -1515,7 +1526,7 @@ function normalizeDailyRewards(input) {
   });
 }
 function normalizePrizeCatalog(input, defaults2) {
-  const rows = mergeRewardDefaults(Array.isArray(input) && input.length ? input : defaults2, defaults2);
+  const rows = Array.isArray(input) ? input : defaults2;
   return rows.map((item) => ({
     ...item,
     rewardCoins: Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins) || 0))),

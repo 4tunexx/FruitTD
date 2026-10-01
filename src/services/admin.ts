@@ -122,9 +122,11 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...(src.menuConfig || {}) },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...(src.gameplayConfig || {}) },
-    missions: mergeRewardDefaults(structuredClone(Array.isArray(src.missions) && src.missions.length ? src.missions : DEFAULT_ADMIN_CONFIG.missions), DEFAULT_ADMIN_CONFIG.missions),
-    achievements: mergeRewardDefaults(structuredClone(Array.isArray(src.achievements) && src.achievements.length ? src.achievements : DEFAULT_ADMIN_CONFIG.achievements), DEFAULT_ADMIN_CONFIG.achievements),
-    badges: mergeRewardDefaults(structuredClone(Array.isArray(src.badges) && src.badges.length ? src.badges : DEFAULT_ADMIN_CONFIG.badges), DEFAULT_ADMIN_CONFIG.badges),
+    // A present catalogue is authoritative: Admin must be able to remove an entry
+    // without the defaults silently restoring it on the next load.
+    missions: structuredClone(Array.isArray(src.missions) ? src.missions : DEFAULT_ADMIN_CONFIG.missions),
+    achievements: structuredClone(Array.isArray(src.achievements) ? src.achievements : DEFAULT_ADMIN_CONFIG.achievements),
+    badges: structuredClone(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG.badges),
     ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks), DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
     enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),

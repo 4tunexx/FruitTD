@@ -144,7 +144,12 @@ export class AdminController {
 
     document.getElementById('btn-admin-add-mission')?.addEventListener('click', () => {
       if (!this.config) return;
-      addMission(this.config.missions);
+      addMission(this.config.missions, 'main');
+      this.renderCatalogEditors();
+    });
+    document.getElementById('btn-admin-add-daily-mission')?.addEventListener('click', () => {
+      if (!this.config) return;
+      addMission(this.config.missions, 'daily');
       this.renderCatalogEditors();
     });
     document.getElementById('btn-admin-add-achievement')?.addEventListener('click', () => {

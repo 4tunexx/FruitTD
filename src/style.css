@@ -3486,8 +3486,12 @@ canvas {
   color: #cbd5e1;
 }
 .mission-type-pill--daily { color: #bae6fd; background: rgba(56, 189, 248, 0.12); }
+.mission-type-pill--main { color: #d9f99d; background: rgba(132, 204, 22, 0.14); }
 .mission-type-pill--weekly { color: #fde68a; background: rgba(245, 158, 11, 0.12); }
 .mission-type-pill--monthly { color: #e9d5ff; background: rgba(168, 85, 247, 0.16); }
+.mission-group { display: grid; gap: 0.55rem; margin: 0 0 1.1rem; }
+.mission-group > h3 { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 0.5rem 0.65rem; border-left: 3px solid #a3e635; background: rgba(132,204,22,.08); color: #d9f99d; font-size: .75rem; letter-spacing: .12em; }
+.mission-group--daily > h3 { border-left-color: #38bdf8; color: #bae6fd; background: rgba(56,189,248,.08); }
 
 .badges-grid {
   display: grid;

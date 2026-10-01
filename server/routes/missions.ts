@@ -29,6 +29,7 @@ function getWeekKey(): string {
 }
 
 function periodKey(type: string): string {
+  if (type === 'main') return 'MAIN';
   if (type === 'weekly') return getWeekKey();
   if (type === 'monthly') return `M-${getMonthKey()}`;
   return getDayKey();
@@ -99,6 +100,7 @@ router.post('/progress', async (req: Request, res: Response) => {
 
     const catalog = await deps.catalog();
     const col = await deps.collection<MissionDoc>('missions');
+    const newlyCompleted: string[] = [];
 
     for (const update of updates) {
       const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
@@ -115,6 +117,8 @@ router.post('/progress', async (req: Request, res: Response) => {
         currentProgress += update.progressDelta;
       }
 
+      if (currentProgress >= goal && !existing?.completed) newlyCompleted.push(def.id);
+
       await col.updateOne(
         { userId, missionId: def.id, dayKey: activeKey },
         {
@@ -130,7 +134,7 @@ router.post('/progress', async (req: Request, res: Response) => {
       );
     }
 
-    res.json({ success: true });
+    res.json({ success: true, newlyCompleted });
   } catch (err: any) {
     console.error('Error updating missions:', err);
     res.status(500).json({ success: false, error: err.message });

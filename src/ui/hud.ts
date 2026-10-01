@@ -56,9 +56,8 @@ import { bootMenuParallax, syncMenuParallax } from './menuParallax';
 import { navigation } from '../game/navigation';
 import { getHeroXpState } from '../game/progression';
 import { getAllHeroStatuses } from '../game/progression/heroStatus';
-import { reportGameEvent } from '../services/progress';
 import { rankFromScore } from '../game/requirements';
-import { AdminController } from './admin';
+import type { AdminController } from './admin';
 import type { Sfx } from '../audio/sfx';
 import { isUserAdmin } from '../services/admin';
 import { escapeHtml } from './components/dom';
@@ -118,7 +117,7 @@ export class Hud {
   private juiceT = 0;
   private lastJuicePct = -1;
   private juiceLastChangeMs = 0;
-  private readonly adminController: AdminController;
+  private adminController: AdminController | null = null;
   private titleStoryTimer: number | null = null;
   private readonly titleStory = document.querySelector<HTMLElement>('.title-tagline')?.textContent?.trim() ?? '';
   private modalPointer: { id: number; x: number; y: number; modal: HTMLElement } | null = null;
@@ -158,17 +157,6 @@ export class Hud {
 
     const nameInput = document.getElementById('name-input') as HTMLInputElement | null;
     nameInput?.addEventListener('change', () => this.onRename?.(nameInput.value.trim() || 'Slicer'));
-
-    const refreshDailyFromAdmin = () => {
-      this.checkDailyBonus();
-      void this.refreshMonthlyRank();
-      if (this.currentSave) this.mountShop(this.currentSave);
-      const modal = document.getElementById('modal-daily');
-      if (modal && !modal.classList.contains('hidden')) {
-        void this.openDailyModal();
-      }
-    };
-    this.adminController = new AdminController(refreshDailyFromAdmin, refreshDailyFromAdmin);
 
     this.initSidebarMobile();
     this.initModals();
@@ -283,7 +271,7 @@ export class Hud {
       return;
     }
     setSessionAuthed(true);
-    this.adminController.checkAdminPrivileges();
+    this.adminController?.checkAdminPrivileges();
     this.enterDashboard();
   }
 
@@ -310,7 +298,19 @@ export class Hud {
 
   openAdmin(): void {
     if (isUserAdmin()) {
-      void this.adminController.open();
+      void import('./admin').then(({ AdminController }) => {
+        if (!this.adminController) {
+          const refreshDailyFromAdmin = () => {
+            this.checkDailyBonus();
+            void this.refreshMonthlyRank();
+            if (this.currentSave) this.mountShop(this.currentSave);
+            const modal = document.getElementById('modal-daily');
+            if (modal && !modal.classList.contains('hidden')) void this.openDailyModal();
+          };
+          this.adminController = new AdminController(refreshDailyFromAdmin, refreshDailyFromAdmin);
+        }
+        void this.adminController.open();
+      }).catch(() => showAchievementToast('Admin unavailable', 'Could not load the Admin tools. Please try again.', 'TriangleAlert'));
       return;
     }
     showAchievementToast(
@@ -1289,6 +1289,15 @@ export class Hud {
 
     listEl.innerHTML = '';
     let hasClaimable = false;
+    const dailyMissions = res.missions.filter((mission) => mission.type === 'daily');
+    const mainMissions = res.missions.filter((mission) => mission.type === 'main');
+    const dailySection = document.createElement('section');
+    dailySection.className = 'mission-group mission-group--daily';
+    dailySection.innerHTML = `<h3>DAILY OPERATIONS <span>${dailyMissions.length}</span></h3>`;
+    const mainSection = document.createElement('section');
+    mainSection.className = 'mission-group mission-group--main';
+    mainSection.innerHTML = `<h3>MAIN MISSIONS <span>${mainMissions.length}</span></h3>`;
+    listEl.append(dailySection, mainSection);
 
     res.missions.forEach((m: MissionItem) => {
       if (m.completed && !m.claimed) hasClaimable = true;
@@ -1333,7 +1342,7 @@ export class Hud {
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
             showAchievementToast('Mission Complete!', m.title, 'Gift', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
-            void reportGameEvent({ type: 'mission_claim' });
+            void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'mission_claim' }));
             this.renderMissions();
             this.renderBadges();
           } else {
@@ -1343,7 +1352,7 @@ export class Hud {
         });
       }
 
-      listEl.appendChild(card);
+      (m.type === 'daily' ? dailySection : mainSection).appendChild(card);
     });
 
     if (this.questsAlert) {
@@ -1795,7 +1804,7 @@ export class Hud {
     }
     if (cb.bonus) {
       showAchievementToast('Steam Connected!', 'Welcome bonus', 'Gamepad2', '500 Coins + 1 SP');
-      void reportGameEvent({ type: 'steam_link' });
+      void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'steam_link' }));
     }
 
     const user = await fetchMe();
@@ -1894,7 +1903,7 @@ export class Hud {
           : res.reward.iconType === 'blade' ? 'Swords'
             : res.reward.iconType === 'chest' ? 'Gift' : 'Coins';
         showAchievementToast('Daily Login Reward!', res.reward.label, rewardIcon);
-        void reportGameEvent({ type: 'daily_claim', streak: res.streak });
+        void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'daily_claim', streak: res.streak }));
         this.setDailyClaimable(false);
         await this.openDailyModal(res.streak);
       } else if (claimBtn) {
