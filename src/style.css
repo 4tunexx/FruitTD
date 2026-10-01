@@ -462,26 +462,8 @@ canvas {
   padding: 0;
 }
 
-#hp-track {
-  height: 0.35rem;
-  background: rgba(255,255,255,0.08);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
 .hp-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 #hud-hp-value { color: #fecdd3; font-size: 0.7rem; font-variant-numeric: tabular-nums; }
-
-#hud-hp-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #f43f5e, #fb7185);
-  border-radius: 4px;
-  transition: width 300ms ease;
-}
-#hud-hp-fill.is-critical {
-  background: linear-gradient(90deg, #ef4444, #fb7185);
-  animation: criticalHpPulse 760ms ease-in-out infinite alternate;
-}
 
 #tower-xp-row { margin-top: 0.3rem; }
 .tower-xp-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }

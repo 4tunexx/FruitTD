@@ -84,9 +84,7 @@ export class Hud {
   private readonly juice = document.getElementById('hud-juice')!;
   private readonly shop = document.getElementById('hud-shop')!;
   private readonly hero = document.getElementById('hud-hero')!;
-  private readonly hpFill = document.getElementById('hud-hp-fill')!;
   private readonly hpValue = document.getElementById('hud-hp-value');
-  private readonly hpTrack = document.getElementById('hp-track');
   private readonly hpPanel = document.getElementById('hp-row');
   private readonly towerXpFill = document.getElementById('hud-tower-xp-fill');
   private readonly towerXpValue = document.getElementById('hud-tower-xp-value');
@@ -1048,11 +1046,7 @@ export class Hud {
     avatarRing?.style.setProperty('--xp-progress', `${Math.round(xpState.progress * 100)}%`);
     if (avatarRing) avatarRing.title = xpState.maxed ? 'Hero XP · max level' : `Hero XP · ${Math.round(xpState.progress * 100)}% to next level`;
     const hpPct = Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100);
-    this.hpFill.style.width = `${hpPct}%`;
-    this.hpFill.classList.toggle('is-critical', hpPct <= 30);
     if (this.hpValue) this.hpValue.textContent = `${Math.max(0, state.lives)} / ${Math.max(1, state.maxLives)}`;
-    this.hpTrack?.setAttribute('aria-valuemax', String(Math.max(1, state.maxLives)));
-    this.hpTrack?.setAttribute('aria-valuenow', String(Math.max(0, state.lives)));
     wall.setTowerHealth(hpPct / 100);
     if (this.lastLives !== null && state.lives < this.lastLives) {
       const damage = this.lastLives - state.lives;

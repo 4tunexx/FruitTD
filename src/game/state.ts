@@ -185,6 +185,11 @@ export function consumeBossWaveCompletion(state: GameState): boolean {
   return wasBoss;
 }
 
+/** A campaign stage is cleared only when its boss wave was actually defeated. */
+export function campaignBossDefeated(state: GameState, wasBoss: boolean): boolean {
+  return wasBoss && state.waveTotal > 0 && state.waveKilled >= state.waveTotal && state.waveLeaks === 0;
+}
+
 /** @deprecated Superseded by the central reward pipeline (progression/rewards). */
 export function awardPerfectWave(state: GameState): number {
   if (!isPerfectWave(state)) return 0;

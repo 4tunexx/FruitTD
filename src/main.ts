@@ -16,7 +16,7 @@ import { SlashFx } from './game/slashfx';
 import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
 import { dangerousLeakMultiplier } from './game/enemies';
-import { chargeSuper, consumeBossWaveCompletion, createState, damageTower, isPerfectWave, leakCost, recordWaveKill, resetState, toast } from './game/state';
+import { campaignBossDefeated, chargeSuper, consumeBossWaveCompletion, createState, damageTower, isPerfectWave, leakCost, recordWaveKill, resetState, toast } from './game/state';
 import {
   applyRewards,
   calculateReward,
@@ -158,6 +158,8 @@ let sessionLeaks = 0;
 let rewardSavePending = false;
 let matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
 let campaignStartStage = 1;
+let campaignStoryActive = false;
+let campaignStoryFinal = false;
 let campaignRunSettled = false;
 
 function emit(event: GameEvent): void {
@@ -1154,6 +1156,8 @@ function quitToMenu(): void {
   persist();
   if (!campaignRunSettled && (totalFruitsSliced > 0 || state.score > 0)) void submitCurrentRun(false);
   document.getElementById('campaign-victory')?.classList.add('hidden');
+  campaignStoryActive = false;
+  document.getElementById('campaign-story')?.classList.add('hidden');
   state.running = false;
   wall.cancelMove();
   blade.consumeClick();
@@ -1182,12 +1186,45 @@ document.getElementById('campaign-victory-map')?.addEventListener('click', () =>
 });
 
 function restartMatch(): void {
+  campaignStoryActive = false;
+  document.getElementById('campaign-story')?.classList.add('hidden');
   hud.showPause(false);
   navigation.setState('PLAY');
   document.getElementById('app')?.classList.remove('sidebar-open');
   hud.showMenu(false);
   restart();
 }
+
+function showCampaignChapter(clearedStage: number): void {
+  if (clearedStage < 5 || clearedStage > 100 || clearedStage % 5 !== 0) return;
+  campaignStoryActive = true;
+  campaignStoryFinal = clearedStage === 100;
+  blade.reset();
+  trail.reset();
+  const title = document.getElementById('campaign-story-title');
+  const text = document.getElementById('campaign-story-text');
+  if (title) title.textContent = '';
+  if (text) text.textContent = 'Uncovering the next chapter…';
+  const continueButton = document.getElementById('campaign-story-continue');
+  if (continueButton) continueButton.textContent = campaignStoryFinal ? 'VIEW VICTORY' : `ENTER STAGE ${clearedStage + 1}`;
+  document.getElementById('campaign-story')?.classList.remove('hidden');
+  continueButton?.focus();
+  void import('./ui/campaignStoryOverlay').then(({ renderCampaignChapter }) => {
+    if (campaignStoryActive && state.mode === 'campaign') renderCampaignChapter(clearedStage);
+  }).catch(() => {
+    if (campaignStoryActive && text) text.textContent = 'The wall holds. Beyond it, another path opens through the orchard.';
+  });
+}
+
+document.getElementById('campaign-story-continue')?.addEventListener('click', () => {
+  if (!campaignStoryActive) return;
+  campaignStoryActive = false;
+  document.getElementById('campaign-story')?.classList.add('hidden');
+  if (campaignStoryFinal) {
+    state.running = false;
+    document.getElementById('campaign-victory')?.classList.remove('hidden');
+  }
+});
 
 function showBossIntro(level: number): void {
   const letterbox = document.getElementById('boss-letterbox');
@@ -1307,6 +1344,12 @@ function kiPulse(x: number, z: number): void {
 }
 
 function simulate(dt: number): void {
+  if (campaignStoryActive) {
+    blade.consumeClick();
+    blade.consumeSlash();
+    blade.consumeStrokeEnd();
+    return;
+  }
   if (!navigation.isPlaying() || !state.running) {
     blade.consumeClick();
     blade.consumeSlash();
@@ -1421,6 +1464,12 @@ function simulate(dt: number): void {
     const clearedWave = state.wave;
     state.wave += 1;
     
+    if (wasBoss && state.mode === 'campaign' && !campaignBossDefeated(state, wasBoss)) {
+      // A breached overlord ends the attempt; it never unlocks the next stage.
+      state.lives = 0;
+      maybeOver();
+      return;
+    }
     if (wasBoss) {
       const cleared = state.level;
       if (state.mode === 'campaign') {
@@ -1438,7 +1487,8 @@ function simulate(dt: number): void {
             startLeaderboardRun('campaign');
           }
         });
-        if (finalStage) {
+        if (cleared % 5 === 0) showCampaignChapter(cleared);
+        else if (finalStage) {
           state.running = false;
           document.getElementById('campaign-victory')?.classList.remove('hidden');
         }
@@ -1476,7 +1526,7 @@ function simulate(dt: number): void {
       ? dangerousLeakMultiplier(state.wave)
       : 1;
     const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul * dangerScale);
-    damageTower(state, leakDamage);
+    damageTower(state, state.mode === 'campaign' && fruit.boss ? state.lives : leakDamage);
     sessionLeaks += 1;
     state.waveLeaks += 1;
     sfx.leak();

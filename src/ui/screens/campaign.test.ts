@@ -47,3 +47,35 @@ test('Campaign labels the cleared final stage as replayable', () => {
   renderCampaign(root, save, () => undefined);
   assert.match(root.querySelector('[data-testid="campaign-start-stage"]')?.textContent || '', /REPLAY STAGE/);
 });
+
+test('opening Campaign from the hub routes into a stage launch, not Inventory', async () => {
+  const { navigation } = await import('../../game/navigation');
+  const { renderHub, registerHubTab, resetHub } = await import('./hub');
+  const { homeHubTab } = await import('./hubTabs');
+  const { resetRegistry, registerScreen, installScreenRouter } = await import('./registry');
+  resetHub();
+  resetRegistry();
+  navigation.reset('MAIN_MENU');
+  const hub = document.createElement('div');
+  const campaign = document.createElement('div');
+  hub.id = 'screen-hub';
+  campaign.id = 'screen-campaign';
+  document.body.appendChild(hub);
+  document.body.appendChild(campaign);
+  const started: number[] = [];
+  const save = defaultSave();
+  registerScreen({ id: 'MAIN_MENU', elementId: 'screen-hub' });
+  registerScreen({ id: 'CAMPAIGN', elementId: 'screen-campaign', overlay: true, onEnter: () => renderCampaign(campaign, save, (stage) => started.push(stage)) });
+  installScreenRouter();
+  registerHubTab(homeHubTab(() => undefined, undefined, () => navigation.open('CAMPAIGN')));
+  renderHub(hub, save, 'MAIN_MENU', { onPlay: () => undefined });
+  hub.querySelector<HTMLButtonElement>('[data-testid="campaign-open"]')!.click();
+  assert.equal(navigation.state, 'CAMPAIGN');
+  assert.equal(campaign.classList.contains('hidden'), false);
+  campaign.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')!.click();
+  assert.deepEqual(started, [1]);
+  navigation.reset('MAIN_MENU');
+  resetRegistry();
+  resetHub();
+  hub.remove(); campaign.remove();
+});

@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, SphereGeometry, Vector3 } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
 import { ARENA_D, ARENA_W, LEAK_Z } from './world';
 import { modeRules } from './modes';
@@ -54,19 +54,19 @@ export interface Fruit {
 }
 
 const BODY_GEO = new SphereGeometry(1, 18, 14);
-const BAR_GEO = new BoxGeometry(1, 0.2, 0.16);
+const BAR_GEO = new PlaneGeometry(1, 1);
 const HAZARD_GEO = new SphereGeometry(1.2, 16, 12);
 const ARMOR_GEO = new BoxGeometry(1.4, 0.2, 1.4);
 
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
   const barY = fruit.boss ? 1.6 / s : 1.35 / s;
-  const barW = fruit.boss ? 2.65 / s : 1.8 / s;
-  const barH = fruit.boss ? 0.48 / s : 0.4 / s;
+  const barW = fruit.boss ? 3 / s : 2 / s;
+  const barH = fruit.boss ? 0.3 / s : 0.24 / s;
   fruit.hpBack.position.set(0, barY, 0);
-  fruit.hpBack.scale.set(barW, barH, barH);
-  fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, 0.07 / s);
-  fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.76, barH * 0.76);
+  fruit.hpBack.scale.set(barW, barH, 1);
+  fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);
+  fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.7, 1);
   const ok = fruit.boss
     ? (t <= 0.5 ? 0xef4444 : 0xf4d35e)
     : fruit.enemyKind === 'explosive'
@@ -81,9 +81,12 @@ function layoutHp(fruit: Fruit, t: number): void {
 
 function makeFruit(): Fruit {
   const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff }));
-  const hpBackMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.85 });
+  const hpBackMat = new MeshBasicMaterial({ color: 0x140f0c, depthWrite: false, depthTest: false });
   const hpBack = new Mesh(BAR_GEO, hpBackMat);
-  const hpBar = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x8eea4e, depthWrite: false }));
+  const hpBar = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x8eea4e, depthWrite: false, depthTest: false }));
+  hpBack.rotation.x = hpBar.rotation.x = -2.2;
+  hpBack.renderOrder = 80;
+  hpBar.renderOrder = 81;
   
   // Visual hazard indicator for explosive enemies
   const hazardMat = new MeshBasicMaterial({ color: 0xff3b30, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false });

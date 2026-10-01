@@ -21,6 +21,20 @@ function installStorageShim(): void {
 }
 
 describe('combat polish regressions', () => {
+  it('enemies use one flat, legible health rail that shrinks after damage', async () => {
+    installStorageShim();
+    const { FruitField } = await import('./fruits');
+    const field = new FruitField(() => undefined);
+    const fruit = field.spawn('lemon')!;
+    assert.equal(fruit.hpBack.geometry.type, 'PlaneGeometry');
+    assert.equal(fruit.hpBar.geometry.type, 'PlaneGeometry');
+    assert.ok(fruit.hpBar.renderOrder > fruit.hpBack.renderOrder);
+    assert.equal(fruit.hpBack.scale.x * fruit.radius, 2);
+    const initialWidth = fruit.hpBar.scale.x;
+    field.hurt(fruit, fruit.hp / 2);
+    assert.ok(fruit.hpBar.scale.x < initialWidth);
+  });
+
   it('trail geometry updates GPU-backed positions and resets cleanly', async () => {
     installStorageShim();
     const { BladeTrail } = await import('./trail');
