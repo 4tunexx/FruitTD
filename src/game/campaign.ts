@@ -14,7 +14,9 @@ const FRUITS = ['Citrus','Melon','Pineapple','Berry','Banana','Kiwi','Apple','Dr
 
 export function campaignWaves(level: number): number {
   const n = Math.max(1, Math.min(100, Math.floor(level)));
-  return n < 10 ? 5 : Math.floor(n / 10) * 10;
+  // Each ten-stage sector adds five waves: stages 1–10 have 5,
+  // stages 11–20 have 10, and stages 91–100 have 50.
+  return Math.ceil(n / 10) * 5;
 }
 
 export function defaultCampaignBoss(level: number): CampaignBoss {
@@ -25,7 +27,7 @@ export function defaultCampaignBoss(level: number): CampaignBoss {
     name: `${FRUITS[index % 10]} ${EPITHETS[tier]}`,
     title: `Campaign Overlord · Stage ${n}`,
     description: `A tier ${tier + 1} orchard tyrant. Expect ${campaignWaves(n)} waves of escalating enemies before the final breach.`,
-    difficulty: 1 + (n - 1) * 0.075,
+    difficulty: Math.min(8, 1 + (n - 1) * 0.075),
     rewardCoins: 80 + n * 24,
     rewardGems: Math.min(Math.floor((campaignWaves(n) + 1) / 5), 1 + Math.floor(n / 10)),
   };

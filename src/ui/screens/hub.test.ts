@@ -95,6 +95,17 @@ test('home offers Casual, Ranked, Arena, Horde, Campaign and one Co-op path', ()
   assert.doesNotMatch(root.textContent!, /multiplayer/i);
 });
 
+test('home shows separate daily and main mission progress meters', () => {
+  resetHub();
+  registerHubTab(homeHubTab(() => undefined));
+  const root = host();
+  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
+  const panel = root.querySelector('[data-testid="home-mission-progress"]');
+  assert.ok(panel);
+  assert.ok(panel!.querySelector('.ftd-mission-progress__row--daily'));
+  assert.ok(panel!.querySelector('.ftd-mission-progress__row--main'));
+});
+
 test('primary hub routes are reachable, Back returns one level, and Home clears the stack', () => {
   resetHub();
   resetRegistry();

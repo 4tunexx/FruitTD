@@ -38,6 +38,7 @@ import type { ShopCallbacks } from './shop';
 import type { InventoryCallbacks } from './inventory';
 import type { ProfileStats } from './profile';
 import { HUB_HOME } from './hub';
+import { fetchMissions } from '../../services/api';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
@@ -526,8 +527,38 @@ function homeSub(root: HTMLElement, save: SaveData): void {
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'HIGH SCORE' }), el('strong', { text: save.highScore.toLocaleString() })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'MATCHES' }), el('strong', { text: String(save.games) })]),
       ]),
+      missionProgressPanel(),
     ]),
   );
+}
+
+function missionProgressPanel(): HTMLElement {
+  const panel = el('section', { class: 'ftd-mission-progress', 'aria-label': 'Mission progress', 'data-testid': 'home-mission-progress' });
+  const rows = new Map<'daily' | 'main', { fill: HTMLElement; value: HTMLElement }>();
+  for (const type of ['daily', 'main'] as const) {
+    const label = type === 'daily' ? 'DAILY MISSIONS' : 'MAIN MISSIONS';
+    const row = el('div', { class: `ftd-mission-progress__row ftd-mission-progress__row--${type}` }, [
+      el('div', { class: 'ftd-mission-progress__heading' }, [el('span', { text: label }), el('strong', { text: '—' })]),
+      el('div', { class: 'ftd-mission-progress__track', role: 'progressbar', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, [el('i')]),
+    ]);
+    const fill = row.querySelector('i')!;
+    const value = row.querySelector('strong')!;
+    rows.set(type, { fill, value });
+    panel.appendChild(row);
+  }
+  void fetchMissions().then((result) => {
+    if (!result || !panel.isConnected) return;
+    for (const type of ['daily', 'main'] as const) {
+      const items = result.missions.filter((mission) => mission.type === type);
+      const completed = items.filter((mission) => mission.completed).length;
+      const percent = items.length ? Math.round((completed / items.length) * 100) : 0;
+      const row = rows.get(type)!;
+      row.value.textContent = `${completed}/${items.length}`;
+      row.fill.style.width = `${percent}%`;
+      row.fill.parentElement?.setAttribute('aria-valuenow', String(percent));
+    }
+  }).catch(() => undefined);
+  return panel;
 }
 
 export function homeHubTab(onPlay: () => void, onMode?: (mode: import('../../game/save').GameMode) => void, onCampaign?: () => void): HubTab {

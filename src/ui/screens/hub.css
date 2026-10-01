@@ -417,6 +417,7 @@
   .ftd-hub.is-home .ftd-loadout__stat { padding: 0.35rem 0.25rem; }
   .ftd-hub.is-home .ftd-loadout__stat span { font-size: 0.48rem; }
   .ftd-hub.is-home .ftd-loadout__stat strong { font-size: 0.66rem; }
+  .ftd-hub.is-home .ftd-mission-progress { grid-column: 1 / -1; }
 
   .ftd-hub.is-home .ftd-playcard {
     gap: 0.45rem;

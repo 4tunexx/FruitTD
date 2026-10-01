@@ -26,7 +26,9 @@ export function createApp() {
     origin: allowedOrigins.length ? allowedOrigins : ['http://localhost:5173'],
     credentials: true,
   }));
-  app.use(express.json({ limit: '2mb' }));
+  // Admin can save up to 100 boss reveal images (30 KB each) in one config.
+  // Leave room for the rest of the catalog and JSON overhead as well.
+  app.use(express.json({ limit: '4mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use((req, res, next) => {
     if (!safeInput(req.body) || !safeInput(req.query)) {

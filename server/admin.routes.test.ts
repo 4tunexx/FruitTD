@@ -3,7 +3,8 @@ import { createServer, type Server } from 'node:http';
 import { test } from 'node:test';
 import { createApp } from './app';
 import { closeDb } from './db';
-import { normalizeMenuConfig } from './routes/admin';
+import { campaignBossRosterError, normalizeMenuConfig } from './routes/admin';
+import { defaultCampaignBoss } from '../src/game/campaign';
 
 test('admin branding keeps safe logo, background and favicon assets', () => {
   const background = 'https://cdn.example.com/menu.webp';
@@ -21,6 +22,18 @@ test('admin branding keeps safe logo, background and favicon assets', () => {
   assert.equal(partial.title, 'New title');
   assert.equal(partial.backgroundImage, background);
   assert.equal(partial.logoImage, logo);
+});
+
+test('admin accepts all generated campaign bosses and optimized reveal images', () => {
+  const roster = Array.from({ length: 100 }, (_, index) => defaultCampaignBoss(index + 1));
+  roster[99].revealImage = `data:image/webp;base64,${'A'.repeat(29_900)}`;
+  assert.equal(campaignBossRosterError(roster), null);
+
+  roster[99].revealImage = `data:image/webp;base64,${'A'.repeat(30_001)}`;
+  assert.match(campaignBossRosterError(roster) || '', /under 30 KB/);
+  roster[99].revealImage = undefined;
+  roster[99].rewardCoins += 1_000_000;
+  assert.match(campaignBossRosterError(roster) || '', /Invalid campaign boss roster/);
 });
 
 async function listen(app: ReturnType<typeof createApp>): Promise<{ server: Server; base: string }> {

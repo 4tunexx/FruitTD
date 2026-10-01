@@ -952,6 +952,15 @@ body:not([data-ftd-screen='PLAY']):not([data-ftd-screen='PAUSED']):not([data-ftd
 .ftd-loadout__stat span { display: block; color: rgba(187, 213, 199, 0.58); font-size: 0.56rem; font-weight: 800; letter-spacing: 0.09em; }
 .ftd-loadout__stat strong { display: block; overflow: hidden; color: var(--ftd-color-text); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
 
+.ftd-mission-progress { display: grid; gap: 0.55rem; margin-top: 0.55rem; }
+.ftd-mission-progress__row { display: grid; gap: 0.28rem; }
+.ftd-mission-progress__heading { display: flex; justify-content: space-between; gap: 0.5rem; color: rgba(230, 238, 223, 0.78); font-size: 0.58rem; font-weight: 900; letter-spacing: 0.08em; }
+.ftd-mission-progress__heading strong { color: #f4f4e8; font-size: 0.62rem; }
+.ftd-mission-progress__track { height: 7px; overflow: hidden; background: rgba(255,255,255,0.1); clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+.ftd-mission-progress__track > i { display: block; width: 0; height: 100%; transition: width 300ms ease; }
+.ftd-mission-progress__row--daily .ftd-mission-progress__track > i { background: linear-gradient(90deg, #c65a18, #ff9a32); }
+.ftd-mission-progress__row--main .ftd-mission-progress__track > i { background: linear-gradient(90deg, #9f1d24, #ef4444); }
+
 .ftd-settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
