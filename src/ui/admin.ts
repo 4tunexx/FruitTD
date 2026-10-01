@@ -30,7 +30,7 @@ import { installCreatorSlicerVfx } from './creatorSlicerVfx';
 import { openDesignMode } from './design/designMode';
 import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
-import { campaignBoss, defaultCampaignBoss } from '../game/campaign';
+import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campaign';
 
 type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
 
@@ -725,9 +725,9 @@ export class AdminController {
       const descInput = document.getElementById('admin-campaign-boss-description') as HTMLTextAreaElement | null; if (descInput) descInput.value = boss.description;
       const difficultyInput = document.getElementById('admin-campaign-boss-difficulty') as HTMLInputElement | null; if (difficultyInput) difficultyInput.value = String(boss.difficulty);
       const coinsInput = document.getElementById('admin-campaign-boss-coins') as HTMLInputElement | null; if (coinsInput) coinsInput.value = String(boss.rewardCoins);
-      if (coinsInput) coinsInput.max = String(Math.floor(((Number(stageSelect.value) < 10 ? 5 : Math.floor(Number(stageSelect.value) / 10) * 10) + 1) * 100 / 1.5));
+      if (coinsInput) coinsInput.max = String(Math.floor((campaignWaves(Number(stageSelect.value)) + 1) * 100 / 1.5));
       const gemsInput = document.getElementById('admin-campaign-boss-gems') as HTMLInputElement | null; if (gemsInput) gemsInput.value = String(boss.rewardGems);
-      if (gemsInput) gemsInput.max = String(Math.floor((Number(stageSelect.value) < 10 ? 6 : Math.floor(Number(stageSelect.value) / 10) * 10 + 1) / 5));
+      if (gemsInput) gemsInput.max = String(Math.floor((campaignWaves(Number(stageSelect.value)) + 1) / 5));
       const preview = document.getElementById('admin-campaign-boss-preview') as HTMLImageElement | null;
       if (preview) { preview.src = boss.revealImage || ''; preview.classList.toggle('hidden', !boss.revealImage); }
       this.campaignRevealImage = '';

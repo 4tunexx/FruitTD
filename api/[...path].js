@@ -781,6 +781,12 @@ function purchaseHeroAtomic(save, heroId) {
   return { ok: true, coinsSpent: cost, coinsRemaining: save.coins };
 }
 
+// src/game/campaign.ts
+function campaignWaves(level) {
+  const n = Math.max(1, Math.min(100, Math.floor(level)));
+  return Math.ceil(n / 10) * 5;
+}
+
 // src/game/save.ts
 function emptyXp() {
   return { jiju: 0, topfu: 0, lagen: 0, tripos: 0, ki: 0 };
@@ -1671,7 +1677,7 @@ adminRouter.post("/config", async (req2, res) => {
   }
   try {
     const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses } = req2.body;
-    if (campaignBosses !== void 0 && (!Array.isArray(campaignBosses) || campaignBosses.length > 100 || campaignBosses.some((boss, index) => !boss || typeof boss !== "object" || typeof boss.name !== "string" || boss.name.length > 80 || typeof boss.title !== "string" || boss.title.length > 100 || typeof boss.description !== "string" || boss.description.length > 500 || !Number.isFinite(boss.difficulty) || boss.difficulty < 1 || boss.difficulty > 8 || !Number.isInteger(boss.rewardCoins) || boss.rewardCoins < 0 || boss.rewardCoins > Math.floor(((index + 1 < 10 ? 5 : Math.floor((index + 1) / 10) * 10) + 1) * 100 / 1.5) || !Number.isInteger(boss.rewardGems) || boss.rewardGems < 0 || boss.rewardGems > Math.floor((index + 1 < 10 ? 6 : Math.floor((index + 1) / 10) * 10 + 1) / 5) || boss.revealImage !== void 0 && (typeof boss.revealImage !== "string" || boss.revealImage.length > 3e4 || !/^data:image\/webp;base64,/.test(boss.revealImage))))) {
+    if (campaignBosses !== void 0 && (!Array.isArray(campaignBosses) || campaignBosses.length > 100 || campaignBosses.some((boss, index) => !boss || typeof boss !== "object" || typeof boss.name !== "string" || boss.name.length > 80 || typeof boss.title !== "string" || boss.title.length > 100 || typeof boss.description !== "string" || boss.description.length > 500 || !Number.isFinite(boss.difficulty) || boss.difficulty < 1 || boss.difficulty > 8 || !Number.isInteger(boss.rewardCoins) || boss.rewardCoins < 0 || boss.rewardCoins > Math.floor((campaignWaves(index + 1) + 1) * 100 / 1.5) || !Number.isInteger(boss.rewardGems) || boss.rewardGems < 0 || boss.rewardGems > Math.floor((campaignWaves(index + 1) + 1) / 5) || boss.revealImage !== void 0 && (typeof boss.revealImage !== "string" || boss.revealImage.length > 3e4 || !/^data:image\/webp;base64,/.test(boss.revealImage))))) {
       return res.status(400).json({ success: false, error: "Invalid campaign boss roster. Check field ranges and keep each optimized reveal image under 30 KB." });
     }
     const col = await getCollection("admin_config");

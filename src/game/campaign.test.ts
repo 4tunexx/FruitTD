@@ -5,7 +5,7 @@ import { modeRules } from './modes';
 import { wavesPerLevel } from './waves';
 
 test('campaign wave schedule matches the stage milestones through stage 100', () => {
-  assert.deepEqual([1, 9, 10, 19, 20, 29, 30, 100].map(campaignWaves), [5, 5, 10, 10, 20, 20, 30, 100]);
+  assert.deepEqual([1, 9, 10, 11, 19, 20, 21, 29, 30, 100].map(campaignWaves), [5, 5, 5, 10, 10, 10, 15, 15, 15, 50]);
 });
 
 test('the 100 generated campaign bosses have distinct names and increasing threat/rewards', () => {
@@ -14,6 +14,7 @@ test('the 100 generated campaign bosses have distinct names and increasing threa
   assert.ok(bosses[99].difficulty > bosses[0].difficulty);
   assert.ok(bosses[99].rewardCoins > bosses[0].rewardCoins);
   assert.ok(bosses[99].rewardGems > bosses[0].rewardGems);
+  assert.ok(bosses.every((boss) => boss.difficulty <= 8));
 });
 
 test('campaign roster overrides and saved unlock progress are bounded', () => {
@@ -29,5 +30,5 @@ test('Horde and Campaign rules are playable modes, and Horde has no guest assist
   assert.equal(modeRules('campaign').guest, false);
   assert.equal(modeRules('coop').guest, true);
   assert.equal(wavesPerLevel(100, 'horde'), 5);
-  assert.equal(wavesPerLevel(100, 'campaign'), 100);
+  assert.equal(wavesPerLevel(100, 'campaign'), 50);
 });
