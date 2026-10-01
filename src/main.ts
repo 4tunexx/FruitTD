@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import './style.css';
 import { Sfx } from './audio/sfx';
 import { GameLoop } from './engine/loop';
+import { startMatchWithOptionalMedia } from './game/matchStartup';
 import { GameRenderer } from './engine/renderer';
 import { fruitAtlas } from './game/atlas';
 import { Field } from './game/field';
@@ -1603,22 +1604,28 @@ if (muteBtn) {
 }
 
 /** Shared launch path for every PLAY entry point (menu button, screens). */
-async function launchMatch(): Promise<void> {
+function launchMatch(): void {
   persist();
-  await Promise.all([sfx.unlock(), fruitAtlas.load()]);
-  wall.applySkins();
-  wall.setHero(save.hero);
-  wallSkinApply();
-  applyEquippedBlade();
-  restartMatch();
+  startMatchWithOptionalMedia(
+    () => sfx.unlock(),
+    () => fruitAtlas.load(),
+    () => {
+      wall.applySkins();
+      wall.setHero(save.hero);
+      wallSkinApply();
+      applyEquippedBlade();
+      restartMatch();
+    },
+    (asset, error) => console.warn(`Optional ${asset} could not load; gameplay continues.`, error),
+  );
 }
 
-async function launchCampaign(stage: number): Promise<void> {
+function launchCampaign(stage: number): void {
   campaignStartStage = Math.max(1, Math.min(save.campaignProgress.unlocked, Math.min(100, Math.floor(stage))));
   state.mode = 'campaign';
   save.mode = 'campaign';
   persist();
-  await launchMatch();
+  launchMatch();
 }
 
 /* ═══════════════ PHASE 2 GAME SCREENS ═══════════════
@@ -1626,8 +1633,8 @@ async function launchCampaign(stage: number): Promise<void> {
    existing gameplay functions, so there is no second economy path. */
 installGameScreens({
   getSave: () => save,
-  onPlay: () => void launchMatch(),
-  onStartCampaign: (stage) => void launchCampaign(stage),
+  onPlay: () => launchMatch(),
+  onStartCampaign: (stage) => launchCampaign(stage),
   onSelectMode: (mode) => { setMode(mode); refreshCurrentScreen(); },
   onQuit: () => document.getElementById('title-quit')?.classList.remove('hidden'),
   onToggleSound: () => document.getElementById('btn-mute')?.click(),

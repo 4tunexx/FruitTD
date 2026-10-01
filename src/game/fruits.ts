@@ -133,7 +133,7 @@ function paintStatic(fruit: Fruit, def: FruitDef): void {
   } else if (!adminTexture && fruit.enemyKind === 'swift') {
     mat.color.setHex(0x55d8ff);
   } else {
-    mat.color.setHex(0xffffff);
+    mat.color.setHex(mat.map ? 0xffffff : def.color);
   }
   mat.needsUpdate = true;
 }

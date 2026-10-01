@@ -40,7 +40,10 @@ function mix(wave: number, count: number): SpawnItem[] {
   for (let i = 0; i < count; i++) {
     const roll = Math.random();
     let fruit: FruitKind;
-    if (wave >= 3 && roll < 0.07 + wave * 0.012) fruit = 'bomb';
+    // A linear, unbounded chance made every ordinary roll a bomb after wave
+    // 78. Special Chem-Bursts are added separately, so keep base hazards rare
+    // even in endless Horde and preserve a readable mix of slice targets.
+    if (wave >= 3 && roll < Math.min(0.18, 0.07 + wave * 0.012)) fruit = 'bomb';
     else if (wave >= 2 && roll < 0.2) fruit = 'watermelon';
     else if (roll < 0.36) fruit = 'strawberry';
     else if (roll < 0.5) fruit = 'orange';
@@ -58,6 +61,12 @@ function mix(wave: number, count: number): SpawnItem[] {
     out.push({ kind: fruit, boss: false, enemy });
   }
   return out;
+}
+
+/** Later waves continue to harden, but no longer gain 20% base HP forever. */
+function pressureHpScale(wave: number): number {
+  const completed = Math.max(0, wave - 1);
+  return 1 + Math.min(completed, 20) * 0.2 + Math.max(0, completed - 20) * 0.035;
 }
 
 function planTitle(level: number, waveInLevel: number, totalWavesInLevel: number, items: SpawnItem[]): { title: string; subtitle?: string } {
@@ -143,7 +152,7 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
   return {
     items,
     gap: Math.max(0.22, (0.82 - w * 0.035) * rules.spawnGapMul * (mode === 'campaign' ? Math.max(0.72, 1 - (level - 1) * 0.002) : 1)),
-    hpScale: (1 + (w - 1) * 0.2) * rules.hpMul * (mode === 'campaign' ? Math.min(2.5, 1 + (level - 1) * 0.015) : 1),
+    hpScale: pressureHpScale(w) * rules.hpMul * (mode === 'campaign' ? Math.min(2.5, 1 + (level - 1) * 0.015) : 1),
     boss: false,
     title,
     subtitle,
@@ -170,7 +179,7 @@ export function planBossWave(wave: number, mode: GameMode, level: number, config
     gap: 1.2,
     hpScale: mode === 'campaign'
       ? rules.hpMul * 1.5 * Math.min(8, Math.max(1, configuredDifficulty ?? 1 + (level - 1) * 0.075))
-      : (1 + (w - 1) * 0.2) * rules.hpMul * 1.5,
+      : pressureHpScale(w) * rules.hpMul * 1.5,
     boss: true,
     title: `LEVEL ${level}  ·  OVERLORD`,
     subtitle: level >= 2 ? 'Rind-Plate overlord breaches the wall' : 'Fruit-zombie overlord approaches',
