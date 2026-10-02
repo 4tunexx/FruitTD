@@ -41,6 +41,7 @@ import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
+import { CombatImpact } from './ui/combatImpact';
 import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, adoptAuthoritativeSave, type CatalogueAction } from './services/api';
 import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
@@ -101,6 +102,24 @@ const BOSS_INTRO_DURATION = 5.5;
 
 const save: SaveData = loadSave();
 const renderer = new GameRenderer(canvas);
+const combatImpact = new CombatImpact(document.getElementById('combat-impact'));
+const profileChip = document.getElementById('player-chip');
+const profileToggle = document.getElementById('btn-profile-toggle') as HTMLButtonElement | null;
+if (profileChip && profileToggle) {
+  const setCollapsed = (collapsed: boolean) => {
+    profileChip.classList.toggle('is-collapsed', collapsed);
+    profileToggle.setAttribute('aria-expanded', String(!collapsed));
+    profileToggle.setAttribute('aria-label', collapsed ? 'Expand profile' : 'Collapse profile');
+    profileToggle.title = collapsed ? 'Expand profile' : 'Collapse profile';
+    mountLucideIcon(profileToggle, collapsed ? 'ChevronsRight' : 'ChevronsLeft', 18);
+  };
+  try { setCollapsed(localStorage.getItem('fruit-td-profile-collapsed') === 'true'); } catch { setCollapsed(false); }
+  profileToggle.addEventListener('click', () => {
+    const collapsed = !profileChip.classList.contains('is-collapsed');
+    setCollapsed(collapsed);
+    try { localStorage.setItem('fruit-td-profile-collapsed', String(collapsed)); } catch { /* private browsing */ }
+  });
+}
 const state = createState();
 state.running = false;
 state.hero = save.hero;
@@ -157,6 +176,9 @@ let totalFruitsSliced = 0;
 let lootEligibleKills = 0;
 let sessionMaxCombo = 0;
 let sessionLeaks = 0;
+let lastBossStep = -1;
+let lastBossFruit: Fruit | null = null;
+let lastBossHitAt = 0;
 let rewardSavePending = false;
 let matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
 let campaignStartStage = 1;
@@ -217,6 +239,7 @@ fruits.onBossPhase = (fruit) => {
   const name = state.mode === 'campaign' ? campaignBoss(state.level, getLiveConfig().campaignBosses).name : 'OVERLORD';
   toast(state, `${name} ENRAGED${fruit.enemyKind === 'splitter' ? ' · RUNNERS RELEASED' : ''}`, 2.2);
   renderer.impulseShake(0.6);
+  combatImpact.trigger('boss');
   sfx.enemyWarning();
 };
 hud.mountMeta(save);
@@ -683,6 +706,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   if (fruit.boss) {
     floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'boss');
     renderer.impulseShake(1.4);
+    combatImpact.trigger('boss');
   } else if (fruit.enemyKind !== 'normal') {
     floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'special');
   } else {
@@ -723,6 +747,9 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
     const z = fruit.group.position.z;
     slashFx.spawn(x, z, 0xb4ff3a);
     renderer.impulseShake(0.35);
+    renderer.impulseBlast(0.65);
+    combatImpact.trigger('blast');
+    sfx.bombExplode();
     detonatePulpPopper(fruits, fruit, (other) => killFruit(other, swipe, 1.1, chainDepth + 1));
   }
 }
@@ -862,6 +889,9 @@ function tryUpgrade(): void {
 
 function restart(): void {
   resetState(state);
+  combatImpact.clear();
+  lastBossFruit = null;
+  lastBossStep = -1;
   campaignRunSettled = false;
   if (state.mode === 'campaign') {
     state.level = campaignStartStage;
@@ -1032,7 +1062,8 @@ function resolveSlash(slash: Slash): void {
         // turret destroys it, and each separate swipe is a costly mistake.
         fruits.hurt(fruit, 0, 'blade');
         resetCombo('explosive_mistake');
-        renderer.impulseShake(0.85);
+        renderer.impulseBlast(0.85);
+        combatImpact.trigger('blast');
         sfx.bombExplode();
         maybeOver();
         continue;
@@ -1048,6 +1079,8 @@ function resolveSlash(slash: Slash): void {
           emit({ type: 'bomb_parry' });
         } else {
           sfx.bombExplode();
+          renderer.impulseBlast(1.1);
+          combatImpact.trigger('blast');
           const damage = damageTower(state, Math.round(2 * dangerousLeakMultiplier(state.wave) * modeRules(state.mode).leakMul));
           state.waveLeaks += 1;
           toast(state, damage > 0 ? `Bomb blast · Tower −${damage} HP` : 'Bomb blast');
@@ -1182,6 +1215,7 @@ function setPaused(on: boolean): void {
 function quitToMenu(): void {
   // The navigation guard owns the single confirmation; respect cancellation.
   if (navigation.state !== 'MAIN_MENU' && !navigation.setState('MAIN_MENU')) return;
+  combatImpact.clear();
   persist();
   if (!campaignRunSettled && (totalFruitsSliced > 0 || state.score > 0)) void submitCurrentRun(false);
   document.getElementById('campaign-victory')?.classList.add('hidden');
@@ -1560,6 +1594,8 @@ function simulate(dt: number): void {
     sessionLeaks += 1;
     state.waveLeaks += 1;
     sfx.leak();
+    renderer.impulseShake(fruit.boss ? 1.8 : 0.9);
+    combatImpact.trigger(fruit.boss ? 'boss' : 'leak');
     if (fruit.boss) {
       toast(state, 'Overlord hit the wall');
     } else if (enemy.kind !== 'normal' && enemy.label) {
@@ -1572,6 +1608,16 @@ function simulate(dt: number): void {
   });
   const bossHealth = document.getElementById('boss-health');
   const activeBoss = fruits.fruits.find((fruit) => fruit.alive && fruit.boss);
+  if (activeBoss !== lastBossFruit) { lastBossFruit = activeBoss ?? null; lastBossStep = -1; }
+  if (activeBoss) {
+    const step = Math.floor(activeBoss.bob / (Math.PI * 2));
+    if (lastBossStep >= 0 && step > lastBossStep) {
+      renderer.impulseShake(activeBoss.enemyKind === 'armored' ? 0.55 : 0.28);
+      combatImpact.trigger('stomp');
+      sfx.bossStep(activeBoss.enemyKind);
+    }
+    lastBossStep = step;
+  }
   if (bossHealth) {
     bossHealth.classList.toggle('hidden', !activeBoss || !navigation.isInGame());
     if (activeBoss) {
@@ -1596,6 +1642,11 @@ function simulate(dt: number): void {
     const swipe = new Vector3(0, 0.2, 1);
     const towerBonus = towerDamageBonus();
     const dmg = Math.round(hit.damage * (1 + save.skills.steel * 0.12) + towerBonus);
+    if (hit.fruit.boss && performance.now() - lastBossHitAt > 420) {
+      lastBossHitAt = performance.now();
+      sfx.bossHit();
+      renderer.impulseShake(0.22);
+    }
     if (fruits.hurt(hit.fruit, dmg)) {
       killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
     }

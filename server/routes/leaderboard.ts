@@ -266,6 +266,18 @@ router.post('/', async (req: Request, res: Response) => {
     );
     if (!consumed) return res.status(401).json({ success: false, error: 'Run token is invalid, expired, or already used' });
 
+    // A one-use token proves identity, not gameplay. Bound submitted counters
+    // against its server timestamp so instant forged high scores cannot mint
+    // the maximum wallet rewards or claim the top leaderboard slots.
+    const elapsedSeconds = Math.max(0, (Date.now() - new Date(consumed.createdAt).getTime()) / 1000);
+    if (!Number.isFinite(elapsedSeconds) ||
+        score > 2500 + elapsedSeconds * 600 ||
+        (wave || 1) > 10 + Math.floor(elapsedSeconds / 2) ||
+        (fruitsSliced || 0) > 100 + Math.floor(elapsedSeconds * 12) ||
+        (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
+      return res.status(422).json({ success: false, error: 'Run counters exceed the time available since match start' });
+    }
+
     let settledWallet: { saveData: Record<string, any>; revision: number } | null = null;
     if (rewards) {
       const wallet = await creditClaimReward(userId, `run:${rewardTokenKey}`, {

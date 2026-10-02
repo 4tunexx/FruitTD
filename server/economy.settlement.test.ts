@@ -150,3 +150,21 @@ test('run settlement rejects rewards beyond the score and wave allowance', async
   assert.equal(response.status, 422);
   assert.equal(wallet.saveData.coins, 0);
 });
+
+test('a freshly issued run token cannot settle an impossible score and wallet reward', async (t) => {
+  const { deps, wallet } = setup();
+  const { server, base } = await listen(createLeaderboardRouter(deps));
+  closeAfter(t, server);
+  const start = await fetch(`${base}/run`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'casual' }),
+  });
+  const { runToken } = await start.json();
+  const forged = await fetch(base, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'casual', score: 100_000, wave: 200, fruitsSliced: 10_000, maxCombo: 300,
+      runToken, rewards: { coins: 10_000, gems: 100, heroXp: 1000, towerXp: 1000, skillPoints: 20 } }),
+  });
+  assert.equal(forged.status, 422);
+  assert.equal(wallet.saveData.coins, 0);
+  assert.equal(wallet.saveData.gems, 0);
+});

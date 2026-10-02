@@ -77,6 +77,7 @@
     </div>
     <div id="app">
       <canvas id="game-canvas" data-testid="combat-canvas" aria-label="Tower defense battlefield"></canvas>
+      <div id="combat-impact" aria-hidden="true"></div>
 
       <!-- ═══════════════════════════════════════════ HUD ═══════════════════════════════════════════ -->
       <div id="hud">
@@ -84,7 +85,7 @@
         <!-- Player chip (top-left) -->
         <div id="player-chip">
           <span id="player-xp-ring" aria-label="Hero experience progress"><img id="player-avatar" alt="" /></span>
-          <div>
+          <div class="player-chip__identity">
             <div class="player-name-row">
               <p id="player-name">Slicer</p>
               <span id="player-rank" class="rank-pill" title="Monthly ranked tier">Bronze</span>
@@ -100,6 +101,7 @@
             <span class="chip-svg-icon" data-lucide="Gamepad2" aria-hidden="true"></span>
           </button>
           <button id="btn-mute" class="chip-btn" title="Mute"><span data-lucide="Volume2" aria-hidden="true"></span></button>
+          <button id="btn-profile-toggle" class="chip-btn" type="button" aria-label="Collapse profile" aria-expanded="true" title="Collapse profile"><span data-lucide="ChevronsLeft" aria-hidden="true"></span></button>
           <button id="btn-game-settings" class="chip-btn" type="button" title="Game menu" aria-label="Game menu"><span data-lucide="Settings" aria-hidden="true"></span></button>
         </div>
 

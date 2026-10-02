@@ -38,6 +38,8 @@ export class GameRenderer {
   private readonly shake = new Vector3();
   private shakeVel = 0;
   private shakeAmp = 0;
+  private blastKick = 0;
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private lookZ = 0.4;
   private readonly composer: EffectComposer;
 
@@ -132,11 +134,26 @@ export class GameRenderer {
   pulseLight(_x: number, _y: number, _z: number): void {}
 
   impulseShake(amount: number): void {
+    if (this.reducedMotion.matches) return;
     this.shakeVel += amount * 0.5;
     this.shakeAmp = Math.max(this.shakeAmp, amount * 0.05);
   }
 
+  /** A brief camera pullback without changing the user's persistent zoom. */
+  impulseBlast(amount = 1): void {
+    if (this.reducedMotion.matches) return;
+    this.blastKick = Math.min(0.14, Math.max(this.blastKick, amount * 0.07));
+    this.impulseShake(amount);
+  }
+
   update(dt: number): void {
+    const previousKick = this.blastKick;
+    this.blastKick *= Math.exp(-dt * 8);
+    if (this.blastKick < 0.0001) this.blastKick = 0;
+    if (this.blastKick !== previousKick) {
+      this.camera.zoom = 1 / (1 + this.blastKick);
+      this.camera.updateProjectionMatrix();
+    }
     this.shakeVel += -this.shakeAmp * 70 * dt;
     this.shakeVel *= Math.pow(0.86, dt * 60);
     this.shakeAmp += this.shakeVel * dt;

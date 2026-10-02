@@ -6895,3 +6895,26 @@ body.is-playing .match-parallax,
 .boss-health__track { height:.65rem; margin-top:.45rem; border:1px solid #fdba74; background:#381612; overflow:hidden; }
 #boss-health-fill { height:100%; width:100%; background:linear-gradient(90deg,#dc2626,#fb923c); transition:width .15s ease-out; }
 @media(max-width:860px) { #boss-health { top:calc(6rem + env(safe-area-inset-top, 0px)); left:.5rem; transform:none; width:min(17rem,calc(100vw - 1rem)); padding:.4rem .55rem; } .boss-health__heading { font-size:.65rem; } }
+
+/* Combat cues cover the battlefield but never intercept blade or HUD input. */
+#combat-impact { position:fixed; inset:0; pointer-events:none; z-index:14; opacity:0; }
+#combat-impact.impact-leak { background:radial-gradient(ellipse at 50% 95%, transparent 28%, rgba(255,45,40,.5) 100%); animation:combat-hit .43s ease-out both; }
+#combat-impact.impact-boss { background:radial-gradient(ellipse at 50% 75%, transparent 20%, rgba(255,135,32,.42) 100%); animation:combat-hit .43s ease-out both; }
+#combat-impact.impact-stomp { background:radial-gradient(ellipse at 50% 87%, rgba(255,185,69,.12), transparent 56%); animation:combat-stomp .4s ease-out both; }
+#combat-impact.impact-blast { background:radial-gradient(circle at center, rgba(255,245,181,.34), rgba(255,76,18,.32) 36%, transparent 80%); animation:combat-blast .36s ease-out both; }
+@keyframes combat-hit { 0% { opacity:.9; } 100% { opacity:0; } }
+@keyframes combat-stomp { 0% { opacity:.8; transform:scale(.94); } 100% { opacity:0; transform:scale(1.08); } }
+@keyframes combat-blast { 0% { opacity:.9; backdrop-filter:blur(2px); } 50% { opacity:.6; backdrop-filter:blur(1px); } 100% { opacity:0; backdrop-filter:blur(0); } }
+
+#player-chip.is-collapsed .player-chip__identity,
+#player-chip.is-collapsed #btn-daily-chip,
+#player-chip.is-collapsed #btn-steam-chip,
+#player-chip.is-collapsed #btn-mute { display:none; }
+#btn-profile-toggle { display:grid; place-items:center; min-width:2.3rem; min-height:2.3rem; }
+@media (max-width:600px) {
+  #player-chip.is-collapsed { right:auto; width:auto; }
+  #player-chip.is-collapsed + #super-wrap { top:calc(3.65rem + env(safe-area-inset-top, 0px)); }
+}
+@media (prefers-reduced-motion:reduce) {
+  #combat-impact.impact-leak, #combat-impact.impact-boss, #combat-impact.impact-stomp, #combat-impact.impact-blast { animation:none; opacity:.18; backdrop-filter:none; }
+}

@@ -359,7 +359,7 @@ export class FruitField {
     const hw = ARENA_W / 2 - 0.45; const top = ARENA_D / 2 - 0.2; const rules = modeRules(state.mode);
     for (const fruit of this.fruits) {
       if (!fruit.alive) continue;
-      fruit.bob += dt * 3;
+      fruit.bob += dt * (fruit.boss ? (fruit.enemyKind === 'swift' ? 4.8 : fruit.enemyKind === 'armored' ? 2.15 : 2.8) : 3);
       const dx = -fruit.group.position.x * 0.12; const dz = LEAK_Z - fruit.group.position.z; const dist = Math.hypot(dx, dz) || 0.0001;
       fruit.brittle = Math.max(0, fruit.brittle - dt); fruit.impulseX *= 0.88; fruit.impulseZ *= 0.88;
       const enemy = ENEMY_RULES[fruit.enemyKind] || ENEMY_RULES.normal;
@@ -380,9 +380,12 @@ export class FruitField {
         fruit.radius * stretch[1] * squash,
         fruit.radius * stretch[2] * (2 - squash),
       );
-      fruit.group.position.y = (fruit.boss ? 1.05 : 0.62) + Math.sin(fruit.bob) * 0.06;
+      const stride = Math.sin(fruit.bob);
+      fruit.group.position.y = (fruit.boss ? 1.05 : 0.62) + stride * (fruit.boss ? (fruit.enemyKind === 'armored' ? 0.12 : 0.09) : 0.06);
       fruit.body.rotation.y += fruit.spin.y * dt;
-      fruit.group.rotation.set(0, 0, 0);
+      // Boss gait reads differently at a glance: armored lumbers, swift darts,
+      // and brood bosses sway. Keep the collision body anchored to its lane.
+      fruit.group.rotation.set(0, 0, fruit.boss ? stride * (fruit.enemyKind === 'swift' ? 0.15 : fruit.enemyKind === 'splitter' ? 0.11 : 0.065) : 0);
 
       // Pulse hazard indicator for explosive fruits
       if (fruit.hazardRing.visible) {

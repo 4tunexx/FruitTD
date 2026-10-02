@@ -458,6 +458,11 @@ export class Sfx {
     this.play('Critical', { volume: 0.52, rate: 0.95 });
   }
 
+  bossStep(kind: string): void {
+    const bank = kind === 'armored' ? BANKS.melonImpact : kind === 'swift' ? BANKS.berryImpact : BANKS.lemonImpact;
+    this.playBank(bank, { volume: 0.13, rate: kind === 'armored' ? 0.66 : kind === 'swift' ? 1.2 : 0.82 });
+  }
+
   bombExplode(): void {
     this.playBank(BANKS.bombExplode, { volume: 0.4 });
   }
