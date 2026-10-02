@@ -1,7 +1,8 @@
 import { campaignStory } from '../game/campaignStory';
+import { getLiveConfig } from '../services/liveConfig';
 
 export function renderCampaignChapter(clearedStage: number): void {
-  const story = campaignStory(clearedStage);
+  const story = campaignStory(clearedStage, getLiveConfig().campaignStories);
   if (!story) return;
   const chapter = document.getElementById('campaign-story-chapter');
   const title = document.getElementById('campaign-story-title');

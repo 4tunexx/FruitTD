@@ -11,6 +11,7 @@ import {
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
 import { campaignWaves } from '../../src/game/campaign';
+import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../../src/game/campaignStory';
 import { resolveRequestUser } from '../auth';
 import { validId } from '../validation';
 
@@ -64,6 +65,7 @@ export interface AdminConfigDoc {
   enemies?: any[];
   waves?: any;
   campaignBosses?: any[];
+  campaignStories?: CampaignChapter[];
   updatedAt: Date;
 }
 
@@ -82,6 +84,15 @@ export function campaignBossRosterError(value: unknown): string | null {
     (boss.revealImage !== undefined && (typeof boss.revealImage !== 'string' || boss.revealImage.length > 30_000 || !/^data:image\/webp;base64,/.test(boss.revealImage)))
   );
   return invalid ? 'Invalid campaign boss roster. Check field ranges and keep each optimized reveal image under 30 KB.' : null;
+}
+
+export function campaignStoriesError(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length !== 20) return 'Provide exactly 20 campaign chapters.';
+  return value.some((chapter: any, index) =>
+    !chapter || typeof chapter !== 'object' || chapter.chapter !== index + 1 ||
+    typeof chapter.title !== 'string' || !chapter.title.trim() || chapter.title.length > 80 ||
+    typeof chapter.text !== 'string' || !chapter.text.trim() || chapter.text.length > 900)
+    ? 'Each chapter needs its numbered slot, a title under 80 characters and story under 900 characters.' : null;
 }
 
 function normalizeDailyRewards(input: unknown): AdminConfigDoc['dailyRewards'] {
@@ -206,6 +217,7 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   slicers: DEFAULT_SLICERS,
   enemies: [],
   waves: { version: 1, levels: {} },
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
 };
 
 // Check if request is authenticated as admin (Steam ID only)
@@ -243,6 +255,8 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
         waves: cfg.waves && typeof cfg.waves === 'object' ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
         campaignBosses: Array.isArray((cfg as any).campaignBosses) ? (cfg as any).campaignBosses.slice(0, 100) : [],
+        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories)
+          ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG.campaignStories,
       },
     });
   } catch (err: any) {
@@ -271,9 +285,11 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
   }
 
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses } = req.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req.body;
     const bossRosterError = campaignBosses === undefined ? null : campaignBossRosterError(campaignBosses);
     if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
+    const storyError = campaignStories === undefined ? null : campaignStoriesError(campaignStories);
+    if (storyError) return res.status(400).json({ success: false, error: storyError });
     const col = await getCollection<AdminConfigDoc>('admin_config');
     const existing = await col.findOne({ configKey: 'game_config' });
 
@@ -293,6 +309,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       waves: waves && typeof waves === 'object' ? waves : (existing?.waves || DEFAULT_ADMIN_CONFIG.waves),
       campaignBosses: campaignBosses !== undefined ? campaignBosses : ((existing as any)?.campaignBosses || []),
+      campaignStories: campaignStories !== undefined ? campaignStories : (existing?.campaignStories || DEFAULT_ADMIN_CONFIG.campaignStories),
       updatedAt: new Date(),
     };
 

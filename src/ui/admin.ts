@@ -10,6 +10,7 @@ import {
   type AdminConfig,
 } from '../services/admin';
 import { getUserId } from '../services/api';
+import { DEFAULT_CAMPAIGN_STORIES } from '../game/campaignStory';
 import { setLiveConfig, writeLocalBranding, applyMenuAppearance } from '../services/liveConfig';
 import {
   addAchievement,
@@ -176,6 +177,8 @@ export class AdminController {
     // Main (PR#6): Content editing handlers
     document.getElementById('btn-save-boss-names')?.addEventListener('click', () => this.saveBossNames());
     document.getElementById('admin-campaign-boss-stage')?.addEventListener('change', () => this.renderContentEditor());
+    document.getElementById('admin-campaign-story-chapter')?.addEventListener('change', () => this.renderContentEditor());
+    document.getElementById('btn-save-campaign-story')?.addEventListener('click', () => void this.saveCampaignStory());
     document.getElementById('admin-campaign-boss-image')?.addEventListener('change', (event) => void this.readCampaignBossImage(event));
     for (const id of ['admin-campaign-boss-name', 'admin-campaign-boss-title', 'admin-campaign-boss-description', 'admin-campaign-boss-difficulty', 'admin-campaign-boss-coins', 'admin-campaign-boss-gems']) {
       document.getElementById(id)?.addEventListener('input', () => this.previewCampaignBoss());
@@ -697,6 +700,24 @@ export class AdminController {
     if (statusEl) { statusEl.textContent = `Stage ${index + 1} boss saved to shared admin config.`; statusEl.className = 'admin-status-ok'; }
   }
 
+  private async saveCampaignStory(): Promise<void> {
+    if (!this.config) return;
+    const chapter = Number((document.getElementById('admin-campaign-story-chapter') as HTMLSelectElement | null)?.value);
+    const title = (document.getElementById('admin-campaign-story-title') as HTMLInputElement | null)?.value.trim() || '';
+    const text = (document.getElementById('admin-campaign-story-text') as HTMLTextAreaElement | null)?.value.trim() || '';
+    if (!Number.isInteger(chapter) || chapter < 1 || chapter > 20 || !title || !text || title.length > 80 || text.length > 900) {
+      GameToast('Choose a chapter and enter a title and story.', 'warning'); return;
+    }
+    const stories = DEFAULT_CAMPAIGN_STORIES.map((fallback) => this.config?.campaignStories?.[fallback.chapter - 1] ?? fallback);
+    stories[chapter - 1] = { chapter, title, text };
+    const updated = { ...this.config, campaignStories: stories };
+    const result = await saveAdminConfig(updated);
+    if (!result.success) { GameToast(result.error || 'Could not save chapter.', 'danger'); return; }
+    this.config = updated; setLiveConfig(updated); this.onConfigSaved?.(updated);
+    const status = document.getElementById('admin-save-status');
+    if (status) { status.textContent = `Chapter ${chapter} saved to MongoDB.`; status.className = 'admin-status-ok'; }
+  }
+
   private saveContent(type: 'fruits' | 'enemies' | 'waves'): void {
     const textarea = document.getElementById(`admin-${type}-json`) as HTMLTextAreaElement | null;
     if (!textarea) return;
@@ -715,6 +736,15 @@ export class AdminController {
   }
 
   private renderContentEditor(): void {
+    const storySelect = document.getElementById('admin-campaign-story-chapter') as HTMLSelectElement | null;
+    if (storySelect && !storySelect.options.length) for (let chapter = 1; chapter <= 20; chapter++) storySelect.add(new Option(`Chapter ${String(chapter).padStart(2, '0')} · Stage ${chapter * 5}`, String(chapter)));
+    if (storySelect) {
+      const story = this.config?.campaignStories?.[Number(storySelect.value || 1) - 1] ?? DEFAULT_CAMPAIGN_STORIES[Number(storySelect.value || 1) - 1];
+      const title = document.getElementById('admin-campaign-story-title') as HTMLInputElement | null;
+      const text = document.getElementById('admin-campaign-story-text') as HTMLTextAreaElement | null;
+      if (title) title.value = story?.title || '';
+      if (text) text.value = story?.text || '';
+    }
     const stageSelect = document.getElementById('admin-campaign-boss-stage') as HTMLSelectElement | null;
     if (stageSelect && !stageSelect.options.length) for (let stage = 1; stage <= 100; stage++) stageSelect.add(new Option(`Stage ${String(stage).padStart(2, '0')}`, String(stage)));
     if (stageSelect) {

@@ -10,6 +10,7 @@ import {
   type RankTier,
 } from '../game/requirements';
 import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
+import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../game/campaignStory';
 import { getAuthToken, getCachedAuthUser } from './auth';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
@@ -69,6 +70,7 @@ export interface AdminConfig {
   waves?: any;
   /** Per-stage boss description and reveal art. Boss animation sprites use Media Studio. */
   campaignBosses?: Array<{ name: string; title: string; description: string; difficulty: number; rewardCoins: number; rewardGems: number; revealImage?: string }>;
+  campaignStories?: CampaignChapter[];
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -111,6 +113,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   enemies: [],
   waves: { version: 1, levels: {} },
   campaignBosses: [],
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -134,6 +137,8 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
       ? structuredClone(src.waves)
       : structuredClone(DEFAULT_ADMIN_CONFIG.waves),
     campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
+    campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20
+      ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
   };
 }
 

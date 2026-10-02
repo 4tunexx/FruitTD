@@ -1506,6 +1506,13 @@
                   <div><small id="admin-campaign-boss-preview-title"></small><h4 id="admin-campaign-boss-preview-name"></h4><p id="admin-campaign-boss-preview-description"></p><strong id="admin-campaign-boss-preview-stats"></strong></div>
                 </div>
                 <button id="btn-save-boss-names" class="admin-btn-action" style="margin-top: 0.5rem;">Save Boss to Shared Config</button>
+
+                <h3 style="font-size: 0.875rem; font-weight: 700; color: #a3e635; margin: 1.5rem 0 0.5rem;">20 Campaign Story Chapters</h3>
+                <p style="font-size: 0.7rem; color: #94a3b8;">Each chapter plays after its fifth stage. Changes save to the shared MongoDB configuration.</p>
+                <label>Chapter <select id="admin-campaign-story-chapter" class="admin-input"></select></label>
+                <label>Chapter title <input id="admin-campaign-story-title" class="admin-input" maxlength="80" /></label>
+                <label>Story text <textarea id="admin-campaign-story-text" rows="6" class="admin-input" maxlength="900"></textarea></label>
+                <button id="btn-save-campaign-story" class="admin-btn-action">Save Chapter to Shared Config</button>
                 
                 <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 1.25rem;">Prefer Creator / Media Studio forms for fruits, enemies, and waves. Raw JSON is last-resort only.</p>
                 <p style="font-size: 0.7rem; color: #64748b; margin-top: 0.35rem;">Wave packs: use the visual <strong>Wave / Level Board</strong> under Creator (Advanced JSON collapsed there). Published packs use admin field <code>waves</code> / <code>fruittd-creator-waves-v1</code>.</p>

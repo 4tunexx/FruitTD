@@ -1516,6 +1516,32 @@ import { Router as Router5 } from "express";
 // server/routes/admin.ts
 import { Router as Router4 } from "express";
 import { ObjectId } from "mongodb";
+
+// src/game/campaignStory.ts
+var DEFAULT_CAMPAIGN_STORIES = [
+  { chapter: 1, title: "The First Signal", text: "When the first Rot King falls, the wall radios crackle with a signal that sounds almost like a heartbeat. It is travelling through the orchard roots, and every infected fruit turns toward it. Your crew marks the source and heads beyond the safe lanes." },
+  { chapter: 2, title: "Beneath the Rind", text: "A broken irrigation pipe runs under the farms, carrying glowing juice instead of water. The scouts follow it until their lamps reveal fresh tool marks in the soil. Someone kept the system running after the outbreak began." },
+  { chapter: 3, title: "Broken Harvest", text: "The growers burn their stores to starve the horde, but the fruit marches straight through the smoke. At dawn you find a crate stamped with the town seal among the ashes. The infection reached the harvest before anyone raised the alarm." },
+  { chapter: 4, title: "The Greenhouse", text: "The sealed greenhouse opens from the inside. Rows of fruit hang beneath artificial light, each one wired to the same pulse beneath the ground. A handwritten log ends with one warning: do not let the Crown Seed wake." },
+  { chapter: 5, title: "Night Watch", text: "The wall survives its longest night. Beyond the watchfires, whole trees lean together whenever the pulse sounds. The crew sees the orchard for what it is now: a single creature learning to move." },
+  { chapter: 6, title: "The Lost Convoy", text: "A supply convoy vanishes on the river road. You recover its radio and hear a final message beneath the static: the water is carrying seeds. With the gate running low on parts, your crew follows the convoy tracks into the marsh." },
+  { chapter: 7, title: "River of Pulp", text: "The river glows bright with infected juice. Every splash plants a new enemy on the bank, and the old filters cannot stop it. The only clean route lies upstream, toward the machine that feeds the roots." },
+  { chapter: 8, title: "The Orchard Crown", text: "Inside a wrecked pump station lies a crown-shaped seed bearing the growers\u2019 seal. It answers the underground pulse with one of its own. The greenhouse logs name it a control key, but nobody knows who still holds the lock." },
+  { chapter: 9, title: "Roots in Stone", text: "The blight crosses the stone road and climbs through the city foundations. Your crew cuts it away room by room while families retreat to the last gate. A map scratched into the root points to the seed vault below the orchard." },
+  { chapter: 10, title: "The City Gate", text: "The evacuation begins under a red sky. Your tower holds long enough for the final transport to escape, but the root network wraps around the gate behind them. The city is lost; the people are not." },
+  { chapter: 11, title: "The Seed Vault", text: "The vault records reveal an experiment built to grow food through any drought. Its Crown Seed linked every crop to one underground heart. The first test succeeded. Then the heart learned to keep growing without its makers." },
+  { chapter: 12, title: "A Second Bloom", text: "The orchard changes its tactics. Rind plates harden around the fallen, runners slip past the old firing lines, and seed pods burst into fresh attackers. Each victory gives the heart another lesson, so your crew begins changing the defense between waves." },
+  { chapter: 13, title: "The Silent Farm", text: "No scouts return from the silent farm. Their distress beacon repeats from an empty house, drawing the crew beneath a floor webbed with roots. You find the missing scouts alive, trapped beside a tunnel leading toward the old engine." },
+  { chapter: 14, title: "The Old Engine", text: "The pumping engine drives infected juice into every root. Your turrets keep the lane clear while the crew tears out its gears. The pulse stops for one breath, then returns from deeper underground. The engine was only one of its hands." },
+  { chapter: 15, title: "The Black Canopy", text: "Branches close over the road until daylight disappears. The wall\u2019s lamps become a trail through the dark, and the horde attacks every light it sees. At the canopy\u2019s center, you find a clean patch of soil guarded by the heaviest fruit yet." },
+  { chapter: 16, title: "Last Harvest", text: "The surviving growers join the defense. Their oldest maps show a service path straight to the heartwood, but the path crosses every active root. They bring the last uninfected seeds with them, refusing to leave the land to rot." },
+  { chapter: 17, title: "The Heartwood", text: "All the roots meet at a trunk that beats like a machine. The Crown Seed fits a socket at its base and opens the way forward. For the first time, the pulse becomes words: grow, defend, repeat. The heart believes it is saving the orchard." },
+  { chapter: 18, title: "The Final Gate", text: "The heart raises a living gate around its core. Each fallen guardian becomes another wave, and the crew must hold the line while the growers break the seal. When it opens, the pulse surges through every lane at once." },
+  { chapter: 19, title: "Before Dawn", text: "The last defense is built from repaired steel, salvaged blades, and every seed the growers carried. Nobody promises an easy victory. As the sky begins to pale, your crew steps into the core and gives the wall one final order: hold." },
+  { chapter: 20, title: "A New Season", text: "The final overlord falls and the pulse goes quiet. The roots loosen their grip on the wall, leaving a scar across the orchard but no command to follow. In the clean soil beside the gate, the growers plant their first seed. This time, they let it grow on its own." }
+];
+
+// server/routes/admin.ts
 var adminRouter = Router4();
 var ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || "";
 var ICON_TYPES = /* @__PURE__ */ new Set(["coin", "gem", "chest", "blade"]);
@@ -1525,6 +1551,10 @@ function campaignBossRosterError(value) {
     (boss, index) => !boss || typeof boss !== "object" || typeof boss.name !== "string" || boss.name.length > 80 || typeof boss.title !== "string" || boss.title.length > 100 || typeof boss.description !== "string" || boss.description.length > 500 || !Number.isFinite(boss.difficulty) || boss.difficulty < 1 || boss.difficulty > 8 || !Number.isInteger(boss.rewardCoins) || boss.rewardCoins < 0 || boss.rewardCoins > Math.floor((campaignWaves(index + 1) + 1) * 100 / 1.5) || !Number.isInteger(boss.rewardGems) || boss.rewardGems < 0 || boss.rewardGems > Math.floor((campaignWaves(index + 1) + 1) / 5) || boss.revealImage !== void 0 && (typeof boss.revealImage !== "string" || boss.revealImage.length > 3e4 || !/^data:image\/webp;base64,/.test(boss.revealImage))
   );
   return invalid ? "Invalid campaign boss roster. Check field ranges and keep each optimized reveal image under 30 KB." : null;
+}
+function campaignStoriesError(value) {
+  if (!Array.isArray(value) || value.length !== 20) return "Provide exactly 20 campaign chapters.";
+  return value.some((chapter, index) => !chapter || typeof chapter !== "object" || chapter.chapter !== index + 1 || typeof chapter.title !== "string" || !chapter.title.trim() || chapter.title.length > 80 || typeof chapter.text !== "string" || !chapter.text.trim() || chapter.text.length > 900) ? "Each chapter needs its numbered slot, a title under 80 characters and story under 900 characters." : null;
 }
 function normalizeDailyRewards(input) {
   const rows = Array.isArray(input) ? input : [];
@@ -1634,7 +1664,8 @@ var DEFAULT_ADMIN_CONFIG = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
-  waves: { version: 1, levels: {} }
+  waves: { version: 1, levels: {} },
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES)
 };
 async function isAuthorized(req2) {
   const user = await resolveRequestUser(req2);
@@ -1667,7 +1698,8 @@ adminRouter.get("/config", async (_req, res) => {
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
         waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
-        campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : []
+        campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : [],
+        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG.campaignStories
       }
     });
   } catch (err) {
@@ -1691,9 +1723,11 @@ adminRouter.post("/config", async (req2, res) => {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses } = req2.body;
+    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
     const bossRosterError = campaignBosses === void 0 ? null : campaignBossRosterError(campaignBosses);
     if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
+    const storyError = campaignStories === void 0 ? null : campaignStoriesError(campaignStories);
+    if (storyError) return res.status(400).json({ success: false, error: storyError });
     const col = await getCollection("admin_config");
     const existing = await col.findOne({ configKey: "game_config" });
     const updated = {
@@ -1710,6 +1744,7 @@ adminRouter.post("/config", async (req2, res) => {
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG.waves,
       campaignBosses: campaignBosses !== void 0 ? campaignBosses : existing?.campaignBosses || [],
+      campaignStories: campaignStories !== void 0 ? campaignStories : existing?.campaignStories || DEFAULT_ADMIN_CONFIG.campaignStories,
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
