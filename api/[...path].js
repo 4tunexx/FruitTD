@@ -54,6 +54,11 @@ async function getDb() {
     await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
     await db.collection("forum_posts").createIndex({ postId: 1 }, { unique: true });
     await db.collection("forum_posts").createIndex({ createdAt: -1 });
+    await db.collection("coop_lobbies").createIndex({ lobbyId: 1 }, { unique: true });
+    await db.collection("coop_lobbies").createIndex({ code: 1 }, { unique: true });
+    await db.collection("coop_lobbies").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await db.collection("coop_lobbies").createIndex({ visibility: 1, status: 1, createdAt: 1 });
+    await db.collection("coop_lobbies").createIndex({ "members.userId": 1, status: 1 });
   } catch (err) {
     console.warn("Index creation notice:", err);
   }
@@ -84,10 +89,10 @@ function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
   const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
   return sorted.find((t) => score >= t.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
 }
-function mergeRewardDefaults(items, defaults2) {
-  const byId = new Map(defaults2.map((item) => [item.id, item]));
+function mergeRewardDefaults(items, defaults3) {
+  const byId = new Map(defaults3.map((item) => [item.id, item]));
   const configuredById = new Map(items.filter((item) => item?.id).map((item) => [item.id, item]));
-  const mergedItems = [...configuredById.values(), ...defaults2.filter((item) => !configuredById.has(item.id))];
+  const mergedItems = [...configuredById.values(), ...defaults3.filter((item) => !configuredById.has(item.id))];
   return mergedItems.map((item) => {
     const fallback = byId.get(item.id);
     const merged = { ...fallback, ...item };
@@ -486,7 +491,7 @@ function isValidEmail(email) {
 }
 async function deliverVerifyCode(email, code) {
   const exposePreview = process.env.NODE_ENV !== "production";
-  const fallback = (error) => exposePreview ? { previewCode: code, emailed: false, ...error ? { error } : {} } : { emailed: false, error: error || "Email delivery is unavailable." };
+  const fallback = (error2) => exposePreview ? { previewCode: code, emailed: false, ...error2 ? { error: error2 } : {} } : { emailed: false, error: error2 || "Email delivery is unavailable." };
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return exposePreview ? { previewCode: code, emailed: false } : fallback("Email delivery is not configured.");
@@ -987,7 +992,8 @@ function createLeaderboardRouter(deps = defaultDeps) {
       const limit = Math.max(1, Math.min(parseInt(String(req2.query.limit)) || 50, 100));
       const userId = (await deps.resolveUser(req2))?.userId;
       const col = await deps.collection("leaderboards");
-      const topEntries = await col.find({ mode }).sort({ score: -1, wave: -1 }).limit(limit).toArray();
+      const order = mode === "horde" ? { wave: -1, score: -1 } : { score: -1, wave: -1 };
+      const topEntries = await col.find({ mode }).sort(order).limit(limit).toArray();
       const leaderboard = topEntries.map((entry, idx) => ({
         rank: idx + 1,
         userId: entry.userId,
@@ -1006,14 +1012,11 @@ function createLeaderboardRouter(deps = defaultDeps) {
       }));
       let userRank = null;
       if (userId) {
-        const userBest = await col.findOne({ userId, mode }, { sort: { score: -1 } });
+        const userBest = await col.findOne({ userId, mode }, { sort: order });
         if (userBest) {
           const higherCount = await col.countDocuments({
             mode,
-            $or: [
-              { score: { $gt: userBest.score } },
-              { score: userBest.score, wave: { $gt: userBest.wave } }
-            ]
+            $or: mode === "horde" ? [{ wave: { $gt: userBest.wave } }, { wave: userBest.wave, score: { $gt: userBest.score } }] : [{ score: { $gt: userBest.score } }, { score: userBest.score, wave: { $gt: userBest.wave } }]
           });
           userRank = {
             rank: higherCount + 1,
@@ -1115,6 +1118,10 @@ function createLeaderboardRouter(deps = defaultDeps) {
         { returnDocument: "before" }
       );
       if (!consumed) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
+      const elapsedSeconds = Math.max(0, (Date.now() - new Date(consumed.createdAt).getTime()) / 1e3);
+      if (!Number.isFinite(elapsedSeconds) || score > 2500 + elapsedSeconds * 600 || (wave || 1) > 10 + Math.floor(elapsedSeconds / 2) || (fruitsSliced || 0) > 100 + Math.floor(elapsedSeconds * 12) || (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
+        return res.status(422).json({ success: false, error: "Run counters exceed the time available since match start" });
+      }
       let settledWallet = null;
       if (rewards) {
         const wallet = await creditClaimReward(userId, `run:${rewardTokenKey}`, {
@@ -1153,7 +1160,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
           });
           return true;
         }
-        if (score > existing.score || score === existing.score && (wave || 1) > existing.wave) {
+        if (modeKey === "horde" && ((wave || 1) > existing.wave || (wave || 1) === existing.wave && score > existing.score) || modeKey !== "horde" && (score > existing.score || score === existing.score && (wave || 1) > existing.wave)) {
           await col.updateOne(
             { _id: existing._id },
             {
@@ -1180,10 +1187,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
       if (playMode === "ranked") {
         await upsertBest(monthlyLeaderboardMode());
       }
-      const higherCount = await col.countDocuments({
-        mode: playMode,
-        score: { $gt: score }
-      });
+      const higherCount = await col.countDocuments(playMode === "horde" ? { mode: playMode, $or: [{ wave: { $gt: wave || 1 } }, { wave: wave || 1, score: { $gt: score } }] } : { mode: playMode, score: { $gt: score } });
       const catalog = playMode === "ranked" ? await deps.catalog() : null;
       const monthlyScore = playMode === "ranked" ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score : score;
       res.json({
@@ -1542,8 +1546,8 @@ function normalizeDailyRewards(input) {
     };
   });
 }
-function normalizePrizeCatalog(input, defaults2) {
-  const rows = Array.isArray(input) ? input : defaults2;
+function normalizePrizeCatalog(input, defaults3) {
+  const rows = Array.isArray(input) ? input : defaults3;
   return rows.map((item) => ({
     ...item,
     rewardCoins: Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins) || 0))),
@@ -2755,7 +2759,7 @@ badgesRouter.post("/progress", async (req2, res) => {
 import { Router as Router10 } from "express";
 import { randomUUID } from "node:crypto";
 var defaults = { resolveUser: resolveRequestUser, collection: getCollection };
-var fail = (res, status, error) => res.status(status).json({ success: false, error });
+var fail = (res, status, error2) => res.status(status).json({ success: false, error: error2 });
 var safeName = (user) => String(user.username || user.nickname || "Slicer").slice(0, 32);
 var usernamePattern = /^[a-z0-9_]{3,24}$/i;
 var pairKey = (a, b) => [a, b].sort().join(":");
@@ -2980,8 +2984,152 @@ function createSocialRouter(deps = defaults) {
 }
 var socialRouter = createSocialRouter();
 
-// server/routes/items.ts
+// server/routes/lobbies.ts
+import { randomBytes, randomUUID as randomUUID2 } from "node:crypto";
 import { Router as Router11 } from "express";
+var defaults2 = { resolveUser: resolveRequestUser, collection: getCollection };
+var error = (res, status, message) => res.status(status).json({ success: false, error: message });
+var active = () => ({ status: "waiting", expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+function createLobbyRouter(deps = defaults2) {
+  const router = Router11();
+  const identity = async (req2, res) => {
+    const user = await deps.resolveUser(req2);
+    if (!user) error(res, 401, "Sign in to use online lobbies");
+    return user;
+  };
+  router.get("/mine", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      const room = await (await deps.collection("coop_lobbies")).findOne({ "members.userId": user.userId, ...active() });
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json({ success: true, userId: user.userId, lobby: room || null });
+    } catch {
+      error(res, 503, "Lobbies are unavailable");
+    }
+  });
+  router.get("/public", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      const rooms = await (await deps.collection("coop_lobbies")).find({ visibility: "public", ...active(), $expr: { $lt: [{ $size: "$members" }, 4] } }).sort({ createdAt: 1 }).limit(12).toArray();
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json({ success: true, lobbies: rooms });
+    } catch {
+      error(res, 503, "Lobbies are unavailable");
+    }
+  });
+  router.post("/", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      const rooms = await deps.collection("coop_lobbies");
+      const existing = await rooms.findOne({ "members.userId": user.userId, ...active() });
+      if (existing) return error(res, 409, "Leave your current lobby first");
+      const lobby = {
+        lobbyId: randomUUID2(),
+        code: randomBytes(4).toString("hex").toUpperCase(),
+        hostId: user.userId,
+        visibility: req2.body?.visibility === "public" ? "public" : "friends",
+        status: "waiting",
+        members: [{ userId: user.userId, name: String(user.username || user.nickname || "Slicer").slice(0, 32), ready: false }],
+        createdAt: /* @__PURE__ */ new Date(),
+        expiresAt: new Date(Date.now() + 2 * 60 * 6e4)
+      };
+      await rooms.insertOne(lobby);
+      res.status(201).json({ success: true, lobby });
+    } catch (err) {
+      error(res, err?.code === 11e3 ? 409 : 503, "Could not create lobby");
+    }
+  });
+  router.post("/join", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      const rooms = await deps.collection("coop_lobbies");
+      const existing = await rooms.findOne({ "members.userId": user.userId, ...active() });
+      if (existing) return error(res, 409, "Leave your current lobby first");
+      const code = typeof req2.body?.code === "string" ? req2.body.code.trim().toUpperCase() : "";
+      if (code && !/^[A-F0-9]{8}$/.test(code)) return error(res, 400, "Enter an eight character invite code");
+      const where = code ? { code } : { visibility: "public" };
+      const room = await rooms.findOneAndUpdate(
+        {
+          ...where,
+          ...active(),
+          "members.userId": { $ne: user.userId },
+          $expr: { $lt: [{ $size: "$members" }, 4] }
+        },
+        { $push: { members: { userId: user.userId, name: String(user.username || user.nickname || "Slicer").slice(0, 32), ready: false } } },
+        { sort: { createdAt: 1 }, returnDocument: "after" }
+      );
+      if (!room) return error(res, 404, code ? "Lobby unavailable or full" : "No open public lobby yet");
+      res.json({ success: true, lobby: room });
+    } catch {
+      error(res, 503, "Could not join lobby");
+    }
+  });
+  router.post("/ready", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      if (typeof req2.body?.ready !== "boolean") return error(res, 400, "Invalid ready state");
+      const room = await (await deps.collection("coop_lobbies")).findOneAndUpdate(
+        { "members.userId": user.userId, ...active() },
+        { $set: { "members.$.ready": req2.body.ready } },
+        { returnDocument: "after" }
+      );
+      if (!room) return error(res, 404, "Lobby no longer available");
+      res.json({ success: true, lobby: room });
+    } catch {
+      error(res, 503, "Could not update ready state");
+    }
+  });
+  router.post("/leave", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      const rooms = await deps.collection("coop_lobbies");
+      const hosted = await rooms.findOneAndDelete({ hostId: user.userId, ...active() });
+      if (!hosted) await rooms.updateOne({ "members.userId": user.userId, ...active() }, { $pull: { members: { userId: user.userId } } });
+      res.json({ success: true });
+    } catch {
+      error(res, 503, "Could not leave lobby");
+    }
+  });
+  router.post("/invite", async (req2, res) => {
+    try {
+      const user = await identity(req2, res);
+      if (!user) return;
+      const username = typeof req2.body?.username === "string" ? req2.body.username.trim() : "";
+      const friendId = typeof req2.body?.friendId === "string" ? req2.body.friendId : "";
+      if (!/^[a-z0-9_]{3,24}$/i.test(username) && (!friendId || friendId.length > 128)) return error(res, 400, "Choose a friend or enter a valid username");
+      const room = await (await deps.collection("coop_lobbies")).findOne({ hostId: user.userId, ...active() });
+      if (!room) return error(res, 403, "Only the lobby host can invite friends");
+      const friend = await (await deps.collection("users")).findOne(friendId ? { userId: friendId } : { username: { $regex: `^${username}$`, $options: "i" } });
+      if (!friend || friend.userId === user.userId) return error(res, 404, "Friend not found");
+      const relationship = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: friend.userId, state: "accepted" });
+      if (!relationship) return error(res, 403, "Invite accepted friends only");
+      await (await deps.collection("notifications")).insertOne({
+        notificationId: randomUUID2(),
+        userId: friend.userId,
+        actorId: user.userId,
+        actorName: String(user.username || user.nickname || "Slicer").slice(0, 32),
+        type: "coop_invite",
+        title: "Co-op lobby invitation",
+        body: `Join with code ${room.code}`,
+        createdAt: /* @__PURE__ */ new Date()
+      });
+      res.json({ success: true });
+    } catch {
+      error(res, 503, "Could not send invite");
+    }
+  });
+  return router;
+}
+var lobbyRouter = createLobbyRouter();
+
+// server/routes/items.ts
+import { Router as Router12 } from "express";
 var VIP_FALLBACK = {
   bronze: { price: 500, coins: 1e3 },
   silver: { price: 1500, coins: 2500 },
@@ -2999,7 +3147,7 @@ function isSlicer(id, slicers) {
   return slicers.find((item) => item.id === id && item.enabled !== false);
 }
 function createItemsRouter(deps = defaultDeps6) {
-  const router = Router11();
+  const router = Router12();
   router.post("/action", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -3178,6 +3326,7 @@ function createApp() {
   app2.use("/api/admin", rateLimit(30, 6e4), adminRouter);
   app2.use("/api/badges", badgesRouter);
   app2.use("/api/social", rateLimit(90, 6e4), socialRouter);
+  app2.use("/api/lobbies", rateLimit(90, 6e4), lobbyRouter);
   return app2;
 }
 

@@ -43,7 +43,7 @@ export const MODE_INFO: ModeRules[] = [
   {
     id: 'ranked',
     name: 'Ranked',
-    blurb: 'Tougher fruit, less cash. Score is saved on its own ladder.',
+    blurb: 'Solo score attack. Your best run this month sets your rank and leaderboard place.',
     lives: 14,
     startMoney: 120,
     yellow: 6,
@@ -98,7 +98,7 @@ export const MODE_INFO: ModeRules[] = [
     guest: false,
   },
   {
-    id: 'horde', name: 'Horde', blurb: 'Endless five-wave sectors. No boss rounds; enemy pressure keeps climbing.',
+    id: 'horde', name: 'Horde', blurb: 'Endless waves, no bosses. Leaderboard ranks the highest wave survived, then score.',
     lives: 15, startMoney: 140, yellow: 10, pink: 10, orange: 3, hpMul: 1, speedMul: 1,
     spawnGapMul: 0.9, waveOffset: 0, currencyMul: 1, leakMul: 1, superMul: 1, hints: false, guest: false,
   },

@@ -117,9 +117,10 @@ router.get('/', async (req: Request, res: Response) => {
     const col = await deps.collection<LeaderboardDoc>('leaderboards');
 
     // Retrieve top entries sorted by score desc, wave desc
+    const order = mode === 'horde' ? { wave: -1 as const, score: -1 as const } : { score: -1 as const, wave: -1 as const };
     const topEntries = await col
       .find({ mode })
-      .sort({ score: -1, wave: -1 })
+      .sort(order)
       .limit(limit)
       .toArray();
 
@@ -144,14 +145,13 @@ router.get('/', async (req: Request, res: Response) => {
     // Find user's best entry and rank if userId supplied
     let userRank = null;
     if (userId) {
-      const userBest = await col.findOne({ userId, mode }, { sort: { score: -1 } });
+    const userBest = await col.findOne({ userId, mode }, { sort: order });
       if (userBest) {
         const higherCount = await col.countDocuments({
           mode,
-          $or: [
-            { score: { $gt: userBest.score } },
-            { score: userBest.score, wave: { $gt: userBest.wave } },
-          ],
+          $or: mode === 'horde'
+            ? [{ wave: { $gt: userBest.wave } }, { wave: userBest.wave, score: { $gt: userBest.score } }]
+            : [{ score: { $gt: userBest.score } }, { score: userBest.score, wave: { $gt: userBest.wave } }],
         });
         userRank = {
           rank: higherCount + 1,
@@ -318,7 +318,8 @@ router.post('/', async (req: Request, res: Response) => {
         });
         return true;
       }
-      if (score > existing.score || (score === existing.score && (wave || 1) > existing.wave)) {
+      if ((modeKey === 'horde' && ((wave || 1) > existing.wave || ((wave || 1) === existing.wave && score > existing.score))) ||
+          (modeKey !== 'horde' && (score > existing.score || (score === existing.score && (wave || 1) > existing.wave)))) {
         await col.updateOne(
           { _id: existing._id },
           {
@@ -347,10 +348,9 @@ router.post('/', async (req: Request, res: Response) => {
       await upsertBest(monthlyLeaderboardMode());
     }
 
-    const higherCount = await col.countDocuments({
-      mode: playMode,
-      score: { $gt: score },
-    });
+    const higherCount = await col.countDocuments(playMode === 'horde'
+      ? { mode: playMode, $or: [{ wave: { $gt: wave || 1 } }, { wave: wave || 1, score: { $gt: score } }] }
+      : { mode: playMode, score: { $gt: score } });
 
     const catalog = playMode === 'ranked' ? await deps.catalog() : null;
     const monthlyScore = playMode === 'ranked'

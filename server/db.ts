@@ -142,6 +142,11 @@ export async function getDb(): Promise<Db> {
     await db.collection('messages').createIndex({ messageId: 1 }, { unique: true });
     await db.collection('forum_posts').createIndex({ postId: 1 }, { unique: true });
     await db.collection('forum_posts').createIndex({ createdAt: -1 });
+    await db.collection('coop_lobbies').createIndex({ lobbyId: 1 }, { unique: true });
+    await db.collection('coop_lobbies').createIndex({ code: 1 }, { unique: true });
+    await db.collection('coop_lobbies').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await db.collection('coop_lobbies').createIndex({ visibility: 1, status: 1, createdAt: 1 });
+    await db.collection('coop_lobbies').createIndex({ 'members.userId': 1, status: 1 });
   } catch (err) {
     console.warn('Index creation notice:', err);
   }

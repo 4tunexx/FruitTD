@@ -469,3 +469,10 @@
   .ftd-hub .ftd-item-card__stats li { padding: 0.12rem 0.32rem; font-size: 0.64rem; }
   .ftd-hub .ftd-item-card__footer { grid-area: footer; width: 100%; padding-top: 0.4rem; }
 }
+.ftd-coop-lobby__area { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; margin-top:1rem; }
+.ftd-coop-lobby__area input, .ftd-coop-lobby__area select { min-height:44px; max-width:100%; padding:.55rem .7rem; color:#f5ffe9; background:#14211a; border:1px solid #88aa60; }
+.ftd-coop-lobby__button { min-height:44px; padding:.55rem .9rem; border:1px solid #b3da63; color:#f1ffd2; background:#253b1b; cursor:pointer; }
+.ftd-coop-lobby__button:hover { background:#3b6027; }
+.ftd-coop-lobby__members { flex-basis:100%; display:flex; flex-wrap:wrap; gap:.5rem; list-style:none; padding:0; }
+.ftd-coop-lobby__members li { padding:.65rem .8rem; border:1px solid #799953; background:#162219; }
+.ftd-coop-lobby__note, .ftd-coop-lobby__status { flex-basis:100%; color:#b7c9ab; line-height:1.5; }

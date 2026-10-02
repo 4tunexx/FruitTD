@@ -449,12 +449,9 @@ export function coopHubTab(onStart?: () => void): HubTab {
     label: 'Co-op',
     icon: UsersRound,
     renderMain: (root) => {
-      root.appendChild(el('section', { class: 'ftd-coop-card' }, [
-        el('p', { class: 'ftd-playcard__eyebrow', text: 'CO-OP DEFENCE' }),
-        el('h2', { text: 'DEFEND THE WALL TOGETHER' }),
-        el('p', { text: 'Co-op is one game mode. Local guest assist is playable now; joining a friend online still needs its shared-match service.' }),
-        GameButton({ label: 'Start Co-op', tone: 'primary', size: 'lg', onClick: () => onStart?.() }),
-      ]));
+      void import('./coopLobby').then(({ renderCoopLobby }) => {
+        if (root.isConnected) renderCoopLobby(root, () => onStart?.());
+      });
     },
   };
 }
@@ -487,9 +484,9 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     const grid = modes.querySelector('.ftd-mode-select__grid')!;
     const entries = [
       { id: 'casual' as const, name: 'Casual', note: 'Learn the lanes' },
-      { id: 'ranked' as const, name: 'Ranked', note: 'Climb the ladder' },
+      { id: 'ranked' as const, name: 'Ranked', note: 'Best run · monthly rank' },
       { id: 'arena' as const, name: 'Arena', note: 'Fast, high-pressure waves' },
-      { id: 'horde' as const, name: 'Horde', note: 'Endless · no bosses' },
+      { id: 'horde' as const, name: 'Horde', note: 'Endless · highest wave wins' },
     ];
     entries.forEach((mode) => {
       const button = el('button', { type: 'button', class: `ftd-mode-card${save.mode === mode.id ? ' is-active' : ''}`, 'aria-pressed': String(save.mode === mode.id), 'data-testid': `mode-${mode.id}` }, [el('strong', { text: mode.name }), el('small', { text: mode.note })]);
@@ -497,7 +494,7 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     });
     const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
-    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op' }), el('small', { text: 'Play together · local guest available' })]);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op rooms' }), el('small', { text: 'Invite friends · local guest available' })]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
     root.appendChild(modes);
   };

@@ -2,7 +2,7 @@ import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, createElement 
 import { getAuthToken } from '../../services/auth';
 import { socialApi, type ForumPost, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
 import { el, clear } from '../components/dom';
-import { back } from './registry';
+import { back, openScreen } from './registry';
 
 const icon = (node: typeof Users) => typeof document.createElementNS === 'function'
   ? createElement(node, { width: 18, height: 18, 'aria-hidden': 'true' }) : el('span', { text: '◆' });
@@ -155,7 +155,16 @@ export function renderSocial(root: HTMLElement): void {
     const panel = el('section', { class: 'ftd-social__panel ftd-social__notifications' }, [el('div', { class: 'ftd-social__panel-title' }, [icon(Bell), el('h2', { text: 'Notifications' })])]);
     const unread = items.filter((item) => !item.readAt);
     if (!items.length) panel.appendChild(el('p', { class: 'ftd-social__empty', text: 'No new signals. Friend activity will show here.' }));
-    for (const item of items) panel.appendChild(el('article', { class: `ftd-social__notification${item.readAt ? '' : ' is-unread'}` }, [el('strong', { text: item.title }), el('p', { text: item.body }), el('small', { text: item.actorName })]));
+    for (const item of items) {
+      const row = el('article', { class: `ftd-social__notification${item.readAt ? '' : ' is-unread'}` }, [el('strong', { text: item.title }), el('p', { text: item.body }), el('small', { text: item.actorName })]);
+      const code = item.type === 'coop_invite' ? /^Join with code ([A-F0-9]{8})$/.exec(item.body)?.[1] : null;
+      if (code) {
+        const join = el('button', { type: 'button', class: 'ftd-social__mini-button', text: 'Join room' });
+        join.addEventListener('click', () => { sessionStorage.setItem('fruit-td-coop-invite', code); openScreen('CO_OP'); });
+        row.appendChild(join);
+      }
+      panel.appendChild(row);
+    }
     if (unread.length) {
       const mark = el('button', { class: 'ftd-social__mini-button', type: 'button', text: `Mark ${unread.length} read` });
       mark.addEventListener('click', async () => { try { await socialApi.markRead(unread.map((item) => item.notificationId)); await loadNotifications(); } catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not mark read.', true); } });
