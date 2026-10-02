@@ -210,6 +210,12 @@ fruits.onSpawn = (fruit) => {
     toast(state, enemy.warning, 1.35);
   }
 };
+fruits.onBossPhase = (fruit) => {
+  const name = state.mode === 'campaign' ? campaignBoss(state.level, getLiveConfig().campaignBosses).name : 'OVERLORD';
+  toast(state, `${name} ENRAGED${fruit.enemyKind === 'splitter' ? ' · RUNNERS RELEASED' : ''}`, 2.2);
+  renderer.impulseShake(0.6);
+  sfx.enemyWarning();
+};
 hud.mountMeta(save);
 hud.onHero = (id) => selectHero(id);
 hud.onToastRequest = (message) => toast(state, message, 2);
@@ -999,6 +1005,16 @@ function resolveSlash(slash: Slash): void {
       } catch {
         /* Creator VFX must never break combat */
       }
+      if (fruit.enemyKind === 'explosive') {
+        // A blade cannot kill a Chem-Burst. It remains on the lane until a
+        // turret destroys it, and each separate swipe is a costly mistake.
+        fruits.hurt(fruit, 0, 'blade');
+        resetCombo('explosive_mistake');
+        renderer.impulseShake(0.85);
+        sfx.bombExplode();
+        maybeOver();
+        continue;
+      }
       if (fruit.kind === 'bomb') {
         if (line.speed > 7.5 || state.hero === 'ki') {
           sfx.bombParry();
@@ -1042,16 +1058,8 @@ function resolveSlash(slash: Slash): void {
         }
       }
       const towerBonus = towerDamageBonus();
-      const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus);
+      const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus, 'blade');
       if (killed) killFruit(fruit, swipe);
-      
-      // Explosive tower damage is applied once, inside FruitField.hurt().
-      if (fruit.enemyKind === 'explosive' && state.lives < livesBefore) {
-        resetCombo('explosive_mistake');
-        renderer.impulseShake(0.85);
-        sfx.bombExplode();
-        maybeOver();
-      }
 
     }
     for (const bit of debris.halves) {
@@ -1121,7 +1129,7 @@ function trySuper(): void {
   for (const fruit of fruits.fruits) {
     if (!fruit.alive) continue;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, 0xfbbf24);
-    if (fruits.hurt(fruit, dmg)) killFruit(fruit, swipe, 2);
+    if (fruits.hurt(fruit, dmg, 'super')) killFruit(fruit, swipe, 2);
   }
 }
 
@@ -1333,12 +1341,13 @@ function kiPulse(x: number, z: number): void {
   for (const fruit of fruits.fruits) {
     if (!fruit.alive) continue;
     if (Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z) > r) continue;
+    if (fruit.enemyKind === 'explosive') continue;
     if (fruit.kind === 'bomb') {
       recordWaveKill(state, fruit.splitChild);
       fruits.kill(fruit);
       continue;
     }
-    if (fruits.hurt(fruit, dmg)) killFruit(fruit, swipe);
+    if (fruits.hurt(fruit, dmg, 'super')) killFruit(fruit, swipe);
   }
 }
 

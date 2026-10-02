@@ -27,3 +27,10 @@ test('late-wave HP keeps increasing at a readable rate in Casual and boss waves'
   assert.ok(boss.hpScale > later.hpScale);
   assert.ok(boss.hpScale < 15);
 });
+
+test('five boss archetypes rotate through campaign stages with distinct traits', () => {
+  const firstFive = [1, 2, 3, 4, 5].map((stage) => planBossWave(stage * 5, 'campaign', stage));
+  assert.deepEqual(firstFive.map((wave) => wave.items[0].kind), ['watermelon', 'strawberry', 'pineapple', 'apple', 'orange']);
+  assert.deepEqual(firstFive.map((wave) => wave.items[0].enemy), ['normal', 'swift', 'armored', 'splitter', 'normal']);
+  assert.deepEqual(firstFive.map((wave) => wave.items[0].bossStage), [1, 2, 3, 4, 5]);
+});

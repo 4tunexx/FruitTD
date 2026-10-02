@@ -30,10 +30,10 @@ export const ENEMY_RULES: Record<EnemyKind, EnemyRule> = {
   },
   explosive: {
     kind: 'explosive', label: 'Chem-Burst',
-    description: 'Lab-chem fruit swollen with volatile juice. A bad slash can damage the Main Tower.',
-    flavor: 'Chem-Burst — cut clean or the tower eats the blast.',
-    warning: 'CHEM-BURST — CUT CLEAN OR IT BLOWS',
-    towerDamageOnLeak: 3, towerDamageOnHit: 2, hpMultiplier: 0.85, speedMultiplier: 1.12,
+    description: 'A volatile runner immune to blades. Touching it damages the wall; turrets can destroy it safely.',
+    flavor: 'Chem-Burst — keep your blade away and let the turrets work.',
+    warning: 'CHEM-BURST — TURRETS ONLY · DO NOT SLICE',
+    towerDamageOnLeak: 3, towerDamageOnHit: 2, hpMultiplier: 0.5, speedMultiplier: 1.15,
     scoreMultiplier: 1.7, xpMultiplier: 2, colour: 0xff5533,
   },
   armored: {
@@ -54,10 +54,10 @@ export const ENEMY_RULES: Record<EnemyKind, EnemyRule> = {
   },
   swift: {
     kind: 'swift', label: 'Juice-Runner',
-    description: 'Sprinter soaked in bad juice. Tests reaction speed and mobile players.',
+    description: 'Fast, evasive sprinter. Cut its path or build a turret to intercept it.',
     flavor: 'Juice-Runner closing fast!',
     warning: 'JUICE-RUNNER',
-    towerDamageOnLeak: 2, towerDamageOnHit: 0, hpMultiplier: 0.75, speedMultiplier: 1.65,
+    towerDamageOnLeak: 2, towerDamageOnHit: 0, hpMultiplier: 0.75, speedMultiplier: 2.05,
     scoreMultiplier: 1.8, xpMultiplier: 1.7, colour: 0x55d8ff,
   },
 };

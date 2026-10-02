@@ -58,7 +58,8 @@ function mix(wave: number, count: number): SpawnItem[] {
     else if (enemy === 'swift') fruit = 'strawberry';
     else if (enemy === 'splitter') fruit = 'pineapple';
 
-    out.push({ kind: fruit, boss: false, enemy });
+    // Every bomb uses the same explicit turret-only rule, including random rolls.
+    out.push({ kind: fruit, boss: false, enemy: fruit === 'bomb' ? 'explosive' : enemy });
   }
   return out;
 }
@@ -171,7 +172,15 @@ export function planBossWave(wave: number, mode: GameMode, level: number, config
   const items: SpawnItem[] = [];
   const wavesInLevel = wavesPerLevel(level, mode);
 
-  add(items, 'watermelon', 1, true, level >= 2 ? 'armored' : 'normal');
+  const archetypes: { kind: FruitKind; enemy: EnemyKind; cue: string }[] = [
+    { kind: 'watermelon', enemy: 'normal', cue: 'Rot King — heavy advance' },
+    { kind: 'strawberry', enemy: 'swift', cue: 'Runner overlord — intercept its sprint' },
+    { kind: 'pineapple', enemy: 'armored', cue: 'Rind titan — break through its armor' },
+    { kind: 'apple', enemy: 'splitter', cue: 'Brood overlord — expect reinforcements' },
+    { kind: 'orange', enemy: 'normal', cue: 'Citrus overlord — hold the line' },
+  ];
+  const archetype = archetypes[(Math.max(1, level) - 1) % archetypes.length];
+  add(items, archetype.kind, 1, true, archetype.enemy);
   items[0].bossStage = mode === 'campaign' ? level : undefined;
 
   return {
@@ -182,7 +191,7 @@ export function planBossWave(wave: number, mode: GameMode, level: number, config
       : pressureHpScale(w) * rules.hpMul * 1.5,
     boss: true,
     title: `LEVEL ${level}  ·  OVERLORD`,
-    subtitle: level >= 2 ? 'Rind-Plate overlord breaches the wall' : 'Fruit-zombie overlord approaches',
+    subtitle: archetype.cue,
     level,
     waveInLevel: wavesInLevel + 1,
     wavesInLevel,

@@ -45,6 +45,7 @@ export interface Fruit {
   hazardRing: Mesh; armorRing: Mesh;
   squash: number; vel: Vector3; spin: Vector3; bob: number; hp: number; maxHp: number; dodgeX: number; dodgeZ: number;
   brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
+  bossEnraged?: boolean;
   /** Spawned by a Pod-Spawner death — never counted as a wave member. */
   splitChild: boolean;
   /** Generation distinguishes two occupants of the same pooled object. */
@@ -108,7 +109,7 @@ function makeFruit(): Fruit {
     alive: false, kind: 'lemon', enemyKind: 'normal', radius: 0.5, group, body, hpBar, hpBack,
     hazardRing, armorRing,
     vel: new Vector3(), spin: new Vector3(), bob: 0, hp: 1, maxHp: 1, dodgeX: 0, dodgeZ: 0,
-    brittle: 0, impulseX: 0, impulseZ: 0, squash: 0, boss: false, volatileTriggered: false, splitChild: false,
+    brittle: 0, impulseX: 0, impulseZ: 0, squash: 0, boss: false, volatileTriggered: false, bossEnraged: false, splitChild: false,
     studio: createStudioAnimState('normal'),
   };
 }
@@ -192,6 +193,7 @@ export class FruitField {
   private readonly retired = new Set<Fruit>();
   private readonly pendingChildren: Array<{ x: number; y: number; z: number; offset: number }> = [];
   onSpawn: ((fruit: Fruit) => void) | null = null;
+  onBossPhase: ((fruit: Fruit) => void) | null = null;
 
   constructor(private readonly sceneAdd: (group: Group) => void) {
     for (let i = 0; i < 64; i++) {
@@ -210,7 +212,7 @@ export class FruitField {
     this.retired.clear();
     this.pendingChildren.length = 0;
     for (const fruit of this.fruits) {
-      fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false; fruit.splitChild = false;
+      fruit.alive = false; fruit.boss = false; fruit.enemyKind = 'normal'; fruit.volatileTriggered = false; fruit.bossEnraged = false; fruit.splitChild = false;
       resetStudioAnimState(fruit.studio, 'normal'); fruit.group.visible = false;
     }
   }
@@ -238,7 +240,7 @@ export class FruitField {
     idle.radius = def.radius * (boss ? 1.05 : 0.62);
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
-    idle.volatileTriggered = false;
+    idle.volatileTriggered = false; idle.bossEnraged = false;
     idle.splitChild = false;
     resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind, bossStage });
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
@@ -255,9 +257,12 @@ export class FruitField {
     return idle;
   }
 
-  hurt(fruit: Fruit, amount: number): boolean {
+  hurt(fruit: Fruit, amount: number, source: 'turret' | 'blade' | 'super' = 'turret'): boolean {
     if (!fruit.alive) return false;
-    if (fruit.enemyKind === 'explosive' && !fruit.volatileTriggered && this.activeState) {
+    // Chem-Bursts are a placement challenge: blade contact hurts the wall,
+    // but neither blades nor the hero super can damage or remove them.
+    if (fruit.enemyKind === 'explosive' && source !== 'turret') {
+      if (source !== 'blade' || !this.activeState) return false;
       const rule = ENEMY_RULES.explosive;
       fruit.volatileTriggered = true;
       const damage = damageTower(
@@ -265,11 +270,18 @@ export class FruitField {
         Math.round(rule.towerDamageOnHit * dangerousLeakMultiplier(this.activeState.wave) * modeRules(this.activeState.mode).leakMul),
       );
       if (damage > 0) {
-        const hitLabel = rule.warning || rule.label;
-        toast(this.activeState, `${hitLabel}! Tower -${damage} HP`, 1.1);
+        this.activeState.waveLeaks += 1;
+        toast(this.activeState, `Chem-Burst touched! Wall −${damage} HP · TURRETS ONLY`, 1.4);
       }
+      return false;
     }
     fruit.hp -= amount; fruit.squash = 0.2; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
+    if (fruit.boss && !fruit.bossEnraged && fruit.hp > 0 && fruit.hp <= fruit.maxHp / 2) {
+      fruit.bossEnraged = true;
+      // Brood bosses release two smaller runners midway through the fight.
+      if (fruit.enemyKind === 'splitter') this.spawnSplitChildren(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z);
+      this.onBossPhase?.(fruit);
+    }
     const pos = {
       x: fruit.group.position.x,
       y: fruit.group.position.y,
@@ -348,7 +360,7 @@ export class FruitField {
       const dx = -fruit.group.position.x * 0.12; const dz = LEAK_Z - fruit.group.position.z; const dist = Math.hypot(dx, dz) || 0.0001;
       fruit.brittle = Math.max(0, fruit.brittle - dt); fruit.impulseX *= 0.88; fruit.impulseZ *= 0.88;
       const enemy = ENEMY_RULES[fruit.enemyKind] || ENEMY_RULES.normal;
-      const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * 0.32 * rules.speedMul * (fruit.boss ? 0.58 : 1) * (fruit.brittle > 0 ? 0.48 : 1);
+      const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * 0.32 * rules.speedMul * (fruit.boss ? 0.58 * (fruit.bossEnraged ? 1.4 : 1) : 1) * (fruit.brittle > 0 ? 0.48 : 1);
       fruit.dodgeX *= 0.86; fruit.dodgeZ *= 0.86;
       const moveX = (dx / dist) * speed + fruit.dodgeX + fruit.impulseX;
       const moveZ = (dz / dist) * speed + fruit.dodgeZ + fruit.impulseZ;

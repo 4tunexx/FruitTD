@@ -171,14 +171,39 @@ describe('combat polish regressions', () => {
     const early = field.spawn('bomb', false, 'explosive')!;
     field.update(0.016, state, () => undefined);
     const earlyLives = state.lives;
-    field.hurt(early, 1);
+    const initialHp = early.hp;
+    assert.equal(field.hurt(early, 1000, 'super'), false);
+    assert.equal(early.hp, initialHp, 'super cannot bypass the turret-only rule');
+    field.hurt(early, 1, 'blade');
     assert.equal(earlyLives - state.lives, 2, 'early Chem-Burst damage starts fair');
+    assert.equal(early.hp, initialHp, 'blade contact does not damage the exploder');
+    field.hurt(early, 1, 'blade');
+    assert.equal(earlyLives - state.lives, 4, 'another blade contact damages the wall again');
 
     state.wave = 11;
     const later = field.spawn('bomb', false, 'explosive')!;
     field.update(0.016, state, () => undefined);
     const laterLives = state.lives;
-    field.hurt(later, 1);
+    field.hurt(later, 1, 'blade');
     assert.equal(laterLives - state.lives, 3, 'later Chem-Burst damage rises with wave pressure');
+    const safeLives = state.lives;
+    assert.equal(field.hurt(later, later.hp, 'turret'), true);
+    assert.equal(state.lives, safeLives, 'turret kills are safe');
+  });
+
+  it('brood bosses trigger a single halfway phase and release runners', async () => {
+    installStorageShim();
+    const { FruitField } = await import('./fruits');
+    const field = new FruitField(() => undefined);
+    let phases = 0;
+    field.onBossPhase = () => { phases++; };
+    const boss = field.spawn('apple', true, 'splitter', 4)!;
+    const halfway = Math.ceil(boss.hp / 2);
+    field.hurt(boss, halfway, 'turret');
+    assert.equal(phases, 1);
+    assert.equal(boss.bossEnraged, true);
+    assert.equal(field.aliveCount, 3, 'two smaller runners join the boss');
+    field.hurt(boss, 1, 'turret');
+    assert.equal(phases, 1);
   });
 });
