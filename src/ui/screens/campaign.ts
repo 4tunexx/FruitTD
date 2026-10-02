@@ -3,7 +3,7 @@ import { campaignBoss, campaignWaves, sanitizeCampaignProgress, type CampaignPro
 import type { SaveData } from '../../game/save';
 import { getLiveConfig } from '../../services/liveConfig';
 import { el, clear } from '../components/dom';
-import { back } from './registry';
+import { home } from './registry';
 
 const icon = (node: typeof Shield) => typeof document.createElementNS === 'function'
   ? createElement(node, { width: 19, height: 19, 'aria-hidden': 'true' }) : el('span', { text: '◆' });
@@ -21,7 +21,7 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
     el('div', {}, [el('p', { class: 'ftd-campaign__eyebrow', text: 'THE ROTTEN ORCHARD' }), el('h1', { text: 'CAMPAIGN' }), el('p', { text: '100 stages · 100 overlords · one wall to hold' })]),
     el('div', { class: 'ftd-campaign__progress' }, [el('strong', { text: `${progress.cleared.length}/100` }), el('span', { text: 'STAGES CLEARED' })]),
   ]);
-  head.querySelector('button')?.addEventListener('click', back);
+  head.querySelector('button')?.addEventListener('click', () => home());
   root.appendChild(head);
 
   const map = el('section', { class: 'ftd-campaign__map', 'aria-label': `Campaign stages ${start} to ${end}` });

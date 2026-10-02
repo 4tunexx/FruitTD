@@ -9,6 +9,7 @@ type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 type FriendDoc = { userId: string; friendId: string; state: 'pending' | 'accepted' | 'blocked'; createdAt: Date; updatedAt: Date };
 type NotificationDoc = { notificationId: string; userId: string; actorId: string; actorName: string; type: string; title: string; body: string; readAt?: Date; createdAt: Date };
 type MessageDoc = { messageId: string; conversationId: string; senderId: string; recipientId: string; body: string; readAt?: Date; createdAt: Date };
+type ForumPost = { postId: string; userId: string; author: string; title: string; body: string; createdAt: Date; replies: { replyId: string; userId: string; author: string; body: string; createdAt: Date }[] };
 
 export interface SocialRouteDeps {
   resolveUser(req: Request): Promise<RequestUser>;
@@ -47,6 +48,43 @@ async function notify(
 
 export function createSocialRouter(deps: SocialRouteDeps = defaults): Router {
   const router = Router();
+
+  router.get('/forum', async (_req, res) => {
+    try {
+      const posts = await (await deps.collection<ForumPost>('forum_posts')).find({}).sort({ createdAt: -1 }).limit(50).toArray();
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ success: true, posts });
+    } catch (err) { console.error('Forum load failed:', err); fail(res, 500, 'Could not load forum'); }
+  });
+
+  router.post('/forum', async (req, res) => {
+    try {
+      const user = await deps.resolveUser(req);
+      if (!user) return fail(res, 401, 'Sign in to post');
+      const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+      const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+      if (title.length < 3 || title.length > 100 || body.length < 3 || body.length > 2000) return fail(res, 400, 'Title must be 3–100 characters and post 3–2,000 characters');
+      const post: ForumPost = { postId: randomUUID(), userId: user.userId, author: safeName(user), title, body, createdAt: new Date(), replies: [] };
+      await (await deps.collection<ForumPost>('forum_posts')).insertOne(post);
+      res.status(201).json({ success: true, post });
+    } catch (err) { console.error('Forum post failed:', err); fail(res, 500, 'Could not save post'); }
+  });
+
+  router.post('/forum/:postId/replies', async (req, res) => {
+    try {
+      const user = await deps.resolveUser(req);
+      if (!user) return fail(res, 401, 'Sign in to reply');
+      const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+      if (!body || body.length > 1000) return fail(res, 400, 'Reply must contain 1–1,000 characters');
+      const reply = { replyId: randomUUID(), userId: user.userId, author: safeName(user), body, createdAt: new Date() };
+      const posts = await deps.collection<ForumPost>('forum_posts');
+      const post = await posts.findOne({ postId: String(req.params.postId) });
+      if (!post) return fail(res, 404, 'Post not found');
+      if ((post.replies?.length ?? 0) >= 100) return fail(res, 400, 'This topic has reached its reply limit');
+      await posts.updateOne({ postId: post.postId, 'replies.99': { $exists: false } } as any, { $push: { replies: reply } });
+      res.status(201).json({ success: true, reply });
+    } catch (err) { console.error('Forum reply failed:', err); fail(res, 500, 'Could not save reply'); }
+  });
 
   router.get('/profiles/:username', async (req, res) => {
     try {

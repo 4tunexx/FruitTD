@@ -38,6 +38,7 @@ export interface SocialMessage {
   body: string;
   createdAt: string;
 }
+export interface ForumPost { postId: string; author: string; title: string; body: string; createdAt: string; replies: { replyId: string; author: string; body: string; createdAt: string }[] }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
@@ -55,6 +56,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const socialApi = {
+  forum: () => request<{ posts: ForumPost[] }>('/forum'),
+  createPost: (title: string, body: string) => request('/forum', { method: 'POST', body: JSON.stringify({ title, body }) }),
+  reply: (postId: string, body: string) => request(`/forum/${encodeURIComponent(postId)}/replies`, { method: 'POST', body: JSON.stringify({ body }) }),
   friends: () => request<{ friends: SocialFriend[] }>('/friends'),
   notifications: () => request<{ unread: number; notifications: SocialNotification[] }>('/notifications'),
   profile: (username: string) => request<{ profile: PublicPlayerProfile }>(`/profiles/${encodeURIComponent(username)}`),

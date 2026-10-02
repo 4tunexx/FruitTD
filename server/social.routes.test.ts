@@ -22,7 +22,7 @@ function memoryCollection(initial: any[] = []) {
     rows,
     findOne: async (filter: any) => rows.find((doc) => matches(doc, filter)) ?? null,
     insertOne: async (doc: any) => { rows.push(doc); return { insertedId: doc.userId || doc.notificationId }; },
-    updateOne: async (filter: any, update: any) => { const row = rows.find((doc) => matches(doc, filter)); if (!row) return { matchedCount: 0 }; Object.assign(row, update.$set); return { matchedCount: 1 }; },
+    updateOne: async (filter: any, update: any) => { const row = rows.find((doc) => matches(doc, filter)); if (!row) return { matchedCount: 0 }; if (update.$set) Object.assign(row, update.$set); if (update.$push) for (const [key, value] of Object.entries(update.$push)) row[key].push(value); return { matchedCount: 1 }; },
     deleteOne: async (filter: any) => { const i = rows.findIndex((doc) => matches(doc, filter)); if (i < 0) return { deletedCount: 0 }; rows.splice(i, 1); return { deletedCount: 1 }; },
     updateMany: async (filter: any, update: any) => { let modifiedCount = 0; for (const row of rows.filter((doc) => matches(doc, filter))) { Object.assign(row, update.$set); modifiedCount++; } return { modifiedCount }; },
     find: (filter: any) => {
@@ -37,9 +37,10 @@ function setup(authenticated = true) {
   const friends = memoryCollection();
   const notifications = memoryCollection();
   const messages = memoryCollection();
+  const forum = memoryCollection();
   const cloud = memoryCollection([{ userId: 'bob-id', saveData: { hero: 'jiju', highScore: 900, bestWave: 7, games: 12 } }]);
   const leaders = memoryCollection(); const badges = memoryCollection();
-  const cols: Record<string, any> = { users, friends, notifications, messages, cloud_saves: cloud, leaderboards: leaders, badges };
+  const cols: Record<string, any> = { users, friends, notifications, messages, forum_posts: forum, cloud_saves: cloud, leaderboards: leaders, badges };
   let currentUser: any = alice;
   const deps: SocialRouteDeps = { resolveUser: async () => authenticated ? currentUser : null, collection: async (name) => cols[name] as any };
   return { router: createSocialRouter(deps), cols, setUser: (user: any) => { currentUser = user; } };
@@ -61,6 +62,24 @@ test('social endpoints require auth for friends and return a privacy-limited pub
   const { profile } = await response.json();
   assert.equal(profile.username, 'bob'); assert.equal(profile.highScore, 900);
   assert.equal('email' in profile, false); assert.equal('userId' in profile, false);
+});
+
+test('forum posts and replies persist for signed-in players and validate input', async (t) => {
+  const { router, cols } = setup(); const live = await listen(router); closeAfter(t, live.server);
+  const headers = { 'Content-Type': 'application/json' };
+  const created = await fetch(`${live.base}/forum`, { method: 'POST', headers, body: JSON.stringify({ title: 'Defense tips', body: 'How do you beat wave ten?' }) });
+  assert.equal(created.status, 201);
+  const { post } = await created.json();
+  assert.equal(cols.forum_posts.rows[0].postId, post.postId);
+  const replied = await fetch(`${live.base}/forum/${post.postId}/replies`, { method: 'POST', headers, body: JSON.stringify({ body: 'Upgrade the tower.' }) });
+  assert.equal(replied.status, 201);
+  assert.equal(cols.forum_posts.rows[0].replies[0].body, 'Upgrade the tower.');
+  const list = await fetch(`${live.base}/forum`);
+  assert.equal((await list.json()).posts[0].replies.length, 1);
+  assert.equal((await fetch(`${live.base}/forum`, { method: 'POST', headers, body: JSON.stringify({ title: 'x', body: 'ok' }) })).status, 400);
+  assert.equal((await fetch(`${live.base}/forum/missing/replies`, { method: 'POST', headers, body: JSON.stringify({ body: 'hello' }) })).status, 404);
+  const anon = setup(false); const anonLive = await listen(anon.router); closeAfter(t, anonLive.server);
+  assert.equal((await fetch(`${anonLive.base}/forum`, { method: 'POST', headers, body: JSON.stringify({ title: 'Hello', body: 'World' }) })).status, 401);
 });
 
 test('social requests are addressed by username and messages require an accepted friendship', async (t) => {

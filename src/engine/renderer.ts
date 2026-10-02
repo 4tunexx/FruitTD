@@ -99,10 +99,22 @@ export class GameRenderer {
     const h = window.innerHeight;
     // Portrait phones need the wall lower in the playable viewport, with room
     // for the compact top HUD. Keep landscape/desktop composition unchanged.
-    this.lookZ = w / Math.max(1, h) < 0.75 ? 4 : 0.4;
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     Object.assign(this.camera, arenaFrustum(w, h, this.viewH));
+    // Frame the wall foot at the lower safe edge regardless of aspect ratio.
+    // Solve against the actual projection because a fixed look target drifts
+    // substantially between short landscape and tall portrait viewports.
+    let bestZ = this.lookZ;
+    let bestError = Infinity;
+    for (let z = -8; z <= 18; z += 0.25) {
+      this.camera.lookAt(this.panX, 0.2, z + this.panZ);
+      this.camera.updateMatrixWorld();
+      const screenY = (1 - new Vector3(0, 0.2, -9.2).project(this.camera).y) / 2;
+      const error = Math.abs(screenY - 0.93);
+      if (error < bestError) { bestError = error; bestZ = z; }
+    }
+    this.lookZ = bestZ;
     this.camera.lookAt(this.panX, 0.2, this.lookZ + this.panZ);
     this.camera.updateProjectionMatrix();
   }

@@ -3025,6 +3025,10 @@ canvas {
   }
 }
 
+/* Keep the compact match controls together at the top on every viewport. */
+#player-chip { top: calc(.5rem + env(safe-area-inset-top, 0px)); left: .65rem; max-width: calc(100vw - 1.3rem); z-index: 16; }
+
+
 /* ═══════════════════════════════════════════
    ADMIN CONTROL CENTER STYLES
 ══════════════════════════════════════════════ */
@@ -6865,3 +6869,20 @@ body.is-playing .match-parallax,
   .title-slice-bonus,
   .title-logo-impact i { animation: none; }
 }
+
+/* Match HUD layout overrides. */
+#player-chip { top: calc(.5rem + env(safe-area-inset-top, 0px)); left: .65rem; z-index: 16; }
+#super-wrap { top: calc(4.35rem + env(safe-area-inset-top, 0px)); bottom: auto; left: .65rem; right: auto; width: min(13rem, calc(100vw - 1.3rem)); height: 1.4rem; gap: .35rem; }
+#super-bar-track { height: .65rem; flex: 1; }
+#super-label { min-width: auto; font-size: .55rem; }
+#btn-super { display: none; flex: 0 0 auto; width: auto; min-height: 1.8rem; padding: .2rem .5rem; }
+#btn-super:not(:disabled) { display: block; }
+#btn-game-settings { display: grid; place-items: center; min-width: 2.3rem; min-height: 2.3rem; }
+@media (max-width: 600px) {
+  #player-chip { top: calc(.35rem + env(safe-area-inset-top, 0px)); left: .5rem; right: .5rem; max-width: none; gap: .35rem; padding: .3rem; }
+  #super-wrap { top: calc(3.65rem + env(safe-area-inset-top, 0px)); bottom: auto; left: .5rem; right: auto; width: min(12rem, calc(100vw - 1rem)); height: 1.25rem; z-index: 16; }
+  #btn-super { flex: 0 0 auto; width: auto; min-height: 1.8rem; }
+  #super-bar-track { height: .6rem; }
+}
+#hp-row .hp-heading { display:flex; align-items:center; justify-content:space-between; padding:.45rem .6rem; border:1px solid #fb7185; background:#321314; }
+#hud-hp-value { color:#fecaca; font-size:1rem; font-weight:900; }

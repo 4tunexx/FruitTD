@@ -52,6 +52,8 @@ async function getDb() {
     await db.collection("notifications").createIndex({ notificationId: 1 }, { unique: true });
     await db.collection("messages").createIndex({ conversationId: 1, createdAt: 1 });
     await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
+    await db.collection("forum_posts").createIndex({ postId: 1 }, { unique: true });
+    await db.collection("forum_posts").createIndex({ createdAt: -1 });
   } catch (err) {
     console.warn("Index creation notice:", err);
   }
@@ -2769,6 +2771,49 @@ async function notify(col, userId, actorId, actorName, type, title, body) {
 }
 function createSocialRouter(deps = defaults) {
   const router = Router10();
+  router.get("/forum", async (_req, res) => {
+    try {
+      const posts = await (await deps.collection("forum_posts")).find({}).sort({ createdAt: -1 }).limit(50).toArray();
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ success: true, posts });
+    } catch (err) {
+      console.error("Forum load failed:", err);
+      fail(res, 500, "Could not load forum");
+    }
+  });
+  router.post("/forum", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to post");
+      const title = typeof req2.body?.title === "string" ? req2.body.title.trim() : "";
+      const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
+      if (title.length < 3 || title.length > 100 || body.length < 3 || body.length > 2e3) return fail(res, 400, "Title must be 3\u2013100 characters and post 3\u20132,000 characters");
+      const post = { postId: randomUUID(), userId: user.userId, author: safeName(user), title, body, createdAt: /* @__PURE__ */ new Date(), replies: [] };
+      await (await deps.collection("forum_posts")).insertOne(post);
+      res.status(201).json({ success: true, post });
+    } catch (err) {
+      console.error("Forum post failed:", err);
+      fail(res, 500, "Could not save post");
+    }
+  });
+  router.post("/forum/:postId/replies", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to reply");
+      const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
+      if (!body || body.length > 1e3) return fail(res, 400, "Reply must contain 1\u20131,000 characters");
+      const reply = { replyId: randomUUID(), userId: user.userId, author: safeName(user), body, createdAt: /* @__PURE__ */ new Date() };
+      const posts = await deps.collection("forum_posts");
+      const post = await posts.findOne({ postId: String(req2.params.postId) });
+      if (!post) return fail(res, 404, "Post not found");
+      if ((post.replies?.length ?? 0) >= 100) return fail(res, 400, "This topic has reached its reply limit");
+      await posts.updateOne({ postId: post.postId, "replies.99": { $exists: false } }, { $push: { replies: reply } });
+      res.status(201).json({ success: true, reply });
+    } catch (err) {
+      console.error("Forum reply failed:", err);
+      fail(res, 500, "Could not save reply");
+    }
+  });
   router.get("/profiles/:username", async (req2, res) => {
     try {
       const users = await deps.collection("users");

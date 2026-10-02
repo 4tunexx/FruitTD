@@ -29,6 +29,8 @@ import { getHeroXpState } from '../../game/progression';
 import { rankFromScore } from '../../game/requirements';
 import type { SaveData } from '../../game/save';
 import { navigation, type NavState } from '../../game/navigation';
+import { getAuthToken } from '../../services/auth';
+import { socialApi } from '../../services/social';
 
 /** A tab's contextual UI: what goes in Panel 1 (main) and Panel 2 (sub). */
 export interface HubTab {
@@ -214,6 +216,15 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   root.classList.toggle('is-home', active === HUB_HOME);
 
   root.appendChild(buildHeader(save, opts));
+  if (getAuthToken()) {
+    const bell = root.querySelector<HTMLButtonElement>('[data-testid="nav-social"]');
+    void socialApi.notifications().then(({ unread }) => {
+      if (!bell?.isConnected) return;
+      const count = bell.querySelector<HTMLElement>('.ftd-hub-social__count');
+      if (count) { count.textContent = unread > 99 ? '99+' : String(unread); count.hidden = unread === 0; }
+      bell.setAttribute('aria-label', unread ? `Community, ${unread} unread notifications` : 'Community and notifications');
+    }).catch(() => {});
+  }
 
   const body = el('div', { class: 'ftd-hub__body' }, [
     el('div', { class: 'ftd-hub__main' }),

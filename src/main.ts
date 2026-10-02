@@ -1636,6 +1636,12 @@ toggleBtn.addEventListener('click', () => {
   }
 });
 resumeBtn.addEventListener('click', () => setPaused(false));
+document.getElementById('btn-game-settings')?.addEventListener('click', () => setPaused(!navigation.isPaused()));
+document.getElementById('btn-pause-mute')?.addEventListener('click', () => {
+  muteBtn.click();
+  const pauseMute = document.getElementById('btn-pause-mute');
+  if (pauseMute) pauseMute.textContent = muteBtn.dataset.muted === 'true' ? 'Unmute sound' : 'Mute sound';
+});
 restartBtn.addEventListener('click', () => restartMatch());
 quitMenuBtn.addEventListener('click', () => quitToMenu());
 retryBtn.addEventListener('click', () => restartMatch());

@@ -102,7 +102,7 @@ export class WallBase {
     const towerHpTrack = new Mesh(new PlaneGeometry(ARENA_W - 2.4, 0.34), new MeshBasicMaterial({ color: 0x210c0c, depthWrite: false, depthTest: false }));
     towerHpTrack.rotation.x = -Math.PI / 2;
     towerHpTrack.position.set(0, 0.14, WALL_Z - 1.4);
-    this.towerHpFill = new Mesh(new PlaneGeometry(ARENA_W - 2.8, 0.23), new MeshBasicMaterial({ color: 0x84cc16, depthWrite: false, depthTest: false }));
+    this.towerHpFill = new Mesh(new PlaneGeometry(ARENA_W - 2.8, 0.23), new MeshBasicMaterial({ color: 0x22c55e, depthWrite: false, depthTest: false }));
     this.towerHpFill.rotation.x = -Math.PI / 2;
     this.towerHpFill.position.set(0, 0.15, WALL_Z - 1.4);
     towerHpTrack.renderOrder = 90;
@@ -422,7 +422,7 @@ export class WallBase {
     const t = Math.max(0, Math.min(1, ratio));
     this.towerHpFill.scale.x = t;
     this.towerHpFill.position.x = -((ARENA_W - 2.8) / 2) * (1 - t);
-    (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf43f5e : t <= 0.6 ? 0xf59e0b : 0x84cc16);
+    (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xef4444 : t <= 0.6 ? 0xf59e0b : 0x22c55e);
   }
 
   damageFeedback(): void {

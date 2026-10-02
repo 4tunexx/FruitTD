@@ -1,6 +1,6 @@
 import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, createElement } from 'lucide';
 import { getAuthToken } from '../../services/auth';
-import { socialApi, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
+import { socialApi, type ForumPost, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
 import { el, clear } from '../components/dom';
 import { back } from './registry';
 
@@ -41,6 +41,42 @@ export function renderSocial(root: HTMLElement): void {
   const inboxPanel = el('section', { class: 'ftd-social__panel ftd-social__panel--wide' });
   layout.append(friendsPanel, profilesPanel, inboxPanel);
   root.appendChild(layout);
+  const forumPanel = el('section', { class: 'ftd-social__panel ftd-social__forum' }, [el('div', { class: 'ftd-social__panel-title' }, [icon(MessageCircle), el('h2', { text: 'Forum' })])]);
+  root.appendChild(forumPanel);
+  const postForm = el('form', { class: 'ftd-social__forum-form' });
+  const postTitle = el('input', { type: 'text', maxlength: '100', placeholder: 'Topic title', 'aria-label': 'Topic title' }) as HTMLInputElement;
+  const postBody = el('textarea', { maxlength: '2000', rows: '3', placeholder: 'Share with the community…', 'aria-label': 'Post body' }) as HTMLTextAreaElement;
+  const postButton = el('button', { type: 'submit', class: 'ftd-social__button', text: 'Post topic' });
+  postForm.append(postTitle, postBody, postButton);
+  forumPanel.appendChild(postForm);
+  const postsHost = el('div', { class: 'ftd-social__posts', 'aria-live': 'polite' });
+  forumPanel.appendChild(postsHost);
+  const loadForum = async () => {
+    const { posts } = await socialApi.forum();
+    clear(postsHost);
+    if (!posts.length) postsHost.appendChild(el('p', { class: 'ftd-social__empty', text: 'No topics yet. Start the conversation.' }));
+    for (const post of posts as ForumPost[]) {
+      const article = el('article', { class: 'ftd-social__post' }, [el('h3', { text: post.title }), el('small', { text: `@${post.author} · ${new Date(post.createdAt).toLocaleString()}` }), el('p', { text: post.body })]);
+      for (const reply of post.replies ?? []) article.appendChild(el('div', { class: 'ftd-social__reply' }, [el('strong', { text: `@${reply.author}` }), el('p', { text: reply.body })]));
+      const replyForm = el('form', { class: 'ftd-social__add' });
+      const replyInput = el('input', { type: 'text', maxlength: '1000', placeholder: 'Write a reply…', 'aria-label': `Reply to ${post.title}` }) as HTMLInputElement;
+      const replyButton = el('button', { type: 'submit', class: 'ftd-social__mini-button', text: 'Reply' });
+      replyForm.append(replyInput, replyButton);
+      replyForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); if (!replyInput.value.trim()) return;
+        replyButton.setAttribute('disabled', '');
+        try { await socialApi.reply(post.postId, replyInput.value.trim()); await loadForum(); }
+        catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not save reply.', true); replyButton.removeAttribute('disabled'); }
+      });
+      article.appendChild(replyForm); postsHost.appendChild(article);
+    }
+  };
+  postForm.addEventListener('submit', async (event) => {
+    event.preventDefault(); postButton.setAttribute('disabled', '');
+    try { await socialApi.createPost(postTitle.value.trim(), postBody.value.trim()); postTitle.value = ''; postBody.value = ''; await loadForum(); }
+    catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not save post.', true); }
+    finally { postButton.removeAttribute('disabled'); }
+  });
 
   const renderFriends = () => {
     clear(friendsPanel);
@@ -178,6 +214,6 @@ export function renderSocial(root: HTMLElement): void {
   inboxPanel.appendChild(el('div', { class: 'ftd-social__panel-title' }, [icon(MessageCircle), el('h2', { text: 'Messages' })]));
   inboxPanel.appendChild(el('p', { class: 'ftd-social__empty', text: 'Select a friend to open your inbox.' }));
   renderFriends();
-  void Promise.all([loadFriends(), loadNotifications()]).catch((error) => message(noticeHost, error instanceof Error ? error.message : 'Social services are temporarily unavailable.', true));
+  void Promise.all([loadFriends(), loadNotifications(), loadForum()]).catch((error) => message(noticeHost, error instanceof Error ? error.message : 'Social services are temporarily unavailable.', true));
 }
 import './social.css';
