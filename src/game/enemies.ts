@@ -1,7 +1,7 @@
 import type { FruitKind } from './fruits';
 
 /** Special enemy behaviour layered on top of normal fruit targets. */
-export type EnemyKind = 'normal' | 'explosive' | 'armored' | 'splitter' | 'swift';
+export type EnemyKind = 'normal' | 'explosive' | 'chainburst' | 'armored' | 'splitter' | 'swift';
 
 export interface EnemyRule {
   kind: EnemyKind;
@@ -35,6 +35,14 @@ export const ENEMY_RULES: Record<EnemyKind, EnemyRule> = {
     warning: 'CHEM-BURST — TURRETS ONLY · DO NOT SLICE',
     towerDamageOnLeak: 3, towerDamageOnHit: 2, hpMultiplier: 0.5, speedMultiplier: 1.15,
     scoreMultiplier: 1.7, xpMultiplier: 2, colour: 0xff5533,
+  },
+  chainburst: {
+    kind: 'chainburst', label: 'Pulp-Popper',
+    description: 'Destroy it near a pack to splash damage into neighboring fruit. Its blast never harms the wall.',
+    flavor: 'Pulp-Popper — time the kill for a chain reaction.',
+    warning: 'PULP-POPPER — DETONATE NEAR A PACK',
+    towerDamageOnLeak: 1, towerDamageOnHit: 0, hpMultiplier: 0.8, speedMultiplier: 1.05,
+    scoreMultiplier: 1.3, xpMultiplier: 1.3, colour: 0xb4ff3a,
   },
   armored: {
     kind: 'armored', label: 'Rind-Plate',
@@ -74,6 +82,7 @@ export function specialEnemyForWave(wave: number, roll: number): EnemyKind {
   if (wave >= 8 && r < 0.12) return 'armored';
   if (wave >= 5 && r < 0.22) return 'swift';
   if (wave >= 4 && r < 0.31) return 'explosive';
+  if (wave >= 6 && r < 0.38) return 'chainburst';
   return 'normal';
 }
 

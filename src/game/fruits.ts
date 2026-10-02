@@ -139,6 +139,8 @@ function paintStatic(fruit: Fruit, def: FruitDef): void {
     mat.color.setHex(0x9aa4b2);
   } else if (!adminTexture && fruit.enemyKind === 'swift') {
     mat.color.setHex(0x55d8ff);
+  } else if (!adminTexture && fruit.enemyKind === 'chainburst') {
+    mat.color.setHex(0xb4ff3a);
   } else {
     mat.color.setHex(mat.map ? 0xffffff : def.color);
   }
@@ -166,7 +168,7 @@ function applyStudioTexture(fruit: Fruit, dt: number, vx: number, vz: number): v
   if (!fruit.studio.active) {
     if (fruit.studio.flashT > 0) {
       fruit.studio.flashT = Math.max(0, fruit.studio.flashT - dt);
-      mat.color.setHex(fruit.studio.flashT > 0 ? 0xffe08a : (fruit.enemyKind === 'explosive' ? 0xff6644 : 0xffffff));
+      mat.color.setHex(fruit.studio.flashT > 0 ? 0xffe08a : fruit.enemyKind === 'explosive' ? 0xff6644 : fruit.enemyKind === 'chainburst' ? 0xb4ff3a : 0xffffff);
     }
     return;
   }
@@ -244,7 +246,8 @@ export class FruitField {
     idle.splitChild = false;
     resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind, bossStage });
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
-    idle.hazardRing.visible = idle.enemyKind === 'explosive';
+    idle.hazardRing.visible = idle.enemyKind === 'explosive' || idle.enemyKind === 'chainburst';
+    (idle.hazardRing.material as MeshBasicMaterial).color.setHex(idle.enemyKind === 'chainburst' ? 0xb4ff3a : 0xff3b30);
     idle.armorRing.visible = idle.enemyKind === 'armored';
     idle.group.position.set(x, boss ? 1.05 : 0.7, z); idle.spin.set(0, 1.4 + Math.random(), 0);
     idle.bob = Math.random() * Math.PI * 2; idle.squash = 0; layoutHp(idle, 1); paint(idle, def);

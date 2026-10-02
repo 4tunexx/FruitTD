@@ -34,7 +34,9 @@ test('bomb and boss leak damage scales by wave tiers and has a hard cap', () => 
 
 test('enemy kinds stay stable with fruit-zombie fantasy labels', () => {
   const kinds = Object.keys(ENEMY_RULES).sort();
-  assert.deepEqual(kinds, ['armored', 'explosive', 'normal', 'splitter', 'swift']);
+  assert.deepEqual(kinds, ['armored', 'chainburst', 'explosive', 'normal', 'splitter', 'swift']);
+  assert.equal(specialEnemyForWave(6, 0.35), 'chainburst');
+  assert.equal(ENEMY_RULES.chainburst.label, 'Pulp-Popper');
   assert.equal(ENEMY_RULES.explosive.label, 'Chem-Burst');
   assert.match(ENEMY_RULES.explosive.warning, /CHEM-BURST/);
   assert.equal(ENEMY_RULES.armored.label, 'Rind-Plate');

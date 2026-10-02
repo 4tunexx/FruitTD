@@ -20,7 +20,8 @@ export type RewardEventType =
   | 'bomb_parry'
   | 'reslice'
   | 'match_completed'
-  | 'game_over';
+  | 'game_over'
+  | 'loot_drop';
 
 export interface RewardEvent {
   type: RewardEventType;
@@ -36,6 +37,9 @@ export interface RewardEvent {
   /** Configured campaign boss bounty, still checked against server run caps. */
   coinsOverride?: number;
   gemsOverride?: number;
+  lootCoins?: number;
+  lootGems?: number;
+  lootFruts?: number;
 }
 
 /** The single shape every reward flows through. */
@@ -121,7 +125,9 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       score = base * rule.scoreMultiplier * comboMul * lastStand;
       heroXp = (event.boss ? 4 : 1) * rule.xpMultiplier;
       towerXp = score / 6;
-      coins = score * 0.6;
+      // Ordinary kills fund artillery with Fruts. Permanent coins come from
+      // wave rewards, bosses and occasional fruit drops.
+      coins = 0;
       break;
     }
     case 'boss_defeated': {
@@ -142,14 +148,14 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       score = base * comboMul * lastStand;
       heroXp = 1;
       towerXp = score / 6;
-      coins = score * 0.6;
+      coins = 0;
       break;
     }
     case 'reslice': {
       const gen = Math.max(1, Math.floor(event.generation ?? 1));
       score = 4 * gen * comboMul;
       towerXp = score / 6;
-      coins = score * 0.6;
+      coins = 0;
       break;
     }
     case 'combo_milestone': {
@@ -157,7 +163,7 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       if (!tier) return { ...EMPTY_REWARD, reason: event.type };
       score = tier.bonusScore * mods.comboRewardMultiplier;
       heroXp = tier.bonusHeroXp;
-      coins = tier.bonusScore * 0.3;
+      coins = 0;
       break;
     }
     case 'wave_cleared': {
@@ -165,7 +171,7 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       score = 20 + wave * 10;
       heroXp = 3 + Math.floor(wave / 2);
       towerXp = 8 + wave * 2;
-      coins = 10 + wave * 3;
+      coins = 8 + Math.min(20, Math.floor(wave / 5) * 2);
       break;
     }
     case 'perfect_wave': {
@@ -174,15 +180,20 @@ export function calculateReward(event: RewardEvent, mods: RewardModifiers = defa
       score = bonus * 4;
       heroXp = Math.max(2, Math.round(bonus / 2));
       towerXp = bonus;
-      coins = bonus;
+      coins = 3;
       break;
     }
     case 'match_completed':
     case 'game_over': {
       const finalScore = Math.max(0, event.score ?? 0);
-      coins = Math.max(2, finalScore / 18);
+      coins = Math.min(80, Math.max(2, finalScore / 100));
       heroXp = Math.max(1, finalScore / 400);
       towerXp = Math.max(1, finalScore / 200);
+      break;
+    }
+    case 'loot_drop': {
+      coins = Math.min(3, Math.max(0, event.lootCoins ?? 0));
+      gems = Math.min(1, Math.max(0, event.lootGems ?? 0));
       break;
     }
   }

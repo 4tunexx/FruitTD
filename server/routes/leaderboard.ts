@@ -212,7 +212,9 @@ router.post('/', async (req: Request, res: Response) => {
         heroXp: Math.min(10_000, Math.ceil(score / 5 + (wave || 1) * 100 + 100)),
         towerXp: Math.min(10_000, Math.ceil(score / 3 + (wave || 1) * 150 + 100)),
         skillPoints: Math.min(100, Math.ceil(score / 1000) + 5),
-        gems: Math.min(100, Math.floor((wave || 0) / 5)),
+        // Boss bounties plus one rare gem per 100 kills; match receipts are
+        // still token-bound and each reward is credited only once.
+        gems: Math.min(100, Math.floor((wave || 0) / 5) + Math.floor((fruitsSliced || 0) / 100)),
       };
       if (keys.some((key) => rewards[key] > rewardCaps[key as keyof typeof rewardCaps]) || (rewards.gems ?? 0) > rewardCaps.gems) {
         return res.status(422).json({ success: false, error: 'Run rewards exceed the score and wave limits' });

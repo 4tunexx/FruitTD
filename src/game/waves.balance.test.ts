@@ -34,3 +34,9 @@ test('five boss archetypes rotate through campaign stages with distinct traits',
   assert.deepEqual(firstFive.map((wave) => wave.items[0].enemy), ['normal', 'swift', 'armored', 'splitter', 'normal']);
   assert.deepEqual(firstFive.map((wave) => wave.items[0].bossStage), [1, 2, 3, 4, 5]);
 });
+
+test('early waves teach safe chain explosions alongside turret-only hazards', () => {
+  const fourth = planWave(4, 'campaign', 1, 4, 5);
+  assert.ok(fourth.items.some((enemy) => enemy.enemy === 'chainburst'));
+  assert.ok(fourth.items.some((enemy) => enemy.enemy === 'explosive'));
+});

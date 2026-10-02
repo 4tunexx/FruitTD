@@ -28,6 +28,8 @@ import { currentRewardModifiers } from './game/progression/modifiers';
 import type { ComboResetReason } from './game/progression/combo';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
+import { fruitLoot, frutsForEvent } from './game/matchEconomy';
+import { detonatePulpPopper } from './game/chainBurst';
 import { campaignBoss, campaignWaves } from './game/campaign';
 import { BladeTrail } from './game/trail';
 import { StrokeContacts } from './game/strokeContacts';
@@ -152,6 +154,7 @@ setCreatorVfxCallbacks({
 
 let guestCd = 1.6;
 let totalFruitsSliced = 0;
+let lootEligibleKills = 0;
 let sessionMaxCombo = 0;
 let sessionLeaks = 0;
 let rewardSavePending = false;
@@ -590,7 +593,7 @@ function award(event: RewardEvent): ProgressionResult {
 
   // Score and in-match currency live on the match state, not the save.
   state.score += reward.score;
-  state.currency += Math.max(0, Math.round(reward.score * 0.6));
+  state.currency += frutsForEvent(event, modeRules(state.mode).currencyMul);
 
   const result = applyRewards(save, reward, { heroId: state.hero });
   matchRewards.coins = Math.min(100_000, matchRewards.coins + result.coinsGained);
@@ -604,15 +607,15 @@ function award(event: RewardEvent): ProgressionResult {
   state.towerXpToNext = towerState.nextLevelXp;
   state.towerXpProgress = towerState.progress;
 
-  announceProgression(result);
+  announceProgression(result, event.type);
   // Multiple contacts in a frame share one persistence/UI boundary.
   rewardSavePending = true;
   return result;
 }
 
 /** UI FEEDBACK step: level-ups, milestones and hero unlocks. */
-function announceProgression(result: ProgressionResult): void {
-  if (result.gemsGained > 0) toast(state, `+${result.gemsGained} GEM${result.gemsGained > 1 ? 'S' : ''} · BOSS BOUNTY`, 2.2);
+function announceProgression(result: ProgressionResult, reason: RewardEvent['type']): void {
+  if (result.gemsGained > 0) toast(state, `+${result.gemsGained} GEM${result.gemsGained > 1 ? 'S' : ''} · ${reason === 'loot_drop' ? 'RARE FRUIT' : 'BOSS BOUNTY'}`, 2.2);
   if (result.heroLeveledUp) {
     const heroName = heroDef(result.heroId).name;
     const parts = [`${heroName} Lv ${result.heroLevelAfter}`];
@@ -644,7 +647,7 @@ function announceProgression(result: ProgressionResult): void {
   }
 }
 
-function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
+function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): void {
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   debris.spawnPair(fruit, swipe, cutNormal);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
@@ -693,6 +696,14 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   combos.onKills(1);
   recordWaveKill(state, fruit.splitChild);
   totalFruitsSliced += 1;
+  if (!fruit.splitChild && !fruit.boss) {
+    const loot = fruitLoot(++lootEligibleKills);
+    if (loot.fruts || loot.coins || loot.gems) {
+      award({ type: 'loot_drop', lootFruts: loot.fruts, lootCoins: loot.coins, lootGems: loot.gems });
+      const drops = [loot.fruts && `+${loot.fruts} FRUTS`, loot.coins && `+${loot.coins} COINS`, loot.gems && `+${loot.gems} GEM`].filter(Boolean).join(' · ');
+      floatingScore.spawn(drops, scr.nx, scr.ny - 3, 'special');
+    }
+  }
   if (fruitFamily(fruit.kind) === 'melon') renderer.impulseShake(1.15);
 
   const family = fruitFamily(fruit.kind);
@@ -707,6 +718,13 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1): void {
   }
   emit({ type: 'slash_damage', damage: Math.max(1, FRUIT_DEFS[fruit.kind].hp), score: scoreReward });
   emit({ type: 'juice', amount: juiceAmt });
+  if (fruit.enemyKind === 'chainburst' && chainDepth < 3) {
+    const x = fruit.group.position.x;
+    const z = fruit.group.position.z;
+    slashFx.spawn(x, z, 0xb4ff3a);
+    renderer.impulseShake(0.35);
+    detonatePulpPopper(fruits, fruit, (other) => killFruit(other, swipe, 1.1, chainDepth + 1));
+  }
 }
 
 function showGameOverOverlay(): void {
@@ -809,7 +827,7 @@ function tryPlace(kind: TurretKind): void {
   }
   const def = turretDef(kind);
   if (state.currency < def.cost) {
-    toast(state, 'Need more money');
+    toast(state, 'Need more Fruts');
     sfx.denied();
     return;
   }
@@ -831,7 +849,7 @@ function tryUpgrade(): void {
     return;
   }
   if (state.currency < cost) {
-    toast(state, 'Need more money');
+    toast(state, 'Need more Fruts');
     sfx.denied();
     return;
   }
@@ -876,6 +894,7 @@ function restart(): void {
   wall.cancelMove();
   guestCd = 1.6;
   totalFruitsSliced = 0;
+  lootEligibleKills = 0;
   matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
   sessionMaxCombo = 0;
   sessionLeaks = 0;
@@ -889,6 +908,9 @@ function restart(): void {
     window.setTimeout(() => {
       if (navigation.isPlaying() && state.running) toast(state, 'Slash fruit. Click a pad to build.', 2.4);
     }, 2600);
+    window.setTimeout(() => {
+      if (navigation.isPlaying() && state.running) toast(state, 'Fruts build artillery. Coins and gems buy shop gear.', 3);
+    }, 5400);
   }
 }
 

@@ -448,12 +448,12 @@ test('coins are capped so rewards cannot overflow the economy', () => {
   assert.ok(save.coins <= 1_000_000);
 });
 
-test('game over converts final score into coins exactly once', () => {
+test('game over grants a bounded shop coin payout exactly once', () => {
   const save = freshSave();
   const reward = calculateReward({ type: 'game_over', score: 1800 });
-  assert.equal(reward.coins, 100);
+  assert.equal(reward.coins, 18);
   applyRewards(save, reward);
-  assert.equal(save.coins, 100);
+  assert.equal(save.coins, 18);
 });
 
 /* ───────────────────────── Combo (§8) ───────────────────────── */

@@ -122,6 +122,19 @@ test('a consumed run settles bounded kill, wave, and match rewards into the clou
   assert.equal(wallet.saveData.coins, 550);
 });
 
+test('a rare fruit gem settles only after the run records 100 kills', async (t) => {
+  const { deps, wallet } = setup();
+  const { server, base } = await listen(createLeaderboardRouter(deps));
+  closeAfter(t, server);
+  const start = await fetch(`${base}/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'casual' }) });
+  const { runToken } = await start.json();
+  const rewards = { coins: 3, gems: 1, heroXp: 4, towerXp: 4, skillPoints: 0 };
+  const send = (fruitsSliced: number) => fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname: 'Slicer', hero: 'jiju', mode: 'casual', score: 1200, wave: 1, fruitsSliced, runToken, rewards }) });
+  assert.equal((await send(99)).status, 422);
+  assert.equal((await send(100)).status, 200);
+  assert.equal(wallet.saveData.gems, 1);
+});
+
 test('run settlement rejects rewards beyond the score and wave allowance', async (t) => {
   const { deps, wallet } = setup();
   const { server, base } = await listen(createLeaderboardRouter(deps));

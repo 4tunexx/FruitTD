@@ -1027,7 +1027,7 @@ export class Hud {
     playActive = false
   ): void {
     this.score.textContent = String(state.score);
-    this.currency.textContent = `$${state.currency}`;
+    this.currency.textContent = `${state.currency} F`;
     this.lives.textContent = String(state.lives);
     this.wave.textContent = String(state.wave);
     this.fps.textContent = `${Math.round(fps)} FPS`;
@@ -1114,7 +1114,7 @@ export class Hud {
       this.shop.classList.add('hidden');
       this.upgrade.classList.remove('hidden');
       this.sell.classList.remove('hidden');
-      this.sell.textContent = `Sell  +$${sellRefund(slot.kind, slot.level)}`;
+      this.sell.textContent = `Sell  +${sellRefund(slot.kind, slot.level)} F`;
       this.move.classList.remove('hidden');
       this.move.textContent = 'Move  M';
       this.toggle.classList.toggle('hidden', slot.kind !== 'blender');
@@ -1132,7 +1132,7 @@ export class Hud {
         const affordable = state.currency >= def.cost;
         const fits = canPlaceTurret(kind, pad);
         btn.disabled = !fits || !affordable;
-        btn.textContent = `${def.name}  $${def.cost}${fits ? '' : '  (floor only)'}${!affordable && fits ? '  insufficient' : ''}`;
+        btn.textContent = `${def.name}  ${def.cost} F${fits ? '' : '  (floor only)'}${!affordable && fits ? '  insufficient' : ''}`;
       }
     }
 
@@ -1168,7 +1168,7 @@ export class Hud {
       this.upgrade.toggleAttribute('disabled', true);
       return;
     }
-    this.upgrade.textContent = `Level up ${label}  $${cost}`;
+    this.upgrade.textContent = `Level up ${label}  ${cost} F`;
     this.upgrade.toggleAttribute('disabled', money < cost);
   }
 

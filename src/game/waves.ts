@@ -54,6 +54,7 @@ function mix(wave: number, count: number): SpawnItem[] {
 
     const enemy = specialEnemyForWave(wave, Math.random());
     if (enemy === 'explosive') fruit = 'bomb';
+    else if (enemy === 'chainburst') fruit = 'orange';
     else if (enemy === 'armored') fruit = 'watermelon';
     else if (enemy === 'swift') fruit = 'strawberry';
     else if (enemy === 'splitter') fruit = 'pineapple';
@@ -74,8 +75,9 @@ function planTitle(level: number, waveInLevel: number, totalWavesInLevel: number
   const base = `LEVEL ${level}  ·  WAVE ${waveInLevel}/${totalWavesInLevel}`;
   const specials = new Set(items.map((i) => i.enemy).filter((e): e is EnemyKind => !!e && e !== 'normal'));
   if (specials.has('explosive')) {
-    return { title: base, subtitle: 'Chem-Burst inbound — cut clean' };
+    return { title: base, subtitle: 'Chem-Burst inbound — turrets only, do not slice' };
   }
+  if (specials.has('chainburst')) return { title: base, subtitle: 'Pulp-Popper — detonate near a pack' };
   if (specials.has('splitter')) {
     return { title: base, subtitle: 'Pod-Spawner nest spotted' };
   }
@@ -133,6 +135,7 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
     add(items, 'watermelon', 2);
     add(items, 'strawberry', 4);
     add(items, 'banana', 3);
+    add(items, 'orange', 1, false, 'chainburst');
     add(items, 'bomb', 1, false, 'explosive');
   } else {
     const count = Math.min(28, 8 + w * 2);

@@ -17,6 +17,7 @@ export const FRUIT_KIND_OPTIONS: FruitKind[] = [
 export const ENEMY_KIND_OPTIONS: { kind: EnemyKind; label: string }[] = [
   { kind: 'normal', label: 'Rot-Walker' },
   { kind: 'explosive', label: 'Chem-Burst' },
+  { kind: 'chainburst', label: 'Pulp-Popper' },
   { kind: 'armored', label: 'Rind-Plate' },
   { kind: 'splitter', label: 'Pod-Spawner' },
   { kind: 'swift', label: 'Juice-Runner' },
