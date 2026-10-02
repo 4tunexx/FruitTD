@@ -1539,6 +1539,22 @@ function simulate(dt: number): void {
     emit({ type: 'leak', amount: 1, leaks: sessionLeaks, fruitKind: fruit.kind });
     maybeOver();
   });
+  const bossHealth = document.getElementById('boss-health');
+  const activeBoss = fruits.fruits.find((fruit) => fruit.alive && fruit.boss);
+  if (bossHealth) {
+    bossHealth.classList.toggle('hidden', !activeBoss || !navigation.isInGame());
+    if (activeBoss) {
+      const percent = Math.max(0, Math.min(100, Math.ceil(activeBoss.hp / activeBoss.maxHp * 100)));
+      const name = state.mode === 'campaign' ? campaignBoss(state.level, getLiveConfig().campaignBosses).name : 'OVERLORD';
+      const label = document.getElementById('boss-health-name');
+      const value = document.getElementById('boss-health-value');
+      const fill = document.getElementById('boss-health-fill') as HTMLElement | null;
+      if (label && label.textContent !== name) label.textContent = name;
+      if (value) value.textContent = `${percent}%`;
+      if (fill) fill.style.width = `${percent}%`;
+      bossHealth.setAttribute('aria-valuenow', String(percent));
+    }
+  }
 
   tickGuest(dt);
 

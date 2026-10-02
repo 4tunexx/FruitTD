@@ -6886,3 +6886,12 @@ body.is-playing .match-parallax,
 }
 #hp-row .hp-heading { display:flex; align-items:center; justify-content:space-between; padding:.45rem .6rem; border:1px solid #fb7185; background:#321314; }
 #hud-hp-value { color:#fecaca; font-size:1rem; font-weight:900; }
+/* Boss HP stays legible while the boss moves under the camera. */
+#boss-health { position:absolute; top:calc(1rem + env(safe-area-inset-top, 0px)); left:50%; transform:translateX(-50%); width:min(24rem,calc(100vw - 2rem)); z-index:15; padding:.6rem .75rem; border:2px solid #f97316; background:rgba(28,12,8,.94); box-shadow:0 5px 0 #190b06,0 0 22px #f9731650; color:#ffedd5; }
+#boss-health.hidden { display:none; }
+.boss-health__heading { display:flex; justify-content:space-between; gap:.5rem; align-items:center; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }
+#boss-health-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#boss-health-value { color:#fdba74; font-variant-numeric:tabular-nums; }
+.boss-health__track { height:.65rem; margin-top:.45rem; border:1px solid #fdba74; background:#381612; overflow:hidden; }
+#boss-health-fill { height:100%; width:100%; background:linear-gradient(90deg,#dc2626,#fb923c); transition:width .15s ease-out; }
+@media(max-width:860px) { #boss-health { top:calc(6rem + env(safe-area-inset-top, 0px)); left:.5rem; transform:none; width:min(17rem,calc(100vw - 1rem)); padding:.4rem .55rem; } .boss-health__heading { font-size:.65rem; } }

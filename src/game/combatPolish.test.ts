@@ -29,10 +29,14 @@ describe('combat polish regressions', () => {
     assert.equal(fruit.hpBack.geometry.type, 'PlaneGeometry');
     assert.equal(fruit.hpBar.geometry.type, 'PlaneGeometry');
     assert.ok(fruit.hpBar.renderOrder > fruit.hpBack.renderOrder);
-    assert.equal(fruit.hpBack.scale.x * fruit.radius, 2);
+    assert.equal(fruit.hpBack.scale.x * fruit.radius, 1.05);
+    assert.equal(fruit.hpBack.visible, false);
     const initialWidth = fruit.hpBar.scale.x;
     field.hurt(fruit, fruit.hp / 2);
+    assert.equal(fruit.hpBack.visible, true);
     assert.ok(fruit.hpBar.scale.x < initialWidth);
+    const boss = field.spawn('watermelon', true)!;
+    assert.equal(boss.hpBack.visible, true);
   });
 
   it('trail geometry updates GPU-backed positions and resets cleanly', async () => {

@@ -60,9 +60,12 @@ const ARMOR_GEO = new BoxGeometry(1.4, 0.2, 1.4);
 
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
-  const barY = fruit.boss ? 1.6 / s : 1.35 / s;
-  const barW = fruit.boss ? 3 / s : 2 / s;
-  const barH = fruit.boss ? 0.3 / s : 0.24 / s;
+  const barY = fruit.boss ? 1.7 / s : 1.1 / s;
+  const barW = fruit.boss ? 2.3 / s : 1.05 / s;
+  const barH = fruit.boss ? 0.17 / s : 0.11 / s;
+  // Full ordinary bars fill the battlefield without conveying a decision.
+  // Reveal the bar on damage; bosses retain their own always-on meter.
+  fruit.hpBack.visible = fruit.hpBar.visible = fruit.boss || t < 0.999;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, 1);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);
