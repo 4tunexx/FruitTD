@@ -12,7 +12,12 @@ export function renderCoopLobby(root: HTMLElement, startLocal: () => void): void
   root.appendChild(card);
   const status = el('p', { class: 'ftd-coop-lobby__status', role: 'status', 'aria-live': 'polite' });
   const area = el('div', { class: 'ftd-coop-lobby__area' });
-  card.append(status, area);
+  const local = el('aside', { class: 'ftd-coop-lobby__local' }, [
+    el('p', { class: 'ftd-playcard__eyebrow', text: 'PLAY RIGHT NOW' }),
+    el('h3', { text: 'Local guest assist' }),
+    el('p', { text: 'Defend together on this device with a second player. No account or room code needed.' }),
+  ]);
+  card.append(status, el('div', { class: 'ftd-coop-lobby__columns' }, [area, local]));
   let room: CoopLobby | null = null;
   let selfId = '';
   let busy = false;
@@ -63,8 +68,8 @@ export function renderCoopLobby(root: HTMLElement, startLocal: () => void): void
       const code = el('input', { type: 'text', maxlength: '8', placeholder: 'Invite code', 'aria-label': 'Invite code' }) as HTMLInputElement;
       area.append(code, button('Join by code', () => action(() => lobbyApi.join(code.value), 'Joined room')));
     }
-    area.appendChild(el('p', { class: 'ftd-coop-lobby__note', text: 'Want to play now? Local guest assist runs on this device.' }));
-    area.appendChild(button('Play local Co-op', startLocal));
+    local.querySelector('.ftd-coop-lobby__button')?.remove();
+    local.appendChild(button('Play local Co-op', startLocal));
   };
 
   const refresh = async () => {

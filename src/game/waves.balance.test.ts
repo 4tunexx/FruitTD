@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { planWave, planBossWave } from './waves';
+import { planWave, planBossWave, wavesPerLevel } from './waves';
+import { MODE_INFO } from './modes';
+
+test('every selectable mode generates a playable opening wave', () => {
+  for (const mode of MODE_INFO) {
+    const plan = planWave(1, mode.id, 1, 1, wavesPerLevel(1, mode.id));
+    assert.ok(plan.items.length > 0, `${mode.name} has enemies`);
+    assert.ok(plan.items.every((item) => item.kind), `${mode.name} has valid enemies`);
+    assert.ok(Number.isFinite(plan.gap) && plan.gap > 0, `${mode.name} spawn timing`);
+    assert.ok(Number.isFinite(plan.hpScale) && plan.hpScale > 0, `${mode.name} enemy health`);
+  }
+  assert.equal(planWave(1, 'horde', 1, 1, 5).boss, false);
+  assert.ok(planWave(1, 'arena', 1, 1, 5).gap < planWave(1, 'casual', 1, 1, 5).gap);
+});
 
 test('late Casual and Horde waves retain ordinary targets instead of becoming all bombs', () => {
   const random = Math.random;

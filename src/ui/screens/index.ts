@@ -12,18 +12,15 @@ import './campaign.css';
 import { registerScreen, installScreenRouter, installNavLinks, installEscHandler } from './registry';
 import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubOptions } from './hub';
 import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab, coopHubTab } from './hubTabs';
-import { renderNews } from './news';
-import { renderSettings } from './settings';
-import { renderCampaign } from './campaign';
+import { menuHubTabs } from './menuHubTabs';
 import { navigation, type NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
 import type { HeroId } from '../../game/heroes';
 import type { ProfileStats } from './profile';
 import { loadLiveConfig } from '../../services/liveConfig';
-import { LEGACY_MENU_PAGES, showLegacyMenuPage } from './legacyMenu';
 
 /** Nav states painted inside the persistent hub shell (Panels 1–4), rather than as their own screen host. */
-const HUB_TAB_STATES: readonly NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'CO_OP'];
+const HUB_TAB_STATES: readonly NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'CO_OP', 'NEWS', 'SETTINGS', 'CAMPAIGN', 'SOCIAL', 'MESSAGES', 'NOTIFICATIONS', 'MISSIONS', 'ACHIEVEMENTS', 'RANKED'];
 
 export interface ScreenHostCallbacks {
   /** Latest save — read fresh on every render so screens never show stale data. */
@@ -94,42 +91,6 @@ function renderFor(state: NavState): void {
     return;
   }
 
-  switch (state) {
-    case 'NEWS': {
-      const root = host('screen-news');
-      if (root) renderNews(root, save, callbacks.onOpenDaily);
-      break;
-    }
-    case 'SETTINGS': {
-      const root = host('screen-settings');
-      if (root) renderSettings(root, save, { onToggleSound: callbacks.onToggleSound, onLogout: callbacks.onLogout });
-      break;
-    }
-    case 'CAMPAIGN': {
-      const root = host('screen-campaign');
-      if (root) renderCampaign(root, save, callbacks.onStartCampaign ?? (() => undefined));
-      break;
-    }
-    case 'SOCIAL': {
-      const root = host('screen-social');
-      if (root) void import('./social').then(({ renderSocial }) => {
-        if (navigation.state === 'SOCIAL' && !root.classList.contains('hidden')) renderSocial(root);
-      }).catch(() => {
-        if (navigation.state !== 'SOCIAL' || root.classList.contains('hidden')) return;
-        root.replaceChildren();
-        const fallback = document.createElement('section');
-        fallback.className = 'ftd-social__gate';
-        const title = document.createElement('h2'); title.textContent = 'Community could not load';
-        const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Try again';
-        retry.addEventListener('click', () => renderFor('SOCIAL'));
-        fallback.append(title, retry);
-        root.appendChild(fallback);
-      });
-      break;
-    }
-    default:
-      break;
-  }
 }
 
 function hubOptions(): HubOptions {
@@ -157,6 +118,13 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
   registerHubTab(shopHubTab({ onBuy: cb.onBuyItem }));
   registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}, cb.onPlay));
   registerHubTab(coopHubTab(() => { cb.onSelectMode?.('coop'); cb.onPlay(); }));
+  for (const tab of menuHubTabs({
+    onOpenDaily: cb.onOpenDaily,
+    onToggleSound: cb.onToggleSound,
+    onLogout: cb.onLogout,
+    onStartCampaign: cb.onStartCampaign ?? (() => undefined),
+    showLobbyPage: cb.showLobbyPage ?? (() => undefined),
+  })) registerHubTab(tab);
 
   // One shared host for every hub tab. Tabs are siblings, not overlays of
   // each other — only one hub tab is ever on screen, so each is registered
@@ -171,47 +139,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
     });
   }
 
-  registerScreen({
-    id: 'NEWS',
-    elementId: 'screen-news',
-    overlay: true,
-    onEnter: () => renderFor('NEWS'),
-  });
-  registerScreen({
-    id: 'SETTINGS',
-    elementId: 'screen-settings',
-    overlay: true,
-    onEnter: () => renderFor('SETTINGS'),
-  });
-  registerScreen({
-    id: 'CAMPAIGN',
-    elementId: 'screen-campaign',
-    overlay: true,
-    onEnter: () => renderFor('CAMPAIGN'),
-  });
-  registerScreen({
-    id: 'SOCIAL',
-    elementId: 'screen-social',
-    overlay: true,
-    onEnter: () => renderFor('SOCIAL'),
-  });
-
-  // Legacy lobby pages: one element, different page per nav state.
-  for (const { id } of LEGACY_MENU_PAGES) {
-    registerScreen({
-      id,
-      overlay: true,
-      // A shared host must have one owner, not competing per-screen hide callbacks.
-      setVisible: () => undefined,
-    });
-  }
-
   installScreenRouter();
-  const showLegacy = (state: NavState) => {
-    showLegacyMenuPage(state, host('hud-start'), cb.showLobbyPage ?? (() => undefined));
-  };
-  navigation.onChange((change) => showLegacy(change.to));
-  showLegacy(navigation.state);
   installNavLinks();
   installEscHandler();
   navigation.installHistoryIntegration();

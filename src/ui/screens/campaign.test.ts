@@ -48,6 +48,26 @@ test('Campaign labels the cleared final stage as replayable', () => {
   assert.match(root.querySelector('[data-testid="campaign-start-stage"]')?.textContent || '', /REPLAY STAGE/);
 });
 
+test('Campaign can browse back to and replay every older cleared stage', () => {
+  const root = document.createElement('main');
+  const save = defaultSave();
+  save.campaignProgress = { unlocked: 30, cleared: Array.from({ length: 29 }, (_, i) => i + 1) };
+  const started: number[] = [];
+  renderCampaign(root, save, (stage) => started.push(stage));
+
+  const previous = root.querySelector<HTMLButtonElement>('[data-testid="campaign-prev"]')!;
+  for (let i = 0; i < 6; i++) previous.click();
+  const first = [...root.querySelectorAll<HTMLButtonElement>('.ftd-stage')]
+    .find((stage) => stage.getAttribute('aria-label') === 'Stage 1, cleared');
+  assert.ok(first, 'stage 1 must remain reachable after later stages unlock');
+  first.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')!.click();
+  assert.deepEqual(started, [1]);
+  assert.equal(previous.disabled, true);
+  root.querySelector<HTMLButtonElement>('[data-testid="campaign-next"]')!.click();
+  assert.equal(root.querySelector<HTMLButtonElement>('[data-testid="campaign-prev"]')!.disabled, false);
+});
+
 test('opening Campaign from the hub routes into a stage launch, not Inventory', async () => {
   const { navigation } = await import('../../game/navigation');
   const { renderHub, registerHubTab, resetHub } = await import('./hub');

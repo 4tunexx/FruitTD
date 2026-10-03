@@ -15,6 +15,7 @@ import { HERO_PERKS, heroPerkMultiplier, heroPerkRank } from './heroProgression'
 import { heroCombatPerkMultiplier, heroPerkRank as spentPerkRank } from './heroPerkSave';
 import { getTowerMilestoneBonuses, TOWER_MILESTONES } from './towerMilestones';
 import { createState, addScore, awardPerfectWave, isPerfectWave, resetState } from './state';
+import { MODE_INFO } from './modes';
 import { MAX_HERO_LEVEL, heroXpForLevel } from './heroes';
 import { enemyReward, enemyXpReward, specialEnemyForWave } from './enemies';
 import { writeSave, loadSave } from './save';
@@ -107,6 +108,17 @@ test('resetState applies starting/max lives from tower milestones', () => {
   // Ranked base 14 + startingLives from milestones
   assert.ok(state.lives >= 14);
   assert.ok(state.maxLives >= state.lives);
+});
+
+test('each mode starts with its configured lives, including Casual and Co-op', () => {
+  localStorage.clear();
+  for (const mode of MODE_INFO) {
+    const state = createState();
+    state.mode = mode.id;
+    resetState(state);
+    assert.equal(state.lives, mode.lives, `${mode.name} starting lives`);
+    assert.ok(state.maxLives >= state.lives, `${mode.name} life cap`);
+  }
 });
 
 test('VIP helpers read live config prices and percent bonuses', () => {

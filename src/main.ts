@@ -1212,9 +1212,14 @@ function setPaused(on: boolean): void {
   else sfx.unpause();
 }
 
-function quitToMenu(): void {
+function quitToMenu(explicitMenuAction = false): void {
   // The navigation guard owns the single confirmation; respect cancellation.
-  if (navigation.state !== 'MAIN_MENU' && !navigation.setState('MAIN_MENU')) return;
+  if (explicitMenuAction) leaveMatchApproved = true;
+  if (navigation.state !== 'MAIN_MENU' && !navigation.setState('MAIN_MENU')) {
+    if (explicitMenuAction) leaveMatchApproved = false;
+    return;
+  }
+  leaveMatchApproved = false;
   combatImpact.clear();
   persist();
   if (!campaignRunSettled && (totalFruitsSliced > 0 || state.score > 0)) void submitCurrentRun(false);
@@ -1230,6 +1235,10 @@ function quitToMenu(): void {
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
+  if (navigation.state === 'MAIN_MENU') {
+    document.getElementById('screen-hub')?.classList.remove('hidden');
+    refreshCurrentScreen();
+  }
   floatingScore.reset();
   combos.reset();
   slashFx.reset();
@@ -1244,7 +1253,7 @@ if (typeof window !== 'undefined') {
 }
 
 document.getElementById('campaign-victory-map')?.addEventListener('click', () => {
-  quitToMenu();
+  quitToMenu(true);
   navigation.open('CAMPAIGN');
 });
 
@@ -1700,7 +1709,6 @@ window.addEventListener('keydown', (e) => {
     }
     if (wall.moving) {
       wall.cancelMove();
-      return;
     }
     setPaused(!navigation.isPaused());
     return;
@@ -1735,15 +1743,19 @@ toggleBtn.addEventListener('click', () => {
 });
 resumeBtn.addEventListener('click', () => setPaused(false));
 document.getElementById('btn-game-settings')?.addEventListener('click', () => setPaused(!navigation.isPaused()));
+document.getElementById('btn-game-menu-quick')?.addEventListener('click', () => {
+  if (state.running) setPaused(true);
+  else quitToMenu();
+});
 document.getElementById('btn-pause-mute')?.addEventListener('click', () => {
   muteBtn.click();
   const pauseMute = document.getElementById('btn-pause-mute');
   if (pauseMute) pauseMute.textContent = muteBtn.dataset.muted === 'true' ? 'Unmute sound' : 'Mute sound';
 });
 restartBtn.addEventListener('click', () => restartMatch());
-quitMenuBtn.addEventListener('click', () => quitToMenu());
+quitMenuBtn.addEventListener('click', () => quitToMenu(true));
 retryBtn.addEventListener('click', () => restartMatch());
-overMenuBtn.addEventListener('click', () => quitToMenu());
+overMenuBtn.addEventListener('click', () => quitToMenu(true));
 if (muteBtn) {
   mountLucideIcon(muteBtn, 'Volume2', 20);
   muteBtn.dataset.muted = 'false';
@@ -1786,7 +1798,10 @@ function launchCampaign(stage: number): void {
    existing gameplay functions, so there is no second economy path. */
 installGameScreens({
   getSave: () => save,
-  onPlay: () => launchMatch(),
+  onPlay: () => {
+    if (state.mode === 'campaign') navigation.open('CAMPAIGN');
+    else launchMatch();
+  },
   onStartCampaign: (stage) => launchCampaign(stage),
   onSelectMode: (mode) => { setMode(mode); refreshCurrentScreen(); },
   onQuit: () => document.getElementById('title-quit')?.classList.remove('hidden'),

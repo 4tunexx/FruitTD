@@ -66,6 +66,11 @@ canvas {
   font-family: var(--font);
 }
 
+#btn-game-menu-quick { display: none; position: absolute; z-index: 45; top: calc(1rem + env(safe-area-inset-top, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); min-height: 46px; padding: 0.55rem 1rem; border: 2px solid #a3e635; border-radius: 3px; background: #091a12ed; color: #efffcf; font: 900 0.8rem var(--font); letter-spacing: 0.12em; cursor: pointer; box-shadow: 0 4px 0 #030a05, 0 0 22px #a3e63533; transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+body[data-ftd-screen='PLAY'] #btn-game-menu-quick { display: inline-flex; align-items: center; gap: 0.55rem; }
+#btn-game-menu-quick:hover,#btn-game-menu-quick:focus-visible { background: #2c4b23; transform: translateY(-2px); box-shadow: 0 6px 0 #030a05, 0 0 30px #a3e63588; outline: none; }
+#btn-game-menu-quick:active { transform: translateY(2px); box-shadow: 0 2px 0 #030a05; }
+
 /* ═══════════════════════════════════════════
    PLAYER CHIP (top-left)
 ══════════════════════════════════════════════ */

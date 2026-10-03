@@ -20,7 +20,8 @@ import { defaultSave, type SaveData } from '../../game/save';
 import { navigation } from '../../game/navigation';
 import { resetRegistry, registerScreen, installScreenRouter, openScreen } from './registry';
 import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubTab } from './hub';
-import { homeHubTab, profileHubTab } from './hubTabs';
+import { homeHubTab, profileHubTab, shopHubTab, inventoryHubTab, heroesHubTab } from './hubTabs';
+import { menuHubTabs } from './menuHubTabs';
 import { Swords } from 'lucide';
 
 function host(): HTMLElement {
@@ -77,6 +78,28 @@ test('the active tab is marked in the footer', () => {
   assert.equal(heroTab.classList.contains('is-active'), false);
 });
 
+test('header separates notifications, messages, community, profile and wallet routes', () => {
+  resetHub();
+  navigation.reset('MAIN_MENU');
+  registerHubTab(homeHubTab(() => undefined));
+  const root = host();
+  renderHub(root, richSave(), 'MAIN_MENU', { onPlay: () => undefined });
+  for (const [testId, destination] of [
+    ['nav-notifications', 'NOTIFICATIONS'],
+    ['nav-messages', 'MESSAGES'],
+    ['nav-social', 'SOCIAL'],
+    ['nav-avatar-profile', 'PROFILE'],
+    ['nav-coins', 'SHOP'],
+    ['nav-gems', 'SHOP'],
+  ] as const) {
+    navigation.reset('MAIN_MENU');
+    const button = root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`);
+    assert.ok(button, `${testId} should be visible`);
+    button.click();
+    assert.equal(navigation.state, destination);
+  }
+});
+
 test('home offers Casual, Ranked, Arena, Horde, Campaign and one Co-op path', () => {
   resetHub();
   const selected: string[] = [];
@@ -91,6 +114,9 @@ test('home offers Casual, Ranked, Arena, Horde, Campaign and one Co-op path', ()
   root.querySelector<HTMLButtonElement>('[data-testid="mode-coop"]')!.click();
   assert.deepEqual(selected, ['casual', 'ranked', 'arena', 'horde', 'campaign-map']);
   assert.equal(root.querySelectorAll('[data-testid="mode-coop"]').length, 1);
+  const playCard = root.querySelector('.ftd-playcard');
+  assert.equal(playCard?.querySelector('.ftd-mode-select') !== null, true, 'mode chooser belongs inside Panel 1 play card');
+  assert.equal(playCard?.querySelector('.ftd-playcard__content') !== null, true);
   assert.doesNotMatch(root.textContent!, /Online Multiplayer/);
   assert.doesNotMatch(root.textContent!, /multiplayer/i);
 });
@@ -104,6 +130,39 @@ test('home shows separate daily and main mission progress meters', () => {
   assert.ok(panel);
   assert.ok(panel!.querySelector('.ftd-mission-progress__row--daily'));
   assert.ok(panel!.querySelector('.ftd-mission-progress__row--main'));
+});
+
+test('legacy Missions and Ranked pages move into the hub and return to their original host', () => {
+  resetHub();
+  resetDom();
+  const world = document.createElement('div');
+  world.id = 'menu-world';
+  const quests = document.createElement('section');
+  quests.id = 'page-quests'; quests.className = 'menu-page'; quests.textContent = 'Missions content';
+  const leaderboard = document.createElement('section');
+  leaderboard.id = 'page-leaderboard'; leaderboard.className = 'menu-page'; leaderboard.textContent = 'Ranked content';
+  world.appendChild(quests);
+  world.appendChild(leaderboard);
+  document.body.appendChild(world);
+  registerHubTab(stubTab('MAIN_MENU', 'Home'));
+  for (const tab of menuHubTabs({
+    onOpenDaily: () => undefined, onToggleSound: () => undefined,
+    onLogout: () => undefined, onStartCampaign: () => undefined,
+    showLobbyPage: (page) => {
+      quests.classList.toggle('hidden', page !== 'quests');
+      leaderboard.classList.toggle('hidden', page !== 'leaderboard');
+    },
+  })) registerHubTab(tab);
+  const root = host();
+  document.body.appendChild(root);
+  renderHub(root, defaultSave(), 'MISSIONS', { onPlay: () => undefined });
+  assert.equal(root.querySelector('#page-quests'), quests);
+  switchHubTab(root, defaultSave(), 'RANKED');
+  assert.equal(quests.parentElement, world);
+  assert.equal(root.querySelector('#page-leaderboard'), leaderboard);
+  switchHubTab(root, defaultSave(), 'MAIN_MENU');
+  assert.equal(leaderboard.parentElement, world);
+  resetDom();
 });
 
 test('primary hub routes are reachable, Back returns one level, and Home clears the stack', () => {
@@ -257,6 +316,50 @@ test('refreshHub repaints in place without the slide-in animation class', () => 
   assert.equal(content.classList.contains('is-sliding-in-forward'), false);
   assert.equal(content.classList.contains('is-sliding-in-back'), false);
   assert.match(content.textContent!, /Shop main/);
+});
+
+test('hub category changes replace the previous Shop and Inventory grids', () => {
+  const save = richSave();
+  for (const tab of [
+    shopHubTab({ onBuy: () => undefined }),
+    inventoryHubTab({ onEquip: () => undefined, onSell: () => undefined }),
+  ]) {
+    const root = host();
+    tab.renderMain(root, save);
+    const categories = root.querySelectorAll<HTMLButtonElement>('.ftd-catbar__tab');
+    assert.ok(categories.length > 1, `${tab.id} should offer multiple categories`);
+    categories[1].click();
+    assert.equal(root.querySelectorAll('.ftd-catbar').length, 1, `${tab.id} must keep one category bar`);
+    assert.equal(root.querySelectorAll('.ftd-item-grid').length, 1, `${tab.id} must keep one item grid`);
+  }
+});
+
+test('selecting a hero refreshes its detail without leaving the tab', () => {
+  resetHub();
+  registerHubTab(heroesHubTab({ onEquip: () => undefined, onBuy: () => undefined }));
+  const root = host();
+  renderHub(root, richSave(), 'HEROES', { onPlay: () => undefined });
+  const roster = root.querySelectorAll<HTMLButtonElement>('.ftd-hero-tile');
+  assert.ok(roster.length > 1);
+  const selectedName = roster[1].querySelector('.ftd-hero-tile__name')?.textContent;
+  roster[1].click();
+  assert.equal(root.querySelector('.ftd-hero-detail__name')?.textContent, selectedName);
+  assert.equal(root.querySelectorAll('.ftd-hero-detail').length, 1);
+});
+
+test('refreshing a hub tab updates the persistent header balance and identity', () => {
+  resetHub();
+  registerHubTab(stubTab('SHOP', 'Shop'));
+  const save = richSave();
+  const root = host();
+  renderHub(root, save, 'SHOP', { onPlay: () => undefined });
+  const header = root.querySelector('.ftd-hub__header');
+  save.coins = 4321;
+  save.nickname = 'New Slicer';
+  refreshHub(root, save, 'SHOP');
+  assert.equal(root.querySelector('.ftd-hub__header'), header);
+  assert.equal(root.querySelector('.ftd-hub-identity__name')?.textContent, 'New Slicer');
+  assert.equal(root.querySelector('.ftd-hub-currency')?.querySelector('.ftd-currency__value')?.textContent, '4,321');
 });
 
 /* ───────────── integration through the real registry (mirrors installGameScreens, without importing index.ts's CSS side-effects) ───────────── */

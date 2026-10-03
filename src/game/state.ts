@@ -138,8 +138,11 @@ export function resetState(state: GameState): void {
   state.mode = mode;
   const rules = modeRules(mode);
   const bonuses = getTowerMilestoneBonuses(tower.level);
-  state.lives = Math.max(1, Math.round((rules.lives + bonuses.startingLives) * getStartLivesScale()));
-  state.maxLives = Math.max(state.lives, state.lives + bonuses.maxLives);
+  const startingLives = Math.max(1, Math.round((rules.lives + bonuses.startingLives) * getStartLivesScale()));
+  // The state setter caps lives at maxLives, so raise the cap before assigning
+  // modes that start above the default 15 lives (Casual and Co-op).
+  state.maxLives = Math.max(startingLives, startingLives + bonuses.maxLives);
+  state.lives = startingLives;
   state.currency = Math.max(0, Math.round(rules.startMoney * getStartMoneyScale()));
 }
 

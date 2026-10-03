@@ -21,7 +21,7 @@
 
 import { el, clear } from '../components/dom';
 import { GameButton, GameCurrency } from '../components/primitives';
-import { Bell, createElement, type Swords } from 'lucide';
+import { Bell, MessageCircle, UsersRound, createElement, type Swords } from 'lucide';
 import { openScreen, back, home } from './registry';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef } from '../../game/heroes';
@@ -71,6 +71,23 @@ function icon(node: typeof Swords, className: string): HTMLElement | SVGElement 
   return createElement(node, { class: className, width: 18, height: 18, 'aria-hidden': 'true' });
 }
 
+function buildCurrency(save: SaveData): HTMLElement {
+  const currency = el('div', { class: 'ftd-hub-currency', 'aria-label': 'Wallet and shop' });
+  updateCurrency(currency, save);
+  return currency;
+}
+
+function updateCurrency(currency: HTMLElement, save: SaveData): void {
+  currency.replaceChildren();
+  for (const [amount, kind, label] of [
+    [save.coins, 'coins', 'Coins'], [save.gems, 'gems', 'Gems'],
+  ] as const) {
+    const button = el('button', { class: 'ftd-hub-currency__button', type: 'button', title: `Open shop · ${label}`, 'aria-label': `${amount.toLocaleString()} ${label}. Open shop`, 'data-testid': `nav-${kind}` }, [GameCurrency(amount, kind)]);
+    button.addEventListener('click', () => openScreen('SHOP'));
+    currency.appendChild(button);
+  }
+}
+
 /** Builds the persistent header (Panel 3). Rebuilt on each full render, but never mid-tab-switch. */
 function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   const hero = heroDef(save.hero);
@@ -89,7 +106,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   logo.setAttribute('data-testid', 'nav-brand-home');
   logo.addEventListener('click', () => home());
 
-  const identity = el('div', { class: 'ftd-hub-identity' }, [
+  const identity = el('button', { class: 'ftd-hub-identity', type: 'button', title: 'Open profile', 'aria-label': `Open ${save.nickname || 'Slicer'} profile`, 'data-testid': 'nav-avatar-profile' }, [
     el('img', {
       class: 'ftd-hub-identity__avatar',
       src: save.avatar || '',
@@ -100,18 +117,18 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
       el('p', { class: 'ftd-hub-identity__meta' }, [
         el('span', { class: 'ftd-hub-identity__rank', text: rank.title }),
         el('span', { class: 'ftd-hub-identity__sep', text: '·' }),
-        el('span', { text: `${hero.name} Lv ${xp.level}` }),
+        el('span', { class: 'ftd-hub-identity__hero-level', text: `${hero.name} Lv ${xp.level}` }),
       ]),
     ]),
   ]);
+  identity.addEventListener('click', () => openScreen('PROFILE'));
 
-  const currency = el('div', { class: 'ftd-hub-currency' }, [
-    GameCurrency(save.coins, 'coins'),
-    save.gems ? GameCurrency(save.gems, 'gems') : null,
-  ]);
+  const currency = buildCurrency(save);
 
   const utils = el('div', { class: 'ftd-hub-utils' }, [
-    el('button', { class: 'ftd-btn ftd-btn--ghost ftd-btn--sm ftd-hub-social', type: 'button', 'aria-label': 'Community and notifications', 'data-testid': 'nav-social' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { text: 'Community' }), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]),
+    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]),
+    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]),
+    el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]),
     GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
     ...(opts.onOpenDaily ? [GameButton({ label: 'Daily', variant: 'outline', size: 'sm', onClick: opts.onOpenDaily })] : []),
     GameButton({ label: 'Settings', variant: 'ghost', size: 'sm', onClick: () => openScreen('SETTINGS') }),
@@ -132,18 +149,41 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   settings?.setAttribute('data-testid', 'nav-settings');
   const admin = utils.querySelector<HTMLButtonElement>('.ftd-hub-admin');
   admin?.setAttribute('data-testid', 'nav-admin');
-  utils.querySelector<HTMLButtonElement>('.ftd-hub-social')?.addEventListener('click', () => openScreen('SOCIAL'));
+  utils.querySelector<HTMLButtonElement>('.ftd-hub-notifications')?.addEventListener('click', () => openScreen('NOTIFICATIONS'));
+  utils.querySelector<HTMLButtonElement>('[data-testid="nav-messages"]')?.addEventListener('click', () => openScreen('MESSAGES'));
+  utils.querySelector<HTMLButtonElement>('[data-testid="nav-social"]')?.addEventListener('click', () => openScreen('SOCIAL'));
 
   return el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
+}
+
+/** Keep persistent header controls mounted while reflecting the latest save. */
+function syncHeader(root: HTMLElement, save: SaveData): void {
+  const hero = heroDef(save.hero);
+  const xp = getHeroXpState(save, save.hero);
+  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
+  const avatar = root.querySelector<HTMLImageElement>('.ftd-hub-identity__avatar');
+  if (avatar) {
+    avatar.src = save.avatar || '';
+    avatar.alt = `${save.nickname || 'Slicer'} avatar`;
+  }
+  const name = root.querySelector('.ftd-hub-identity__name');
+  if (name) name.textContent = save.nickname || 'Slicer';
+  const identity = root.querySelector<HTMLElement>('.ftd-hub-identity');
+  identity?.setAttribute('aria-label', `Open ${save.nickname || 'Slicer'} profile`);
+  const rankLabel = root.querySelector('.ftd-hub-identity__rank');
+  if (rankLabel) rankLabel.textContent = rank.title;
+  const heroLevel = root.querySelector('.ftd-hub-identity__hero-level');
+  if (heroLevel) heroLevel.textContent = `${hero.name} Lv ${xp.level}`;
+  const currency = root.querySelector('.ftd-hub-currency');
+  if (currency) updateCurrency(currency as HTMLElement, save);
 }
 
 /** Builds the persistent footer (Panel 4): five core game destinations. */
 function buildFooter(active: NavState): HTMLElement {
   const nav = el('nav', { class: 'ftd-hub__footer', 'aria-label': 'Game menu' });
+  const destinations: NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE'];
   for (const tab of tabs.values()) {
-    // Keep the phone tab bar focused on the five core destinations. Co-op is
-    // still reachable from Profile while the feature is in its lobby state.
-    if (tab.id === 'CO_OP') continue;
+    if (!destinations.includes(tab.id)) continue;
     const button = el('button', {
       class: `ftd-hub-tab${tab.id === active ? ' is-active' : ''}`,
       type: 'button',
@@ -174,11 +214,23 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
   const subHost = root.querySelector('.ftd-hub__sub') as HTMLElement | null;
   if (!mainHost) return;
 
+  // The older missions and leaderboard widgets retain their event handlers
+  // when moved into the hub. Park them before replacing the previous panel.
+  const legacyHome = document.getElementById('menu-world');
+  if (legacyHome) {
+    for (const page of mainHost.querySelectorAll<HTMLElement>('.menu-page')) {
+      if (page.getAttribute('data-hub-legacy') !== 'true') continue;
+      page.removeAttribute('data-hub-legacy');
+      legacyHome.appendChild(page);
+    }
+  }
+
   const mainInner = el('div', { class: 'ftd-hub-panel-content' });
   tab.renderMain(mainInner, save);
 
   clear(mainHost);
   mainHost.appendChild(mainInner);
+  if (direction !== 'none') mainHost.scrollTop = 0;
 
   if (subHost) {
     clear(subHost);
@@ -187,10 +239,12 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
       tab.renderSub(subInner, save);
       subHost.appendChild(subInner);
       subHost.classList.remove('is-empty');
+      if (direction !== 'none') subHost.scrollTop = 0;
     } else {
       subHost.classList.add('is-empty');
     }
   }
+  root.classList.toggle('is-single-panel', !tab.renderSub);
 
   if (direction !== 'none') {
     const animClass = direction === 'forward' ? 'is-sliding-in-forward' : 'is-sliding-in-back';
@@ -217,12 +271,12 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
 
   root.appendChild(buildHeader(save, opts));
   if (getAuthToken()) {
-    const bell = root.querySelector<HTMLButtonElement>('[data-testid="nav-social"]');
+    const bell = root.querySelector<HTMLButtonElement>('[data-testid="nav-notifications"]');
     void socialApi.notifications().then(({ unread }) => {
       if (!bell?.isConnected) return;
       const count = bell.querySelector<HTMLElement>('.ftd-hub-social__count');
       if (count) { count.textContent = unread > 99 ? '99+' : String(unread); count.hidden = unread === 0; }
-      bell.setAttribute('aria-label', unread ? `Community, ${unread} unread notifications` : 'Community and notifications');
+      bell.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
     }).catch(() => {});
   }
 
@@ -243,6 +297,8 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
 export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState): void {
   const tab = tabs.get(next);
   if (!tab) return;
+
+  syncHeader(root, save);
 
   const order = [...tabs.keys()];
   root.classList.toggle('is-home', next === HUB_HOME);
@@ -265,6 +321,7 @@ export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState):
 export function refreshHub(root: HTMLElement, save: SaveData, active: NavState): void {
   const tab = tabs.get(active);
   if (!tab) return;
+  syncHeader(root, save);
   root.classList.toggle('is-home', active === HUB_HOME);
   paintTab(root, tab, save, 'none');
   lastActive = active;

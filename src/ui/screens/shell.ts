@@ -26,6 +26,7 @@ export interface ScreenShellOptions {
 export function screenShell(root: HTMLElement, opts: ScreenShellOptions): HTMLElement {
   clear(root);
   root.classList.add('ftd-screen');
+  const embedded = root.classList.contains('ftd-hub-embedded');
 
   const left = el('div', { class: 'ftd-screen__titles' }, [
     el('h1', { class: 'ftd-screen__title', text: opts.title }),
@@ -46,12 +47,12 @@ export function screenShell(root: HTMLElement, opts: ScreenShellOptions): HTMLEl
   headerChildren.push(left);
 
   const right = el('div', { class: 'ftd-screen__header-right' });
-  if (opts.save) {
+  if (opts.save && !embedded) {
     right.appendChild(GameCurrency(opts.save.coins, 'coins'));
     if (opts.save.gems) right.appendChild(GameCurrency(opts.save.gems, 'gems'));
   }
   for (const action of opts.actions ?? []) right.appendChild(action);
-  right.appendChild(
+  if (!embedded) right.appendChild(
     GameButton({
       label: 'Menu',
       variant: 'ghost',

@@ -47,6 +47,7 @@ export function slicerPreview(item: CatalogItem): HTMLElement {
   }
   preview.appendChild(el('span', { class: 'ftd-blade-preview__trail' }));
   preview.appendChild(el('span', { class: 'ftd-blade-preview__edge' }));
+  preview.appendChild(el('span', { class: 'ftd-blade-preview__glyph', 'aria-hidden': 'true' }, [lucideIcon('Swords', '', 38)]));
   if (slicer && slicer.glint > 0.3) {
     preview.appendChild(el('span', { class: 'ftd-blade-preview__glint' }));
   }
@@ -55,7 +56,9 @@ export function slicerPreview(item: CatalogItem): HTMLElement {
 
 function swatch(item: CatalogItem): HTMLElement {
   if (item.category === 'slicers') return slicerPreview(item);
-  const node = el('div', { class: 'ftd-item-card__swatch' });
+  const node = el('div', { class: 'ftd-item-card__swatch' }, [
+    el('span', { class: 'ftd-item-card__swatch-mark', 'aria-hidden': 'true' }, [lucideIcon(item.category === 'walls' ? 'Shield' : item.category === 'heroes' ? 'Swords' : 'Sparkles', '', 42)]),
+  ]);
   node.style.background = `linear-gradient(135deg, ${item.color}, ${item.glowColor})`;
   return node;
 }

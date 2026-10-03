@@ -56,14 +56,21 @@ let shopCategory = 'all';
 
 function shopMain(cb: ShopCallbacks) {
   return (root: HTMLElement, save: SaveData) => {
+    root.replaceChildren();
     const available = shopItems(save);
     const categories = ['all', ...categoriesWithItems(available)];
     if (!categories.includes(shopCategory)) shopCategory = 'all';
+
+    root.appendChild(el('div', { class: 'ftd-hub-catalog-heading' }, [
+      el('div', {}, [el('p', { text: 'ARMORY / SUPPLIES' }), el('h1', { text: 'SHOP' })]),
+      el('span', { text: `${available.length} ITEMS AVAILABLE` }),
+    ]));
 
     root.appendChild(
       categoryTabs(categories, shopCategory, CATEGORY_LABELS, (id) => {
         shopCategory = id;
         shopMain(cb)(root, save);
+        root.parentElement?.scrollTo?.({ top: 0 });
       }),
     );
 
@@ -127,14 +134,21 @@ let inventoryCategory = 'all';
 
 function inventoryMain(cb: InventoryCallbacks) {
   return (root: HTMLElement, save: SaveData) => {
+    root.replaceChildren();
     const owned = inventoryItems(save);
     const categories = ['all', ...categoriesWithItems(owned)];
     if (!categories.includes(inventoryCategory)) inventoryCategory = 'all';
+
+    root.appendChild(el('div', { class: 'ftd-hub-catalog-heading' }, [
+      el('div', {}, [el('p', { text: 'YOUR LOADOUT' }), el('h1', { text: 'INVENTORY' })]),
+      el('span', { text: `${owned.length} ITEMS OWNED` }),
+    ]));
 
     root.appendChild(
       categoryTabs(categories, inventoryCategory, CATEGORY_LABELS, (id) => {
         inventoryCategory = id;
         inventoryMain(cb)(root, save);
+        root.parentElement?.scrollTo?.({ top: 0 });
       }),
     );
 
@@ -249,18 +263,26 @@ function heroesMain(cb: HeroScreenCallbacks) {
       tile.addEventListener('click', () => {
         selectedHero = status.heroId;
         heroesMain(cb)(root, save);
-        const detail = document.querySelector('.ftd-hub__sub .ftd-hero-detail');
+        const detailRoot = root.closest('.ftd-hub')
+          ?.querySelector('.ftd-hub__sub')
+          ?.querySelector<HTMLElement>('.ftd-hub-panel-content');
+        if (detailRoot) heroesSub(cb)(detailRoot, save);
+        const detail = detailRoot?.querySelector('.ftd-hero-detail');
         detail?.classList.add('is-entering');
       });
       roster.appendChild(tile);
     }
-    root.replaceChildren(roster);
+    root.replaceChildren(el('div', { class: 'ftd-hub-catalog-heading' }, [
+      el('div', {}, [el('p', { text: 'CHOOSE YOUR OPERATIVE' }), el('h1', { text: 'HEROES' })]),
+      el('span', { text: `${HEROES.length} HEROES` }),
+    ]), roster);
   };
 }
 
 /** Panel 2 for heroes: the big detail card — art, level, perks, action. */
 function heroesSub(cb: HeroScreenCallbacks) {
   return (root: HTMLElement, save: SaveData) => {
+    root.replaceChildren();
     if (!selectedHero) selectedHero = save.hero;
     const heroId = selectedHero;
     const def = heroDef(heroId);
@@ -366,6 +388,10 @@ function statCard(label: string, value: string, hint?: string): HTMLElement {
 function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
   return (root: HTMLElement, save: SaveData) => {
     const stats = getStats();
+    root.appendChild(el('div', { class: 'ftd-hub-catalog-heading' }, [
+      el('div', {}, [el('p', { text: 'CAREER RECORD' }), el('h1', { text: 'PROFILE' })]),
+      el('span', { text: save.nickname || 'SLICER' }),
+    ]));
     const grid = el('div', { class: 'ftd-stat-grid' }, [
       statCard('Highest wave', String(save.bestWave ?? 1)),
       statCard('Highest score', (save.highScore ?? 0).toLocaleString()),
@@ -384,7 +410,7 @@ function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
         GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
         GameButton({ label: 'Co-op lobby', variant: 'outline', onClick: () => openScreen('CO_OP') }),
-        GameButton({ label: 'Settings', variant: 'ghost', onClick: () => openScreen('SETTINGS') }),
+        GameButton({ label: 'Settings', variant: 'outline', onClick: () => openScreen('SETTINGS') }),
       ]),
     );
   };
@@ -465,7 +491,7 @@ export function coopHubTab(onStart?: () => void): HubTab {
  */
 function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').GameMode) => void, onCampaign?: () => void) {
   return (root: HTMLElement, save: SaveData) => {
-    const playPanel = el('div', { class: 'ftd-playcard' }, [
+    const playContent = el('div', { class: 'ftd-playcard__content' }, [
       el('p', { class: 'ftd-playcard__eyebrow', text: 'HOLD THE WALL' }),
       el('h1', { class: 'ftd-playcard__title' }, [
         el('span', { class: 'ftd-playcard__title-main', text: 'FRUIT' }),
@@ -475,8 +501,7 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
       GameButton({ label: 'PLAY', tone: 'primary', size: 'lg', class: 'ftd-playcard__cta', onClick: onPlay }),
       el('p', { class: 'ftd-playcard__mode', text: `Mode · ${save.mode.toUpperCase()}` }),
     ]);
-    root.appendChild(playPanel);
-    playPanel.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'nav-play');
+    playContent.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'nav-play');
     const modes = el('section', { class: 'ftd-mode-select', 'aria-label': 'Game modes' }, [
       el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: `CAMPAIGN ${String(save.campaignProgress.unlocked).padStart(2, '0')}/100` })]),
       el('div', { class: 'ftd-mode-select__grid' }),
@@ -494,9 +519,9 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     });
     const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
-    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op rooms' }), el('small', { text: 'Invite friends · local guest available' })]);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op rooms' }), el('small', { text: 'Local guest play · online rooms preview' })]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
-    root.appendChild(modes);
+    root.appendChild(el('div', { class: 'ftd-playcard' }, [playContent, modes]));
   };
 }
 

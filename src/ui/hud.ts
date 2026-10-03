@@ -567,6 +567,8 @@ export class Hud {
     if (page === 'profile') {
       this.renderProfilePage();
     }
+    if (page === 'leaderboard') void this.loadLeaderboard();
+    if (page === 'quests') void this.loadQuests();
   }
 
   mountMeta(save: SaveData): void {

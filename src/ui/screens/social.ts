@@ -14,19 +14,43 @@ const message = (host: HTMLElement, text: string, error = false) => {
   host.replaceChildren(el('p', { class: `ftd-social__notice${error ? ' is-error' : ''}`, role: error ? 'alert' : 'status', text }));
 };
 
-export function renderSocial(root: HTMLElement): void {
+export type SocialView = 'community' | 'messages' | 'notifications';
+
+export function renderSocial(root: HTMLElement, initialView: SocialView = 'community'): void {
   clear(root);
   root.className = 'ftd-screen-host ftd-social';
+  root.dataset.socialView = initialView;
   const friends = new Map<string, SocialFriend>();
   let selectedFriend = '';
   let noticeHost: HTMLElement;
   const header = el('header', { class: 'ftd-social__header' }, [
     el('button', { class: 'ftd-social__back', type: 'button', 'aria-label': 'Back to hub' }, [icon(ArrowLeft), el('span', { text: 'HUB' })]),
-    el('div', {}, [el('p', { class: 'ftd-social__eyebrow', text: 'FRUIT TD NETWORK' }), el('h1', { text: 'COMMUNITY' })]),
+    el('div', {}, [el('p', { class: 'ftd-social__eyebrow', text: 'FRUIT TD NETWORK' }), el('h1', { text: initialView.toUpperCase() })]),
     el('span', { class: 'ftd-social__mark', 'aria-hidden': 'true' }, [icon(Users)]),
   ]);
   header.querySelector('button')?.addEventListener('click', back);
   root.appendChild(header);
+  const viewNav = el('nav', { class: 'ftd-social__nav', 'aria-label': 'Community sections' });
+  for (const [view, label, glyph] of [
+    ['community', 'Community', Users],
+    ['messages', 'Messages', MessageCircle],
+    ['notifications', 'Notifications', Bell],
+  ] as const) {
+    const button = el('button', { type: 'button', class: `ftd-social__nav-item${view === initialView ? ' is-active' : ''}`, 'aria-pressed': String(view === initialView), 'data-testid': `social-view-${view}` }, [icon(glyph), el('span', { text: label })]);
+    button.addEventListener('click', () => {
+      root.dataset.socialView = view;
+      const title = header.querySelector('h1');
+      if (title) title.textContent = label.toUpperCase();
+      for (const item of viewNav.querySelectorAll<HTMLButtonElement>('.ftd-social__nav-item')) {
+        const active = item === button;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', String(active));
+      }
+      root.scrollIntoView?.({ block: 'start' });
+    });
+    viewNav.appendChild(button);
+  }
+  root.appendChild(viewNav);
   noticeHost = el('div', { class: 'ftd-social__status', 'aria-live': 'polite' });
   root.appendChild(noticeHost);
   if (!getAuthToken()) {
@@ -203,12 +227,12 @@ export function renderSocial(root: HTMLElement): void {
   };
   const loadNotifications = async () => {
     const data = await socialApi.notifications(); renderNotifications(data.notifications);
-    const nav = document.querySelector<HTMLButtonElement>('[data-testid="nav-social"]');
+    const nav = document.querySelector<HTMLButtonElement>('[data-testid="nav-notifications"]');
     const count = nav?.querySelector<HTMLElement>('.ftd-hub-social__count');
     if (count) {
       count.textContent = data.unread > 99 ? '99+' : String(data.unread);
       count.hidden = data.unread < 1;
-      nav?.setAttribute('aria-label', data.unread ? `Community, ${data.unread} unread notifications` : 'Community and notifications');
+      nav?.setAttribute('aria-label', data.unread ? `Notifications, ${data.unread} unread` : 'Notifications');
     }
   };
 
