@@ -22,7 +22,7 @@ export class BladeTrail {
   private glint = 0.25;
   private primary = new Color(0x1d4ed8);
   private secondary = new Color(0x38bdf8);
-  private width = 0.045;
+  private width = 0.085;
   private readonly previousTip = new Vector3(Infinity, Infinity, Infinity);
 
   constructor() {
@@ -37,16 +37,18 @@ export class BladeTrail {
     }
     this.geo.setIndex(indices);
     this.geo.setDrawRange(0, 0);
-    this.mat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false, side: DoubleSide });
+    this.mat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, depthWrite: false, depthTest: false, side: DoubleSide });
     this.line = new Mesh(this.geo, this.mat);
+    this.line.renderOrder = 81;
     this.line.frustumCulled = false;
 
     this.glowGeo = new BufferGeometry();
     this.glowGeo.setAttribute('position', new BufferAttribute(this.glowPositions, 3).setUsage(DynamicDrawUsage));
     this.glowGeo.setIndex(indices);
     this.glowGeo.setDrawRange(0, 0);
-    this.glowMat = new MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.22, depthWrite: false, side: DoubleSide });
+    this.glowMat = new MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false, side: DoubleSide });
     this.glowLine = new Mesh(this.glowGeo, this.glowMat);
+    this.glowLine.renderOrder = 80;
     this.glowLine.frustumCulled = false;
 
     this.sparkGeo = new BufferGeometry();
@@ -58,9 +60,11 @@ export class BladeTrail {
       transparent: true,
       opacity: 0.85,
       depthWrite: false,
+      depthTest: false,
       sizeAttenuation: true,
     });
     this.sparks = new Points(this.sparkGeo, this.sparkMat);
+    this.sparks.renderOrder = 82;
     this.sparks.frustumCulled = false;
     this.sparks.visible = false;
   }
@@ -76,9 +80,9 @@ export class BladeTrail {
     this.style = slicer?.fxStyle || 'solid';
     this.glint = slicer?.glint ?? 0.25;
     const glowAmt = slicer?.glow ?? 0.35;
-    this.width = Math.max(0.025, Math.min(0.09, 0.025 + (slicer?.trailWidth ?? 1) * 0.018));
-    this.glowMat.opacity = Math.min(0.32, 0.1 + glowAmt * 0.2);
-    this.mat.opacity = 0.75 + Math.min(0.25, (slicer?.trailWidth ?? 1) * 0.12);
+    this.width = Math.max(0.07, Math.min(0.18, 0.065 + (slicer?.trailWidth ?? 1) * 0.03));
+    this.glowMat.opacity = Math.min(0.52, 0.24 + glowAmt * 0.26);
+    this.mat.opacity = 1;
     this.sparkMat.size = 0.05 + Math.min(0.06, this.glint * 0.06);
     this.sparkMat.opacity = 0.3 + Math.min(0.35, this.glint * 0.35);
   }

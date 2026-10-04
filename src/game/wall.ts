@@ -71,6 +71,7 @@ export class WallBase {
   private rangeRequested = false;
   private hitTimer = 0;
   private currentHero: HeroId | null = null;
+  private heroOnKeep = true;
   private towerStudio: StudioAnimState = createStudioAnimForKey(TOWER_STUDIO_KEY);
   private heroStudio: StudioAnimState = createStudioAnimForKey(heroIdToStudioKey('jiju'));
 
@@ -212,12 +213,22 @@ export class WallBase {
     this.refreshHeroTexture();
   }
 
+  setHeroOnKeep(visible: boolean): void {
+    this.heroOnKeep = visible;
+    if (!visible) {
+      const mat = this.keepMesh.material as MeshLambertMaterial;
+      mat.map = null;
+      mat.color.setHex(0x6e3128);
+      mat.needsUpdate = true;
+    } else if (this.currentHero) this.refreshHeroTexture();
+  }
+
   /**
    * Hero avatar on the keep: prefer Creator `hero-*` sheet over single PNG upload,
    * then admin tower-main / default keep colour.
    */
   refreshHeroTexture(): void {
-    if (!this.currentHero) return;
+    if (!this.currentHero || !this.heroOnKeep) return;
     const key = heroIdToStudioKey(this.currentHero);
     resetStudioAnimForKey(this.heroStudio, key);
 
@@ -269,7 +280,7 @@ export class WallBase {
         mat.color.setHex(0xffffff);
       }
     }
-    if (this.currentHero && this.heroStudio.active) {
+    if (this.currentHero && this.heroOnKeep && this.heroStudio.active) {
       const tex = updateStudioAnim(this.heroStudio, dt, 0, 0);
       if (tex) {
         const mat = this.keepMesh.material as MeshLambertMaterial;

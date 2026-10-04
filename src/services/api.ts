@@ -104,6 +104,7 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
   try {
     const res = await fetch(endpoint, {
       ...options,
+      signal: options?.signal ?? AbortSignal.timeout(12_000),
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',

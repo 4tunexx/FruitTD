@@ -6,10 +6,10 @@ import { createLobbyRouter } from './routes/lobbies';
 
 const players = Array.from({ length: 6 }, (_, i) => ({ userId: `player-${i}`, username: `player_${i}`, nickname: `Player ${i}` }));
 
-test('rooms cap at four, enforce private codes, and send invites to accepted friends', async (t) => {
+test('rooms cap at two, enforce private codes, and send invites to accepted friends', async (t) => {
   const rooms: any[] = [], notices: any[] = [];
   const matches = (room: any, q: any): boolean => Object.entries(q).every(([key, value]: [string, any]) => {
-    if (key === '$expr') return room.members.length < 4;
+    if (key === '$expr') return room.members.length < 2;
     if (key === 'members.userId') return value?.$ne ? !room.members.some((m: any) => m.userId === value.$ne) : room.members.some((m: any) => m.userId === value);
     if (key === 'expiresAt') return room.expiresAt > value.$gt;
     return room[key] === value;
@@ -50,8 +50,8 @@ test('rooms cap at four, enforce private codes, and send invites to accepted fri
   assert.equal((await post('/invite', 0, { friendId: 'player-1' })).status, 200);
   assert.match(notices[0].body, new RegExp(lobby.code));
   const joined = await Promise.all([1, 2, 3, 4].map((id) => post('/join', id, { code: lobby.code })));
-  assert.equal(joined.filter((r) => r.status === 200).length, 3);
-  assert.equal(rooms[0].members.length, 4);
+  assert.equal(joined.filter((r) => r.status === 200).length, 1);
+  assert.equal(rooms[0].members.length, 2);
   assert.equal((await post('/ready', 1, { ready: true })).status, 200);
   assert.equal(rooms[0].members.find((m: any) => m.userId === 'player-1').ready, true);
   assert.equal((await post('/leave', 0)).status, 200);

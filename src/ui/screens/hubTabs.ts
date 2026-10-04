@@ -9,6 +9,7 @@
  */
 
 import { el } from '../components/dom';
+import { getAdminSprite } from '../adminSprites';
 import { GameButton, GameCurrency } from '../components/primitives';
 import { categoryTabs, emptyState } from './shell';
 import { renderItemCard } from './itemCard';
@@ -187,13 +188,13 @@ function inventoryMain(cb: InventoryCallbacks) {
 }
 
 /** Panel 2 for inventory: "Equipped Items" — exactly what the sketch asked for. */
-function inventorySub(save: SaveData, root: HTMLElement): void {
+function inventorySub(save: SaveData, root: HTMLElement, onEquip: (id: string) => void): void {
   const blade = save.bladeSkin ? findCatalogItem(save.bladeSkin) : null;
   const wall = save.wallSkin ? findCatalogItem(save.wallSkin) : null;
 
   root.appendChild(el('p', { class: 'ftd-hub-sub-card__label', text: 'EQUIPPED ITEMS' }));
 
-  const slot = (label: string, item: typeof blade) =>
+  const slot = (label: string, item: typeof blade, starterId: string) =>
     el('div', { class: 'ftd-hub-sub-card' }, [
       el('p', { class: 'ftd-hub-sub-card__label', text: label }),
       el('p', { class: 'ftd-hub-sub-card__value', text: item?.name ?? 'None equipped' }),
@@ -204,10 +205,11 @@ function inventorySub(save: SaveData, root: HTMLElement): void {
               el('span', { text: s.value }),
             ])))]
         : []),
+      ...(!item ? [GameButton({ label: `Equip ${label.toLowerCase()}`, variant: 'outline', onClick: () => onEquip(starterId) })] : []),
     ]);
 
-  root.appendChild(slot('BLADE', blade));
-  root.appendChild(slot('WALL', wall));
+  root.appendChild(slot('BLADE', blade, 'blade-default'));
+  root.appendChild(slot('WALL', wall, 'wall-brick'));
 }
 
 export function inventoryHubTab(cb: InventoryCallbacks): HubTab {
@@ -216,7 +218,7 @@ export function inventoryHubTab(cb: InventoryCallbacks): HubTab {
     label: 'Inventory',
     icon: Backpack,
     renderMain: inventoryMain(cb),
-    renderSub: (root, save) => inventorySub(save, root),
+    renderSub: (root, save) => inventorySub(save, root, cb.onEquip),
   };
 }
 
@@ -294,7 +296,13 @@ function heroesSub(cb: HeroScreenCallbacks) {
     art.style.setProperty('--hero-color', `#${def.color.toString(16).padStart(6, '0')}`);
     art.style.setProperty('--hero-trail', `#${def.trail.toString(16).padStart(6, '0')}`);
     art.appendChild(el('span', { class: 'ftd-hero-art__glow' }));
-    art.appendChild(el('span', { class: 'ftd-hero-art__initial', text: def.name.charAt(0) }));
+    const sprite = getAdminSprite(`hero-${heroId}` as Parameters<typeof getAdminSprite>[0]);
+    if (sprite) art.appendChild(el('img', { class: 'ftd-hero-art__sprite', src: sprite, alt: `${def.name} character art` }));
+    else art.appendChild(el('span', { class: 'ftd-hero-art__figure', 'aria-hidden': 'true' }, [
+      el('i', { class: 'ftd-hero-art__head' }),
+      el('i', { class: 'ftd-hero-art__body' }),
+      el('i', { class: 'ftd-hero-art__weapon' }),
+    ]));
 
     const detail = el('div', { class: 'ftd-hero-detail', 'data-hero': heroId }, [
       art,

@@ -6,11 +6,12 @@ import { resolveRequestUser } from '../auth';
 import { creditClaimReward } from '../claimWallet';
 import { DEFAULT_PVP_CONFIG, advancePvpMatch, applyPvpCommand, calculatePvpRating, createPvpPlayer, newPvpMatch, pvpTier, resetSeasonRating, vetoPvpMap, type PvpConfig, type PvpMatch, type PvpQueue } from '../../src/game/pvp';
 import { mergeAdminConfig } from '../../src/services/admin';
+import { playPvpBotTurn } from '../../src/game/pvpBot';
 
 export const pvpRouter = Router();
 type QueueEntry = { userId: string; name: string; queue: PvpQueue; createdAt: Date; expiresAt: Date };
 type Challenge = { challengeId: string; fromId: string; fromName: string; toId: string; createdAt: Date; expiresAt: Date; acceptedAt?: Date; matchId?: string };
-type StoredMatch = PvpMatch & { updatedAt: Date; settled?: boolean; resultsSeenBy?: string[] };
+type StoredMatch = PvpMatch & { updatedAt: Date; settled?: boolean; resultsSeenBy?: string[]; testMatch?: boolean; botUserId?: string; botNextActionAt?: number };
 type RatingDoc = { userId: string; points: number; season: string; matches: number; wins: number; ties: number; losses: number; updatedAt: Date; settledMatchIds?: string[]; lastMatchId?: string; lastDelta?: number };
 const seasonKey = () => new Date().toISOString().slice(0, 7);
 const routerError = (res: Response, status: number, message: string) => res.status(status).json({ success: false, error: message });
@@ -66,9 +67,9 @@ async function publishMatch(match: StoredMatch): Promise<void> {
 }
 function publicMatch(match: StoredMatch, userId: string) {
   if (!match.players.some((player) => player.userId === userId)) return null;
-  return { id: match.id, queue: match.queue, status: match.status, remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision,
+  return { id: match.id, queue: match.queue, status: match.status, testMatch: Boolean(match.testMatch), remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision,
     map: match.map, mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })), vetoTurnId: match.vetoTurn, yourVetoTurn: match.vetoTurn === userId, vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, ...(match.status === 'complete' && match.queue === 'ranked' ? { ratingDelta } : {}) })),
+    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side, winnerId: match.winnerId, resultReason: match.resultReason };
@@ -86,6 +87,11 @@ async function settleMatch(match: StoredMatch, config: PvpConfig): Promise<void>
   settlingMatches.add(match.id);
   const matches = await getCollection<StoredMatch>('pvp_matches');
   try {
+    if (match.testMatch) {
+      match.settled = true;
+      await matches.updateOne({ id: match.id, testMatch: true }, { $set: { settled: true } });
+      return;
+    }
     const achievements = await getCollection<any>('achievements'); const badges = await getCollection<any>('badges');
     for (const player of match.players) {
       const outcome = match.winnerId === null ? 'tie' : match.winnerId === player.userId ? 'win' : 'loss';
@@ -121,6 +127,29 @@ async function settleMatch(match: StoredMatch, config: PvpConfig): Promise<void>
   }
 }
 
+async function tickMatch(match: StoredMatch, config: PvpConfig, now: number): Promise<StoredMatch | null> {
+  if (match.status !== 'active') return match;
+  const col = await getCollection<StoredMatch>('pvp_matches');
+  const priorRevision = match.revision;
+  const elapsed = Math.max(0, Math.min(1, (now - match.updatedAt.getTime()) / 1000));
+  if (match.testMatch && match.botUserId) {
+    const bot = match.players.find((player) => player.userId === match.botUserId);
+    if (bot) { bot.connected = true; bot.disconnectedAt = null; bot.lastSeenAt = now; }
+  }
+  advancePvpMatch(match, elapsed, now, config);
+  if ((match as StoredMatch).status === 'active' && match.testMatch && match.botUserId && now >= (match.botNextActionAt ?? 0)) {
+    try { playPvpBotTurn(match, match.botUserId, now, config); }
+    catch (error) { console.error('PvP bot action failed:', error); }
+    match.botNextActionAt = now + 1_300;
+  }
+  match.updatedAt = new Date(now);
+  const saved = await col.replaceOne({ id: match.id, revision: priorRevision, status: 'active' }, match);
+  if (!saved.modifiedCount) return null;
+  void publishMatch(match);
+  if ((match as StoredMatch).status === 'complete') await settleMatch(match, config);
+  return match;
+}
+
 pvpRouter.get('/status', async (req: Request, res: Response) => {
   const user = await resolveRequestUser(req); if (!user) return routerError(res, 401, 'Sign in to play PvP.');
   try {
@@ -132,12 +161,36 @@ pvpRouter.get('/status', async (req: Request, res: Response) => {
       const player = match.players.find((item) => item.userId === user.userId)!;
       player.connected = true; player.disconnectedAt = null; player.lastSeenAt = Date.now(); match.revision++;
       await matches.replaceOne({ id: match.id, revision: match.revision - 1, status: match.status }, match);
+      match = await matches.findOne({ id: match.id });
+      if (match?.status === 'active') { await tickMatch(match, config, Date.now()); match = await matches.findOne({ id: match.id }); }
     }
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection<Challenge>('pvp_challenges')).findOne({ toId: user.userId, expiresAt: { $gt: new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection<QueueEntry>('pvp_queue')).findOne({ userId: user.userId, expiresAt: { $gt: new Date() } });
-    res.json({ success: true, rating: { points: rating.points, tier: pvpTier(rating.points, config), season: rating.season, matches: rating.matches, wins: rating.wins, ties: rating.ties, losses: rating.losses }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { durationSeconds: config.durationSeconds, reconnectGraceSeconds: config.reconnectGraceSeconds, towers: config.towers, attacks: config.attacks, maps: config.maps } });
+    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { points: rating.points, tier: pvpTier(rating.points, config), season: rating.season, matches: rating.matches, wins: rating.wins, ties: rating.ties, losses: rating.losses }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { durationSeconds: config.durationSeconds, reconnectGraceSeconds: config.reconnectGraceSeconds, towers: config.towers, attacks: config.attacks, maps: config.maps } });
   } catch (error) { console.error(error); routerError(res, 503, 'PvP storage is unavailable.'); }
+});
+
+pvpRouter.post('/admin/bot', async (req: Request, res: Response) => {
+  const user = await resolveRequestUser(req); if (!user) return routerError(res, 401, 'Sign in first.');
+  if (!process.env.ADMIN_STEAM_ID || user.steamId !== process.env.ADMIN_STEAM_ID) return routerError(res, 403, 'Admin access required.');
+  const queue = req.body?.queue as PvpQueue;
+  if (queue !== 'arena' && queue !== 'ranked') return routerError(res, 400, 'Choose Arena or Ranked.');
+  try {
+    const config = await currentPvpConfig();
+    const selectedMap = config.maps.find((map) => map.id === req.body?.mapId);
+    if (!selectedMap) return routerError(res, 400, 'Choose a valid Arena path.');
+    const matches = await getCollection<StoredMatch>('pvp_matches');
+    const active = await matches.findOne({ status: { $in: ['draft', 'active'] }, 'players.userId': user.userId });
+    if (active) return routerError(res, 409, 'Finish your current match before starting a test.');
+    const now = Date.now(); const id = randomUUID(); const botUserId = `bot:${id}`;
+    const match = newPvpMatch(id, queue, [createPvpPlayer(user.userId, user.username || user.nickname || 'Slicer', 'blue', config, now), createPvpPlayer(botUserId, 'Orchard Siege Bot', 'red', config, now)], now, config) as StoredMatch;
+    match.status = 'active'; match.map = structuredClone(selectedMap); match.endsAt = now + config.durationSeconds * 1000;
+    match.testMatch = true; match.botUserId = botUserId; match.botNextActionAt = now + 1_200; match.updatedAt = new Date(now);
+    await (await getCollection<QueueEntry>('pvp_queue')).deleteOne({ userId: user.userId });
+    await matches.insertOne(match); void publishMatch(match);
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch (error) { console.error(error); routerError(res, 503, 'Could not create the bot test match.'); }
 });
 
 pvpRouter.post('/queue', async (req: Request, res: Response) => {
@@ -244,6 +297,22 @@ pvpRouter.post('/match/:id/ack', async (req: Request, res: Response) => {
   } catch { routerError(res, 503, 'Could not close the match result.'); }
 });
 
+pvpRouter.post('/match/:id/end-test', async (req: Request, res: Response) => {
+  const user = await resolveRequestUser(req); if (!user) return routerError(res, 401, 'Sign in first.');
+  if (!process.env.ADMIN_STEAM_ID || user.steamId !== process.env.ADMIN_STEAM_ID) return routerError(res, 403, 'Admin access required.');
+  try {
+    const matches = await getCollection<StoredMatch>('pvp_matches');
+    const match = await matches.findOne({ id: req.params.id, status: 'active', testMatch: true, 'players.userId': user.userId });
+    if (!match) return routerError(res, 404, 'Active bot test match not found.');
+    const priorRevision = match.revision;
+    match.status = 'complete'; match.resultReason = 'test-ended'; match.winnerId = null; match.revision++; match.updatedAt = new Date();
+    const saved = await matches.replaceOne({ id: match.id, revision: priorRevision, status: 'active', testMatch: true }, match);
+    if (!saved.modifiedCount) return routerError(res, 409, 'Match changed. Refresh the board.');
+    await settleMatch(match, await currentPvpConfig()); void publishMatch(match);
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch (error) { console.error(error); routerError(res, 503, 'Could not end the bot test match.'); }
+});
+
 pvpRouter.post('/match/:id/connection', async (req: Request, res: Response) => {
   const user = await resolveRequestUser(req); if (!user) return routerError(res, 401, 'Sign in first.');
   try {
@@ -274,12 +343,9 @@ export function startPvpAuthority(): void {
     if (ticking) return; ticking = true;
     try {
       const col = await getCollection<StoredMatch>('pvp_matches'); const config = await currentPvpConfig();
-      const matches = await col.find({ status: { $in: ['draft', 'active'] } }).limit(200).toArray(); const now = Date.now();
+      const matches = await col.find({ status: 'active' }).limit(200).toArray(); const now = Date.now();
       for (const match of matches) {
-        const priorRevision = match.revision; const dt = Math.max(0, Math.min(1, (now - match.updatedAt.getTime()) / 1000));
-        advancePvpMatch(match, dt, now, config); match.updatedAt = new Date(now);
-        const saved = await col.replaceOne({ id: match.id, revision: priorRevision, status: 'active' }, match);
-        if (saved.modifiedCount) { void publishMatch(match); if (match.status === 'complete') await settleMatch(match, config); }
+        await tickMatch(match, config, now);
       }
     } catch (error) { console.error('PvP authority tick failed:', error); }
     finally { ticking = false; }

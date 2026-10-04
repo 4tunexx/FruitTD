@@ -1569,7 +1569,7 @@ export class Hud {
         monthlyEl.appendChild(row);
       });
       if (!monthlyBoard?.leaderboard?.length) {
-        monthlyEl.innerHTML = '<div class="lb-loading">No monthly ranked scores yet. Play Ranked to climb Bronze → Diamond.</div>';
+        monthlyEl.innerHTML = '<div class="lb-loading">No historical solo Ranked scores this month. Current PvP rating is in Ranked PvP.</div>';
       }
     }
   }

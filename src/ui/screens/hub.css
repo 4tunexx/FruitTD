@@ -24,7 +24,9 @@
     calc(var(--ftd-safe-bottom) + 0.85rem)
     calc(var(--ftd-safe-left) + 1.5rem);
   color: #e2e8f0;
+  background: #07130e;
 }
+#screen-hub.ftd-hub { background:#07130e; backdrop-filter:none; }
 
 .ftd-hub-social { position: relative; }
 .ftd-hub-social__icon { width: 17px; height: 17px; }
@@ -163,7 +165,8 @@
 .ftd-hub.is-single-panel .ftd-hub__body { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 901px) {
   .ftd-hub__main,
-  .ftd-hub__sub { border: 1px solid rgba(163, 230, 53, 0.34); background: linear-gradient(145deg, rgba(5, 17, 16, 0.96), rgba(19, 38, 22, 0.92)); }
+  .ftd-hub__sub { border: 1px solid rgba(163, 230, 53, 0.34); background: linear-gradient(145deg, #081613, #10241a); }
+  .ftd-hub__main { background: linear-gradient(145deg, #071511, #0e2018); }
   .ftd-hub__main { border-left: 4px solid #ef4444; }
   .ftd-hub__sub { border-left: 3px solid #a3e635; }
   .ftd-hub__sub > .ftd-hub-panel-content { min-height: 100%; padding: clamp(1rem, 1.6vw, 1.6rem); }
@@ -191,8 +194,8 @@
   height: auto;
   overflow: visible;
   padding: clamp(0.75rem, 1.5vw, 1.5rem);
-  background: linear-gradient(145deg, rgba(7, 21, 18, 0.96), rgba(17, 37, 23, 0.94));
-  border: 1px solid rgba(163, 230, 53, 0.35);
+  background: transparent;
+  border: 0;
 }
 
 .ftd-hub .ftd-campaign__header,
@@ -251,11 +254,12 @@
 .ftd-hub .ftd-catbar__tab.is-active:hover,.ftd-hub .ftd-catbar__tab.is-active:focus-visible { background: #c6f46d; color: #12220d; }
 @media (min-width: 901px) {
   .ftd-hub .ftd-item-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 1rem; padding: 0.2rem 0.1rem 1rem; }
-  .ftd-hub .ftd-item-card { min-height: 285px; padding: 1.05rem; background: linear-gradient(155deg, #1b3025ed, #0b1916f5); border-width: 2px; }
+  .ftd-hub .ftd-item-card { min-height: 235px; padding: 1.05rem; background: linear-gradient(155deg, #1b3025, #0b1916); border-width: 2px; }
   .ftd-hub .ftd-item-card__swatch { display: grid; place-items: center; height: 100px; border: 1px solid #ffffff33; }
   .ftd-hub .ftd-item-card__name { color: #f3ffe7; font-size: 1.16rem; }
   .ftd-hub .ftd-item-card__desc { color: #b5c9ba; font-size: 0.85rem; line-height: 1.4; }
 }
+@media (min-width: 1550px) { .ftd-hub .ftd-item-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 901px) and (max-width: 1100px) { .ftd-hub .ftd-hero-roster--hub { grid-template-columns: 1fr; } }
 @media (min-width: 901px) and (max-width: 1250px) { .ftd-hub .ftd-item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 901px) {
@@ -276,6 +280,8 @@
 .ftd-item-card__swatch-mark { display: grid; place-items: center; width: 68px; height: 68px; border: 1px solid #ffffff88; border-radius: 50%; background: #06120a55; color: #fff; box-shadow: 0 0 20px #ffffff33; }
 .ftd-item-card__swatch-mark svg { width: 38px; height: 38px; filter: drop-shadow(0 2px 5px #000a); }
 .ftd-hub .ftd-blade-preview { height: 100px; border: 1px solid #9ed47b66; background-color: #223528; }
+.ftd-hub .ftd-blade-preview::before { content:''; position:absolute; z-index:2; width:13px; height:67px; left:50%; top:5px; transform:translateX(-50%) rotate(35deg); clip-path:polygon(50% 0,100% 24%,72% 100%,28% 100%,0 24%); background:linear-gradient(90deg,var(--blade-color,#a3e635),#f7fff2 48%,var(--blade-color,#a3e635)); box-shadow:0 0 18px var(--blade-glow,#a3e635); }
+.ftd-hub .ftd-blade-preview::after { content:''; position:absolute; z-index:2; width:24px; height:6px; left:50%; top:68px; transform:translateX(-50%) rotate(35deg); border-radius:3px; background:#e4d7ad; box-shadow:0 0 9px var(--blade-glow,#a3e635); }
 .ftd-blade-preview__glyph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 0 9px var(--blade-glow, #a3e635)); }
 .ftd-blade-preview__glyph svg { width: 38px; height: 38px; }
 
@@ -749,6 +755,11 @@
 .ftd-pvp__queue { display:grid; gap:.9rem; justify-items:start; max-width:760px; margin:1rem auto; }
 .ftd-pvp__section-title { margin:.4rem 0; }
 .ftd-pvp__challenge,.ftd-pvp__incoming { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; width:100%; padding:1rem; border:1px solid rgba(163,230,53,.22); }
+.ftd-pvp__bot-start { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.65rem 1rem; align-items:end; width:100%; margin-top:.4rem; padding:1rem; border:1px solid rgba(56,189,248,.48); background:linear-gradient(135deg,rgba(8,34,42,.95),rgba(6,20,19,.95)); }
+.ftd-pvp__bot-start .ftd-pvp__section-title,.ftd-pvp__bot-start .ftd-pvp__intro { grid-column:1/-1; margin:0; }
+.ftd-pvp__bot-start label { grid-column:1/-1; color:#b8dfe7; font-size:.8rem; font-weight:700; }
+.ftd-pvp__bot-start select,.ftd-pvp__friend-select { min-width:180px; min-height:40px; padding:.5rem .7rem; color:#f2ffe8; background:#07110e; border:1px solid #52664d; }
+.ftd-pvp__bot-start select:focus-visible,.ftd-pvp__friend-select:focus-visible { outline:2px solid #a3e635; outline-offset:2px; }
 .ftd-pvp__challenge input { flex:1; min-width:220px; background:#07110e; border:1px solid #52664d; color:#f2ffe8; padding:.7rem; }
 .ftd-pvp__draft-head { display:grid; gap:.2rem; margin-bottom:1rem; }
 .ftd-pvp__draft-head h2 { margin:.2rem 0; }
@@ -763,12 +774,19 @@
 .ftd-pvp__matchbar { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.7rem; padding:.8rem 1rem; margin-bottom:.8rem; border:1px solid rgba(163,230,53,.25); background:#08120f; }
 .ftd-pvp__matchbar strong { color:#ffe066; font-size:1.2rem; }
 .ftd-pvp__matchbar p { margin:0; align-self:center; font-size:.78rem; }
+.ftd-pvp__matchbar .ftd-pvp__test-label { color:#67e8f9; font-weight:900; }
 .ftd-pvp__controls { display:grid; gap:.7rem; }
 .ftd-pvp__battlefield { display:grid; grid-template-rows:auto minmax(360px,60vh) auto; width:min(100%,740px); max-height:780px; margin:0 auto; padding:.65rem; background:linear-gradient(#11271d,#24402b 48%,#12261b); border:1px solid #718c5b; }
+.ftd-pvp__boards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; align-items:start; }
+.ftd-pvp__boards > section { min-width:0; }
+.ftd-pvp__battlefield--rival { border-color:#df6b60; }
+.ftd-pvp__cells--spectator { pointer-events:none; }
+@media (max-width:1100px) { .ftd-pvp__boards { grid-template-columns:1fr; } }
 .ftd-pvp__gate { display:flex; align-items:center; justify-content:space-between; padding:.55rem .8rem; margin:0; min-height:38px; color:#f1f7e9; font-size:.73rem; font-weight:800; letter-spacing:.1em; }
 .ftd-pvp__gate--enemy { border-top:3px solid #eb4b4b; background:rgba(108,28,28,.72); }
 .ftd-pvp__gate--own { border-bottom:3px solid #a3e635; background:rgba(22,79,39,.85); }
-.ftd-pvp__cells { display:grid; grid-template-columns:repeat(var(--map-cols),minmax(0,1fr)); grid-auto-rows:minmax(24px,1fr); gap:2px; min-height:0; padding:.35rem; }
+.ftd-pvp__cells { position:relative; display:grid; grid-template-columns:repeat(var(--map-cols),minmax(0,1fr)); grid-auto-rows:minmax(24px,1fr); gap:2px; min-height:0; padding:.35rem; touch-action:none; }
+.ftd-pvp__swipe-line { position:absolute; z-index:5; height:5px; transform-origin:left center; pointer-events:none; border-radius:5px; background:#e8fbff; box-shadow:0 0 12px 3px #38bdf8; }
 .ftd-pvp__cell { min-width:0; padding:0; color:#d9ebc7; border:1px solid rgba(208,231,178,.15); background:rgba(62,103,51,.8); font-size:clamp(.48rem,.8vw,.72rem); cursor:pointer; }
 .ftd-pvp__cell:not(:disabled):hover { border-color:#d0ff61; background:#507d34; }
 .ftd-pvp__cell.is-path { color:#392a13; border-color:#caba85; background:#b5a16a; cursor:default; }
@@ -788,6 +806,7 @@
   .ftd-pvp__heading { align-items:flex-start; flex-direction:column; }
   .ftd-pvp__rating { width:100%; border-left:0; border-top:2px solid #a3e635; }
   .ftd-pvp__matchbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ftd-pvp__bot-start { grid-template-columns:1fr; }
   .ftd-pvp__battlefield { grid-template-rows:auto minmax(300px,55vh) auto; padding:.25rem; }
   .ftd-pvp__cells { gap:1px; grid-auto-rows:minmax(18px,1fr); padding:.15rem; }
   .ftd-pvp__map-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }

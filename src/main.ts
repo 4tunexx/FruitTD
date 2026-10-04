@@ -38,6 +38,7 @@ import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
 import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
 import { advanceLocalCoop, type LocalCoopState } from './game/localCoop';
+import { CoopActors } from './game/coopActors';
 import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
@@ -136,6 +137,9 @@ const bank = new JuiceBank();
 const wall = new WallBase();
 const blade = new BladeInput(canvas, renderer.camera, renderer);
 const trail = new BladeTrail();
+const guestTrail = new BladeTrail();
+guestTrail.setColor(0x93c5fd);
+const coopActors = new CoopActors();
 const slashFx = new SlashFx();
 const combos = new ComboFx();
 const playerContacts = new StrokeContacts();
@@ -154,7 +158,8 @@ setComboFocusHandler(({ intensity }) => {
   renderer.impulseShake(intensity * 0.6);
 });
 
-renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks, slashFx.group);
+renderer.scene.add(field.group, juice.mesh, wall.group, trail.line, trail.glowLine, trail.sparks,
+  guestTrail.line, guestTrail.glowLine, guestTrail.sparks, coopActors.group, slashFx.group);
 
 setStudioFxCallbacks({
   shake: (amount) => renderer.impulseShake(amount),
@@ -178,7 +183,8 @@ setCreatorVfxCallbacks({
 });
 
 const guestKeys = new Set<string>();
-let guestControl: LocalCoopState = { x: 0, z: 1, cooldown: 0 };
+let guestControl: LocalCoopState = { x: 3, z: -5.5, cooldown: 0 };
+let guestTrailLife = 0;
 let guestAttackHeld = false;
 const guestCursor = document.getElementById('coop-guest-cursor');
 const guestHelp = document.getElementById('coop-guest-help');
@@ -934,6 +940,7 @@ function restart(): void {
   state.running = true;
   startLeaderboardRun(state.mode);
   const rules = modeRules(state.mode);
+  wall.setHeroOnKeep(!rules.guest);
   bank.add('yellow', rules.yellow);
   bank.add('pink', rules.pink);
   bank.add('orange', rules.orange);
@@ -941,14 +948,19 @@ function restart(): void {
   floatingScore.reset();
   slashFx.reset();
   trail.reset();
+  guestTrail.reset();
   blade.reset();
   playerContacts.reset();
   guestContacts.reset();
   wall.cancelMove();
   guestKeys.clear();
   guestStrokeId = 0;
-  guestControl = { x: 0, z: 1, cooldown: 0 };
+  guestControl = { x: 3, z: -5.5, cooldown: 0 };
+  guestTrailLife = 0;
   guestAttackHeld = false;
+  coopActors.reset();
+  coopActors.setPlayerOneColor(heroDef(state.hero).color);
+  coopActors.setVisible(rules.guest);
   guestCursor?.classList.toggle('hidden', !rules.guest);
   guestHelp?.classList.toggle('hidden', !rules.guest);
   totalFruitsSliced = 0;
@@ -1257,6 +1269,7 @@ function quitToMenu(explicitMenuAction = false): void {
   state.running = false;
   guestKeys.clear();
   guestAttackHeld = false;
+  coopActors.setVisible(false);
   guestCursor?.classList.add('hidden');
   guestHelp?.classList.add('hidden');
   wall.cancelMove();
@@ -1275,6 +1288,7 @@ function quitToMenu(explicitMenuAction = false): void {
   combos.reset();
   slashFx.reset();
   trail.reset();
+  guestTrail.reset();
   blade.reset();
   sfx.pause();
   sfx.stopAllLoops();
@@ -1390,19 +1404,31 @@ function showBossIntro(level: number): void {
 
 function tickGuest(dt: number): void {
   if (!modeRules(state.mode).guest) return;
+  const before = { x: guestControl.x, z: guestControl.z };
   const next = advanceLocalCoop(guestControl, guestKeys, guestAttackHeld, dt);
   guestControl = next.state;
+  coopActors.movePlayerTwo(guestControl.x, guestControl.z);
+  if (blade.pointerWorld) coopActors.movePlayerOne(blade.pointerWorld.x, blade.pointerWorld.z);
   const screen = worldPct(guestControl.x, 0.7, guestControl.z);
   if (guestCursor) {
     guestCursor.style.left = `${screen.nx}%`;
     guestCursor.style.top = `${screen.ny}%`;
   }
+  if (guestTrailLife > 0) {
+    guestTrailLife = Math.max(0, guestTrailLife - dt);
+    if (guestTrailLife === 0) guestTrail.reset();
+  }
   if (!next.slash) return;
+  const moved = Math.hypot(guestControl.x - before.x, guestControl.z - before.z) > 0.12;
+  const from = new Vector3(moved ? before.x : guestControl.x - 1.15, 0, before.z);
+  const to = new Vector3(moved ? guestControl.x : guestControl.x + 1.15, 0, guestControl.z);
+  guestTrail.sync([from, to]);
+  guestTrailLife = 0.23;
   slashFx.spawn(guestControl.x, guestControl.z, 0x93c5fd);
   resolveSlash({
     id: --guestStrokeId,
-    from: new Vector3(guestControl.x - 1.15, 0, guestControl.z),
-    to: new Vector3(guestControl.x + 1.15, 0, guestControl.z),
+    from,
+    to,
     segments: [],
     speed: 11,
     charge: 0.28,
@@ -1712,6 +1738,7 @@ function simulate(dt: number): void {
   blade.fadeTrail();
   trail.sync(blade.trail);
   trail.update(dt);
+  guestTrail.update(dt);
   if (rewardSavePending) persist();
 }
 
@@ -1730,7 +1757,7 @@ hud.onPlace = (kind) => {
 
 window.addEventListener('keydown', (e) => {
   if (state.mode === 'coop' && navigation.canInteract() && state.running &&
-      !(e.target instanceof HTMLElement && e.target.closest('button, a, input, textarea, select, [contenteditable="true"]')) &&
+      !(e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable="true"]')) &&
       (e.code.startsWith('Arrow') || e.code === 'Enter' || e.code === 'NumpadEnter')) {
     e.preventDefault();
     if (e.code === 'Enter' || e.code === 'NumpadEnter') guestAttackHeld = true;

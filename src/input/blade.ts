@@ -38,6 +38,7 @@ export class BladeInput {
   private lastY = 0;
   private readonly pointers = new Map<number, { x: number; y: number }>();
   readonly trail: Vector3[] = [];
+  pointerWorld: Vector3 | null = null;
   lastSlash: Slash | null = null;
   lastClick: Vector3 | null = null;
   lastPointer: PointerKind = 'mouse';
@@ -146,6 +147,7 @@ export class BladeInput {
     this.trail.length = 0;
     const p = this.project(e.clientX, e.clientY);
     if (p) {
+      this.pointerWorld = p.clone();
       this.samples.push(p);
       this.trail.push(p);
     }
@@ -153,6 +155,8 @@ export class BladeInput {
 
   private onMove(e: PointerEvent): void {
     this.recordPointerEvent(e);
+    const hover = this.project(e.clientX, e.clientY);
+    if (hover) this.pointerWorld = hover.clone();
     if (this.pointers.has(e.pointerId)) {
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
@@ -285,6 +289,7 @@ export class BladeInput {
     this.trail.length = 0;
     this.lastClick = null;
     this.lastSlash = null;
+    this.pointerWorld = null;
     this.trailIdleTime = 0;
     this.freshTrail = false;
   }
@@ -297,6 +302,9 @@ export class BladeInput {
       return;
     }
     this.trailIdleTime += Math.max(0, dt);
-    if (this.trailIdleTime > (this.down ? 0.065 : 0.045) && this.trail.length) this.trail.shift();
+    if (this.trailIdleTime > (this.down ? 0.14 : 0.18) && this.trail.length) {
+      this.trail.shift();
+      this.trailIdleTime = this.down ? 0.11 : 0.15;
+    }
   }
 }

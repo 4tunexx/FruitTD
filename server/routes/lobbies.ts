@@ -40,7 +40,7 @@ export function createLobbyRouter(deps: LobbyDeps = defaults): Router {
     try {
       const user = await identity(req, res); if (!user) return;
       const rooms = await (await deps.collection<CoopLobby>('coop_lobbies'))
-        .find({ visibility: 'public', ...active(), $expr: { $lt: [{ $size: '$members' }, 4] } } as any)
+        .find({ visibility: 'public', ...active(), $expr: { $lt: [{ $size: '$members' }, 2] } } as any)
         .sort({ createdAt: 1 }).limit(12).toArray();
       res.setHeader('Cache-Control', 'private, no-store');
       res.json({ success: true, lobbies: rooms });
@@ -76,7 +76,7 @@ export function createLobbyRouter(deps: LobbyDeps = defaults): Router {
       // Capacity and duplicate membership are checked in the same Mongo update.
       const room = await rooms.findOneAndUpdate({ ...where, ...active(),
         'members.userId': { $ne: user.userId },
-        $expr: { $lt: [{ $size: '$members' }, 4] },
+        $expr: { $lt: [{ $size: '$members' }, 2] },
       } as any, { $push: { members: { userId: user.userId, name: String(user.username || user.nickname || 'Slicer').slice(0, 32), ready: false } } },
       { sort: { createdAt: 1 }, returnDocument: 'after' });
       if (!room) return error(res, 404, code ? 'Lobby unavailable or full' : 'No open public lobby yet');

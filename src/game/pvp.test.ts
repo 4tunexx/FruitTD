@@ -58,6 +58,19 @@ describe('Arena and Ranked PvP rules', () => {
     assert.equal(open.players[0]!.wallHealth, cfg.wallHealth - cfg.attacks.normal!.wallDamage);
   });
 
+  it('only slices fruit crossed by a real battlefield stroke', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
+    const defender = game.players[0]!;
+    defender.attackers.push({ id: 'incoming', type: 'normal', hp: 100, progress: 4 });
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 0, y: 4.5 }, to: { x: 2, y: 4.5 } }, 1, 2_000, cfg), /missed/);
+    assert.equal(defender.attackers.length, 1);
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: -10, y: 4.5 }, to: { x: 6, y: 4.5 } }, 1, 2_001, cfg), /Invalid blade/);
+    applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 1, 2_002, cfg);
+    assert.equal(defender.attackers.length, 0);
+    assert.equal(defender.score, 10);
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 1, 2_003, cfg), /replayed/);
+  });
+
   it('awards correct FR deltas, caps performance, keeps a loss net negative, and uses configured tiers', () => {
     assert.equal(calculatePvpRating(1000, 'win', [], 0).delta, 50);
     assert.equal(calculatePvpRating(1000, 'tie', [], 0).delta, 20);

@@ -114,8 +114,17 @@ export function calculatePvpRating(points: number, outcome: 'win' | 'tie' | 'los
 }
 
 export interface PvpPlayer { userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number }>; attackers: Array<{ id: string; type: string; hp: number; progress: number }> }
-export interface PvpMatch { id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
-export type PvpCommand = { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; attackerIds: string[] };
+export interface PvpMatch { id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
+export type PvpCommand = { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
+
+export function fruitOnSlash(pathCell: number, width: number, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  const x = pathCell % width + 0.5;
+  const y = Math.floor(pathCell / width) + 0.5;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const t = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(x - (from.x + dx * t), y - (from.y + dy * t)) <= 0.46;
+}
 
 export function createPvpPlayer(userId: string, name: string, side: 'blue' | 'red', config: PvpConfig, now = Date.now()): PvpPlayer {
   return { userId, name: name.slice(0, 32), side, connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
@@ -170,10 +179,13 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     const target = match.players.find((item) => item.userId !== userId)!;
     target.attackers.push({ id: `${userId}:${sequence}`, type: command.enemy, hp: attack.health, progress: 0 });
   } else if (command.type === 'slash') {
-    if (!Array.isArray(command.attackerIds) || command.attackerIds.length > 8) throw new Error('Invalid slash command');
-    const ids = new Set(command.attackerIds);
-    const killed = player.attackers.filter((item) => ids.has(item.id) && item.progress >= 0.25 && item.progress <= 9.75);
-    if (killed.length !== ids.size) throw new Error('Slash referenced missing or opponent fruit');
+    const map = match.map ?? config.map;
+    const validPoint = (point: { x: number; y: number } | undefined) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
+    if (!validPoint(command.from) || !validPoint(command.to) || Math.hypot(command.to.x - command.from.x, command.to.y - command.from.y) < 0.5) throw new Error('Invalid blade stroke');
+    const killed = player.attackers.filter((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1 &&
+      fruitOnSlash(map.pathCells[Math.floor(item.progress)]!, map.width, command.from, command.to)).slice(0, 8);
+    if (!killed.length) throw new Error('Blade missed the fruit');
+    const ids = new Set(killed.map((item) => item.id));
     player.attackers = player.attackers.filter((item) => !ids.has(item.id));
     player.score += killed.length * 10;
     player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type]!.rewardFruts, 0);
@@ -182,7 +194,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
     player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
     for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
-  }
+  } else throw new Error('Unknown match action');
   player.sequence = sequence;
   player.lastSeenAt = now;
   match.revision++;
