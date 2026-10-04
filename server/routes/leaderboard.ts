@@ -288,7 +288,7 @@ router.post('/', async (req: Request, res: Response) => {
         towerXp: rewards.towerXp,
         games: completed === false ? 0 : 1,
         highScore: score,
-        rankedScore: playMode === 'ranked' ? score : 0,
+        rankedScore: playMode === 'ranked' && completed !== false ? score : 0,
         bestWave: wave || 1,
         bestCombo: maxCombo || 0,
       }, await deps.collection<CloudSaveDoc>('cloud_saves'));
@@ -343,8 +343,8 @@ router.post('/', async (req: Request, res: Response) => {
       return false;
     };
 
-    const isNewHigh = await upsertBest(playMode);
-    if (playMode === 'ranked') {
+    const isNewHigh = completed !== false ? await upsertBest(playMode) : false;
+    if (playMode === 'ranked' && completed !== false) {
       await upsertBest(monthlyLeaderboardMode());
     }
 

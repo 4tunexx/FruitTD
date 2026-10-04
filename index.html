@@ -79,6 +79,8 @@
       <canvas id="game-canvas" data-testid="combat-canvas" aria-label="Tower defense battlefield"></canvas>
       <div id="combat-impact" aria-hidden="true"></div>
       <button id="btn-game-menu-quick" type="button" aria-label="Pause and open game menu" title="Pause and open game menu">☰ <span>MENU</span></button>
+      <div id="coop-guest-cursor" class="hidden" aria-hidden="true"><span>P2</span></div>
+      <div id="coop-guest-help" class="hidden" aria-hidden="true">PLAYER 2 · ARROW KEYS MOVE · ENTER SLASH</div>
 
       <!-- ═══════════════════════════════════════════ HUD ═══════════════════════════════════════════ -->
       <div id="hud">
@@ -957,6 +959,7 @@
               <button class="admin-tab-btn" data-tab="sprites">Creator</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
               <button class="admin-tab-btn" data-tab="economy">Game Economy</button>
+              <button class="admin-tab-btn" data-tab="pvp">Arena & Ranked PvP</button>
               <button class="admin-tab-btn" data-tab="content">Content (Fruits/Enemies/Waves)</button>
               <button class="admin-tab-btn" data-tab="leaderboard">Leaderboards</button>
               <button class="admin-tab-btn" data-tab="design">Design</button>
@@ -1483,6 +1486,13 @@
                   <input id="admin-in-supermul" type="number" class="admin-input" min="0.5" max="5" step="0.1" />
                 </label>
               </div>
+            </div>
+
+            <div id="admin-tab-pvp" class="admin-panel-tab hidden">
+              <p class="text-xs text-slate-400 mb-3">The server validates and uses this Arena/Ranked balance. Tower and fruit-zombie identifiers are fixed to supported game pieces.</p>
+              <label class="admin-pvp-config-label" for="admin-pvp-config">PvP match, tower, attack, FR tier, performance, and season reward configuration</label>
+              <textarea id="admin-pvp-config" class="admin-input admin-pvp-config" rows="28" spellcheck="false" aria-label="Arena and Ranked PvP configuration JSON"></textarea>
+              <p class="text-xs text-slate-400">Save with the main Save button. Invalid JSON is rejected without changing the live settings.</p>
             </div>
 
             <!-- P1-5: Content Editor Tab (Fruits/Enemies/Waves/Bosses) -->

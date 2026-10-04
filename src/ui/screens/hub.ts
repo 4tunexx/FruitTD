@@ -39,7 +39,7 @@ export interface HubTab {
   icon: typeof Swords;
   /** Paints the primary content area. Called on every entry and refresh. */
   renderMain: (root: HTMLElement, save: SaveData) => void;
-  /** Paints the contextual sub-panel. Omit for tabs with nothing to show there. */
+  /** Paints the contextual detail panel. */
   renderSub?: (root: HTMLElement, save: SaveData) => void;
 }
 
@@ -236,8 +236,8 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
     clear(subHost);
     if (tab.renderSub) {
       const subInner = el('div', { class: 'ftd-hub-panel-content' });
-      tab.renderSub(subInner, save);
       subHost.appendChild(subInner);
+      tab.renderSub(subInner, save);
       subHost.classList.remove('is-empty');
       if (direction !== 'none') subHost.scrollTop = 0;
     } else {

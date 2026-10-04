@@ -15,7 +15,7 @@ import { MongoClient } from "mongodb";
 dotenv.config();
 var uri = process.env.MONGODB_URI;
 if (!uri) {
-  console.warn("\u26A0\uFE0F MONGODB_URI not found in environment variables. Falling back to local/mock mode.");
+  console.warn("MONGODB_URI is missing; cloud account and progression requests will fail until it is configured.");
 }
 var client = null;
 var db = null;
@@ -59,6 +59,13 @@ async function getDb() {
     await db.collection("coop_lobbies").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection("coop_lobbies").createIndex({ visibility: 1, status: 1, createdAt: 1 });
     await db.collection("coop_lobbies").createIndex({ "members.userId": 1, status: 1 });
+    await db.collection("pvp_ratings").createIndex({ userId: 1 }, { unique: true });
+    await db.collection("pvp_matches").createIndex({ id: 1 }, { unique: true });
+    await db.collection("pvp_matches").createIndex({ status: 1, updatedAt: 1 });
+    await db.collection("pvp_queue").createIndex({ userId: 1 }, { unique: true });
+    await db.collection("pvp_queue").createIndex({ queue: 1, expiresAt: 1 });
+    await db.collection("pvp_challenges").createIndex({ challengeId: 1 }, { unique: true });
+    await db.collection("pvp_challenges").createIndex({ toId: 1, expiresAt: 1 });
   } catch (err) {
     console.warn("Index creation notice:", err);
   }
@@ -219,7 +226,11 @@ var DEFAULT_ACHIEVEMENTS = [
   { id: "daily_30", title: "Monthly Survivor", desc: "Claim 30 daily bonuses", icon: "CalendarDays", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 1500, rewardSp: 3, rewardGems: 25, rewardBadge: "daily-veteran" },
   { id: "score_10000", title: "Five Digit Run", desc: "Reach 10,000 score in a run", icon: "Gauge", enabled: true, requirement: req("score_reach", 1e4), rewardCoins: 700, rewardSp: 1 },
   { id: "score_50000", title: "Score Titan", desc: "Reach 50,000 score in a run", icon: "ChartNoAxesCombined", enabled: true, requirement: req("score_reach", 5e4), rewardCoins: 2e3, rewardSp: 3, rewardGems: 20 },
-  { id: "horde_wave_50", title: "Horde Holdout", desc: "Reach wave 50 in Horde", icon: "UsersRound", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "horde-veteran" }
+  { id: "horde_wave_50", title: "Horde Holdout", desc: "Reach wave 50 in Horde", icon: "UsersRound", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "horde-veteran" },
+  { id: "pvp_first_win", title: "First Siege", desc: "Win your first server-verified PvP siege", icon: "Swords", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: "pvp-first-win" },
+  { id: "pvp_ten_wins", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardSp: 0, rewardGems: 10, rewardBadge: "pvp-wallbreaker" },
+  { id: "pvp_combo_50", title: "Fruit Storm", desc: "Reach a 50-slice combo in a PvP siege", icon: "Zap", enabled: true, requirement: req("pvp_combo", 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
+  { id: "pvp_multislice_5", title: "Five-Fruit Cut", desc: "Slice five fruit-zombies with one server-verified cut", icon: "Sword", enabled: true, requirement: req("pvp_multislice", 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 }
 ];
 var DEFAULT_BADGES = [
   { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "Sword", rarity: "common", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50 },
@@ -241,7 +252,20 @@ var DEFAULT_BADGES = [
   { id: "master-slicer", title: "Master Slicer", desc: "Reach Master rank", icon: "Crown", rarity: "legendary", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 1e3, rewardGems: 25 },
   { id: "horde-veteran", title: "Horde Veteran", desc: "Clear 50 Horde waves", icon: "UsersRound", rarity: "legendary", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1e3, rewardGems: 25 },
   { id: "campaign-pathfinder", title: "Campaign Pathfinder", desc: "Clear 100 Campaign waves", icon: "Map", rarity: "epic", enabled: true, requirement: req("waves_cleared", 100, { mode: "campaign" }), rewardCoins: 750, rewardGems: 15 },
-  { id: "veteran", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", rarity: "legendary", enabled: true, requirement: req("play_games", 200), rewardCoins: 1e3, rewardGems: 25 }
+  { id: "veteran", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", rarity: "legendary", enabled: true, requirement: req("play_games", 200), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "pvp-first-win", title: "Siege Victor", desc: "Win a server-verified PvP siege", icon: "Swords", rarity: "common", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardGems: 2 },
+  { id: "pvp-wallbreaker", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", rarity: "rare", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardGems: 10 },
+  { id: "fr-silver", title: "Silver Defender", desc: "Reach Silver on the FR ladder", icon: "Medal", rarity: "rare", enabled: true, requirement: req("pvp_reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: "fr-gold", title: "Gold Defender", desc: "Reach Gold on the FR ladder", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("pvp_reach_gold", 2e3), rewardCoins: 500, rewardGems: 10 },
+  { id: "fr-diamond", title: "Diamond Defender", desc: "Reach Diamond on the FR ladder", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("pvp_reach_diamond", 2500), rewardCoins: 900, rewardGems: 20 },
+  { id: "fr-emerald", title: "Emerald Defender", desc: "Reach Emerald on the FR ladder", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("reach_emerald", 2750), rewardCoins: 1400, rewardGems: 35 },
+  { id: "fr-sapphire", title: "Sapphire Defender", desc: "Reach Sapphire on the FR ladder", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("reach_sapphire", 3e3), rewardCoins: 2200, rewardGems: 60 },
+  { id: "pvp-bronze", title: "Bronze Season", desc: "Finish a season in Bronze", icon: "Shield", rarity: "common", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 100 },
+  { id: "pvp-silver", title: "Silver Season", desc: "Finish a season in Silver", icon: "Medal", rarity: "rare", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 250, rewardGems: 5 },
+  { id: "pvp-gold", title: "Gold Season", desc: "Finish a season in Gold", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 500, rewardGems: 10 },
+  { id: "pvp-diamond", title: "Diamond Season", desc: "Finish a season in Diamond", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 900, rewardGems: 20 },
+  { id: "pvp-emerald", title: "Emerald Season", desc: "Finish a season in Emerald", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 1400, rewardGems: 35 },
+  { id: "pvp-sapphire", title: "Sapphire Season", desc: "Finish a season in Sapphire", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 2200, rewardGems: 60 }
 ];
 
 // src/game/slicers.ts
@@ -1132,7 +1156,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
           towerXp: rewards.towerXp,
           games: completed === false ? 0 : 1,
           highScore: score,
-          rankedScore: playMode === "ranked" ? score : 0,
+          rankedScore: playMode === "ranked" && completed !== false ? score : 0,
           bestWave: wave || 1,
           bestCombo: maxCombo || 0
         }, await deps.collection("cloud_saves"));
@@ -1183,8 +1207,8 @@ function createLeaderboardRouter(deps = defaultDeps) {
         }
         return false;
       };
-      const isNewHigh = await upsertBest(playMode);
-      if (playMode === "ranked") {
+      const isNewHigh = completed !== false ? await upsertBest(playMode) : false;
+      if (playMode === "ranked" && completed !== false) {
         await upsertBest(monthlyLeaderboardMode());
       }
       const higherCount = await col.countDocuments(playMode === "horde" ? { mode: playMode, $or: [{ wave: { $gt: wave || 1 } }, { wave: wave || 1, score: { $gt: score } }] } : { mode: playMode, score: { $gt: score } });
@@ -1541,6 +1565,189 @@ var DEFAULT_CAMPAIGN_STORIES = [
   { chapter: 20, title: "A New Season", text: "The final overlord falls and the pulse goes quiet. The roots loosen their grip on the wall, leaving a scar across the orchard but no command to follow. In the clean soil beside the gate, the growers plant their first seed. This time, they let it grow on its own." }
 ];
 
+// src/game/pvp.ts
+function route(waypoints) {
+  const cells = [];
+  for (let i = 0; i < waypoints.length; i++) {
+    const [x, y] = waypoints[i];
+    const [nextX, nextY] = waypoints[i + 1] ?? [x, y];
+    if (!cells.length) cells.push(y * 10 + x);
+    if (nextY !== y) {
+      const step = Math.sign(nextY - y);
+      for (let row = y + step; row !== nextY + step; row += step) cells.push(row * 10 + x);
+    } else if (nextX !== x) {
+      const step = Math.sign(nextX - x);
+      for (let column = x + step; column !== nextX + step; column += step) cells.push(y * 10 + column);
+    }
+  }
+  return cells;
+}
+function makeMap(id, name, waypoints) {
+  const width = 10;
+  const height = 14;
+  const pathCells = route(waypoints);
+  return { id, name, width, height, pathCells, buildCells: Array.from({ length: width * height }, (_, i) => i).filter((cell) => !pathCells.includes(cell)) };
+}
+var DEFAULT_PVP_CONFIG = {
+  version: 1,
+  map: makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
+  maps: [
+    makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
+    makeMap("windfall", "Windfall Run", [[1, 0], [1, 3], [8, 3], [8, 6], [2, 6], [2, 9], [7, 9], [7, 13]]),
+    makeMap("old-grove", "Old Grove", [[8, 0], [8, 2], [2, 2], [2, 5], [7, 5], [7, 8], [1, 8], [1, 11], [6, 11], [6, 13]]),
+    makeMap("riverbend", "Riverbend", [[5, 0], [5, 4], [1, 4], [1, 7], [8, 7], [8, 10], [3, 10], [3, 13]]),
+    makeMap("twin-rows", "Twin Rows", [[0, 0], [0, 3], [6, 3], [6, 5], [2, 5], [2, 8], [9, 8], [9, 11], [4, 11], [4, 13]]),
+    makeMap("stone-arch", "Stone Arch", [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
+    makeMap("long-harvest", "Long Harvest", [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]])
+  ],
+  durationSeconds: 180,
+  wallHealth: 1e3,
+  startingFruts: 180,
+  incomePerSecond: 2,
+  reconnectGraceSeconds: 45,
+  towers: {
+    guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
+    vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
+    laser: { cost: 180, damage: 62, range: 6, cooldownMs: 1600 },
+    railgun: { cost: 220, damage: 110, range: 8, cooldownMs: 2600 },
+    sprinkler: { cost: 150, damage: 12, range: 3, cooldownMs: 350 },
+    blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 }
+  },
+  attacks: {
+    normal: { cost: 35, health: 100, speed: 1, wallDamage: 25, rewardFruts: 12 },
+    swift: { cost: 55, health: 70, speed: 1.8, wallDamage: 20, rewardFruts: 10 },
+    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
+    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
+  },
+  rating: {
+    start: 1e3,
+    win: 50,
+    tie: 20,
+    loss: -50,
+    bonusCap: 20,
+    combo: [{ at: 5, points: 1 }, { at: 10, points: 2 }, { at: 20, points: 3 }, { at: 35, points: 4 }, { at: 50, points: 5 }],
+    multiKill3: 2,
+    multiKill5: 3,
+    seasonResetPercent: 25,
+    tiers: [{ name: "Amateur", min: 0 }, { name: "Bronze", min: 500 }, { name: "Silver", min: 1500 }, { name: "Gold", min: 2e3 }, { name: "Diamond", min: 2500 }, { name: "Emerald", min: 2750 }, { name: "Sapphire", min: 3e3 }]
+  },
+  seasonRewards: [
+    { tier: "Bronze", coins: 100, gems: 0, badgeId: "pvp-bronze" },
+    { tier: "Silver", coins: 250, gems: 5, badgeId: "pvp-silver" },
+    { tier: "Gold", coins: 500, gems: 10, badgeId: "pvp-gold" },
+    { tier: "Diamond", coins: 900, gems: 20, badgeId: "pvp-diamond" },
+    { tier: "Emerald", coins: 1400, gems: 35, badgeId: "pvp-emerald" },
+    { tier: "Sapphire", coins: 2200, gems: 60, badgeId: "pvp-sapphire" }
+  ]
+};
+function normalizePvpMaps(input) {
+  if (!Array.isArray(input) || input.length !== 7) return structuredClone(DEFAULT_PVP_CONFIG.maps);
+  return input.map((raw, index) => {
+    const fallback = DEFAULT_PVP_CONFIG.maps[index];
+    if (!raw || typeof raw !== "object") return structuredClone(fallback);
+    const row = raw;
+    const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
+    const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
+    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
+    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - path[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1] / width)) === 1)) && Math.floor(path[0] / width) === 0 && Math.floor(path.at(-1) / width) === height - 1;
+    if (!valid) return structuredClone(fallback);
+    return { id: String(row.id || fallback.id).slice(0, 48), name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: Array.from({ length: width * height }, (_, cell) => cell).filter((cell) => !path.includes(cell)) };
+  });
+}
+function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
+  return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
+}
+function resetSeasonRating(points, config = DEFAULT_PVP_CONFIG) {
+  const retain = 1 - config.rating.seasonResetPercent / 100;
+  return Math.max(0, Math.round(config.rating.start + (points - config.rating.start) * retain));
+}
+function calculatePvpRating(points, outcome, comboMilestones, maxSingleSlashKills, config = DEFAULT_PVP_CONFIG) {
+  const base = config.rating[outcome];
+  const comboBonus = comboMilestones.reduce((sum, milestone) => sum + (config.rating.combo.find((tier) => tier.at === milestone)?.points ?? 0), 0);
+  const multiBonus = maxSingleSlashKills >= 5 ? config.rating.multiKill5 : maxSingleSlashKills >= 3 ? config.rating.multiKill3 : 0;
+  let performance = Math.min(config.rating.bonusCap, Math.max(0, comboBonus + multiBonus));
+  if (outcome === "loss") performance = Math.min(performance, Math.max(0, Math.abs(base) - 1));
+  const delta = base + performance;
+  const rating = Math.max(0, points + delta);
+  return { outcome, base, performance, delta: rating - points, rating, tier: pvpTier(rating, config) };
+}
+function createPvpPlayer(userId, name, side, config, now = Date.now()) {
+  return { userId, name: name.slice(0, 32), side, connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
+}
+function newPvpMatch(id, queue, players, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  const mapPool = structuredClone(config.maps);
+  players.forEach((player) => {
+    player.lastSeenAt = now;
+  });
+  return { id, queue, status: "draft", createdAt: now, endsAt: 0, players, winnerId: null, resultReason: null, revision: 0, mapPool, vetoTurn: players[Math.floor(Math.random() * 2)].userId, map: null, vetoHistory: [] };
+}
+function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "draft") throw new Error("Map veto is already complete");
+  const player = match.players.find((item) => item.userId === userId);
+  if (!player) throw new Error("Player is not in this match");
+  if (match.vetoTurn !== userId) throw new Error("Wait for the other player to veto a path");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed veto");
+  if (match.mapPool.length <= 2) throw new Error("Only the final two paths remain");
+  if (!match.mapPool.some((item) => item.id === mapId)) throw new Error("That path is no longer available");
+  match.mapPool = match.mapPool.filter((item) => item.id !== mapId);
+  match.vetoHistory.push({ userId, mapId });
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  if (match.mapPool.length === 2) {
+    match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
+    match.status = "active";
+    match.endsAt = now + config.durationSeconds * 1e3;
+    match.players.forEach((item) => {
+      item.wallHealth = config.wallHealth;
+      item.fruts = config.startingFruts;
+    });
+  } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
+  return match;
+}
+function applyPvpCommand(match, userId, command, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "active") throw new Error("Match is not active");
+  if (now >= match.endsAt) throw new Error("Match timer has expired");
+  const player = match.players.find((item) => item.userId === userId);
+  if (!player) throw new Error("Player is not in this match");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
+  if (!player.connected) throw new Error("Player is disconnected");
+  if (command.type === "build") {
+    const tower = config.towers[command.tower];
+    const map = match.map ?? config.map;
+    const mapSize = map.width * map.height;
+    if (!tower || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map.buildCells.includes(command.cell)) throw new Error("Invalid tower or build cell");
+    if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
+    if (player.fruts < tower.cost) throw new Error("Not enough match Fruts");
+    player.fruts -= tower.cost;
+    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now });
+  } else if (command.type === "send") {
+    const attack = config.attacks[command.enemy];
+    if (!attack) throw new Error("Invalid fruit-zombie type");
+    if (player.fruts < attack.cost) throw new Error("Not enough match Fruts");
+    player.fruts -= attack.cost;
+    const target = match.players.find((item) => item.userId !== userId);
+    target.attackers.push({ id: `${userId}:${sequence}`, type: command.enemy, hp: attack.health, progress: 0 });
+  } else if (command.type === "slash") {
+    if (!Array.isArray(command.attackerIds) || command.attackerIds.length > 8) throw new Error("Invalid slash command");
+    const ids = new Set(command.attackerIds);
+    const killed = player.attackers.filter((item) => ids.has(item.id) && item.progress >= 0.25 && item.progress <= 9.75);
+    if (killed.length !== ids.size) throw new Error("Slash referenced missing or opponent fruit");
+    player.attackers = player.attackers.filter((item) => !ids.has(item.id));
+    player.score += killed.length * 10;
+    player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type].rewardFruts, 0);
+    player.currentCombo = player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
+    player.lastSlashAt = now;
+    player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
+    player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
+    for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
+  }
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  return match;
+}
+
 // server/routes/admin.ts
 var adminRouter = Router4();
 var ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || "";
@@ -1658,6 +1865,7 @@ var DEFAULT_ADMIN_CONFIG = {
     scoreMultiplier: 1,
     superChargeMultiplier: 1
   },
+  pvpConfig: DEFAULT_PVP_CONFIG,
   missions: DEFAULT_MISSIONS,
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
@@ -1736,6 +1944,7 @@ adminRouter.post("/config", async (req2, res) => {
       vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig)) : normalizeMenuConfig(existing?.menuConfig),
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
+      pvpConfig: normalizePvpConfig(req2.body.pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
       achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),
       badges: normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES),
@@ -1759,6 +1968,39 @@ adminRouter.post("/config", async (req2, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+function normalizePvpConfig(input) {
+  const row = input && typeof input === "object" ? input : {};
+  const bounded = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
+  const maps = normalizePvpMaps(row.maps);
+  const towers = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.towers).map(([id, base]) => {
+    const item = row.towers?.[id];
+    return [id, {
+      cost: bounded(item?.cost, base.cost, 1, 1e4),
+      damage: bounded(item?.damage, base.damage, 1, 1e4),
+      range: bounded(item?.range, base.range, 1, 24),
+      cooldownMs: bounded(item?.cooldownMs, base.cooldownMs, 100, 6e4)
+    }];
+  }));
+  const attacks = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.attacks).map(([id, base]) => {
+    const item = row.attacks?.[id];
+    return [id, { cost: bounded(item?.cost, base.cost, 1, 1e4), health: bounded(item?.health, base.health, 1, 1e4), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 1e4), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 1e4) }];
+  }));
+  const tiers = Array.isArray(row.rating?.tiers) ? row.rating.tiers : DEFAULT_PVP_CONFIG.rating.tiers;
+  return {
+    version: 1,
+    maps,
+    map: maps[0],
+    durationSeconds: bounded(row.durationSeconds, 180, 60, 600),
+    wallHealth: bounded(row.wallHealth, 1e3, 100, 1e5),
+    startingFruts: bounded(row.startingFruts, 180, 0, 1e5),
+    incomePerSecond: bounded(row.incomePerSecond, 2, 0, 1e3),
+    reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300),
+    towers,
+    attacks,
+    rating: { ...DEFAULT_PVP_CONFIG.rating, ...row.rating || {}, start: bounded(row.rating?.start, 1e3, 0, 1e6), win: bounded(row.rating?.win, 50, 0, 1e3), tie: bounded(row.rating?.tie, 20, 0, 1e3), loss: -bounded(Math.abs(row.rating?.loss ?? -50), 50, 1, 1e3), bonusCap: bounded(row.rating?.bonusCap, 20, 0, 1e3), seasonResetPercent: bounded(row.rating?.seasonResetPercent, 25, 0, 100), combo: DEFAULT_PVP_CONFIG.rating.combo, tiers: DEFAULT_PVP_CONFIG.rating.tiers.map((base, i) => ({ name: base.name, min: bounded(tiers[i]?.min, base.min, 0, 1e6) })) },
+    seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((base, i) => ({ ...base, ...row.seasonRewards?.[i] || {}, tier: base.tier }))
+  };
+}
 adminRouter.post("/reset-daily", async (req2, res) => {
   if (!await isAuthorized(req2)) {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
@@ -3318,6 +3560,454 @@ function rateLimit(maxRequests, windowMs) {
   };
 }
 
+// server/routes/pvp.ts
+import { Router as Router13 } from "express";
+import { randomUUID as randomUUID3 } from "node:crypto";
+import { Rest } from "ably";
+
+// src/services/admin.ts
+var DEFAULT_ADMIN_CONFIG2 = {
+  configKey: "game_config",
+  dailyRewards: [
+    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: "50 Coins + 5 Gems", iconType: "coin" },
+    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: "100 Coins + 1 SP + 10 Gems", iconType: "gem" },
+    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: "150 Coins + 15 Gems", iconType: "coin" },
+    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: "200 Coins + 20 Gems", iconType: "coin" },
+    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: "300 Coins + 2 SP + 25 Gems", iconType: "gem" },
+    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: "450 Coins + 30 Gems", iconType: "chest" },
+    { day: 7, coins: 1e3, skillPoints: 2, gems: 50, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade + 50 Gems!", iconType: "blade" }
+  ],
+  vipTiers: [
+    { tier: "bronze", title: "Bronze VIP", price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: "+10% coins, +5% XP, 25 daily coins" },
+    { tier: "silver", title: "Silver VIP", price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ["blade-silver-vip"], description: "+25% coins, +15% XP, 75 daily coins + 1 SP" },
+    { tier: "gold", title: "Gold VIP", price: 5e3, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ["blade-gold-vip", "wall-gold-vip"], description: "+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins" }
+  ],
+  menuConfig: {
+    eyebrow: "FRUIT TD \xB7 HOLD THE WALL",
+    title: "Slice.\nHold the Wall.",
+    subtitle: "Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.",
+    announcement: "WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.",
+    themeColor: "#a3e635",
+    backgroundImage: "",
+    logoImage: "",
+    faviconImage: ""
+  },
+  gameplayConfig: {
+    startMoney: 140,
+    startLives: 15,
+    scoreMultiplier: 1,
+    superChargeMultiplier: 1
+  },
+  pvpConfig: structuredClone(DEFAULT_PVP_CONFIG),
+  missions: DEFAULT_MISSIONS,
+  achievements: DEFAULT_ACHIEVEMENTS,
+  badges: DEFAULT_BADGES,
+  ranks: DEFAULT_RANK_TIERS,
+  slicers: DEFAULT_SLICERS,
+  enemies: [],
+  waves: { version: 1, levels: {} },
+  campaignBosses: [],
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES)
+};
+function mergeAdminConfig(raw) {
+  const src = raw || {};
+  return {
+    ...DEFAULT_ADMIN_CONFIG2,
+    ...src,
+    dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG2.dailyRewards,
+    vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG2.vipTiers,
+    menuConfig: { ...DEFAULT_ADMIN_CONFIG2.menuConfig, ...src.menuConfig || {} },
+    gameplayConfig: { ...DEFAULT_ADMIN_CONFIG2.gameplayConfig, ...src.gameplayConfig || {} },
+    pvpConfig: mergePvpConfig(src.pvpConfig),
+    // A present catalogue is authoritative: Admin must be able to remove an entry
+    // without the defaults silently restoring it on the next load.
+    missions: structuredClone(Array.isArray(src.missions) ? src.missions : DEFAULT_ADMIN_CONFIG2.missions),
+    achievements: structuredClone(Array.isArray(src.achievements) ? src.achievements : DEFAULT_ADMIN_CONFIG2.achievements),
+    badges: structuredClone(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG2.badges),
+    ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG2.ranks), DEFAULT_ADMIN_CONFIG2.ranks),
+    slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG2.slicers),
+    enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG2.enemies),
+    waves: src.waves && typeof src.waves === "object" ? structuredClone(src.waves) : structuredClone(DEFAULT_ADMIN_CONFIG2.waves),
+    campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
+    campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20 ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES)
+  };
+}
+function mergePvpConfig(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  const bounded = (n, fallback, min, max) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
+  const maps = normalizePvpMaps(value.maps);
+  const towers = { ...DEFAULT_PVP_CONFIG.towers };
+  for (const [id, fallback] of Object.entries(towers)) {
+    const row = value.towers?.[id];
+    if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), damage: bounded(row.damage, fallback.damage, 1, 1e4), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 6e4) };
+  }
+  const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
+  for (const [id, fallback] of Object.entries(attacks)) {
+    const row = value.attacks?.[id];
+    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), health: bounded(row.health, fallback.health, 1, 1e4), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 1e4), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 1e4) };
+  }
+  const tiers = Array.isArray(value.rating?.tiers) ? value.rating.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
+  return {
+    version: 1,
+    maps,
+    map: maps[0],
+    durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
+    wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 1e5),
+    startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 1e5),
+    incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
+    reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
+    towers,
+    attacks,
+    rating: {
+      ...DEFAULT_PVP_CONFIG.rating,
+      ...value.rating || {},
+      start: bounded(value.rating?.start, 1e3, 0, 1e6),
+      win: bounded(value.rating?.win, 50, 0, 1e3),
+      tie: bounded(value.rating?.tie, 20, 0, 1e3),
+      loss: -bounded(Math.abs(value.rating?.loss ?? -50), 50, 1, 1e3),
+      bonusCap: bounded(value.rating?.bonusCap, 20, 0, 1e3),
+      seasonResetPercent: bounded(value.rating?.seasonResetPercent, 25, 0, 100),
+      combo: DEFAULT_PVP_CONFIG.rating.combo,
+      tiers: tiers.map((tier, i) => ({ name: DEFAULT_PVP_CONFIG.rating.tiers[i].name, min: bounded(tier?.min, DEFAULT_PVP_CONFIG.rating.tiers[i].min, 0, 1e6) }))
+    },
+    seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((item, i) => ({ ...item, ...value.seasonRewards?.[i] || {}, tier: item.tier }))
+  };
+}
+
+// server/routes/pvp.ts
+var pvpRouter = Router13();
+var seasonKey = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+var routerError = (res, status, message) => res.status(status).json({ success: false, error: message });
+var settlingMatches = /* @__PURE__ */ new Set();
+var ablyPublisher = null;
+var ablySubscriber = null;
+async function currentPvpConfig() {
+  const doc = await (await getCollection("admin_config")).findOne({ configKey: "game_config" });
+  return doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig }).pvpConfig : DEFAULT_PVP_CONFIG;
+}
+async function ratingFor(userId, config) {
+  const col = await getCollection("pvp_ratings");
+  const season = seasonKey();
+  let row = await col.findOne({ userId });
+  if (!row) {
+    row = { userId, points: config.rating.start, season, matches: 0, wins: 0, ties: 0, losses: 0, updatedAt: /* @__PURE__ */ new Date() };
+    await col.insertOne(row);
+  } else if (row.season !== season) {
+    if (row.matches > 0) {
+      const finalTier = pvpTier(row.points, config);
+      const reward = config.seasonRewards.find((item) => item.tier === finalTier);
+      if (reward) {
+        await creditClaimReward(userId, `pvp-season:${row.season}`, { coins: reward.coins, gems: reward.gems });
+        await (await getCollection("badges")).updateOne({ userId, badgeId: reward.badgeId }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 } }, { upsert: true });
+      }
+    }
+    const points = resetSeasonRating(row.points, config);
+    await col.updateOne({ userId, season: row.season }, { $set: { points, season, matches: 0, wins: 0, ties: 0, losses: 0, updatedAt: /* @__PURE__ */ new Date() } });
+    row = { ...row, points, season, matches: 0, wins: 0, ties: 0, losses: 0 };
+  }
+  return row;
+}
+function ablyKey() {
+  const value = process.env.ABLY_API_KEY || "";
+  const match = /^([^.\s]+)\.([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)$/.exec(value);
+  return match ? { app: match[1], keyName: match[2], secret: match[3] } : null;
+}
+function subscriberKey() {
+  const value = process.env.ABLY_SUBSCRIBE_KEY || "";
+  const match = /^([^.\s]+)\.([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)$/.exec(value);
+  return match ? { app: match[1], keyName: match[2], secret: match[3] } : null;
+}
+async function publishMatch(match) {
+  const key = process.env.ABLY_API_KEY;
+  if (!key) return;
+  try {
+    ablyPublisher ??= new Rest({ key });
+    await ablyPublisher.channels.get(`fruittd-pvp-${match.id}`).publish("match.snapshot", { id: match.id, revision: match.revision, status: match.status, endsAt: match.endsAt, map: match.map, mapPool: match.mapPool, vetoTurn: match.vetoTurn, players: match.players, winnerId: match.winnerId, resultReason: match.resultReason });
+  } catch (error2) {
+    console.error("Ably match event publish failed:", error2);
+  }
+}
+function publicMatch(match, userId) {
+  if (!match.players.some((player) => player.userId === userId)) return null;
+  return {
+    id: match.id,
+    queue: match.queue,
+    status: match.status,
+    remainingMs: Math.max(0, match.endsAt - Date.now()),
+    revision: match.revision,
+    map: match.map,
+    mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })),
+    vetoTurnId: match.vetoTurn,
+    yourVetoTurn: match.vetoTurn === userId,
+    vetoesRemaining: Math.max(0, match.mapPool.length - 2),
+    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, ...match.status === "complete" && match.queue === "ranked" ? { ratingDelta } : {} })),
+    yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
+    yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
+    yourSide: match.players.find((player) => player.userId === userId)?.side,
+    winnerId: match.winnerId,
+    resultReason: match.resultReason
+  };
+}
+async function makeMatch(queue, left, right, config) {
+  const match = newPvpMatch(randomUUID3(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
+  match.updatedAt = /* @__PURE__ */ new Date();
+  await (await getCollection("pvp_matches")).insertOne(match);
+  void publishMatch(match);
+  return match;
+}
+async function settleMatch(match, config) {
+  if (match.status !== "complete" || match.settled) return;
+  if (settlingMatches.has(match.id)) return;
+  settlingMatches.add(match.id);
+  const matches = await getCollection("pvp_matches");
+  try {
+    const achievements = await getCollection("achievements");
+    const badges = await getCollection("badges");
+    for (const player of match.players) {
+      const outcome = match.winnerId === null ? "tie" : match.winnerId === player.userId ? "win" : "loss";
+      const achievement = async (achievementId) => achievements.updateOne({ userId: player.userId, achievementId }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 }, $setOnInsert: { claimed: false } }, { upsert: true });
+      const badge = async (badgeId) => badges.updateOne({ userId: player.userId, badgeId }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 } }, { upsert: true });
+      if (outcome === "win") {
+        await achievement("pvp_first_win");
+        await badge("pvp-first-win");
+      }
+      if (player.maxCombo >= 50) await achievement("pvp_combo_50");
+      if (player.maxSingleSlashKills >= 5) await achievement("pvp_multislice_5");
+      if (match.queue === "ranked") {
+        const row = await ratingFor(player.userId, config);
+        const ratings = await getCollection("pvp_ratings");
+        if (row.settledMatchIds?.includes(match.id)) player.ratingDelta = row.lastMatchId === match.id ? row.lastDelta ?? 0 : 0;
+        else {
+          const result = calculatePvpRating(row.points, outcome, player.comboMilestones, player.maxSingleSlashKills, config);
+          const updated = await ratings.updateOne({ userId: player.userId, season: row.season, settledMatchIds: { $ne: match.id } }, {
+            $set: { points: result.rating, updatedAt: /* @__PURE__ */ new Date(), lastMatchId: match.id, lastDelta: result.delta },
+            $inc: { matches: 1, [outcome === "win" ? "wins" : outcome === "tie" ? "ties" : "losses"]: 1 },
+            $addToSet: { settledMatchIds: match.id }
+          });
+          player.ratingDelta = updated.modifiedCount ? result.delta : (await ratings.findOne({ userId: player.userId }))?.lastDelta ?? 0;
+        }
+        const current = await ratings.findOne({ userId: player.userId });
+        if (current && current.wins >= 10) await achievement("pvp_ten_wins");
+        if (current) {
+          const topTier = pvpTier(current.points, config);
+          const badgeByTier = { Silver: "fr-silver", Gold: "fr-gold", Diamond: "fr-diamond", Emerald: "fr-emerald", Sapphire: "fr-sapphire" };
+          const reached = badgeByTier[topTier];
+          if (reached) await badge(reached);
+        }
+      }
+    }
+    match.settled = true;
+    await matches.updateOne({ id: match.id }, { $set: { settled: true, players: match.players } });
+  } finally {
+    settlingMatches.delete(match.id);
+  }
+}
+pvpRouter.get("/status", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in to play PvP.");
+  try {
+    const config = await currentPvpConfig();
+    const matches = await getCollection("pvp_matches");
+    let match = await matches.findOne({ "players.userId": user.userId, $or: [{ status: { $in: ["draft", "active"] } }, { status: "complete", resultsSeenBy: { $ne: user.userId } }] });
+    if (match?.status === "complete" && !match.settled) {
+      await settleMatch(match, config);
+      match = await matches.findOne({ id: match.id });
+    }
+    if (match && match.status !== "complete") {
+      const player = match.players.find((item) => item.userId === user.userId);
+      player.connected = true;
+      player.disconnectedAt = null;
+      player.lastSeenAt = Date.now();
+      match.revision++;
+      await matches.replaceOne({ id: match.id, revision: match.revision - 1, status: match.status }, match);
+    }
+    const rating = await ratingFor(user.userId, config);
+    const challenge = await (await getCollection("pvp_challenges")).findOne({ toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
+    const queued = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+    res.json({ success: true, rating: { points: rating.points, tier: pvpTier(rating.points, config), season: rating.season, matches: rating.matches, wins: rating.wins, ties: rating.ties, losses: rating.losses }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { durationSeconds: config.durationSeconds, reconnectGraceSeconds: config.reconnectGraceSeconds, towers: config.towers, attacks: config.attacks, maps: config.maps } });
+  } catch (error2) {
+    console.error(error2);
+    routerError(res, 503, "PvP storage is unavailable.");
+  }
+});
+pvpRouter.post("/queue", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in to play PvP.");
+  const queue = req2.body?.queue;
+  if (!["arena", "ranked"].includes(queue)) return routerError(res, 400, "Choose Arena or Ranked.");
+  try {
+    const matches = await getCollection("pvp_matches");
+    const active2 = await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": user.userId });
+    if (active2) return res.json({ success: true, match: publicMatch(active2, user.userId) });
+    const queues = await getCollection("pvp_queue");
+    const config = await currentPvpConfig();
+    const other = await queues.findOneAndDelete({ queue, userId: { $ne: user.userId }, expiresAt: { $gt: /* @__PURE__ */ new Date() } }, { sort: { createdAt: 1 } });
+    const otherEntry = other;
+    if (otherEntry) {
+      const match = await makeMatch(queue, { userId: otherEntry.userId, name: otherEntry.name }, { userId: user.userId, name: user.username || user.nickname || "Slicer" }, config);
+      return res.json({ success: true, match: publicMatch(match, user.userId) });
+    }
+    const now = /* @__PURE__ */ new Date();
+    await queues.updateOne({ userId: user.userId }, { $set: { userId: user.userId, name: user.username || user.nickname || "Slicer", queue, createdAt: now, expiresAt: new Date(Date.now() + 6e4) } }, { upsert: true });
+    return res.json({ success: true, queued: true, expiresInSeconds: 60 });
+  } catch (error2) {
+    console.error(error2);
+    routerError(res, 503, "Matchmaking is unavailable.");
+  }
+});
+pvpRouter.delete("/queue", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  await (await getCollection("pvp_queue")).deleteOne({ userId: user.userId });
+  res.json({ success: true });
+});
+pvpRouter.post("/challenge", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in to challenge a friend.");
+  const friendId = String(req2.body?.friendId || "");
+  if (!friendId || friendId === user.userId) return routerError(res, 400, "Choose a friend to challenge.");
+  try {
+    const active2 = await (await getCollection("pvp_matches")).findOne({ status: { $in: ["draft", "active"] }, "players.userId": { $in: [user.userId, friendId] } });
+    if (active2) return routerError(res, 409, "One of you is already in a PvP match.");
+    const friends = await getCollection("friends");
+    const relation = await friends.findOne({ userId: user.userId, friendId, state: "accepted" }) || await friends.findOne({ userId: friendId, friendId: user.userId, state: "accepted" });
+    if (!relation) return routerError(res, 403, "Private challenges are only available to accepted friends.");
+    const users = await getCollection("users");
+    const friend = await users.findOne({ userId: friendId });
+    if (!friend) return routerError(res, 404, "Friend not found.");
+    const challenge = { challengeId: randomUUID3(), fromId: user.userId, fromName: user.username || user.nickname || "Slicer", toId: friendId, createdAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 12e4) };
+    await (await getCollection("pvp_challenges")).insertOne(challenge);
+    try {
+      await (await getCollection("notifications")).insertOne({ notificationId: randomUUID3(), userId: friendId, actorId: user.userId, actorName: challenge.fromName, type: "pvp_challenge", title: "Arena challenge", body: `${challenge.fromName} challenged you to an Arena siege. Open Arena to accept within two minutes.`, createdAt: /* @__PURE__ */ new Date() });
+    } catch (error2) {
+      console.error("Could not create the Arena challenge notification:", error2);
+    }
+    res.json({ success: true, challengeId: challenge.challengeId });
+  } catch (error2) {
+    console.error(error2);
+    routerError(res, 503, "Friend challenges are unavailable.");
+  }
+});
+pvpRouter.post("/challenge/:id/accept", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  try {
+    const challenges = await getCollection("pvp_challenges");
+    const pending = await challenges.findOne({ challengeId: req2.params.id, toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
+    if (!pending) return routerError(res, 404, "Challenge expired or already accepted.");
+    const active2 = await (await getCollection("pvp_matches")).findOne({ status: { $in: ["draft", "active"] }, "players.userId": { $in: [pending.fromId, user.userId] } });
+    if (active2) return routerError(res, 409, "One of you is already in a PvP match.");
+    const invite = await challenges.findOneAndUpdate({ challengeId: req2.params.id, toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } }, { $set: { acceptedAt: /* @__PURE__ */ new Date() } }, { returnDocument: "before" });
+    if (!invite) return routerError(res, 404, "Challenge expired or already accepted.");
+    const config = await currentPvpConfig();
+    const match = await makeMatch("arena", { userId: invite.fromId, name: invite.fromName }, { userId: user.userId, name: user.username || user.nickname || "Slicer" }, config);
+    await challenges.updateOne({ challengeId: req2.params.id }, { $set: { matchId: match.id } });
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch (error2) {
+    console.error(error2);
+    routerError(res, 503, "Could not start the friend match.");
+  }
+});
+pvpRouter.post("/match/:id/command", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  const sequence = Number(req2.body?.sequence);
+  const command = req2.body?.command;
+  if (!Number.isSafeInteger(sequence) || !command || typeof command !== "object") return routerError(res, 400, "Command sequence and command are required.");
+  try {
+    const matches = await getCollection("pvp_matches");
+    const match = await matches.findOne({ id: req2.params.id, status: "active", "players.userId": user.userId });
+    if (!match) return routerError(res, 404, "Active match not found.");
+    const config = await currentPvpConfig();
+    const priorRevision = match.revision;
+    applyPvpCommand(match, user.userId, command, sequence, Date.now(), config);
+    const result = await matches.replaceOne({ id: match.id, revision: priorRevision, status: "active" }, match);
+    if (!result.modifiedCount) return routerError(res, 409, "Match changed. Refresh the board and retry.");
+    if (match.status === "complete") await settleMatch(match, config);
+    void publishMatch(match);
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch (error2) {
+    routerError(res, 400, error2 instanceof Error ? error2.message : "Invalid command.");
+  }
+});
+pvpRouter.post("/match/:id/veto", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  const sequence = Number(req2.body?.sequence);
+  const mapId = String(req2.body?.mapId || "");
+  if (!Number.isSafeInteger(sequence) || !mapId) return routerError(res, 400, "Choose a path to veto.");
+  try {
+    const matches = await getCollection("pvp_matches");
+    const match = await matches.findOne({ id: req2.params.id, status: "draft", "players.userId": user.userId });
+    if (!match) return routerError(res, 404, "Path draft not found.");
+    const priorRevision = match.revision;
+    vetoPvpMap(match, user.userId, mapId, sequence, Date.now(), await currentPvpConfig());
+    const saved = await matches.replaceOne({ id: match.id, revision: priorRevision, status: "draft" }, match);
+    if (!saved.modifiedCount) return routerError(res, 409, "The other player vetoed first. Refresh the path list.");
+    void publishMatch(match);
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch (error2) {
+    routerError(res, 400, error2 instanceof Error ? error2.message : "Path veto failed.");
+  }
+});
+pvpRouter.get("/match/:id", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  try {
+    const match = await (await getCollection("pvp_matches")).findOne({ id: req2.params.id, "players.userId": user.userId });
+    if (!match) return routerError(res, 404, "Match not found.");
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch {
+    routerError(res, 503, "Match storage is unavailable.");
+  }
+});
+pvpRouter.post("/match/:id/ack", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  try {
+    await (await getCollection("pvp_matches")).updateOne({ id: req2.params.id, status: "complete", "players.userId": user.userId }, { $addToSet: { resultsSeenBy: user.userId } });
+    res.json({ success: true });
+  } catch {
+    routerError(res, 503, "Could not close the match result.");
+  }
+});
+pvpRouter.post("/match/:id/connection", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  try {
+    const matches = await getCollection("pvp_matches");
+    const match = await matches.findOne({ id: req2.params.id, status: { $in: ["draft", "active"] }, "players.userId": user.userId });
+    if (!match) return routerError(res, 404, "Active match not found.");
+    const player = match.players.find((item) => item.userId === user.userId);
+    player.connected = req2.body?.connected === true;
+    player.disconnectedAt = player.connected ? null : Date.now();
+    player.lastSeenAt = Date.now();
+    match.revision++;
+    await matches.replaceOne({ id: match.id }, match);
+    void publishMatch(match);
+    res.json({ success: true });
+  } catch {
+    routerError(res, 503, "Could not update connection state.");
+  }
+});
+pvpRouter.post("/match/:id/token", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  try {
+    const match = await (await getCollection("pvp_matches")).findOne({ id: req2.params.id, "players.userId": user.userId });
+    if (!match) return routerError(res, 404, "Match not found.");
+    const key = ablyKey();
+    const scopedKey = subscriberKey();
+    if (!key || !scopedKey || key.app !== scopedKey.app) return routerError(res, 503, "Ably server and subscribe-only keys are not configured for the same app.");
+    const capability = JSON.stringify({ [`fruittd-pvp-${match.id}`]: ["subscribe"] });
+    ablySubscriber ??= new Rest({ key: process.env.ABLY_SUBSCRIBE_KEY });
+    const token = await ablySubscriber.auth.requestToken({ clientId: `player-${user.userId}`, capability, ttl: 10 * 60 * 1e3 });
+    res.json({ success: true, token, channel: `fruittd-pvp-${match.id}` });
+  } catch {
+    routerError(res, 502, "Could not issue the scoped match token.");
+  }
+});
+
 // server/app.ts
 function createApp() {
   const app2 = express();
@@ -3362,6 +4052,7 @@ function createApp() {
   app2.use("/api/badges", badgesRouter);
   app2.use("/api/social", rateLimit(90, 6e4), socialRouter);
   app2.use("/api/lobbies", rateLimit(90, 6e4), lobbyRouter);
+  app2.use("/api/pvp", rateLimit(180, 6e4), pvpRouter);
   return app2;
 }
 

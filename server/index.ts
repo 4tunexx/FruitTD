@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { createApp } from './app';
 import { getDb } from './db';
+import { startPvpAuthority } from './routes/pvp';
 
 dotenv.config();
 
@@ -10,6 +11,7 @@ const PORT = process.env.PORT || 3001;
 async function start() {
   try {
     await getDb();
+    startPvpAuthority();
     app.listen(PORT, () => {
       console.log(`🚀 Fruit TD Backend API running on http://localhost:${PORT}`);
     });

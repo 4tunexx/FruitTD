@@ -13,7 +13,7 @@ import { heroDef, MAX_HERO_LEVEL } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
 import { getTowerXpState } from '../../game/towerProgression';
 import { MAX_TOWER_LEVEL } from '../../game/world';
-import { rankFromScore, DEFAULT_RANK_TIERS } from '../../game/requirements';
+import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/requirements';
 import type { SaveData } from '../../game/save';
 
 export interface ProfileStats {
@@ -106,7 +106,7 @@ export function renderProfile(root: HTMLElement, save: SaveData, stats: ProfileS
         ? `${stats.achievementsUnlocked ?? 0}/${stats.achievementsTotal}`
         : String(stats.achievementsUnlocked ?? 0),
     ),
-    statCard('Season', stats.season ?? 'Season 1'),
+    statCard('Season', stats.season ?? currentSeasonLabel()),
   ]);
   body.appendChild(grid);
 

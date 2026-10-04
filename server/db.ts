@@ -5,7 +5,7 @@ dotenv.config();
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
-  console.warn('⚠️ MONGODB_URI not found in environment variables. Falling back to local/mock mode.');
+  console.warn('MONGODB_URI is missing; cloud account and progression requests will fail until it is configured.');
 }
 
 let client: MongoClient | null = null;
@@ -147,6 +147,13 @@ export async function getDb(): Promise<Db> {
     await db.collection('coop_lobbies').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection('coop_lobbies').createIndex({ visibility: 1, status: 1, createdAt: 1 });
     await db.collection('coop_lobbies').createIndex({ 'members.userId': 1, status: 1 });
+    await db.collection('pvp_ratings').createIndex({ userId: 1 }, { unique: true });
+    await db.collection('pvp_matches').createIndex({ id: 1 }, { unique: true });
+    await db.collection('pvp_matches').createIndex({ status: 1, updatedAt: 1 });
+    await db.collection('pvp_queue').createIndex({ userId: 1 }, { unique: true });
+    await db.collection('pvp_queue').createIndex({ queue: 1, expiresAt: 1 });
+    await db.collection('pvp_challenges').createIndex({ challengeId: 1 }, { unique: true });
+    await db.collection('pvp_challenges').createIndex({ toId: 1, expiresAt: 1 });
   } catch (err) {
     console.warn('Index creation notice:', err);
   }

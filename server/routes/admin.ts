@@ -14,6 +14,7 @@ import { campaignWaves } from '../../src/game/campaign';
 import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../../src/game/campaignStory';
 import { resolveRequestUser } from '../auth';
 import { validId } from '../validation';
+import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../../src/game/pvp';
 
 export const adminRouter = Router();
 
@@ -57,6 +58,7 @@ export interface AdminConfigDoc {
     scoreMultiplier: number;
     superChargeMultiplier: number;
   };
+  pvpConfig?: PvpConfig;
   missions?: any[];
   achievements?: any[];
   badges?: any[];
@@ -210,6 +212,7 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
     scoreMultiplier: 1.0,
     superChargeMultiplier: 1.0,
   },
+  pvpConfig: DEFAULT_PVP_CONFIG,
   missions: DEFAULT_MISSIONS,
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
@@ -300,7 +303,8 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       menuConfig: menuConfig
         ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig))
         : normalizeMenuConfig(existing?.menuConfig),
-      gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
+        gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
+        pvpConfig: normalizePvpConfig((req.body as any).pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
       achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),
       badges: normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES),
@@ -326,6 +330,30 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+function normalizePvpConfig(input: unknown): PvpConfig {
+  const row = input && typeof input === 'object' ? input as Partial<PvpConfig> : {};
+  const bounded = (value: unknown, fallback: number, min: number, max: number) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
+  const maps = normalizePvpMaps(row.maps);
+  const towers = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.towers).map(([id, base]) => {
+    const item = row.towers?.[id];
+    return [id, {
+      cost: bounded(item?.cost, base.cost, 1, 10000), damage: bounded(item?.damage, base.damage, 1, 10000),
+      range: bounded(item?.range, base.range, 1, 24), cooldownMs: bounded(item?.cooldownMs, base.cooldownMs, 100, 60000),
+    }];
+  })) as PvpConfig['towers'];
+  const attacks = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.attacks).map(([id, base]) => {
+    const item = row.attacks?.[id];
+    return [id, { cost: bounded(item?.cost, base.cost, 1, 10000), health: bounded(item?.health, base.health, 1, 10000), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 10000), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 10000) }];
+  })) as PvpConfig['attacks'];
+  const tiers = Array.isArray(row.rating?.tiers) ? row.rating!.tiers : DEFAULT_PVP_CONFIG.rating.tiers;
+  return {
+    version: 1, maps, map: maps[0]!, durationSeconds: bounded(row.durationSeconds, 180, 60, 600), wallHealth: bounded(row.wallHealth, 1000, 100, 100000),
+    startingFruts: bounded(row.startingFruts, 180, 0, 100000), incomePerSecond: bounded(row.incomePerSecond, 2, 0, 1000), reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300), towers, attacks,
+    rating: { ...DEFAULT_PVP_CONFIG.rating, ...(row.rating || {}), start: bounded(row.rating?.start, 1000, 0, 1_000_000), win: bounded(row.rating?.win, 50, 0, 1000), tie: bounded(row.rating?.tie, 20, 0, 1000), loss: -bounded(Math.abs(row.rating?.loss ?? -50), 50, 1, 1000), bonusCap: bounded(row.rating?.bonusCap, 20, 0, 1000), seasonResetPercent: bounded(row.rating?.seasonResetPercent, 25, 0, 100), combo: DEFAULT_PVP_CONFIG.rating.combo, tiers: DEFAULT_PVP_CONFIG.rating.tiers.map((base, i) => ({ name: base.name, min: bounded(tiers[i]?.min, base.min, 0, 1_000_000) })) },
+    seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((base, i) => ({ ...base, ...(row.seasonRewards?.[i] || {}), tier: base.tier })),
+  };
+}
 
 // POST /api/admin/reset-daily (Reset user's daily streak for instant testing)
 adminRouter.post('/reset-daily', async (req: Request, res: Response) => {

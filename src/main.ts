@@ -37,6 +37,7 @@ import { installCombatDiagnostics } from './game/combatDiagnostics';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
 import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
+import { advanceLocalCoop, type LocalCoopState } from './game/localCoop';
 import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
 import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
@@ -47,7 +48,7 @@ import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
 import { confirmModal } from './ui/components/surface';
 import { getCachedSteamState } from './services/steam';
-import type { GameEvent } from './game/requirements';
+import { currentSeasonLabel, type GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
 import { getTowerXpState } from './game/towerProgression';
 import { syncTowerProgression } from './game/towerProgression';
@@ -58,7 +59,7 @@ import { heroCombatPerkMultiplier } from './game/heroPerkSave';
 import { vipTierPrice, vipTierPurchaseCoins } from './game/vipBonuses';
 import { installHudToggles } from './ui/hudToggle';
 import { updateTowerChip } from './ui/towerChip';
-import { installGameScreens, refreshCurrentScreen } from './ui/screens';
+import { installGameScreens, openScreen, refreshCurrentScreen } from './ui/screens';
 import { canSellItem } from './game/catalog';
 import { initThemeSystem } from './ui/theme';
 import { installDesignMode } from './ui/design/designMode';
@@ -141,6 +142,11 @@ const playerContacts = new StrokeContacts();
 const guestContacts = new StrokeContacts();
 let guestStrokeId = 0;
 applyEquippedBlade();
+if (save.mode === 'ranked' || save.mode === 'arena') {
+  // Keep the old solo score fields untouched, but never resume the retired solo substitutes.
+  save.mode = 'casual';
+  writeSave(save);
+}
 state.mode = save.mode;
 combos.setPlayer(save.nickname, save.avatar);
 
@@ -171,7 +177,11 @@ setCreatorVfxCallbacks({
   },
 });
 
-let guestCd = 1.6;
+const guestKeys = new Set<string>();
+let guestControl: LocalCoopState = { x: 0, z: 1, cooldown: 0 };
+let guestAttackHeld = false;
+const guestCursor = document.getElementById('coop-guest-cursor');
+const guestHelp = document.getElementById('coop-guest-help');
 let totalFruitsSliced = 0;
 let lootEligibleKills = 0;
 let sessionMaxCombo = 0;
@@ -181,6 +191,8 @@ let lastBossFruit: Fruit | null = null;
 let lastBossHitAt = 0;
 let rewardSavePending = false;
 let matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
+let runSettlementPending: Promise<void> | null = null;
+let restartPending = false;
 let campaignStartStage = 1;
 let campaignStoryActive = false;
 let campaignStoryFinal = false;
@@ -364,6 +376,11 @@ function persist(): void {
 }
 
 function setMode(id: GameMode): void {
+  if (id === 'ranked' || id === 'arena') {
+    if (!navigation.isInGame()) openScreen(id === 'ranked' ? 'RANKED' : 'ARENA');
+    else { toast(state, 'Arena and Ranked are online modes. Finish this run to open the PvP lobby.', 2.8); sfx.denied(); }
+    return;
+  }
   state.mode = id;
   save.mode = id;
   persist();
@@ -766,10 +783,11 @@ function showGameOverOverlay(): void {
 }
 
 function submitCurrentRun(completed: boolean): Promise<void> {
+  if (runSettlementPending) return runSettlementPending;
   const steamState = getCachedSteamState();
   const feedbackEl = document.getElementById('lb-submit-feedback');
   if (completed && feedbackEl) feedbackEl.innerHTML = '<span>Syncing score and rewards…</span>';
-  return submitScore({
+  const submission = submitScore({
     nickname: save.nickname,
     avatar: save.avatar,
     hero: state.hero,
@@ -804,6 +822,11 @@ function submitCurrentRun(completed: boolean): Promise<void> {
     }
     if (completed) void hud.refreshMonthlyRank();
   });
+  runSettlementPending = submission.finally(() => {
+    if (runSettlementPending === settled) runSettlementPending = null;
+  });
+  const settled = runSettlementPending;
+  return settled;
 }
 
 function maybeOver(): void {
@@ -922,7 +945,12 @@ function restart(): void {
   playerContacts.reset();
   guestContacts.reset();
   wall.cancelMove();
-  guestCd = 1.6;
+  guestKeys.clear();
+  guestStrokeId = 0;
+  guestControl = { x: 0, z: 1, cooldown: 0 };
+  guestAttackHeld = false;
+  guestCursor?.classList.toggle('hidden', !rules.guest);
+  guestHelp?.classList.toggle('hidden', !rules.guest);
   totalFruitsSliced = 0;
   lootEligibleKills = 0;
   matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
@@ -930,7 +958,7 @@ function restart(): void {
   sessionLeaks = 0;
   emit({ type: 'game_start' });
   const line = rules.guest
-    ? `${heroDef(state.hero).name} + guest`
+    ? `${heroDef(state.hero).name} + Player 2`
     : `${heroDef(state.hero).name} — ${rules.name}`;
   toast(state, line, 2.2);
   sfx.gameStart();
@@ -1227,6 +1255,10 @@ function quitToMenu(explicitMenuAction = false): void {
   campaignStoryActive = false;
   document.getElementById('campaign-story')?.classList.add('hidden');
   state.running = false;
+  guestKeys.clear();
+  guestAttackHeld = false;
+  guestCursor?.classList.add('hidden');
+  guestHelp?.classList.add('hidden');
   wall.cancelMove();
   blade.consumeClick();
   blade.consumeSlash();
@@ -1248,16 +1280,32 @@ function quitToMenu(explicitMenuAction = false): void {
   sfx.stopAllLoops();
 }
 
-if (typeof window !== 'undefined') {
-  (window as any).__fruitTdQuitToMenu = quitToMenu;
-}
-
 document.getElementById('campaign-victory-map')?.addEventListener('click', () => {
   quitToMenu(true);
   navigation.open('CAMPAIGN');
 });
 
-function restartMatch(): void {
+async function restartMatch(): Promise<void> {
+  if (restartPending) return;
+  restartPending = true;
+  const screenBeforeRestart = navigation.state;
+  try {
+    // A manual restart ends the current run. Settle its earned rewards before
+    // restart() clears matchRewards and replaces the one-use run token.
+    if (state.running && (totalFruitsSliced > 0 || state.score > 0)) {
+      persist();
+      const settlement = submitCurrentRun(false);
+      state.running = false;
+      await settlement;
+    } else if (runSettlementPending) {
+      await runSettlementPending;
+    }
+  } catch (error) {
+    console.warn('Run settlement failed during restart; local progress remains saved.', error);
+  } finally {
+    restartPending = false;
+  }
+  if (screenBeforeRestart !== 'MAIN_MENU' && navigation.state !== screenBeforeRestart) return;
   campaignStoryActive = false;
   document.getElementById('campaign-story')?.classList.add('hidden');
   hud.showPause(false);
@@ -1342,26 +1390,19 @@ function showBossIntro(level: number): void {
 
 function tickGuest(dt: number): void {
   if (!modeRules(state.mode).guest) return;
-  guestCd -= dt;
-  if (guestCd > 0) return;
-  guestCd = 2.05;
-  let best: Fruit | null = null;
-  let bestZ = Infinity;
-  for (const fruit of fruits.fruits) {
-    if (!fruit.alive) continue;
-    if (fruit.group.position.z < bestZ) {
-      bestZ = fruit.group.position.z;
-      best = fruit;
-    }
+  const next = advanceLocalCoop(guestControl, guestKeys, guestAttackHeld, dt);
+  guestControl = next.state;
+  const screen = worldPct(guestControl.x, 0.7, guestControl.z);
+  if (guestCursor) {
+    guestCursor.style.left = `${screen.nx}%`;
+    guestCursor.style.top = `${screen.ny}%`;
   }
-  if (!best) return;
-  const x = best.group.position.x;
-  const z = best.group.position.z;
-  slashFx.spawn(x, z, 0x93c5fd);
+  if (!next.slash) return;
+  slashFx.spawn(guestControl.x, guestControl.z, 0x93c5fd);
   resolveSlash({
     id: --guestStrokeId,
-    from: new Vector3(x - 0.95, 0, z),
-    to: new Vector3(x + 0.95, 0, z),
+    from: new Vector3(guestControl.x - 1.15, 0, guestControl.z),
+    to: new Vector3(guestControl.x + 1.15, 0, guestControl.z),
     segments: [],
     speed: 11,
     charge: 0.28,
@@ -1688,6 +1729,14 @@ hud.onPlace = (kind) => {
 };
 
 window.addEventListener('keydown', (e) => {
+  if (state.mode === 'coop' && navigation.canInteract() && state.running &&
+      !(e.target instanceof HTMLElement && e.target.closest('button, a, input, textarea, select, [contenteditable="true"]')) &&
+      (e.code.startsWith('Arrow') || e.code === 'Enter' || e.code === 'NumpadEnter')) {
+    e.preventDefault();
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') guestAttackHeld = true;
+    else guestKeys.add(e.code);
+    return;
+  }
   if (e.code === 'Escape') {
     if (hud.isTitleOpen()) {
       document.getElementById('title-settings')?.classList.add('hidden');
@@ -1730,6 +1779,11 @@ window.addEventListener('keydown', (e) => {
     if (n >= 1 && n <= 5 && navigation.state === 'MAIN_MENU' && !hud.isTitleOpen()) selectHero(HEROES[n - 1].id);
   }
 });
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') guestAttackHeld = false;
+  else guestKeys.delete(e.code);
+});
+window.addEventListener('blur', () => { guestKeys.clear(); guestAttackHeld = false; });
 
 upgradeBtn.addEventListener('click', () => {
   if (navigation.canInteract() && state.running) tryUpgrade();
@@ -1843,7 +1897,7 @@ installGameScreens({
   },
   getProfileStats: () => ({
     bestCombo: save.bestCombo ?? 0,
-    season: 'Season 1',
+    season: currentSeasonLabel(),
   }),
   showLobbyPage: (page) => hud.showPage(page),
 });

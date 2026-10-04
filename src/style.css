@@ -70,6 +70,12 @@ canvas {
 body[data-ftd-screen='PLAY'] #btn-game-menu-quick { display: inline-flex; align-items: center; gap: 0.55rem; }
 #btn-game-menu-quick:hover,#btn-game-menu-quick:focus-visible { background: #2c4b23; transform: translateY(-2px); box-shadow: 0 6px 0 #030a05, 0 0 30px #a3e63588; outline: none; }
 #btn-game-menu-quick:active { transform: translateY(2px); box-shadow: 0 2px 0 #030a05; }
+#coop-guest-cursor { position:absolute; z-index:34; width:48px; height:48px; margin:-24px 0 0 -24px; display:grid; place-items:center; border:2px solid #93c5fd; border-radius:50%; background:#1e3a8a55; box-shadow:0 0 0 4px #030b1599,0 0 20px #93c5fd; color:white; font:900 11px var(--font); letter-spacing:.08em; pointer-events:none; }
+#coop-guest-cursor::before,#coop-guest-cursor::after { content:''; position:absolute; background:#dbeafe; }
+#coop-guest-cursor::before { width:12px; height:2px; left:-8px; top:22px; box-shadow:52px 0 #dbeafe; }
+#coop-guest-cursor::after { width:2px; height:12px; left:22px; top:-8px; box-shadow:0 52px #dbeafe; }
+#coop-guest-help { position:absolute; z-index:34; right:1rem; top:4.8rem; padding:.55rem .75rem; border:1px solid #93c5fd; background:#061626dd; color:#dbeafe; font:800 11px var(--font); letter-spacing:.08em; pointer-events:none; }
+#coop-guest-cursor.hidden,#coop-guest-help.hidden,body:not([data-ftd-screen='PLAY']) #coop-guest-cursor,body:not([data-ftd-screen='PLAY']) #coop-guest-help { display:none; }
 
 /* ═══════════════════════════════════════════
    PLAYER CHIP (top-left)

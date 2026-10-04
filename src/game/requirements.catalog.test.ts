@@ -9,12 +9,12 @@ import {
 } from './requirements';
 import { mergeAdminConfig } from '../services/admin';
 
-test('production content ships 50 main missions, 5 daily missions, 50 achievements and 20 badges', () => {
+test('production content ships 50 main missions, 5 daily missions, and the PvP-expanded achievement and badge catalogs', () => {
   assert.equal(DEFAULT_MISSIONS.filter((mission) => mission.type === 'main').length, 50);
   assert.equal(DEFAULT_MISSIONS.filter((mission) => mission.type === 'daily').length, 5);
   assert.equal(DEFAULT_MISSIONS.length, 55);
-  assert.equal(DEFAULT_ACHIEVEMENTS.length, 50);
-  assert.equal(DEFAULT_BADGES.length, 20);
+  assert.equal(DEFAULT_ACHIEVEMENTS.length, 54);
+  assert.equal(DEFAULT_BADGES.length, 33);
 
   for (const [label, rows] of [
     ['mission', DEFAULT_MISSIONS],

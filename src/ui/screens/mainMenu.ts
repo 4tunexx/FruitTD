@@ -39,7 +39,7 @@ const DESTINATIONS: MenuDestination[] = [
   { id: 'SHOP', label: 'Shop', icon: ShoppingCart, hint: 'Blades & walls' },
   { id: 'MISSIONS', label: 'Missions', icon: ScrollText, hint: 'Daily rewards' },
   { id: 'ACHIEVEMENTS', label: 'Achievements', icon: Medal, hint: 'Career marks' },
-  { id: 'RANKED', label: 'Ranked', icon: Trophy, hint: 'Climb the ladder' },
+  { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, hint: 'Climb the FR ladder' },
   { id: 'CO_OP', label: 'Co-op', icon: UsersRound, hint: 'Defend together' },
   { id: 'PROFILE', label: 'Profile', icon: UserRound, hint: 'Your record' },
 ];

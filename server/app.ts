@@ -15,6 +15,7 @@ import { authRouter } from './routes/auth';
 import { getDb } from './db';
 import { rateLimit } from './rateLimit';
 import { safeInput } from './validation';
+import { pvpRouter } from './routes/pvp';
 
 export function createApp() {
   const app = express();
@@ -68,6 +69,7 @@ export function createApp() {
   app.use('/api/badges', badgesRouter);
   app.use('/api/social', rateLimit(90, 60_000), socialRouter);
   app.use('/api/lobbies', rateLimit(90, 60_000), lobbyRouter);
+  app.use('/api/pvp', rateLimit(180, 60_000), pvpRouter);
 
   return app;
 }

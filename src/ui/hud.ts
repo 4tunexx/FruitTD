@@ -356,7 +356,7 @@ export class Hud {
       'Chain combos for bonus coins and hero XP.',
       'Upgrade your Main Tower to unlock powerful perks.',
       'Level your hero to 100 for MAX MASTERY rewards.',
-      'Co-op unlocks when your hero reaches Level 25.',
+      'Local Co-op: player one uses the mouse; player two uses arrows and Enter.',
       'Splitter enemies spawn smaller waves — plan your defense.',
     ];
     const user = getCachedAuthUser();

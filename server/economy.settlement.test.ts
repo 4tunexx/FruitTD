@@ -122,6 +122,23 @@ test('a consumed run settles bounded kill, wave, and match rewards into the clou
   assert.equal(wallet.saveData.coins, 550);
 });
 
+test('leaving Ranked settles earned currency without granting a monthly placement', async (t) => {
+  const { deps, wallet } = setup();
+  const { server, base } = await listen(createLeaderboardRouter(deps));
+  closeAfter(t, server);
+  const start = await fetch(`${base}/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'ranked' }) });
+  const { runToken } = await start.json();
+  const settled = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    nickname: 'Slicer', hero: 'jiju', mode: 'ranked', score: 1500, wave: 3, fruitsSliced: 10, maxCombo: 3,
+    runToken, completed: false, rewards: { coins: 20, gems: 0, heroXp: 10, towerXp: 10, skillPoints: 0 },
+  }) });
+  assert.equal(settled.status, 200);
+  assert.equal(wallet.saveData.coins, 20);
+  assert.equal(wallet.saveData.rankedScore, 0);
+  const monthly = await (await fetch(`${base}/monthly-rank`)).json();
+  assert.equal(monthly.hasEntry, false);
+});
+
 test('a rare fruit gem settles only after the run records 100 kills', async (t) => {
   const { deps, wallet } = setup();
   const { server, base } = await listen(createLeaderboardRouter(deps));

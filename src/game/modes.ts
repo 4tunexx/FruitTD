@@ -62,7 +62,7 @@ export const MODE_INFO: ModeRules[] = [
   {
     id: 'coop',
     name: 'Co-op',
-    blurb: 'Guest assist on a shared wall (local helper — online drop-in later).',
+    blurb: 'Two local players defend one wall: mouse and keyboard.',
     lives: 20,
     startMoney: 200,
     yellow: 14,

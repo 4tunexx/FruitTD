@@ -2,7 +2,7 @@ import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, createElement 
 import { getAuthToken } from '../../services/auth';
 import { socialApi, type ForumPost, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
 import { el, clear } from '../components/dom';
-import { back, openScreen } from './registry';
+import { back } from './registry';
 
 const icon = (node: typeof Users) => typeof document.createElementNS === 'function'
   ? createElement(node, { width: 18, height: 18, 'aria-hidden': 'true' }) : el('span', { text: '◆' });
@@ -181,12 +181,6 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
     if (!items.length) panel.appendChild(el('p', { class: 'ftd-social__empty', text: 'No new signals. Friend activity will show here.' }));
     for (const item of items) {
       const row = el('article', { class: `ftd-social__notification${item.readAt ? '' : ' is-unread'}` }, [el('strong', { text: item.title }), el('p', { text: item.body }), el('small', { text: item.actorName })]);
-      const code = item.type === 'coop_invite' ? /^Join with code ([A-F0-9]{8})$/.exec(item.body)?.[1] : null;
-      if (code) {
-        const join = el('button', { type: 'button', class: 'ftd-social__mini-button', text: 'Join room' });
-        join.addEventListener('click', () => { sessionStorage.setItem('fruit-td-coop-invite', code); openScreen('CO_OP'); });
-        row.appendChild(join);
-      }
       panel.appendChild(row);
     }
     if (unread.length) {

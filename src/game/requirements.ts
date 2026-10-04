@@ -31,7 +31,9 @@ export type GameEventName =
   | 'skin_buy'
   | 'daily_claim'
   | 'steam_link'
-  | 'mission_claim';
+  | 'mission_claim'
+  /** Emitted only by the PvP authority; never by local run telemetry. */
+  | 'pvp_result';
 
 export interface RequirementTypeDef {
   id: string;
@@ -168,6 +170,15 @@ export const REQUIREMENT_TYPES: RequirementTypeDef[] = [
   { id: 'monthly_games', category: 'ranked', label: 'Play monthly ranked games', hint: 'Ranked finishes this period', event: 'game_over', progress: 'increment', mode: 'ranked' },
   { id: 'reach_master', category: 'ranked', label: 'Reach Master', hint: 'Hit Master monthly threshold', event: 'game_over', progress: 'max', valueField: 'score', mode: 'ranked', rankId: 'master' },
   { id: 'reach_grandmaster', category: 'ranked', label: 'Reach Grandmaster', hint: 'Hit Grandmaster monthly threshold', event: 'game_over', progress: 'max', valueField: 'score', mode: 'ranked', rankId: 'grandmaster' },
+  { id: 'pvp_win', category: 'ranked', label: 'Win PvP sieges', hint: 'Wins verified by the match authority', event: 'pvp_result', progress: 'increment', valueField: 'count' },
+  { id: 'pvp_combo', category: 'ranked', label: 'Reach a PvP combo', hint: 'Best server-verified PvP combo', event: 'pvp_result', progress: 'max', valueField: 'combo' },
+  { id: 'pvp_multislice', category: 'ranked', label: 'PvP multi-slices', hint: 'Fruit-zombies sliced in one command', event: 'pvp_result', progress: 'max', valueField: 'count' },
+  { id: 'pvp_season', category: 'ranked', label: 'Finish a PvP season', hint: 'Complete a ranked season', event: 'pvp_result', progress: 'increment', valueField: 'count' },
+  { id: 'pvp_reach_silver', category: 'ranked', label: 'Reach Silver on PvP ladder', hint: 'Reach 1,500 FR', event: 'pvp_result', progress: 'max', valueField: 'score' },
+  { id: 'pvp_reach_gold', category: 'ranked', label: 'Reach Gold on PvP ladder', hint: 'Reach 2,000 FR', event: 'pvp_result', progress: 'max', valueField: 'score' },
+  { id: 'pvp_reach_diamond', category: 'ranked', label: 'Reach Diamond on PvP ladder', hint: 'Reach 2,500 FR', event: 'pvp_result', progress: 'max', valueField: 'score' },
+  { id: 'reach_emerald', category: 'ranked', label: 'Reach Emerald', hint: 'Reach 2,750 FR on the PvP ladder', event: 'pvp_result', progress: 'max', valueField: 'score' },
+  { id: 'reach_sapphire', category: 'ranked', label: 'Reach Sapphire', hint: 'Reach 3,000 FR on the PvP ladder', event: 'pvp_result', progress: 'max', valueField: 'score' },
   { id: 'combo_reach_20', category: 'combat', label: 'Reach 20x combo', hint: 'Hit a 20x combo', event: 'combo', progress: 'max', valueField: 'combo' },
   { id: 'score_casual', category: 'economy', label: 'Casual high score', hint: 'Best casual run score', event: 'game_over', progress: 'max', valueField: 'score', mode: 'casual' },
   { id: 'score_arena', category: 'economy', label: 'Arena high score', hint: 'Best arena run score', event: 'game_over', progress: 'max', valueField: 'score', mode: 'arena' },
@@ -192,6 +203,10 @@ export function currentMonthKey(date = new Date()): string {
 
 export function monthlyLeaderboardMode(date = new Date()): string {
   return `monthly-${currentMonthKey(date)}`;
+}
+
+export function currentSeasonLabel(date = new Date()): string {
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
 }
 
 export interface RankTier {
@@ -400,6 +415,10 @@ export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [
   { id: 'score_10000', title: 'Five Digit Run', desc: 'Reach 10,000 score in a run', icon: 'Gauge', enabled: true, requirement: req('score_reach', 10000), rewardCoins: 700, rewardSp: 1 },
   { id: 'score_50000', title: 'Score Titan', desc: 'Reach 50,000 score in a run', icon: 'ChartNoAxesCombined', enabled: true, requirement: req('score_reach', 50000), rewardCoins: 2000, rewardSp: 3, rewardGems: 20 },
   { id: 'horde_wave_50', title: 'Horde Holdout', desc: 'Reach wave 50 in Horde', icon: 'UsersRound', enabled: true, requirement: req('wave_reach', 50, { mode: 'horde' }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: 'horde-veteran' },
+  { id: 'pvp_first_win', title: 'First Siege', desc: 'Win your first server-verified PvP siege', icon: 'Swords', enabled: true, requirement: req('pvp_win', 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: 'pvp-first-win' },
+  { id: 'pvp_ten_wins', title: 'Wallbreaker', desc: 'Win ten server-verified PvP sieges', icon: 'ShieldCheck', enabled: true, requirement: req('pvp_win', 10), rewardCoins: 800, rewardSp: 0, rewardGems: 10, rewardBadge: 'pvp-wallbreaker' },
+  { id: 'pvp_combo_50', title: 'Fruit Storm', desc: 'Reach a 50-slice combo in a PvP siege', icon: 'Zap', enabled: true, requirement: req('pvp_combo', 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
+  { id: 'pvp_multislice_5', title: 'Five-Fruit Cut', desc: 'Slice five fruit-zombies with one server-verified cut', icon: 'Sword', enabled: true, requirement: req('pvp_multislice', 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 },
 ];
 
 export const DEFAULT_BADGES: CatalogBadge[] = [
@@ -423,6 +442,19 @@ export const DEFAULT_BADGES: CatalogBadge[] = [
   { id: 'horde-veteran', title: 'Horde Veteran', desc: 'Clear 50 Horde waves', icon: 'UsersRound', rarity: 'legendary', enabled: true, requirement: req('wave_reach', 50, { mode: 'horde' }), rewardCoins: 1000, rewardGems: 25 },
   { id: 'campaign-pathfinder', title: 'Campaign Pathfinder', desc: 'Clear 100 Campaign waves', icon: 'Map', rarity: 'epic', enabled: true, requirement: req('waves_cleared', 100, { mode: 'campaign' }), rewardCoins: 750, rewardGems: 15 },
   { id: 'veteran', title: 'Orchard Veteran', desc: 'Finish 200 matches', icon: 'BadgeCheck', rarity: 'legendary', enabled: true, requirement: req('play_games', 200), rewardCoins: 1000, rewardGems: 25 },
+  { id: 'pvp-first-win', title: 'Siege Victor', desc: 'Win a server-verified PvP siege', icon: 'Swords', rarity: 'common', enabled: true, requirement: req('pvp_win', 1), rewardCoins: 200, rewardGems: 2 },
+  { id: 'pvp-wallbreaker', title: 'Wallbreaker', desc: 'Win ten server-verified PvP sieges', icon: 'ShieldCheck', rarity: 'rare', enabled: true, requirement: req('pvp_win', 10), rewardCoins: 800, rewardGems: 10 },
+  { id: 'fr-silver', title: 'Silver Defender', desc: 'Reach Silver on the FR ladder', icon: 'Medal', rarity: 'rare', enabled: true, requirement: req('pvp_reach_silver', 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: 'fr-gold', title: 'Gold Defender', desc: 'Reach Gold on the FR ladder', icon: 'Trophy', rarity: 'epic', enabled: true, requirement: req('pvp_reach_gold', 2000), rewardCoins: 500, rewardGems: 10 },
+  { id: 'fr-diamond', title: 'Diamond Defender', desc: 'Reach Diamond on the FR ladder', icon: 'Diamond', rarity: 'legendary', enabled: true, requirement: req('pvp_reach_diamond', 2500), rewardCoins: 900, rewardGems: 20 },
+  { id: 'fr-emerald', title: 'Emerald Defender', desc: 'Reach Emerald on the FR ladder', icon: 'Gem', rarity: 'legendary', enabled: true, requirement: req('reach_emerald', 2750), rewardCoins: 1400, rewardGems: 35 },
+  { id: 'fr-sapphire', title: 'Sapphire Defender', desc: 'Reach Sapphire on the FR ladder', icon: 'Gem', rarity: 'legendary', enabled: true, requirement: req('reach_sapphire', 3000), rewardCoins: 2200, rewardGems: 60 },
+  { id: 'pvp-bronze', title: 'Bronze Season', desc: 'Finish a season in Bronze', icon: 'Shield', rarity: 'common', enabled: true, requirement: req('pvp_season', 1), rewardCoins: 100 },
+  { id: 'pvp-silver', title: 'Silver Season', desc: 'Finish a season in Silver', icon: 'Medal', rarity: 'rare', enabled: true, requirement: req('pvp_season', 1), rewardCoins: 250, rewardGems: 5 },
+  { id: 'pvp-gold', title: 'Gold Season', desc: 'Finish a season in Gold', icon: 'Trophy', rarity: 'epic', enabled: true, requirement: req('pvp_season', 1), rewardCoins: 500, rewardGems: 10 },
+  { id: 'pvp-diamond', title: 'Diamond Season', desc: 'Finish a season in Diamond', icon: 'Diamond', rarity: 'legendary', enabled: true, requirement: req('pvp_season', 1), rewardCoins: 900, rewardGems: 20 },
+  { id: 'pvp-emerald', title: 'Emerald Season', desc: 'Finish a season in Emerald', icon: 'Gem', rarity: 'legendary', enabled: true, requirement: req('pvp_season', 1), rewardCoins: 1400, rewardGems: 35 },
+  { id: 'pvp-sapphire', title: 'Sapphire Season', desc: 'Finish a season in Sapphire', icon: 'Gem', rarity: 'legendary', enabled: true, requirement: req('pvp_season', 1), rewardCoins: 2200, rewardGems: 60 },
 ];
 
 export function matchRequirement(

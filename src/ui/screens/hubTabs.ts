@@ -29,7 +29,7 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { getTowerXpState } from '../../game/towerProgression';
-import { rankFromScore, DEFAULT_RANK_TIERS } from '../../game/requirements';
+import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/requirements';
 import { Backpack, Home, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
 import { getTowerXpState as getMainTowerXpState } from '../../game/towerProgression';
 import type { SaveData } from '../../game/save';
@@ -400,7 +400,7 @@ function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
       statCard('Best combo', stats.bestCombo ? `×${stats.bestCombo}` : '—'),
       statCard('Coins', (save.coins ?? 0).toLocaleString()),
       statCard('Achievements', stats.achievementsTotal ? `${stats.achievementsUnlocked ?? 0}/${stats.achievementsTotal}` : String(stats.achievementsUnlocked ?? 0)),
-      statCard('Season', stats.season ?? 'Season 1'),
+      statCard('Season', stats.season ?? currentSeasonLabel()),
     ]);
     root.appendChild(grid);
     root.appendChild(
@@ -409,7 +409,7 @@ function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
         GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
         GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
-        GameButton({ label: 'Co-op lobby', variant: 'outline', onClick: () => openScreen('CO_OP') }),
+        GameButton({ label: 'Local Co-op', variant: 'outline', onClick: () => openScreen('CO_OP') }),
         GameButton({ label: 'Settings', variant: 'outline', onClick: () => openScreen('SETTINGS') }),
       ]),
     );
@@ -479,6 +479,16 @@ export function coopHubTab(onStart?: () => void): HubTab {
         if (root.isConnected) renderCoopLobby(root, () => onStart?.());
       });
     },
+    renderSub: (root) => {
+      root.appendChild(el('aside', { class: 'ftd-hub-context' }, [
+        el('p', { class: 'ftd-hub-context__eyebrow', text: 'TWO PLAYER CONTROLS' }),
+        el('h2', { text: 'Defend together' }),
+        el('p', { text: 'Player 1 uses the mouse or touch to slice fruit, place towers, and buy upgrades.' }),
+        el('p', { text: 'Player 2 uses arrow keys to move the blue cursor and holds Enter to slice fruit.' }),
+        el('p', { text: 'The wall, coins, and match rewards belong to the current profile.' }),
+        GameButton({ label: 'Choose another mode', variant: 'outline', block: true, onClick: () => openScreen('MAIN_MENU') }),
+      ]));
+    },
   };
 }
 
@@ -509,8 +519,6 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     const grid = modes.querySelector('.ftd-mode-select__grid')!;
     const entries = [
       { id: 'casual' as const, name: 'Casual', note: 'Learn the lanes' },
-      { id: 'ranked' as const, name: 'Ranked', note: 'Best run · monthly rank' },
-      { id: 'arena' as const, name: 'Arena', note: 'Fast, high-pressure waves' },
       { id: 'horde' as const, name: 'Horde', note: 'Endless · highest wave wins' },
     ];
     entries.forEach((mode) => {
@@ -519,8 +527,12 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     });
     const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
-    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op rooms' }), el('small', { text: 'Local guest play · online rooms preview' })]);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Local Co-op' }), el('small', { text: 'Two players · mouse + keyboard' })]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
+    const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Real-time 1v1 · quick match' })]);
+    arena.addEventListener('click', () => openScreen('ARENA')); grid.appendChild(arena);
+    const ranked = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-ranked' }, [el('strong', { text: 'Ranked PvP' }), el('small', { text: 'Seasonal FR point ladder' })]);
+    ranked.addEventListener('click', () => openScreen('RANKED')); grid.appendChild(ranked);
     root.appendChild(el('div', { class: 'ftd-playcard' }, [playContent, modes]));
   };
 }

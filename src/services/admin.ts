@@ -12,6 +12,7 @@ import {
 import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../game/campaignStory';
 import { getAuthToken, getCachedAuthUser } from './auth';
+import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../game/pvp';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
 
@@ -60,6 +61,7 @@ export interface AdminConfig {
     scoreMultiplier: number;
     superChargeMultiplier: number;
   };
+  pvpConfig: PvpConfig;
   missions: CatalogMission[];
   achievements: CatalogAchievement[];
   badges: CatalogBadge[];
@@ -105,6 +107,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     scoreMultiplier: 1.0,
     superChargeMultiplier: 1.0,
   },
+  pvpConfig: structuredClone(DEFAULT_PVP_CONFIG),
   missions: DEFAULT_MISSIONS,
   achievements: DEFAULT_ACHIEVEMENTS,
   badges: DEFAULT_BADGES,
@@ -125,6 +128,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...(src.menuConfig || {}) },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...(src.gameplayConfig || {}) },
+    pvpConfig: mergePvpConfig(src.pvpConfig),
     // A present catalogue is authoritative: Admin must be able to remove an entry
     // without the defaults silently restoring it on the next load.
     missions: structuredClone(Array.isArray(src.missions) ? src.missions : DEFAULT_ADMIN_CONFIG.missions),
@@ -139,6 +143,46 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
     campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20
       ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
+  };
+}
+
+function mergePvpConfig(raw: unknown): PvpConfig {
+  const value = raw && typeof raw === 'object' ? raw as Partial<PvpConfig> : {};
+  const bounded = (n: unknown, fallback: number, min: number, max: number) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
+  const maps = normalizePvpMaps(value.maps);
+  const towers = { ...DEFAULT_PVP_CONFIG.towers };
+  for (const [id, fallback] of Object.entries(towers)) {
+    const row = value.towers?.[id];
+    if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), damage: bounded(row.damage, fallback.damage, 1, 10000), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 60000) };
+  }
+  const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
+  for (const [id, fallback] of Object.entries(attacks)) {
+    const row = value.attacks?.[id];
+    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), health: bounded(row.health, fallback.health, 1, 10000), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 10000), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 10000) };
+  }
+  const tiers = Array.isArray(value.rating?.tiers) ? value.rating!.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
+  return {
+    version: 1,
+    maps,
+    map: maps[0]!,
+    durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
+    wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 100000),
+    startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 100000),
+    incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1000),
+    reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
+    towers, attacks,
+    rating: {
+      ...DEFAULT_PVP_CONFIG.rating,
+      ...(value.rating || {}),
+      start: bounded(value.rating?.start, 1000, 0, 1_000_000),
+      win: bounded(value.rating?.win, 50, 0, 1000), tie: bounded(value.rating?.tie, 20, 0, 1000),
+      loss: -bounded(Math.abs(value.rating?.loss ?? -50), 50, 1, 1000),
+      bonusCap: bounded(value.rating?.bonusCap, 20, 0, 1000),
+      seasonResetPercent: bounded(value.rating?.seasonResetPercent, 25, 0, 100),
+      combo: DEFAULT_PVP_CONFIG.rating.combo,
+      tiers: tiers.map((tier, i) => ({ name: DEFAULT_PVP_CONFIG.rating.tiers[i]!.name, min: bounded(tier?.min, DEFAULT_PVP_CONFIG.rating.tiers[i]!.min, 0, 1_000_000) })),
+    },
+    seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((item, i) => ({ ...item, ...(value.seasonRewards?.[i] || {}), tier: item.tier })),
   };
 }
 

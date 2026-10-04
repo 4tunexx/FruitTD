@@ -161,6 +161,25 @@
 
 .ftd-hub__sub.is-empty { display: none; }
 .ftd-hub.is-single-panel .ftd-hub__body { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 901px) {
+  .ftd-hub__main,
+  .ftd-hub__sub { border: 1px solid rgba(163, 230, 53, 0.34); background: linear-gradient(145deg, rgba(5, 17, 16, 0.96), rgba(19, 38, 22, 0.92)); }
+  .ftd-hub__main { border-left: 4px solid #ef4444; }
+  .ftd-hub__sub { border-left: 3px solid #a3e635; }
+  .ftd-hub__sub > .ftd-hub-panel-content { min-height: 100%; padding: clamp(1rem, 1.6vw, 1.6rem); }
+  .ftd-hub .ftd-campaign__map { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .ftd-hub .ftd-boss-reveal { display: flex; flex-direction: column; width: 100%; margin: 0; }
+  .ftd-hub .ftd-boss-reveal__art { min-height: 180px; max-height: 250px; border-right: 0; border-bottom: 1px solid #8ab84d55; }
+  .ftd-hub .ftd-social__layout { grid-template-columns: minmax(0, 1fr); }
+  .ftd-hub .ftd-social__panel--wide,
+  .ftd-hub .ftd-social[data-social-view='messages'] .ftd-social__layout > .ftd-social__panel--wide { grid-column: 1; }
+}
+.ftd-hub-context { display: flex; flex-direction: column; gap: 1rem; color: #dcebd2; }
+.ftd-hub-context__eyebrow { margin: 0; color: #fbbf24; font-size: 0.66rem; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; }
+.ftd-hub-context h2 { margin: 0; color: #f4ffe8; font-size: clamp(1.3rem, 2vw, 2rem); text-transform: uppercase; }
+.ftd-hub-context p { margin: 0; line-height: 1.5; }
+.ftd-hub-context__actions { display: grid; gap: 0.65rem; }
+.ftd-hub-context__actions .ftd-btn { min-height: 48px; }
 
 .ftd-hub .ftd-screen,
 .ftd-hub .ftd-campaign,
@@ -712,4 +731,64 @@
 .ftd-coop-lobby__members { flex-basis:100%; display:flex; flex-wrap:wrap; gap:.5rem; list-style:none; padding:0; }
 .ftd-coop-lobby__members li { padding:.65rem .8rem; border:1px solid #799953; background:#162219; }
 .ftd-coop-lobby__note, .ftd-coop-lobby__status { flex-basis:100%; color:#b7c9ab; line-height:1.5; }
+.ftd-coop-lobby__columns { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.ftd-coop-lobby > .ftd-coop-lobby__button { justify-self:start; min-width:16rem; background:#9fe029; color:#102006; font-weight:900; }
+.ftd-coop-lobby > .ftd-coop-lobby__button:hover { background:#bef264; }
 @media (max-width:760px) { .ftd-coop-lobby__columns { grid-template-columns:1fr; } .ftd-coop-lobby { height:auto; } .ftd-coop-lobby__area, .ftd-coop-lobby__local { min-height:0; } }
+
+/* Arena and Ranked server-authoritative 1v1 */
+.ftd-pvp { display: grid; gap: 1rem; color: #e8f4df; }
+.ftd-pvp__heading { display:flex; justify-content:space-between; gap:1rem; align-items:center; padding:1.25rem; border:1px solid rgba(163,230,53,.32); background:linear-gradient(120deg,rgba(12,27,21,.96),rgba(21,42,29,.84)); }
+.ftd-pvp__heading h1 { margin:.25rem 0; font-size:clamp(1.6rem,3vw,2.7rem); letter-spacing:.08em; }
+.ftd-pvp__eyebrow,.ftd-pvp__section-title { color:#a3e635; font-size:.72rem; font-weight:800; letter-spacing:.19em; }
+.ftd-pvp__intro { color:#aab9aa; font-size:.88rem; line-height:1.55; }
+.ftd-pvp__rating { min-width:170px; padding:.9rem 1rem; border-left:2px solid #a3e635; background:rgba(4,12,11,.72); }
+.ftd-pvp__rating strong { display:block; margin-top:.3rem; font-size:1.25rem; }
+.ftd-pvp__body { min-height:240px; }
+.ftd-pvp__queue,.ftd-pvp__result,.ftd-pvp__draft { padding:clamp(1rem,2vw,1.5rem); border:1px solid rgba(163,230,53,.25); background:rgba(4,14,12,.9); }
+.ftd-pvp__queue { display:grid; gap:.9rem; justify-items:start; max-width:760px; margin:1rem auto; }
+.ftd-pvp__section-title { margin:.4rem 0; }
+.ftd-pvp__challenge,.ftd-pvp__incoming { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; width:100%; padding:1rem; border:1px solid rgba(163,230,53,.22); }
+.ftd-pvp__challenge input { flex:1; min-width:220px; background:#07110e; border:1px solid #52664d; color:#f2ffe8; padding:.7rem; }
+.ftd-pvp__draft-head { display:grid; gap:.2rem; margin-bottom:1rem; }
+.ftd-pvp__draft-head h2 { margin:.2rem 0; }
+.ftd-pvp__map-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:.65rem; }
+.ftd-pvp__map-card { display:grid; gap:.4rem; padding:.55rem; text-align:left; color:#e8f4df; background:#101c17; border:1px solid #536a4c; cursor:pointer; }
+.ftd-pvp__map-card:not(:disabled):hover { border-color:#a3e635; background:#1d3220; }
+.ftd-pvp__map-card:disabled { opacity:.62; cursor:default; }
+.ftd-pvp__map-card small { color:#aab9aa; }
+.ftd-pvp__map-thumb { display:grid; grid-template-columns:repeat(var(--map-cols),1fr); aspect-ratio:10/6; gap:1px; background:#070d0b; }
+.ftd-pvp__map-thumb i { background:#183226; }
+.ftd-pvp__map-thumb i.is-path { background:#c2a55b; }
+.ftd-pvp__matchbar { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.7rem; padding:.8rem 1rem; margin-bottom:.8rem; border:1px solid rgba(163,230,53,.25); background:#08120f; }
+.ftd-pvp__matchbar strong { color:#ffe066; font-size:1.2rem; }
+.ftd-pvp__matchbar p { margin:0; align-self:center; font-size:.78rem; }
+.ftd-pvp__controls { display:grid; gap:.7rem; }
+.ftd-pvp__battlefield { display:grid; grid-template-rows:auto minmax(360px,60vh) auto; width:min(100%,740px); max-height:780px; margin:0 auto; padding:.65rem; background:linear-gradient(#11271d,#24402b 48%,#12261b); border:1px solid #718c5b; }
+.ftd-pvp__gate { display:flex; align-items:center; justify-content:space-between; padding:.55rem .8rem; margin:0; min-height:38px; color:#f1f7e9; font-size:.73rem; font-weight:800; letter-spacing:.1em; }
+.ftd-pvp__gate--enemy { border-top:3px solid #eb4b4b; background:rgba(108,28,28,.72); }
+.ftd-pvp__gate--own { border-bottom:3px solid #a3e635; background:rgba(22,79,39,.85); }
+.ftd-pvp__cells { display:grid; grid-template-columns:repeat(var(--map-cols),minmax(0,1fr)); grid-auto-rows:minmax(24px,1fr); gap:2px; min-height:0; padding:.35rem; }
+.ftd-pvp__cell { min-width:0; padding:0; color:#d9ebc7; border:1px solid rgba(208,231,178,.15); background:rgba(62,103,51,.8); font-size:clamp(.48rem,.8vw,.72rem); cursor:pointer; }
+.ftd-pvp__cell:not(:disabled):hover { border-color:#d0ff61; background:#507d34; }
+.ftd-pvp__cell.is-path { color:#392a13; border-color:#caba85; background:#b5a16a; cursor:default; }
+.ftd-pvp__cell.has-fruit { color:#fff; background:#a83d31; box-shadow:inset 0 0 0 2px #ffb544; }
+.ftd-pvp__cell.is-built { color:#0b1707; background:#a3e635; font-weight:900; }
+.ftd-pvp__tower-picker { display:flex; flex-wrap:wrap; gap:.45rem; padding:.25rem 0 .6rem; }
+.ftd-pvp__tower-picker .ftd-btn { min-height:38px; }
+.ftd-pvp__attackers { display:flex; flex-wrap:wrap; gap:.5rem; padding:.6rem; background:#0b1512; border:1px solid rgba(235,75,75,.35); }
+.ftd-pvp__fruit { padding:.55rem .75rem; color:#fff2d6; background:#552a24; border:1px solid #dc6953; cursor:pointer; }
+.ftd-pvp__fruit:hover { background:#8c392a; }
+.ftd-pvp__fruit.is-selected { outline:2px solid #a3e635; background:#315028; box-shadow:0 0 0 2px rgba(163,230,53,.2); }
+.ftd-pvp__error { padding:.6rem; color:#ffb4a9; border:1px solid #ad4538; }
+.ftd-pvp__result { display:grid; gap:.5rem; justify-items:start; }
+.admin-pvp-config-label { display:block; margin:.8rem 0 .35rem; color:#bef264; font-size:.8rem; }
+.admin-pvp-config { min-height:520px; width:100%; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.72rem; tab-size:2; }
+@media(max-width:760px) {
+  .ftd-pvp__heading { align-items:flex-start; flex-direction:column; }
+  .ftd-pvp__rating { width:100%; border-left:0; border-top:2px solid #a3e635; }
+  .ftd-pvp__matchbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ftd-pvp__battlefield { grid-template-rows:auto minmax(300px,55vh) auto; padding:.25rem; }
+  .ftd-pvp__cells { gap:1px; grid-auto-rows:minmax(18px,1fr); padding:.15rem; }
+  .ftd-pvp__map-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

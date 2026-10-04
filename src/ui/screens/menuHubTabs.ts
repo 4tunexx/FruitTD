@@ -1,12 +1,26 @@
-import { Newspaper, Settings, Map, Users, MessageCircle, Bell, ListChecks, Trophy, Medal } from 'lucide';
+import { Newspaper, Settings, Map, Users, MessageCircle, Bell, ListChecks, Trophy, Medal, Swords } from 'lucide';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
-import { back } from './registry';
+import { back, openScreen } from './registry';
 import { renderNews } from './news';
 import { renderSettings } from './settings';
 import { renderCampaign } from './campaign';
 import type { HubTab } from './hub';
 import type { NavState } from '../../game/navigation';
+import type { SaveData } from '../../game/save';
+import { renderPvpHub } from './pvp';
+
+function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>): void {
+  const actions = el('div', { class: 'ftd-hub-context__actions' }, links.map(({ label, open }) => GameButton({ label, variant: 'outline', block: true, onClick: open })));
+  root.appendChild(el('aside', { class: 'ftd-hub-context' }, [
+    el('p', { class: 'ftd-hub-context__eyebrow', text: eyebrow }),
+    el('h2', { text: title }),
+    el('p', { text: body }),
+    actions,
+  ]));
+}
+
+function route(label: string, id: NavState) { return { label, open: () => openScreen(id) }; }
 
 export interface MenuHubActions {
   onOpenDaily: () => void;
@@ -21,15 +35,22 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
     { id: 'NEWS', label: 'News', icon: Newspaper, renderMain: (root, save) => {
       const page = el('div', { class: 'ftd-hub-embedded' }); root.appendChild(page);
       renderNews(page, save, actions.onOpenDaily);
-    } },
+    }, renderSub: (root, save) => context(root, 'YOUR NEXT MOVE', 'Field orders', `${save.campaignProgress.cleared.length} campaign stages cleared.`, [
+      { label: 'Claim daily bonus', open: actions.onOpenDaily }, route('Browse campaign', 'CAMPAIGN'), route('Open community', 'SOCIAL'),
+    ]) },
     { id: 'SETTINGS', label: 'Settings', icon: Settings, renderMain: (root, save) => {
       const page = el('div', { class: 'ftd-hub-embedded' }); root.appendChild(page);
       renderSettings(page, save, actions);
-    } },
+    }, renderSub: (root, save) => context(root, 'ACCOUNT', save.nickname || 'Slicer', 'Manage your profile and return to the game whenever you are ready.', [
+      route('Open profile', 'PROFILE'), route('Return home', 'MAIN_MENU'),
+    ]) },
     { id: 'CAMPAIGN', label: 'Campaign', icon: Map, renderMain: (root, save) => {
       const page = el('div');
       root.appendChild(page);
       renderCampaign(page, save, actions.onStartCampaign);
+    }, renderSub: (root) => {
+      const boss = root.closest('.ftd-hub')?.querySelector<HTMLElement>('.ftd-hub__main .ftd-boss-reveal');
+      if (boss) root.appendChild(boss);
     } },
     ...([
       { id: 'SOCIAL', label: 'Community', icon: Users, view: 'community' },
@@ -44,14 +65,19 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
         if (!page.isConnected) return;
         page.replaceChildren(el('p', { role: 'alert', text: `${label} could not load. Open it again to retry.` }));
       });
-    } })),
+    }, renderSub: (root) => context(root, 'YOUR NETWORK', label, view === 'messages' ? 'Open a conversation with a friend from the list.' : view === 'notifications' ? 'See recent activity and respond from this page.' : 'Find defenders, manage friends, and read the community board.', [
+      route('Community', 'SOCIAL'), route('Messages', 'MESSAGES'), route('Notifications', 'NOTIFICATIONS'),
+    ]) })),
   ];
   const legacy: Array<{ id: NavState; label: string; page: string; subtab?: string; icon: typeof ListChecks }> = [
     { id: 'MISSIONS', label: 'Missions', page: 'quests', subtab: 'missions', icon: ListChecks },
     { id: 'ACHIEVEMENTS', label: 'Achievements', page: 'quests', subtab: 'achievements', icon: Medal },
-    { id: 'RANKED', label: 'Ranked', page: 'leaderboard', icon: Trophy },
   ];
-  return [...simple, ...legacy.map(({ id, label, page, subtab, icon }): HubTab => ({
+  const pvp: HubTab[] = [
+    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpHub(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Arena', 'ARENA'), route('Community', 'SOCIAL')]) },
+    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpHub(root, 'arena'), renderSub: (root) => context(root, 'UNRANKED 1V1', 'Arena siege', 'Quick-match against a player or challenge an accepted friend. No FR loss.', [route('Ranked PvP', 'RANKED'), route('Community', 'SOCIAL')]) },
+  ];
+  return [...simple, ...pvp, ...legacy.map(({ id, label, page, subtab, icon }): HubTab => ({
     id, label, icon,
     renderMain: (root) => {
       const header = el('header', { class: 'ftd-hub-legacy__header' }, [
@@ -66,5 +92,8 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
       root.appendChild(content);
       if (subtab) content.querySelector<HTMLButtonElement>(`.quests-subtabs .subtab[data-sub="${subtab}"]`)?.click();
     },
+    renderSub: (root, save: SaveData) => context(root, 'CAREER', label, id === 'RANKED' ? `Ranked score: ${(save.rankedScore ?? 0).toLocaleString()}. Best wave: ${save.bestWave ?? 1}.` : 'Track your real progress and return to the battlefield.', [
+      route('Missions', 'MISSIONS'), route('Achievements', 'ACHIEVEMENTS'), route('Ranked leaderboard', 'RANKED'), route('Play', 'MAIN_MENU'),
+    ]),
   }))];
 }

@@ -100,19 +100,20 @@ test('header separates notifications, messages, community, profile and wallet ro
   }
 });
 
-test('home offers Casual, Ranked, Arena, Horde, Campaign and one Co-op path', () => {
+test('home offers local modes and one Co-op path while PvP uses its own destinations', () => {
   resetHub();
   const selected: string[] = [];
   registerHubTab(homeHubTab(() => undefined, (mode) => selected.push(mode), () => selected.push('campaign-map')));
   const root = host();
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
   root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
-  root.querySelector<HTMLButtonElement>('[data-testid="mode-ranked"]')!.click();
-  root.querySelector<HTMLButtonElement>('[data-testid="mode-arena"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="mode-horde"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="campaign-open"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="mode-coop"]')!.click();
-  assert.deepEqual(selected, ['casual', 'ranked', 'arena', 'horde', 'campaign-map']);
+  assert.deepEqual(selected, ['casual', 'horde', 'campaign-map']);
+  assert.equal(root.querySelectorAll('[data-testid="mode-ranked"], [data-testid="mode-arena"]').length, 2, 'Arena and Ranked are available as dedicated PvP destinations');
+  assert.match(root.textContent!, /Ranked PvP/);
+  assert.match(root.textContent!, /Arena PvP/);
   assert.equal(root.querySelectorAll('[data-testid="mode-coop"]').length, 1);
   const playCard = root.querySelector('.ftd-playcard');
   assert.equal(playCard?.querySelector('.ftd-mode-select') !== null, true, 'mode chooser belongs inside Panel 1 play card');
@@ -132,7 +133,7 @@ test('home shows separate daily and main mission progress meters', () => {
   assert.ok(panel!.querySelector('.ftd-mission-progress__row--main'));
 });
 
-test('legacy Missions and Ranked pages move into the hub and return to their original host', () => {
+test('legacy Missions moves into the hub and returns to its original host while Ranked is now dedicated PvP', () => {
   resetHub();
   resetDom();
   const world = document.createElement('div');
@@ -157,11 +158,12 @@ test('legacy Missions and Ranked pages move into the hub and return to their ori
   document.body.appendChild(root);
   renderHub(root, defaultSave(), 'MISSIONS', { onPlay: () => undefined });
   assert.equal(root.querySelector('#page-quests'), quests);
-  switchHubTab(root, defaultSave(), 'RANKED');
+  switchHubTab(root, defaultSave(), 'ARENA');
   assert.equal(quests.parentElement, world);
-  assert.equal(root.querySelector('#page-leaderboard'), leaderboard);
+  assert.match(root.textContent!, /ARENA/);
+  assert.equal(root.querySelector('#page-leaderboard'), null, 'the solo leaderboard is kept out of the PvP rating screen');
   switchHubTab(root, defaultSave(), 'MAIN_MENU');
-  assert.equal(leaderboard.parentElement, world);
+  assert.equal(leaderboard.parentElement, world, 'historical solo leaderboard content remains in its original host');
   resetDom();
 });
 
@@ -268,9 +270,20 @@ test('profile keeps the legacy destinations reachable and exposes its Play actio
   const actions = main.querySelector('.ftd-profile-actions');
   const actionButtons = actions?.querySelectorAll('button') ?? [];
   const actionLabels = [...actionButtons].map((button) => button.textContent);
-  assert.deepEqual(actionLabels, ['Play now', 'Missions', 'Achievements', 'Ranked', 'Co-op lobby', 'Settings']);
+  assert.deepEqual(actionLabels, ['Play now', 'Missions', 'Achievements', 'Ranked', 'Local Co-op', 'Settings']);
   actionButtons[0]?.click();
   assert.equal(played, 1);
+});
+
+test('every secondary menu destination supplies a contextual desktop panel', () => {
+  const tabs = menuHubTabs({
+    onOpenDaily: () => undefined,
+    onToggleSound: () => undefined,
+    onLogout: () => undefined,
+    onStartCampaign: () => undefined,
+    showLobbyPage: () => undefined,
+  });
+  for (const tab of tabs) assert.equal(typeof tab.renderSub, 'function', `${tab.id} needs Panel 2`);
 });
 
 test('switchHubTab replaces panel content without rebuilding header/footer', () => {

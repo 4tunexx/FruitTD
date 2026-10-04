@@ -33,7 +33,7 @@ import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
 import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campaign';
 
-type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'content' | 'leaderboard';
+type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -540,6 +540,8 @@ export class AdminController {
     if (inLives) inLives.value = String(gameplayConfig.startLives);
     if (inScoreMul) inScoreMul.value = String(gameplayConfig.scoreMultiplier);
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
+    const pvpEditor = document.getElementById('admin-pvp-config') as HTMLTextAreaElement | null;
+    if (pvpEditor) pvpEditor.value = JSON.stringify(this.config.pvpConfig, null, 2);
   }
 
   private async renderLeaderboardManager(): Promise<void> {
@@ -633,6 +635,12 @@ export class AdminController {
     if (inLives) this.config.gameplayConfig.startLives = Number(inLives.value);
     if (inScoreMul) this.config.gameplayConfig.scoreMultiplier = Number(inScoreMul.value);
     if (inSuperMul) this.config.gameplayConfig.superChargeMultiplier = Number(inSuperMul.value);
+
+    const pvpEditor = document.getElementById('admin-pvp-config') as HTMLTextAreaElement | null;
+    if (pvpEditor) {
+      try { this.config.pvpConfig = JSON.parse(pvpEditor.value); }
+      catch { if (statusEl) { statusEl.textContent = 'PvP settings are not valid JSON. Nothing was saved.'; statusEl.className = 'admin-status-err'; } if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save to MongoDB Atlas'; } return; }
+    }
 
     const res = await saveAdminConfig(this.config);
 
