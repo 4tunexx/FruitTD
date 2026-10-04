@@ -28,8 +28,9 @@ export interface PvpConfig {
   startingFruts: number;
   incomePerSecond: number;
   reconnectGraceSeconds: number;
+  mainTower: { damage: number; range: number; cooldownMs: number };
   towers: Record<string, { cost: number; damage: number; range: number; cooldownMs: number }>;
-  attacks: Record<string, { cost: number; health: number; speed: number; wallDamage: number; rewardFruts: number }>;
+  attacks: Record<string, { cost: number; health: number; speed: number; wallDamage: number; rewardFruts: number; packSize?: number }>;
   rating: { start: number; win: number; tie: number; loss: number; bonusCap: number; combo: Array<{ at: number; points: number }>; multiKill3: number; multiKill5: number; seasonResetPercent: number; tiers: Array<{ name: PvpTier; min: number }> };
   seasonRewards: Array<{ tier: PvpTier; coins: number; gems: number; badgeId: string }>;
 }
@@ -46,7 +47,8 @@ export const DEFAULT_PVP_CONFIG: PvpConfig = {
     makeMap('stone-arch', 'Stone Arch', [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
     makeMap('long-harvest', 'Long Harvest', [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]]),
   ],
-  durationSeconds: 180, wallHealth: 1000, startingFruts: 180, incomePerSecond: 2, reconnectGraceSeconds: 45,
+  durationSeconds: 180, wallHealth: 1000, startingFruts: 180, incomePerSecond: 6, reconnectGraceSeconds: 45,
+  mainTower: { damage: 18, range: 2, cooldownMs: 1000 },
   towers: {
     guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
     vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
@@ -56,8 +58,8 @@ export const DEFAULT_PVP_CONFIG: PvpConfig = {
     blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 },
   },
   attacks: {
-    normal: { cost: 35, health: 100, speed: 1, wallDamage: 25, rewardFruts: 12 },
-    swift: { cost: 55, health: 70, speed: 1.8, wallDamage: 20, rewardFruts: 10 },
+    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
+    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
     armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
     explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 },
   },
@@ -113,7 +115,7 @@ export function calculatePvpRating(points: number, outcome: 'win' | 'tie' | 'los
   return { outcome, base, performance, delta: rating - points, rating, tier: pvpTier(rating, config) };
 }
 
-export interface PvpPlayer { userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number }>; attackers: Array<{ id: string; type: string; hp: number; progress: number }> }
+export interface PvpPlayer { userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; progress: number }> }
 export interface PvpMatch { id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
 export type PvpCommand = { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
 
@@ -175,9 +177,11 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     const attack = config.attacks[command.enemy];
     if (!attack) throw new Error('Invalid fruit-zombie type');
     if (player.fruts < attack.cost) throw new Error('Not enough match Fruts');
-    player.fruts -= attack.cost;
     const target = match.players.find((item) => item.userId !== userId)!;
-    target.attackers.push({ id: `${userId}:${sequence}`, type: command.enemy, hp: attack.health, progress: 0 });
+    const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
+    if (target.attackers.length + count > 128) throw new Error('The opponent lane is full. Wait for the attack wave.');
+    player.fruts -= attack.cost;
+    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, progress: -i * .8 });
   } else if (command.type === 'slash') {
     const map = match.map ?? config.map;
     const validPoint = (point: { x: number; y: number } | undefined) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
@@ -190,7 +194,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     player.score += killed.length * 10;
     player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type]!.rewardFruts, 0);
     player.currentCombo = player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
-    player.lastSlashAt = now;
+    player.lastSlashAt = now; player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
     player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
     player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
     for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
@@ -208,15 +212,23 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
   const path = map.pathCells;
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
+    for (const attacker of player.attackers) attacker.progress += config.attacks[attacker.type]!.speed * dt;
+    const shoot = (cell: number, stats: { damage: number; range: number; cooldownMs: number }, lastFiredAt: number) => {
+      if (now - lastFiredAt < stats.cooldownMs) return false;
+      const target = [...player.attackers].filter((attacker) => {
+        const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))]!;
+        return attacker.progress >= 0 && attacker.hp > 0 && Math.abs(pathCell % map.width - cell % map.width) + Math.abs(Math.floor(pathCell / map.width) - Math.floor(cell / map.width)) <= stats.range;
+      }).sort((a, b) => b.progress - a.progress)[0];
+      if (!target) return false;
+      target.hp -= stats.damage;
+      return true;
+    };
+    for (const tower of player.towers) {
+      const stats = config.towers[tower.type];
+      if (stats && shoot(tower.cell, stats, tower.lastFiredAt ?? tower.placedAt)) tower.lastFiredAt = now;
+    }
+    if (shoot(path.at(-1)!, config.mainTower, player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
     for (const attacker of [...player.attackers]) {
-      attacker.progress += config.attacks[attacker.type]!.speed * dt;
-      for (const tower of player.towers) {
-        const stats = config.towers[tower.type]!;
-        const pathCell = path[Math.min(path.length - 1, Math.floor(attacker.progress))]!;
-        const x = pathCell % map.width; const y = Math.floor(pathCell / map.width);
-        const towerX = tower.cell % map.width; const towerY = Math.floor(tower.cell / map.width);
-        if (Math.abs(x - towerX) + Math.abs(y - towerY) <= stats.range) attacker.hp -= stats.damage * 1000 / stats.cooldownMs * dt;
-      }
       if (attacker.hp <= 0) {
         player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
         player.score += 10;

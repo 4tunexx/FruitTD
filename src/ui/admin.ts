@@ -1,3 +1,4 @@
+import { renderConfigForm } from './admin/configForm';
 import {
   fetchAdminConfig,
   saveAdminConfig,
@@ -270,7 +271,7 @@ export class AdminController {
       installMediaStudio();
     } else if (this.activeTab === 'branding') {
       this.renderBrandingEditor();
-    } else if (this.activeTab === 'economy') {
+    } else if (this.activeTab === 'economy' || this.activeTab === 'pvp') {
       this.renderEconomyEditor();
     } else if (this.activeTab === 'content') {
       this.renderContentEditor();
@@ -540,8 +541,8 @@ export class AdminController {
     if (inLives) inLives.value = String(gameplayConfig.startLives);
     if (inScoreMul) inScoreMul.value = String(gameplayConfig.scoreMultiplier);
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
-    const pvpEditor = document.getElementById('admin-pvp-config') as HTMLTextAreaElement | null;
-    if (pvpEditor) pvpEditor.value = JSON.stringify(this.config.pvpConfig, null, 2);
+    const pvpEditor = document.getElementById('admin-pvp-config');
+    if (pvpEditor) renderConfigForm(pvpEditor, this.config.pvpConfig);
   }
 
   private async renderLeaderboardManager(): Promise<void> {
@@ -636,11 +637,6 @@ export class AdminController {
     if (inScoreMul) this.config.gameplayConfig.scoreMultiplier = Number(inScoreMul.value);
     if (inSuperMul) this.config.gameplayConfig.superChargeMultiplier = Number(inSuperMul.value);
 
-    const pvpEditor = document.getElementById('admin-pvp-config') as HTMLTextAreaElement | null;
-    if (pvpEditor) {
-      try { this.config.pvpConfig = JSON.parse(pvpEditor.value); }
-      catch { if (statusEl) { statusEl.textContent = 'PvP settings are not valid JSON. Nothing was saved.'; statusEl.className = 'admin-status-err'; } if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save to MongoDB Atlas'; } return; }
-    }
 
     const res = await saveAdminConfig(this.config);
 

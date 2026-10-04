@@ -20,7 +20,7 @@ describe('admin PvP bot', () => {
     const command = choosePvpBotCommand(game, 'bot', config);
     assert.equal(command?.type, 'send');
     playPvpBotTurn(game, 'bot', 3_000, config);
-    assert.equal(game.players[0]!.attackers.length, 1);
+    assert.equal(game.players[0]!.attackers.length, config.attacks.normal!.packSize);
     assert.equal(game.players[1]!.sequence, 2);
   });
 

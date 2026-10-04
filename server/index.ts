@@ -3,7 +3,7 @@ import { createApp } from './app';
 import { getDb } from './db';
 import { startPvpAuthority } from './routes/pvp';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = createApp();
 const PORT = process.env.PORT || 3001;

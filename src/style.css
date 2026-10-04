@@ -6929,3 +6929,20 @@ body.is-playing .match-parallax,
 @media (prefers-reduced-motion:reduce) {
   #combat-impact.impact-leak, #combat-impact.impact-boss, #combat-impact.impact-stomp, #combat-impact.impact-blast { animation:none; opacity:.18; backdrop-filter:none; }
 }
+#modal-admin { padding: 0; align-items: stretch; z-index: 20000; }
+#modal-admin .modal-card--admin { width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; padding: 24px; overflow: auto; background: #081411; }
+#modal-admin .admin-header-row { padding-right: 48px; }
+#modal-admin .modal-close-btn { position: fixed; top: 18px; right: 24px; z-index: 3; }
+#modal-admin .admin-panel-tab { max-height: none; overflow: visible; }
+.admin-config-form { display: grid; gap: 16px; }
+.admin-config-form details { border: 1px solid #355348; padding: 16px; border-radius: 10px; }
+.admin-config-form summary { cursor: pointer; text-transform: capitalize; color: #b9ed81; font-weight: 700; padding-bottom: 12px; }
+.admin-config-field { display: inline-flex; vertical-align: top; flex-direction: column; gap: 8px; width: min(100%, 260px); padding: 10px; text-transform: capitalize; }
+.admin-config-field input { width: 100%; min-height: 42px; }
+.admin-config-field input[type=checkbox] { width: 24px; }
+/* Visual creators are the supported admin workflow. */
+#modal-admin details:has(#admin-waves-json),
+#modal-admin details:has(#admin-fruits-json),
+#modal-admin details:has(#admin-enemies-json) { display: none; }
+#modal-admin .admin-tabs-nav { position: sticky; top: -24px; z-index: 2; background: #0b1c17; display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 0; overflow: visible; }
+#modal-admin .admin-tab-btn { min-height: 44px; flex: 0 0 auto; border-radius: 8px; }

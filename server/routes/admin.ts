@@ -344,12 +344,13 @@ function normalizePvpConfig(input: unknown): PvpConfig {
   })) as PvpConfig['towers'];
   const attacks = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.attacks).map(([id, base]) => {
     const item = row.attacks?.[id];
-    return [id, { cost: bounded(item?.cost, base.cost, 1, 10000), health: bounded(item?.health, base.health, 1, 10000), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 10000), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 10000) }];
+    return [id, { cost: bounded(item?.cost, base.cost, 1, 10000), health: bounded(item?.health, base.health, 1, 10000), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 10000), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 10000), packSize: Math.floor(bounded(item?.packSize, base.packSize || 1, 1, 8)) }];
   })) as PvpConfig['attacks'];
   const tiers = Array.isArray(row.rating?.tiers) ? row.rating!.tiers : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
     version: 1, maps, map: maps[0]!, durationSeconds: bounded(row.durationSeconds, 180, 60, 600), wallHealth: bounded(row.wallHealth, 1000, 100, 100000),
-    startingFruts: bounded(row.startingFruts, 180, 0, 100000), incomePerSecond: bounded(row.incomePerSecond, 2, 0, 1000), reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300), towers, attacks,
+    startingFruts: bounded(row.startingFruts, 180, 0, 100000), incomePerSecond: bounded(row.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1000), reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300), towers, attacks,
+    mainTower: { damage: bounded(row.mainTower?.damage, 18, 0, 10000), range: bounded(row.mainTower?.range, 2, 0, 24), cooldownMs: bounded(row.mainTower?.cooldownMs, 1000, 100, 60000) },
     rating: { ...DEFAULT_PVP_CONFIG.rating, ...(row.rating || {}), start: bounded(row.rating?.start, 1000, 0, 1_000_000), win: bounded(row.rating?.win, 50, 0, 1000), tie: bounded(row.rating?.tie, 20, 0, 1000), loss: -bounded(Math.abs(row.rating?.loss ?? -50), 50, 1, 1000), bonusCap: bounded(row.rating?.bonusCap, 20, 0, 1000), seasonResetPercent: bounded(row.rating?.seasonResetPercent, 25, 0, 100), combo: DEFAULT_PVP_CONFIG.rating.combo, tiers: DEFAULT_PVP_CONFIG.rating.tiers.map((base, i) => ({ name: base.name, min: bounded(tiers[i]?.min, base.min, 0, 1_000_000) })) },
     seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((base, i) => ({ ...base, ...(row.seasonRewards?.[i] || {}), tier: base.tier })),
   };

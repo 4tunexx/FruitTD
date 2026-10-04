@@ -12,7 +12,7 @@ import crypto2 from "node:crypto";
 // server/db.ts
 import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
-dotenv.config();
+dotenv.config({ quiet: true });
 var uri = process.env.MONGODB_URI;
 if (!uri) {
   console.warn("MONGODB_URI is missing; cloud account and progression requests will fail until it is configured.");
@@ -1603,8 +1603,9 @@ var DEFAULT_PVP_CONFIG = {
   durationSeconds: 180,
   wallHealth: 1e3,
   startingFruts: 180,
-  incomePerSecond: 2,
+  incomePerSecond: 6,
   reconnectGraceSeconds: 45,
+  mainTower: { damage: 18, range: 2, cooldownMs: 1e3 },
   towers: {
     guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
     vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
@@ -1614,8 +1615,8 @@ var DEFAULT_PVP_CONFIG = {
     blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 }
   },
   attacks: {
-    normal: { cost: 35, health: 100, speed: 1, wallDamage: 25, rewardFruts: 12 },
-    swift: { cost: 55, health: 70, speed: 1.8, wallDamage: 20, rewardFruts: 10 },
+    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
+    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
     armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
     explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
   },
@@ -1733,9 +1734,11 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     const attack = config.attacks[command.enemy];
     if (!attack) throw new Error("Invalid fruit-zombie type");
     if (player.fruts < attack.cost) throw new Error("Not enough match Fruts");
-    player.fruts -= attack.cost;
     const target = match.players.find((item) => item.userId !== userId);
-    target.attackers.push({ id: `${userId}:${sequence}`, type: command.enemy, hp: attack.health, progress: 0 });
+    const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
+    if (target.attackers.length + count > 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
+    player.fruts -= attack.cost;
+    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, progress: -i * 0.8 });
   } else if (command.type === "slash") {
     const map = match.map ?? config.map;
     const validPoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
@@ -1748,6 +1751,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type].rewardFruts, 0);
     player.currentCombo = player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
     player.lastSlashAt = now;
+    player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
     player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
     player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
     for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
@@ -1764,17 +1768,23 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   const path = map.pathCells;
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
+    for (const attacker of player.attackers) attacker.progress += config.attacks[attacker.type].speed * dt;
+    const shoot = (cell, stats, lastFiredAt) => {
+      if (now - lastFiredAt < stats.cooldownMs) return false;
+      const target = [...player.attackers].filter((attacker) => {
+        const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
+        return attacker.progress >= 0 && attacker.hp > 0 && Math.abs(pathCell % map.width - cell % map.width) + Math.abs(Math.floor(pathCell / map.width) - Math.floor(cell / map.width)) <= stats.range;
+      }).sort((a, b) => b.progress - a.progress)[0];
+      if (!target) return false;
+      target.hp -= stats.damage;
+      return true;
+    };
+    for (const tower of player.towers) {
+      const stats = config.towers[tower.type];
+      if (stats && shoot(tower.cell, stats, tower.lastFiredAt ?? tower.placedAt)) tower.lastFiredAt = now;
+    }
+    if (shoot(path.at(-1), config.mainTower, player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
     for (const attacker of [...player.attackers]) {
-      attacker.progress += config.attacks[attacker.type].speed * dt;
-      for (const tower of player.towers) {
-        const stats = config.towers[tower.type];
-        const pathCell = path[Math.min(path.length - 1, Math.floor(attacker.progress))];
-        const x = pathCell % map.width;
-        const y = Math.floor(pathCell / map.width);
-        const towerX = tower.cell % map.width;
-        const towerY = Math.floor(tower.cell / map.width);
-        if (Math.abs(x - towerX) + Math.abs(y - towerY) <= stats.range) attacker.hp -= stats.damage * 1e3 / stats.cooldownMs * dt;
-      }
       if (attacker.hp <= 0) {
         player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
         player.score += 10;
@@ -2048,7 +2058,7 @@ function normalizePvpConfig(input) {
   }));
   const attacks = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.attacks).map(([id, base]) => {
     const item = row.attacks?.[id];
-    return [id, { cost: bounded(item?.cost, base.cost, 1, 1e4), health: bounded(item?.health, base.health, 1, 1e4), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 1e4), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 1e4) }];
+    return [id, { cost: bounded(item?.cost, base.cost, 1, 1e4), health: bounded(item?.health, base.health, 1, 1e4), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 1e4), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 1e4), packSize: Math.floor(bounded(item?.packSize, base.packSize || 1, 1, 8)) }];
   }));
   const tiers = Array.isArray(row.rating?.tiers) ? row.rating.tiers : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
@@ -2058,10 +2068,11 @@ function normalizePvpConfig(input) {
     durationSeconds: bounded(row.durationSeconds, 180, 60, 600),
     wallHealth: bounded(row.wallHealth, 1e3, 100, 1e5),
     startingFruts: bounded(row.startingFruts, 180, 0, 1e5),
-    incomePerSecond: bounded(row.incomePerSecond, 2, 0, 1e3),
+    incomePerSecond: bounded(row.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
     reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300),
     towers,
     attacks,
+    mainTower: { damage: bounded(row.mainTower?.damage, 18, 0, 1e4), range: bounded(row.mainTower?.range, 2, 0, 24), cooldownMs: bounded(row.mainTower?.cooldownMs, 1e3, 100, 6e4) },
     rating: { ...DEFAULT_PVP_CONFIG.rating, ...row.rating || {}, start: bounded(row.rating?.start, 1e3, 0, 1e6), win: bounded(row.rating?.win, 50, 0, 1e3), tie: bounded(row.rating?.tie, 20, 0, 1e3), loss: -bounded(Math.abs(row.rating?.loss ?? -50), 50, 1, 1e3), bonusCap: bounded(row.rating?.bonusCap, 20, 0, 1e3), seasonResetPercent: bounded(row.rating?.seasonResetPercent, 25, 0, 100), combo: DEFAULT_PVP_CONFIG.rating.combo, tiers: DEFAULT_PVP_CONFIG.rating.tiers.map((base, i) => ({ name: base.name, min: bounded(tiers[i]?.min, base.min, 0, 1e6) })) },
     seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((base, i) => ({ ...base, ...row.seasonRewards?.[i] || {}, tier: base.tier }))
   };
@@ -3709,7 +3720,7 @@ function mergePvpConfig(raw) {
   const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
   for (const [id, fallback] of Object.entries(attacks)) {
     const row = value.attacks?.[id];
-    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), health: bounded(row.health, fallback.health, 1, 1e4), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 1e4), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 1e4) };
+    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), health: bounded(row.health, fallback.health, 1, 1e4), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 1e4), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 1e4), packSize: Math.floor(bounded(row.packSize, fallback.packSize || 1, 1, 8)) };
   }
   const tiers = Array.isArray(value.rating?.tiers) ? value.rating.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
@@ -3721,6 +3732,11 @@ function mergePvpConfig(raw) {
     startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 1e5),
     incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
     reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
+    mainTower: {
+      damage: bounded(value.mainTower?.damage, DEFAULT_PVP_CONFIG.mainTower.damage, 0, 1e4),
+      range: bounded(value.mainTower?.range, DEFAULT_PVP_CONFIG.mainTower.range, 0, 24),
+      cooldownMs: bounded(value.mainTower?.cooldownMs, DEFAULT_PVP_CONFIG.mainTower.cooldownMs, 100, 6e4)
+    },
     towers,
     attacks,
     rating: {
@@ -3747,7 +3763,7 @@ function choosePvpBotCommand(match, botUserId, config) {
   const map = match.map;
   const fruit = bot.attackers.find((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1);
   if (fruit) {
-    const cell = map.pathCells[Math.floor(fruit.progress)];
+    const cell = map.pathCells[Math.max(0, Math.floor(fruit.progress))];
     const x = cell % map.width + 0.5;
     const y = Math.floor(cell / map.width) + 0.5;
     const from = { x: Math.max(0, x - 0.85), y };
@@ -3851,7 +3867,7 @@ function publicMatch(match, userId) {
     vetoTurnId: match.vetoTurn,
     yourVetoTurn: match.vetoTurn === userId,
     vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
+    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side,
@@ -3974,7 +3990,7 @@ pvpRouter.get("/status", async (req2, res) => {
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection("pvp_challenges")).findOne({ toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
-    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { points: rating.points, tier: pvpTier(rating.points, config), season: rating.season, matches: rating.matches, wins: rating.wins, ties: rating.ties, losses: rating.losses }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { durationSeconds: config.durationSeconds, reconnectGraceSeconds: config.reconnectGraceSeconds, towers: config.towers, attacks: config.attacks, maps: config.maps } });
+    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { points: rating.points, tier: pvpTier(rating.points, config), season: rating.season, matches: rating.matches, wins: rating.wins, ties: rating.ties, losses: rating.losses }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { wallHealth: config.wallHealth, durationSeconds: config.durationSeconds, reconnectGraceSeconds: config.reconnectGraceSeconds, towers: config.towers, attacks: config.attacks, maps: config.maps } });
   } catch (error2) {
     console.error(error2);
     routerError(res, 503, "PvP storage is unavailable.");

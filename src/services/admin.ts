@@ -158,7 +158,7 @@ function mergePvpConfig(raw: unknown): PvpConfig {
   const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
   for (const [id, fallback] of Object.entries(attacks)) {
     const row = value.attacks?.[id];
-    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), health: bounded(row.health, fallback.health, 1, 10000), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 10000), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 10000) };
+    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), health: bounded(row.health, fallback.health, 1, 10000), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 10000), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 10000), packSize: Math.floor(bounded(row.packSize, fallback.packSize || 1, 1, 8)) };
   }
   const tiers = Array.isArray(value.rating?.tiers) ? value.rating!.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
@@ -170,6 +170,11 @@ function mergePvpConfig(raw: unknown): PvpConfig {
     startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 100000),
     incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1000),
     reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
+    mainTower: {
+      damage: bounded(value.mainTower?.damage, DEFAULT_PVP_CONFIG.mainTower.damage, 0, 10000),
+      range: bounded(value.mainTower?.range, DEFAULT_PVP_CONFIG.mainTower.range, 0, 24),
+      cooldownMs: bounded(value.mainTower?.cooldownMs, DEFAULT_PVP_CONFIG.mainTower.cooldownMs, 100, 60000),
+    },
     towers, attacks,
     rating: {
       ...DEFAULT_PVP_CONFIG.rating,

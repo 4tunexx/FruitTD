@@ -99,7 +99,7 @@ const quitMenuBtn = document.getElementById('btn-quit-menu') as HTMLButtonElemen
 const retryBtn = document.getElementById('btn-retry') as HTMLButtonElement;
 const overMenuBtn = document.getElementById('btn-over-menu') as HTMLButtonElement;
 const muteBtn = document.getElementById('btn-mute') as HTMLButtonElement;
-const bossIntroEl = document.getElementById('boss-intro')!;
+const bossIntroEl = document.getElementById('boss-letterbox')!;
 const BOSS_INTRO_DURATION = 5.5;
 
 const save: SaveData = loadSave();

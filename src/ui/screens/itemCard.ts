@@ -1,3 +1,4 @@
+import { openScreen } from './registry';
 /**
  * Item card shared by the shop and the inventory.
  *
@@ -47,7 +48,12 @@ export function slicerPreview(item: CatalogItem): HTMLElement {
   }
   preview.appendChild(el('span', { class: 'ftd-blade-preview__trail' }));
   preview.appendChild(el('span', { class: 'ftd-blade-preview__edge' }));
-  preview.appendChild(el('span', { class: 'ftd-blade-preview__glyph', 'aria-hidden': 'true' }, [lucideIcon('Swords', '', 38)]));
+  const canvas = el('canvas', { class: 'ftd-blade-preview__live', 'aria-label': `${item.name} live swipe preview. Drag to try the blade.` });
+  preview.appendChild(canvas);
+  preview.appendChild(el('span', { class: 'ftd-blade-preview__caption', text: 'LIVE SWIPE · DRAG TO TRY' }));
+  if (typeof requestAnimationFrame === 'function') {
+    void import('./bladePreview').then(({ animateBladePreview }) => { if (canvas.isConnected) animateBladePreview(canvas, slicer); });
+  }
   if (slicer && slicer.glint > 0.3) {
     preview.appendChild(el('span', { class: 'ftd-blade-preview__glint' }));
   }
@@ -122,11 +128,11 @@ export function renderItemCard(
     );
     footer.appendChild(
       GameButton({
-        label: state.affordable ? 'Buy' : 'Not enough',
+        label: state.owned ? 'Open inventory' : state.affordable ? 'Buy' : 'Not enough',
         tone: state.affordable ? 'primary' : 'default',
         size: 'sm',
-        disabled: !state.affordable,
-        onClick: () => actions.onBuy?.(item.id),
+        disabled: !state.owned && !state.affordable,
+        onClick: () => state.owned ? openScreen('INVENTORY') : actions.onBuy?.(item.id),
       }),
     );
   } else {

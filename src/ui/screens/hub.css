@@ -743,6 +743,16 @@
 @media (max-width:760px) { .ftd-coop-lobby__columns { grid-template-columns:1fr; } .ftd-coop-lobby { height:auto; } .ftd-coop-lobby__area, .ftd-coop-lobby__local { min-height:0; } }
 
 /* Arena and Ranked server-authoritative 1v1 */
+.ftd-pvp__siege-layout { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:1rem; align-items:start; }
+.ftd-pvp-scene { position:relative; min-width:0; height:clamp(520px,72vh,940px); overflow:hidden; border:1px solid #5c8350; border-radius:12px; background:#294b32; }
+.ftd-pvp-scene__canvas { display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+.ftd-pvp-scene__hint { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); max-width:95%; padding:.55rem .8rem; border:1px solid #709252; border-radius:8px; background:#06100ed9; color:#e3f2cd; font-size:.7rem; white-space:nowrap; pointer-events:none; }
+.ftd-pvp__siege-controls { display:grid; gap:.6rem; padding:1rem; border:1px solid #536d3e; background:#081610; border-radius:12px; }
+.ftd-pvp__siege-controls .ftd-pvp__tower-picker { display:grid; gap:.5rem; }
+.ftd-pvp__siege-controls .ftd-pvp__tower-picker button { width:100%; text-align:left; }
+.ftd-blade-preview__live { position:absolute; inset:0; width:100%; height:100%; z-index:4; touch-action:none; cursor:crosshair; }
+.ftd-blade-preview__caption { position:absolute; z-index:5; left:0; right:0; bottom:3px; font-size:.55rem; letter-spacing:.1em; text-align:center; color:#b7c6b1; pointer-events:none; }
+@media(max-width:1000px) { .ftd-pvp__siege-layout { grid-template-columns:1fr; } .ftd-pvp__siege-controls { grid-template-columns:1fr 1fr; } .ftd-pvp-scene { height:65vh; min-height:460px; } }
 .ftd-pvp { display: grid; gap: 1rem; color: #e8f4df; }
 .ftd-pvp__heading { display:flex; justify-content:space-between; gap:1rem; align-items:center; padding:1.25rem; border:1px solid rgba(163,230,53,.32); background:linear-gradient(120deg,rgba(12,27,21,.96),rgba(21,42,29,.84)); }
 .ftd-pvp__heading h1 { margin:.25rem 0; font-size:clamp(1.6rem,3vw,2.7rem); letter-spacing:.08em; }

@@ -10,7 +10,7 @@ import { screenShell, categoryTabs, emptyState } from './shell';
 import { renderItemCard } from './itemCard';
 import { GameButton } from '../components/primitives';
 import { openScreen } from './registry';
-import { shopItems, categoriesWithItems, type ItemCategory } from '../../game/catalog';
+import { allCatalogItems, ownsItem, shopItems, categoriesWithItems, type ItemCategory } from '../../game/catalog';
 import type { SaveData } from '../../game/save';
 
 export interface ShopCallbacks {
@@ -28,6 +28,7 @@ const LABELS: Record<string, string> = {
 };
 
 let activeCategory: string = 'all';
+let showOwned = false;
 
 export function renderShop(root: HTMLElement, save: SaveData, cb: ShopCallbacks): void {
   const body = screenShell(root, {
@@ -44,7 +45,8 @@ export function renderShop(root: HTMLElement, save: SaveData, cb: ShopCallbacks)
     ],
   });
 
-  const available = shopItems(save);
+  body.appendChild(GameButton({ label: showOwned ? 'Show purchasable items' : 'Browse all gear, including owned', variant: 'outline', size: 'sm', onClick: () => { showOwned = !showOwned; renderShop(root, save, cb); } }));
+  const available = showOwned ? allCatalogItems() : shopItems(save);
   const categories = ['all', ...categoriesWithItems(available)];
   if (!categories.includes(activeCategory)) activeCategory = 'all';
 
@@ -58,7 +60,7 @@ export function renderShop(root: HTMLElement, save: SaveData, cb: ShopCallbacks)
   const filtered =
     activeCategory === 'all'
       ? available
-      : shopItems(save, activeCategory as ItemCategory);
+      : available.filter((item) => item.category === activeCategory as ItemCategory);
 
   if (!filtered.length) {
     body.appendChild(
@@ -84,7 +86,7 @@ export function renderShop(root: HTMLElement, save: SaveData, cb: ShopCallbacks)
         item,
         {
           mode: 'shop',
-          owned: false,
+          owned: ownsItem(save, item),
           equipped: false,
           affordable: save.coins >= item.price,
         },
@@ -98,5 +100,6 @@ export function renderShop(root: HTMLElement, save: SaveData, cb: ShopCallbacks)
 /** Clears view state so tests and screen re-entry start predictably. */
 export function resetShopView(): void {
   activeCategory = 'all';
+  showOwned = false;
 }
 

@@ -8,7 +8,7 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   const map = match.map;
   const fruit = bot.attackers.find((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1);
   if (fruit) {
-    const cell = map.pathCells[Math.floor(fruit.progress)]!;
+    const cell = map.pathCells[Math.max(0, Math.floor(fruit.progress))]!;
     const x = cell % map.width + 0.5;
     const y = Math.floor(cell / map.width) + 0.5;
     const from = { x: Math.max(0, x - 0.85), y };

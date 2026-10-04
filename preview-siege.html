@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Fruit TD · Siege development check</title></head>
+<body style="margin:0;background:#081610;color:#eff8dc;font-family:Arial,sans-serif;padding:20px"><h1>Fruit TD · Siege gameplay check</h1><p id="stats"></p><div id="controls" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px"></div><div id="scene"></div><h2>Live blade previews</h2><div id="blades" style="display:flex;gap:20px;flex-wrap:wrap"></div>
+<script type="module">
+import '/src/ui/screens/hub.css';
+import '/src/ui/screens/screens.css';
+import { PvpBattlefield } from '/src/ui/screens/pvpBattlefield.ts';
+import { DEFAULT_PVP_CONFIG, newPvpMatch, createPvpPlayer, applyPvpCommand, advancePvpMatch } from '/src/game/pvp.ts';
+import { playPvpBotTurn } from '/src/game/pvpBot.ts';
+import { fruitAtlas } from '/src/game/atlas.ts';
+import { allCatalogItems } from '/src/game/catalog.ts';
+import { slicerPreview } from '/src/ui/screens/itemCard.ts';
+if (!import.meta.env.DEV) throw new Error('Development check only');
+await fruitAtlas.load();
+const cfg = structuredClone(DEFAULT_PVP_CONFIG);
+const now = Date.now();
+const game = newPvpMatch('local-siege-check', 'arena', [createPvpPlayer('human', 'You', 'blue', cfg), createPvpPlayer('bot', 'Siege Bot', 'red', cfg)], now, cfg);
+game.status = 'active'; game.map = cfg.maps[1]; game.endsAt = now + cfg.durationSeconds * 1000;
+const command = (action) => {
+ try { applyPvpCommand(game, 'human', action, game.players[0].sequence + 1, Date.now(), cfg); } catch (error) { document.querySelector('#stats').textContent = error.message; }
+};
+const view = new PvpBattlefield({ ...game, yourSide: 'blue' }, cfg, command);
+document.querySelector('#scene').append(view.element);
+view.element.dataset.tower = 'guillotine';
+for (const id of Object.keys(cfg.towers)) { const b=document.createElement('button'); b.textContent=`Build ${id}`; b.onclick=()=>{view.element.dataset.tower=id}; document.querySelector('#controls').append(b); }
+for (const id of Object.keys(cfg.attacks)) { const b=document.createElement('button'); b.textContent=`Send ${id}`; b.onclick=()=>command({type:'send',enemy:id}); document.querySelector('#controls').append(b); }
+for (const item of allCatalogItems().filter(item=>item.category==='slicers')) { const card=document.createElement('div'); card.style.cssText='width:250px'; const name=document.createElement('p'); name.textContent=item.name; card.append(name,slicerPreview(item)); document.querySelector('#blades').append(card); }
+let previous=Date.now(), nextBot=previous+1000;
+setInterval(()=>{
+ const time=Date.now(); game.players[0].lastSeenAt=time; game.players[1].lastSeenAt=time;
+ advancePvpMatch(game, (time-previous)/1000, time, cfg); previous=time;
+ if(game.status==='active' && time>=nextBot){playPvpBotTurn(game,'bot',time,cfg);nextBot=time+1300;}
+ view.update({ ...game, yourSide:'blue' },cfg);
+ document.querySelector('#stats').textContent=`${Math.max(0,Math.ceil((game.endsAt-time)/1000))}s · You ${Math.floor(game.players[0].fruts)} Fruts · Wall ${game.players[0].wallHealth} · Bot wall ${game.players[1].wallHealth} · ${game.players[0].attackers.length} incoming`;
+},250);
+</script></body></html>

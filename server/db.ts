@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { MongoClient, Db, Collection } from 'mongodb';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {

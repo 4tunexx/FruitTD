@@ -43,19 +43,43 @@ describe('Arena and Ranked PvP rules', () => {
   });
 
   it('charges attack costs, kills attackers with towers, and damages the wall when one gets through', () => {
+    const singleConfig = structuredClone(cfg); singleConfig.attacks.normal!.packSize = 1;
     const defended = match(); defended.status = 'active'; defended.map = cfg.maps[0]!; defended.endsAt = 100_000;
     const defender = defended.players[0]!;
     const nearPath = cfg.maps[0]!.pathCells[0]! + 1;
     defender.towers.push({ id: 'tower', type: 'railgun', cell: nearPath, placedAt: 1_000 });
-    applyPvpCommand(defended, defended.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, cfg);
+    applyPvpCommand(defended, defended.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, singleConfig);
     assert.equal(defended.players[1]!.fruts, cfg.startingFruts - cfg.attacks.normal!.cost);
     for (let t = 1; t <= 3; t++) advancePvpMatch(defended, 1, 1_001 + t * 1000, cfg);
     assert.equal(defender.attackers.length, 0);
 
     const open = match(); open.status = 'active'; open.map = cfg.maps[0]!; open.endsAt = 100_000;
-    applyPvpCommand(open, open.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, cfg);
+    applyPvpCommand(open, open.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, singleConfig);
     for (let t = 1; t <= cfg.maps[0]!.pathCells.length; t++) advancePvpMatch(open, 1, 1_001 + t * 1000, cfg);
     assert.equal(open.players[0]!.wallHealth, cfg.wallHealth - cfg.attacks.normal!.wallDamage);
+  });
+
+  it('sends configured staggered packs and rejects a full lane without spending', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
+    applyPvpCommand(game, 'a', { type: 'send', enemy: 'normal' }, 1, 2_000, cfg);
+    assert.equal(game.players[1].attackers.length, cfg.attacks.normal!.packSize);
+    assert.ok(game.players[1].attackers[1]!.progress < game.players[1].attackers[0]!.progress);
+    game.players[1].attackers = Array.from({ length: 128 }, (_, i) => ({ id: String(i), type: 'normal', hp: 100, progress: 0 }));
+    const balance = game.players[0].fruts;
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'send', enemy: 'normal' }, 2, 2_001, cfg), /lane is full/);
+    assert.equal(game.players[0].fruts, balance);
+  });
+
+  it('starting towers defend and built towers only fire when their cooldown expires', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
+    const defender = game.players[0];
+    defender.attackers.push({ id: 'at-base', type: 'armored', hp: 260, progress: 11 });
+    advancePvpMatch(game, 0, 2_000, cfg);
+    assert.equal(defender.attackers[0]!.hp, 260 - cfg.mainTower.damage);
+    advancePvpMatch(game, 0, 2_050, cfg);
+    assert.equal(defender.attackers[0]!.hp, 260 - cfg.mainTower.damage);
+    advancePvpMatch(game, 0, 3_000, cfg);
+    assert.equal(defender.attackers[0]!.hp, 260 - cfg.mainTower.damage * 2);
   });
 
   it('only slices fruit crossed by a real battlefield stroke', () => {
