@@ -17,7 +17,11 @@ test('mission progress uses lifetime keys for main missions and reports first co
     resolveUser: async () => ({ userId: 'tester', nickname: 'Tester', avatar: '', createdAt: new Date(), updatedAt: new Date() }),
     collection,
     catalog: async () => ({
-      missions: [{ id: 'main_one', type: 'main', title: 'Main', desc: '', icon: 'Swords', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 10, rewardSp: 0 }],
+      missions: [
+        { id: 'main_one', type: 'main', title: 'Main', desc: '', icon: 'Swords', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 10, rewardSp: 0 },
+        { id: 'pvp_only', type: 'main', title: 'PvP', enabled: true, requirement: { type: 'pvp_win', goal: 1 } },
+        { id: 'coop_only', type: 'main', title: 'Co-op', enabled: true, requirement: { type: 'coop_team_run', goal: 1 } },
+      ],
       achievements: [], badges: [], ranks: [], slicers: [],
     }) as any,
   });
@@ -34,4 +38,8 @@ test('mission progress uses lifetime keys for main missions and reports first co
   assert.equal(rows.get('main_one:MAIN')?.completed, true);
   const repeat = await (await request()).json();
   assert.deepEqual(repeat.newlyCompleted, []);
+  const forged = await (await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: [{ missionId: 'pvp_only', setProgress: 100 }, { missionId: 'coop_only', setProgress: 100 }] }) })).json();
+  assert.deepEqual(forged.newlyCompleted, []);
+  assert.equal(rows.has('pvp_only:MAIN'), false);
+  assert.equal(rows.has('coop_only:MAIN'), false);
 });

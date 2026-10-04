@@ -6,6 +6,7 @@ import {
   DEFAULT_MISSIONS,
   mergeRewardDefaults,
   requirementById,
+  migrateCoopCatalog,
 } from './requirements';
 import { mergeAdminConfig } from '../services/admin';
 
@@ -13,8 +14,8 @@ test('production content ships 50 main missions, 5 daily missions, and the PvP-e
   assert.equal(DEFAULT_MISSIONS.filter((mission) => mission.type === 'main').length, 50);
   assert.equal(DEFAULT_MISSIONS.filter((mission) => mission.type === 'daily').length, 5);
   assert.equal(DEFAULT_MISSIONS.length, 55);
-  assert.equal(DEFAULT_ACHIEVEMENTS.length, 54);
-  assert.equal(DEFAULT_BADGES.length, 33);
+  assert.equal(DEFAULT_ACHIEVEMENTS.length, 55);
+  assert.equal(DEFAULT_BADGES.length, 34);
 
   for (const [label, rows] of [
     ['mission', DEFAULT_MISSIONS],
@@ -44,4 +45,12 @@ test('Admin configuration preserves an intentionally shortened reward catalogue'
   assert.deepEqual(config.missions, oneMission);
   assert.deepEqual(config.achievements, []);
   assert.deepEqual(config.badges, []);
+});
+
+test('online Co-op catalog upgrade preserves edits and does not restore subsequent removals', () => {
+  const legacy = DEFAULT_ACHIEVEMENTS.filter(row => row.id !== 'coop_first_team_run');
+  const upgraded = migrateCoopCatalog(legacy, DEFAULT_ACHIEVEMENTS);
+  assert.equal(upgraded.length, legacy.length + 1);
+  assert.deepEqual(migrateCoopCatalog(legacy, DEFAULT_ACHIEVEMENTS, 1), legacy);
+  assert.deepEqual(migrateCoopCatalog([], DEFAULT_ACHIEVEMENTS), []);
 });

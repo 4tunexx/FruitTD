@@ -1,3 +1,4 @@
+import { requirementById } from '../../src/game/requirements';
 import { Router, Request, Response } from 'express';
 import type { Collection } from 'mongodb';
 import { getCollection, AchievementDoc, CloudSaveDoc } from '../db';
@@ -85,6 +86,8 @@ router.post('/progress', async (req: Request, res: Response) => {
     for (const update of updates) {
       const def = catalog.achievements.find((a) => a.id === update.achievementId && a.enabled !== false);
       if (!def) continue;
+      const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+      if (authorityEvent === 'pvp_result' || authorityEvent === 'coop_result') continue;
 
       const existing = await col.findOne({ userId, achievementId: def.id });
       let currentProgress = existing?.progress || 0;

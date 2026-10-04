@@ -6946,3 +6946,34 @@ body.is-playing .match-parallax,
 #modal-admin details:has(#admin-enemies-json) { display: none; }
 #modal-admin .admin-tabs-nav { position: sticky; top: -24px; z-index: 2; background: #0b1c17; display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 0; overflow: visible; }
 #modal-admin .admin-tab-btn { min-height: 44px; flex: 0 0 auto; border-radius: 8px; }
+.ftd-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 24px; color: #d7efca; }
+.ftd-loading__spinner { width: 26px; height: 26px; flex: 0 0 auto; border: 3px solid #37523e; border-top-color: #a3e635; border-radius: 50%; animation: ftd-loading-spin .8s linear infinite; }
+@keyframes ftd-loading-spin { to { transform: rotate(360deg); } }
+#modal-admin > .ftd-loading { position: absolute; inset: 0; background: #081411e8; z-index: 10; }
+.admin-pvp-workshop { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(400px, 1fr); gap: 24px; }
+.admin-pvp-preview { position: sticky; top: 100px; align-self: start; }
+.admin-pvp-preview .ftd-pvp-scene { height: min(70vh, 800px); min-height: 420px; }
+.admin-route-grid { display: grid; gap: 3px; max-width: 380px; margin-block: 14px; }
+.admin-route-grid button { aspect-ratio: 1; padding: 0; font-size: 9px; border: 1px solid #40634a; background: #173826; color: #092013; cursor: pointer; }
+.admin-route-grid button.is-path { background: #c6b270; }
+.admin-route-grid button:hover { outline: 2px solid #a3e635; }
+.admin-route-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media(max-width: 1000px) { .admin-pvp-workshop { grid-template-columns: 1fr; } .admin-pvp-preview { position: static; } }
+@media(prefers-reduced-motion: reduce) { .ftd-loading__spinner { animation: none; } }
+.admin-slicer-live { display: block; width: 100%; height: 180px; position: static; border-radius: 10px; background: radial-gradient(ellipse, #183227, #081611); touch-action: none; }
+.admin-boss-live-preview figure { overflow: hidden; background: radial-gradient(ellipse, #624519, #0c1914); }
+.admin-boss-live-preview figure img { animation: admin-boss-breathe 3s ease-in-out infinite; }
+@keyframes admin-boss-breathe { 50% { transform: translateY(-5px) scale(1.025); filter: drop-shadow(0 0 16px #e3a32980); } }
+@media(prefers-reduced-motion: reduce) { .admin-boss-live-preview figure img { animation: none; } }
+/* Creator canvases must size from their content, never the entire grid row. */
+#modal-admin .modal-card--admin { display: block; clip-path: none !important; }
+#modal-admin .admin-panel-tab { flex: none; min-height: 0; }
+#modal-admin .admin-media-studio { clip-path: none !important; }
+#modal-admin .creator-layout { align-items: start; grid-template-rows: auto; }
+#modal-admin .creator-layout > .studio-panel { min-width: 0; height: auto; max-height: none; }
+#modal-admin .studio-sheet-canvas { height: auto; max-height: 420px; object-fit: contain; }
+#modal-admin .studio-panel--rail { max-height: 70vh; overflow: auto; }
+#modal-admin .studio-preview-canvas { max-width: 100%; }
+#modal-admin .studio-timeline-canvas { height: 56px; }
+#modal-admin .studio-panel--sfx { position: relative; clear: both; }
+#modal-admin .creator-layout > .studio-panel--rail { max-height: 70vh; overflow: auto; }

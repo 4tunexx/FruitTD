@@ -30,7 +30,7 @@ import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { fruitLoot, frutsForEvent } from './game/matchEconomy';
 import { detonatePulpPopper } from './game/chainBurst';
-import { campaignBoss, campaignWaves } from './game/campaign';
+import { campaignBoss, campaignWaves, completeCampaignStage, sanitizeCampaignProgress } from './game/campaign';
 import { BladeTrail } from './game/trail';
 import { StrokeContacts } from './game/strokeContacts';
 import { installCombatDiagnostics } from './game/combatDiagnostics';
@@ -203,6 +203,9 @@ let campaignStartStage = 1;
 let campaignStoryActive = false;
 let campaignStoryFinal = false;
 let campaignRunSettled = false;
+let campaignStageSaving = false;
+let campaignSession = 0;
+let bossRevealRemaining = 0;
 
 function emit(event: GameEvent): void {
   void import('./services/progress').then(({ reportGameEvent }) => reportGameEvent({
@@ -809,7 +812,14 @@ function submitCurrentRun(completed: boolean): Promise<void> {
     steamAvatar: steamState.avatar,
   }).then((res) => {
     if (res?.wallet) {
+      const localCampaign = save.campaignProgress;
       Object.assign(save, res.wallet.saveData);
+      // Wallet settlement can arrive before the separate progress save. Keep
+      // stages already cleared in this session when adopting the newer wallet.
+      save.campaignProgress = sanitizeCampaignProgress({
+        unlocked: Math.max(localCampaign.unlocked, save.campaignProgress?.unlocked ?? 1),
+        cleared: [...localCampaign.cleared, ...(save.campaignProgress?.cleared ?? [])],
+      });
       syncTowerProgression(save.towerXp, save.towerLifetimeXp);
       adoptAuthoritativeSave(res.wallet.revision);
       writeSave(save);
@@ -917,6 +927,10 @@ function tryUpgrade(): void {
 }
 
 function restart(): void {
+  campaignSession += 1;
+  campaignStageSaving = false;
+  bossRevealRemaining = 0;
+  bossIntroEl.classList.add('hidden');
   resetState(state);
   combatImpact.clear();
   lastBossFruit = null;
@@ -1260,6 +1274,10 @@ function quitToMenu(explicitMenuAction = false): void {
     return;
   }
   leaveMatchApproved = false;
+  campaignSession += 1;
+  campaignStageSaving = false;
+  bossRevealRemaining = 0;
+  bossIntroEl.classList.add('hidden');
   combatImpact.clear();
   persist();
   if (!campaignRunSettled && (totalFruitsSliced > 0 || state.score > 0)) void submitCurrentRun(false);
@@ -1395,11 +1413,7 @@ function showBossIntro(level: number): void {
   subtitle.textContent = campaign ? `${campaign.title} · ${campaignWaves(level)} WAVES · ${campaign.rewardCoins.toLocaleString()} COINS${campaign.rewardGems ? ` · ${campaign.rewardGems} GEMS` : ''}` : `LEVEL ${level} OVERLORD`;
   letterbox.classList.remove('is-releasing');
   letterbox.classList.remove('hidden');
-  setTimeout(() => {
-    letterbox.classList.add('is-releasing');
-    toast(state, `${bossName}  ·  LEVEL ${level}`, 1.8);
-  }, (BOSS_INTRO_DURATION - 0.7) * 1000);
-  setTimeout(() => letterbox.classList.add('hidden'), BOSS_INTRO_DURATION * 1000);
+  bossRevealRemaining = BOSS_INTRO_DURATION;
 }
 
 function tickGuest(dt: number): void {
@@ -1484,7 +1498,7 @@ function kiPulse(x: number, z: number): void {
 }
 
 function simulate(dt: number): void {
-  if (campaignStoryActive) {
+  if (campaignStoryActive || campaignStageSaving) {
     blade.consumeClick();
     blade.consumeSlash();
     blade.consumeStrokeEnd();
@@ -1504,6 +1518,12 @@ function simulate(dt: number): void {
   if (state.toast === '__restart__') {
     restart();
     return;
+  }
+
+  if (bossRevealRemaining > 0) {
+    bossRevealRemaining = Math.max(0, bossRevealRemaining - dt);
+    bossIntroEl.classList.toggle('is-releasing', bossRevealRemaining <= 0.7);
+    if (bossRevealRemaining === 0) bossIntroEl.classList.add('hidden');
   }
 
   state.elapsed += dt;
@@ -1613,21 +1633,31 @@ function simulate(dt: number): void {
     if (wasBoss) {
       const cleared = state.level;
       if (state.mode === 'campaign') {
-        save.campaignProgress.cleared = [...new Set([...save.campaignProgress.cleared, cleared])].sort((a, b) => a - b);
-        save.campaignProgress.unlocked = Math.max(save.campaignProgress.unlocked, Math.min(100, cleared + 1));
-        campaignStartStage = Math.min(100, cleared + 1);
+        const completion = completeCampaignStage(save.campaignProgress, cleared);
+        save.campaignProgress = completion.progress;
+        campaignStartStage = completion.nextStage;
         writeSave(save);
         void syncCloudSave(save);
         campaignRunSettled = true;
-        const finalStage = cleared >= 100;
-        void submitCurrentRun(true).then(() => {
+        campaignStageSaving = true;
+        const session = campaignSession;
+        const finalStage = completion.final;
+        void submitCurrentRun(true).finally(() => {
+          if (session !== campaignSession) return;
+          campaignStageSaving = false;
           if (!finalStage && state.running && state.mode === 'campaign') {
             matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
+            totalFruitsSliced = 0;
+            sessionMaxCombo = 0;
+            sessionLeaks = 0;
+            state.score = 0;
+            state.elapsed = 0;
+            resetCombo('match_end');
             campaignRunSettled = false;
             startLeaderboardRun('campaign');
           }
         });
-        if (cleared % 5 === 0) showCampaignChapter(cleared);
+        if (completion.chapter) showCampaignChapter(cleared);
         else if (finalStage) {
           state.running = false;
           document.getElementById('campaign-victory')?.classList.remove('hidden');
@@ -1851,6 +1881,10 @@ if (muteBtn) {
 
 /** Shared launch path for every PLAY entry point (menu button, screens). */
 function launchMatch(): void {
+  if (state.mode === 'arena' || state.mode === 'ranked') {
+    navigation.open(state.mode === 'ranked' ? 'RANKED' : 'ARENA');
+    return;
+  }
   persist();
   startMatchWithOptionalMedia(
     () => sfx.unlock(),

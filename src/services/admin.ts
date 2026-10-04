@@ -1,9 +1,12 @@
+import { normalizeCoopConfig, type CoopConfig } from '../game/onlineCoop';
+import { normalizeCreatorMedia } from '../game/creatorMedia';
+import type { MediaStudioStore } from '../ui/adminMediaStudio';
 import {
   DEFAULT_ACHIEVEMENTS,
   DEFAULT_BADGES,
   DEFAULT_MISSIONS,
   DEFAULT_RANK_TIERS,
-  mergeRewardDefaults,
+  mergeRewardDefaults, migrateCoopCatalog,
   type CatalogAchievement,
   type CatalogBadge,
   type CatalogMission,
@@ -40,6 +43,7 @@ export interface AdminDailyReward {
 
 export interface AdminConfig {
   configKey: string;
+  coopCatalogVersion?: number;
   dailyRewards: AdminDailyReward[];
   vipTiers: VipTierRewards[];
   menuConfig: {
@@ -62,6 +66,8 @@ export interface AdminConfig {
     superChargeMultiplier: number;
   };
   pvpConfig: PvpConfig;
+  coopConfig?: CoopConfig;
+  creatorMedia?: MediaStudioStore | null;
   missions: CatalogMission[];
   achievements: CatalogAchievement[];
   badges: CatalogBadge[];
@@ -128,12 +134,15 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...(src.menuConfig || {}) },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...(src.gameplayConfig || {}) },
+    coopConfig: normalizeCoopConfig(src.coopConfig),
     pvpConfig: mergePvpConfig(src.pvpConfig),
+    creatorMedia: normalizeCreatorMedia(src.creatorMedia),
+    coopCatalogVersion: 1,
     // A present catalogue is authoritative: Admin must be able to remove an entry
     // without the defaults silently restoring it on the next load.
     missions: structuredClone(Array.isArray(src.missions) ? src.missions : DEFAULT_ADMIN_CONFIG.missions),
-    achievements: structuredClone(Array.isArray(src.achievements) ? src.achievements : DEFAULT_ADMIN_CONFIG.achievements),
-    badges: structuredClone(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG.badges),
+    achievements: structuredClone(migrateCoopCatalog(Array.isArray(src.achievements) ? src.achievements : DEFAULT_ADMIN_CONFIG.achievements, DEFAULT_ACHIEVEMENTS, src.coopCatalogVersion)),
+    badges: structuredClone(migrateCoopCatalog(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG.badges, DEFAULT_BADGES, src.coopCatalogVersion)),
     ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks), DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
     enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),

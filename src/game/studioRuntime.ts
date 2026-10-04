@@ -1,3 +1,4 @@
+import { getPublishedCreatorMedia, publishedCreatorRevision } from './creatorMedia';
 /**
  * Runtime bridge: Creator Hub / Media Studio sheets/clips → live fruit textures + event hooks.
  * Pure loaders/helpers come from adminMediaStudio; no DOM install code is invoked here.
@@ -134,9 +135,9 @@ function storeSignature(): string | null {
   try {
     if (typeof localStorage === 'undefined') return null;
     const v2 = localStorage.getItem(CREATOR_STORAGE_KEY);
-    if (v2 != null) return `v2:${v2.length}:${v2.slice(0, 64)}`;
+    if (v2 != null) return `v2:${v2}`;
     const v1 = localStorage.getItem(MEDIA_STUDIO_STORAGE_KEY);
-    if (v1 != null) return `v1:${v1.length}:${v1.slice(0, 64)}`;
+    if (v1 != null) return `v1:${v1}`;
     return null;
   } catch {
     return null;
@@ -145,11 +146,11 @@ function storeSignature(): string | null {
 
 function refreshStoreCache(): Record<string, EntityStudioData> {
   try {
-    const sig = storeSignature();
+    const sig = `${publishedCreatorRevision()}:${storeSignature()}`;
     if (sig === cachedStoreSig) return cachedEntities;
     cachedStoreSig = sig;
     const store = loadStudioStore();
-    cachedEntities = store.entities || {};
+    cachedEntities = { ...getPublishedCreatorMedia()?.entities, ...store.entities };
     return cachedEntities;
   } catch {
     cachedEntities = {};

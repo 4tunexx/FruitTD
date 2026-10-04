@@ -42,6 +42,21 @@ export function campaignBoss(level: number, overrides?: Partial<CampaignBoss>[])
 export interface CampaignProgress { unlocked: number; cleared: number[] }
 export const DEFAULT_CAMPAIGN_PROGRESS: CampaignProgress = { unlocked: 1, cleared: [] };
 
+/** Commit only a playable stage; stage 100 ends the campaign rather than looping. */
+export function completeCampaignStage(progress: CampaignProgress, stage: number): {
+  progress: CampaignProgress; nextStage: number; chapter: boolean; final: boolean;
+} {
+  if (!Number.isInteger(stage) || stage < 1 || stage > 100 || stage > progress.unlocked) {
+    throw new Error('This campaign stage is not unlocked.');
+  }
+  return {
+    progress: { unlocked: Math.max(progress.unlocked, Math.min(100, stage + 1)), cleared: [...new Set([...progress.cleared, stage])].sort((a, b) => a - b) },
+    nextStage: Math.min(100, stage + 1),
+    chapter: stage % 5 === 0,
+    final: stage === 100,
+  };
+}
+
 export function sanitizeCampaignProgress(value: unknown): CampaignProgress {
   if (!value || typeof value !== 'object') return { ...DEFAULT_CAMPAIGN_PROGRESS, cleared: [] };
   const candidate = value as Partial<CampaignProgress>;

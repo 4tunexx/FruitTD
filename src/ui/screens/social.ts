@@ -1,3 +1,4 @@
+import { beginLoading } from '../components/loading';
 import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, createElement } from 'lucide';
 import { getAuthToken } from '../../services/auth';
 import { socialApi, type ForumPost, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
@@ -241,6 +242,7 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
   inboxPanel.appendChild(el('div', { class: 'ftd-social__panel-title' }, [icon(MessageCircle), el('h2', { text: 'Messages' })]));
   inboxPanel.appendChild(el('p', { class: 'ftd-social__empty', text: 'Select a friend to open your inbox.' }));
   renderFriends();
-  void Promise.all([loadFriends(), loadNotifications(), loadForum()]).catch((error) => message(noticeHost, error instanceof Error ? error.message : 'Social services are temporarily unavailable.', true));
+  const endLoading = beginLoading(noticeHost, 'Loading friends, notifications and conversations…');
+  void Promise.all([loadFriends(), loadNotifications(), loadForum()]).catch((error) => message(noticeHost, error instanceof Error ? error.message : 'Social services are temporarily unavailable.', true)).finally(endLoading);
 }
 import './social.css';

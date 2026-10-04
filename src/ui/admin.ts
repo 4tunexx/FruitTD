@@ -1,4 +1,8 @@
+import { normalizeCoopConfig } from '../game/onlineCoop';
 import { renderConfigForm } from './admin/configForm';
+import { loadStudioStore } from './adminMediaStudio';
+import { renderPvpEditor, disposePvpEditor } from './admin/pvpEditor';
+import { beginLoading } from './components/loading';
 import {
   fetchAdminConfig,
   saveAdminConfig,
@@ -69,7 +73,8 @@ export class AdminController {
     if (!this.modal) return;
     this.modal.classList.remove('hidden');
     this.renderTabs();
-    await this.loadConfig();
+    const endLoading = this.modal ? beginLoading(this.modal, 'Loading your admin workspace…') : () => {};
+    try { await this.loadConfig(); } finally { endLoading(); }
     this.renderActiveTab();
     installSpriteUploads();
     installMediaStudio();
@@ -78,6 +83,7 @@ export class AdminController {
   }
 
   close(): void {
+    const editor = document.getElementById('admin-pvp-config'); if (editor) disposePvpEditor(editor);
     this.modal?.classList.add('hidden');
   }
 
@@ -98,6 +104,7 @@ export class AdminController {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.tab as any;
         if (tab) {
+          if (this.activeTab === 'pvp' && tab !== 'pvp') { const editor = document.getElementById('admin-pvp-config'); if (editor) disposePvpEditor(editor); }
           this.activeTab = tab;
           this.renderTabs();
           this.renderActiveTab();
@@ -107,6 +114,21 @@ export class AdminController {
 
     // DESIGN tab → shared theme system (no second design system)
     document.getElementById('btn-admin-open-design')?.addEventListener('click', () => openDesignMode());
+
+    document.getElementById('studio-publish')?.addEventListener('click', async () => {
+      if (!this.config) return;
+      document.getElementById('studio-save')?.click();
+      const button = document.getElementById('studio-publish') as HTMLButtonElement;
+      button.disabled = true;
+      const host = document.getElementById('studio-status')!;
+      const endLoading = beginLoading(host, 'Publishing animations…');
+      try {
+        const media = loadStudioStore(); const result = await saveAdminConfig({ creatorMedia: media });
+        if (!result.success) { GameToast(result.error || 'Could not publish animations.', 'danger'); return; }
+        this.config.creatorMedia = media; setLiveConfig(this.config);
+        host.textContent = 'Published. Players receive these animations with the game configuration.';
+      } finally { endLoading(); button.disabled = false; }
+    });
 
     // Save Config Button
     document.getElementById('btn-admin-save')?.addEventListener('click', () => this.saveCurrentConfig());
@@ -542,7 +564,14 @@ export class AdminController {
     if (inScoreMul) inScoreMul.value = String(gameplayConfig.scoreMultiplier);
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
     const pvpEditor = document.getElementById('admin-pvp-config');
-    if (pvpEditor) renderConfigForm(pvpEditor, this.config.pvpConfig);
+    if (pvpEditor && this.activeTab === 'pvp') {
+      renderPvpEditor(pvpEditor, this.config.pvpConfig);
+      this.config.coopConfig = normalizeCoopConfig(this.config.coopConfig);
+      const team = document.createElement('section');
+      const heading = document.createElement('h3'); heading.textContent = 'Online Co-op: waves, bosses and equal rewards';
+      const fields = document.createElement('div'); team.append(heading, fields); pvpEditor.append(team);
+      renderConfigForm(fields, this.config.coopConfig);
+    }
   }
 
   private async renderLeaderboardManager(): Promise<void> {

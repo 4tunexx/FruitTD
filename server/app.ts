@@ -1,3 +1,4 @@
+import { coopRouter } from './routes/coop';
 import express from 'express';
 import cors from 'cors';
 import { leaderboardRouter } from './routes/leaderboard';
@@ -57,6 +58,7 @@ export function createApp() {
     }
   });
 
+  app.use('/api/coop', rateLimit(900, 60_000), coopRouter);
   app.use('/api/auth', rateLimit(30, 60_000), authRouter);
   app.use('/api/leaderboard', rateLimit(60, 60_000), leaderboardRouter);
   app.use('/api/achievements', achievementsRouter);

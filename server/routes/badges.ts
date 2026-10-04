@@ -1,3 +1,4 @@
+import { requirementById } from '../../src/game/requirements';
 import { Router, Request, Response } from 'express';
 import { getCollection, BadgeDoc, type CloudSaveDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
@@ -107,6 +108,8 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
     for (const update of updates) {
       const def = catalog.badges.find((b) => b.id === update.badgeId && b.enabled !== false);
       if (!def) continue;
+      const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+      if (authorityEvent === 'pvp_result' || authorityEvent === 'coop_result') continue;
       const existing = await col.findOne({ userId, badgeId: def.id });
       let currentProgress = existing?.progress || 0;
       const maxProgress = def.requirement?.goal || 1;

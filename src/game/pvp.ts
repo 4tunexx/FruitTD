@@ -186,15 +186,16 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     const map = match.map ?? config.map;
     const validPoint = (point: { x: number; y: number } | undefined) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
     if (!validPoint(command.from) || !validPoint(command.to) || Math.hypot(command.to.x - command.from.x, command.to.y - command.from.y) < 0.5) throw new Error('Invalid blade stroke');
+    if (player.lastStroke && now - player.lastStroke.at < 100) throw new Error('Blade is recovering');
+    player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
     const killed = player.attackers.filter((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1 &&
       fruitOnSlash(map.pathCells[Math.floor(item.progress)]!, map.width, command.from, command.to)).slice(0, 8);
-    if (!killed.length) throw new Error('Blade missed the fruit');
     const ids = new Set(killed.map((item) => item.id));
     player.attackers = player.attackers.filter((item) => !ids.has(item.id));
     player.score += killed.length * 10;
     player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type]!.rewardFruts, 0);
-    player.currentCombo = player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
-    player.lastSlashAt = now; player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
+    player.currentCombo = !killed.length ? 0 : player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
+    player.lastSlashAt = killed.length ? now : null;
     player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
     player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
     for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);

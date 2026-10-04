@@ -1,3 +1,4 @@
+import { requirementById } from '../../src/game/requirements';
 import { Router, Request, Response } from 'express';
 import type { Collection } from 'mongodb';
 import { getCollection, MissionDoc, CloudSaveDoc } from '../db';
@@ -105,6 +106,8 @@ router.post('/progress', async (req: Request, res: Response) => {
     for (const update of updates) {
       const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
       if (!def) continue;
+      const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+      if (authorityEvent === 'pvp_result' || authorityEvent === 'coop_result') continue;
 
       const activeKey = periodKey(def.type);
       const existing = await col.findOne({ userId, missionId: def.id, dayKey: activeKey });

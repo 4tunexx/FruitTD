@@ -12,7 +12,7 @@ const camera = new OrthographicCamera(-4.5, 4.5, 2, -2, .1, 20);
 camera.position.set(0, 10, 0); camera.up.set(0, 0, 1); camera.lookAt(0, 0, 0);
 
 /** One shared WebGL context renders the exact in-game BladeTrail into all visible cards. */
-export function animateBladePreview(canvas: HTMLCanvasElement, slicer: CatalogSlicer | undefined): void {
+export function animateBladePreview(canvas: HTMLCanvasElement, slicer: CatalogSlicer | undefined): { update: (slicer: CatalogSlicer) => void; dispose: () => void } {
   const trail = new BladeTrail(); trail.applySlicer(slicer);
   const preview: Preview = { canvas, trail, born: performance.now(), points: [], pointer: false };
   previews.add(preview);
@@ -26,6 +26,7 @@ export function animateBladePreview(canvas: HTMLCanvasElement, slicer: CatalogSl
   const stop = () => { preview.pointer = false; preview.born = performance.now(); preview.points = []; };
   canvas.addEventListener('pointerup', stop); canvas.addEventListener('pointercancel', stop);
   if (!frame) frame = requestAnimationFrame(draw);
+  return { update: (next) => trail.applySlicer(next), dispose: () => release(preview) };
 }
 
 function release(preview: Preview): void {

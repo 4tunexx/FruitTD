@@ -33,7 +33,8 @@ export type GameEventName =
   | 'steam_link'
   | 'mission_claim'
   /** Emitted only by the PvP authority; never by local run telemetry. */
-  | 'pvp_result';
+  | 'pvp_result'
+  | 'coop_result';
 
 export interface RequirementTypeDef {
   id: string;
@@ -92,6 +93,7 @@ export const REQ_CATEGORIES: Array<{ id: ReqCategory; label: string }> = [
 ];
 
 export const REQUIREMENT_TYPES: RequirementTypeDef[] = [
+  { id: 'coop_team_run', category: 'social', label: 'Complete six online Co-op waves', hint: 'Verified by the online match server', event: 'coop_result', progress: 'increment', valueField: 'count' },
   { id: 'slice_any', category: 'slicing', label: 'Slice any fruit', hint: 'Count every fruit sliced', event: 'fruit_slice', progress: 'increment' },
   { id: 'slice_watermelon', category: 'slicing', label: 'Slice watermelons', hint: 'Watermelon kills', event: 'fruit_slice', progress: 'increment', fruitKind: 'watermelon' },
   { id: 'slice_lemon', category: 'slicing', label: 'Slice lemons', hint: 'Lemon kills', event: 'fruit_slice', progress: 'increment', fruitKind: 'lemon' },
@@ -191,6 +193,13 @@ export const REQUIREMENT_TYPES: RequirementTypeDef[] = [
 
 export function requirementById(id: string): RequirementTypeDef | undefined {
   return REQUIREMENT_TYPES.find((r) => r.id === id);
+}
+
+/** Add new online Co-op entries once without undoing later admin removals. */
+export function migrateCoopCatalog<T extends { id: string }>(rows: T[], defaults: T[], version = 0): T[] {
+  if (version >= 1 || rows.length === 0) return rows;
+  const ids = new Set(rows.map(row => row.id));
+  return [...rows, ...defaults.filter(row => (row.id.startsWith('coop_') || row.id.startsWith('coop-')) && !ids.has(row.id))];
 }
 
 export function requirementsByCategory(category: ReqCategory): RequirementTypeDef[] {
@@ -365,6 +374,7 @@ export const DEFAULT_MISSIONS: CatalogMission[] = [
 ];
 
 export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [
+  { id: 'coop_first_team_run', title: 'Together We Hold', desc: 'Complete six waves with an online teammate', icon: 'UsersRound', enabled: true, requirement: req('coop_team_run', 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: 'coop-team-slicer' },
   { id: 'first_slice', title: 'First Blood', desc: 'Slice your very first fruit', icon: 'Sword', enabled: true, requirement: req('slice_any', 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: 'first-cut' },
   { id: 'combo_5', title: 'Combo Artist', desc: 'Execute a 5x or higher combo slice', icon: 'Zap', enabled: true, requirement: req('combo_reach_5', 5), rewardCoins: 100, rewardSp: 0 },
   { id: 'combo_10', title: 'Blade Master', desc: 'Execute a massive 10x combo slice', icon: 'Swords', enabled: true, requirement: req('combo_reach_10', 10), rewardCoins: 250, rewardSp: 1, rewardBadge: 'combo-king' },
@@ -422,6 +432,7 @@ export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [
 ];
 
 export const DEFAULT_BADGES: CatalogBadge[] = [
+  { id: 'coop-team-slicer', title: 'Team Slicer', desc: 'Complete six waves in server-verified online Co-op', icon: 'UsersRound', rarity: 'rare', enabled: true, requirement: req('coop_team_run', 1), rewardCoins: 100, rewardGems: 2 },
   { id: 'first-cut', title: 'First Cut', desc: 'Awarded for your first slice', icon: 'Sword', rarity: 'common', enabled: true, requirement: req('slice_any', 1), rewardCoins: 50 },
   { id: 'combo-king', title: 'Combo King', desc: 'Awarded for a 10x combo', icon: 'Zap', rarity: 'rare', enabled: true, requirement: req('combo_reach_10', 10), rewardCoins: 150, rewardGems: 2 },
   { id: 'wall-guard', title: 'Wall Guard', desc: 'Hold the wall to wave 10', icon: 'Shield', rarity: 'rare', enabled: true, requirement: req('wave_reach', 10), rewardCoins: 100, rewardGems: 2 },

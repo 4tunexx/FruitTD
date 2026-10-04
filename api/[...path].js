@@ -1,13 +1,10 @@
 // Bundled Fruit TD API for Vercel
 
 
-// server/app.ts
-import express from "express";
-import cors from "cors";
-
-// server/routes/leaderboard.ts
+// server/routes/coop.ts
 import { Router } from "express";
-import crypto2 from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { Rest } from "ably";
 
 // server/db.ts
 import dotenv from "dotenv";
@@ -44,6 +41,8 @@ async function getDb() {
     await db.collection("run_tokens").createIndex({ tokenHash: 1 }, { unique: true });
     await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
+    await db.collection("coop_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
+    await db.collection("coop_matches").createIndex({ id: 1 }, { unique: true });
     await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
     await db.collection("friends").createIndex({ userId: 1, friendId: 1 }, { unique: true });
     await db.collection("friends").createIndex({ userId: 1, state: 1, updatedAt: -1 });
@@ -74,307 +73,6 @@ async function getDb() {
 async function getCollection(name) {
   const database = await getDb();
   return database.collection(name);
-}
-
-// src/game/requirements.ts
-function currentMonthKey(date = /* @__PURE__ */ new Date()) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-function monthlyLeaderboardMode(date = /* @__PURE__ */ new Date()) {
-  return `monthly-${currentMonthKey(date)}`;
-}
-var DEFAULT_RANK_TIERS = [
-  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "Shield", rewardCoins: 100 },
-  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "Medal", rewardCoins: 250, rewardGems: 5 },
-  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "Trophy", rewardCoins: 500, rewardGems: 10 },
-  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "BadgeCheck", rewardCoins: 750, rewardGems: 15 },
-  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "Diamond", rewardCoins: 1500, rewardGems: 30 },
-  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "Crown", rewardCoins: 2500, rewardGems: 60 },
-  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "Flame", rewardCoins: 5e3, rewardGems: 100 }
-];
-function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
-  const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
-  return sorted.find((t) => score >= t.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
-}
-function mergeRewardDefaults(items, defaults3) {
-  const byId = new Map(defaults3.map((item) => [item.id, item]));
-  const configuredById = new Map(items.filter((item) => item?.id).map((item) => [item.id, item]));
-  const mergedItems = [...configuredById.values(), ...defaults3.filter((item) => !configuredById.has(item.id))];
-  return mergedItems.map((item) => {
-    const fallback = byId.get(item.id);
-    const merged = { ...fallback, ...item };
-    const rewardCoins = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins ?? fallback?.rewardCoins) || 0)));
-    const rewardGems = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardGems ?? fallback?.rewardGems) || 0)));
-    return {
-      ...merged,
-      rewardCoins,
-      rewardGems,
-      ..."rewardSp" in merged ? { rewardSp: Math.max(0, Math.min(1e4, Math.floor(Number(merged.rewardSp) || 0))) } : {}
-    };
-  });
-}
-function req(type, goal, extra = {}) {
-  return { type, goal, ...extra };
-}
-var MISSION_SEEDS = [
-  { id: "daily_lemons", type: "daily", title: "Citrus Squeeze", desc: "Slice 30 lemons or strawberries", icon: "Citrus", enabled: true, requirement: req("slice_citrus_or_berry", 30), rewardCoins: 80, rewardSp: 0 },
-  { id: "daily_combos", type: "daily", title: "Combo Fiend", desc: "Perform 4 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
-  { id: "daily_wave", type: "daily", title: "Wave Survivor", desc: "Survive to wave 5 in any run", icon: "Waves", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
-  { id: "weekly_fruits", type: "weekly", title: "Fruit Apocalypse", desc: "Slice 250 total fruits this week", icon: "Swords", enabled: true, requirement: req("slice_any", 250), rewardCoins: 350, rewardSp: 1 },
-  { id: "monthly_ranked_climb", type: "monthly", title: "Monthly Climb", desc: "Score 4,000 in Ranked this month to reach Gold", icon: "Trophy", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardSp: 1, rewardGems: 10, rewardBadge: "gold-slicer" },
-  { id: "monthly_silver_climb", type: "monthly", title: "Silver Season", desc: "Score 1,500 in Ranked this month to reach Silver", icon: "Medal", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardSp: 0, rewardGems: 5, rewardBadge: "silver-slicer" },
-  { id: "monthly_diamond_climb", type: "monthly", title: "Diamond Season", desc: "Score 15,000 in Ranked this month to reach Diamond", icon: "Diamond", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" },
-  { id: "daily_apples", type: "daily", title: "Apple Purge", desc: "Slice 25 apples", icon: "Apple", enabled: true, requirement: req("slice_any", 25, { fruitKind: "apple" }), rewardCoins: 75, rewardSp: 0 },
-  { id: "daily_watermelons", type: "daily", title: "Crack the Rind", desc: "Slice 12 watermelons", icon: "CircleDot", enabled: true, requirement: req("slice_watermelon", 12), rewardCoins: 90, rewardSp: 0 },
-  { id: "daily_oranges", type: "daily", title: "Orange Alert", desc: "Slice 25 oranges", icon: "Citrus", enabled: true, requirement: req("slice_orange", 25), rewardCoins: 75, rewardSp: 0 },
-  { id: "daily_bananas", type: "daily", title: "Peel Patrol", desc: "Slice 25 bananas", icon: "Banana", enabled: true, requirement: req("slice_banana", 25), rewardCoins: 75, rewardSp: 0 },
-  { id: "daily_kiwis", type: "daily", title: "Kiwi Sweep", desc: "Slice 25 kiwis", icon: "Circle", enabled: true, requirement: req("slice_kiwi", 25), rewardCoins: 75, rewardSp: 0 },
-  { id: "daily_pineapples", type: "daily", title: "Crown Breaker", desc: "Slice 18 pineapples", icon: "Crown", enabled: true, requirement: req("slice_pineapple", 18), rewardCoins: 90, rewardSp: 0 },
-  { id: "daily_bombs", type: "daily", title: "Bomb Disposal", desc: "Parry 6 explosive fruits", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 6), rewardCoins: 130, rewardSp: 0 },
-  { id: "daily_juice", type: "daily", title: "Fresh Supply", desc: "Collect 120 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 120), rewardCoins: 90, rewardSp: 0 },
-  { id: "daily_damage", type: "daily", title: "Clean Cuts", desc: "Deal 1,500 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 1500), rewardCoins: 110, rewardSp: 0 },
-  { id: "daily_perfect", type: "daily", title: "Untouched Wall", desc: "Clear 2 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 2), rewardCoins: 130, rewardSp: 0 },
-  { id: "daily_super", type: "daily", title: "Vitamin Overdrive", desc: "Activate Super Juice twice", icon: "Sparkles", enabled: true, requirement: req("super_activate", 2), rewardCoins: 100, rewardSp: 0 },
-  { id: "daily_build", type: "daily", title: "Wall Engineer", desc: "Place 3 turrets", icon: "Hammer", enabled: true, requirement: req("turret_place", 3), rewardCoins: 90, rewardSp: 0 },
-  { id: "daily_upgrade", type: "daily", title: "Sharpen Defences", desc: "Upgrade 2 turrets", icon: "ArrowUpCircle", enabled: true, requirement: req("turret_upgrade", 2), rewardCoins: 100, rewardSp: 0 },
-  { id: "daily_move", type: "daily", title: "Tactical Shift", desc: "Move a turret once", icon: "Move", enabled: true, requirement: req("turret_move", 1), rewardCoins: 70, rewardSp: 0 },
-  { id: "daily_reslice", type: "daily", title: "Second Cut", desc: "Re-slice 12 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 12), rewardCoins: 100, rewardSp: 0 },
-  { id: "daily_score", type: "daily", title: "Score Run", desc: "Earn 2,000 score", icon: "Gauge", enabled: true, requirement: req("earn_score", 2e3), rewardCoins: 120, rewardSp: 0 },
-  { id: "daily_jiju", type: "daily", title: "Master on Duty", desc: "Start a run as Master Jiju", icon: "UserRound", enabled: true, requirement: req("play_jiju", 1), rewardCoins: 60, rewardSp: 0 },
-  { id: "daily_ranked", type: "daily", title: "Ranked Deployment", desc: "Finish a Ranked match", icon: "Medal", enabled: true, requirement: req("play_ranked_games", 1), rewardCoins: 140, rewardSp: 0, rewardGems: 1 },
-  { id: "weekly_fruit_raid", type: "weekly", title: "Orchard Raid", desc: "Slice 750 fruits", icon: "Swords", enabled: true, requirement: req("slice_any", 750), rewardCoins: 700, rewardSp: 1 },
-  { id: "weekly_melons", type: "weekly", title: "Melon Siege", desc: "Slice 80 watermelons", icon: "CircleDot", enabled: true, requirement: req("slice_watermelon", 80), rewardCoins: 500, rewardSp: 1 },
-  { id: "weekly_citrus", type: "weekly", title: "Citrus Storm", desc: "Slice 180 citrus fruits", icon: "Citrus", enabled: true, requirement: req("slice_citrus", 180), rewardCoins: 500, rewardSp: 1 },
-  { id: "weekly_berries", type: "weekly", title: "Berry Cleanup", desc: "Slice 150 berry fruits", icon: "Cherry", enabled: true, requirement: req("slice_berry", 150), rewardCoins: 500, rewardSp: 1 },
-  { id: "weekly_waves", type: "weekly", title: "Long Watch", desc: "Clear 30 waves", icon: "Waves", enabled: true, requirement: req("waves_cleared", 30), rewardCoins: 650, rewardSp: 1 },
-  { id: "weekly_perfect", type: "weekly", title: "Perfect Defence", desc: "Clear 12 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 12), rewardCoins: 700, rewardSp: 1, rewardGems: 3 },
-  { id: "weekly_combos", type: "weekly", title: "Chain Reaction", desc: "Land 30 combos of 5x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 30, { minValue: 5 }), rewardCoins: 650, rewardSp: 1 },
-  { id: "weekly_bosses", type: "weekly", title: "Overlord Hunter", desc: "Defeat 5 bosses", icon: "Skull", enabled: true, requirement: req("slice_boss", 5), rewardCoins: 800, rewardSp: 1, rewardGems: 5 },
-  { id: "weekly_guillotines", type: "weekly", title: "Falling Blades", desc: "Place 8 Guillotines", icon: "Scissors", enabled: true, requirement: req("place_guillotine", 8), rewardCoins: 450, rewardSp: 1 },
-  { id: "weekly_vortex", type: "weekly", title: "Drain the Horde", desc: "Place 8 Vortex Drains", icon: "Tornado", enabled: true, requirement: req("place_vortex", 8), rewardCoins: 450, rewardSp: 1 },
-  { id: "weekly_lasers", type: "weekly", title: "Lemon Lightshow", desc: "Place 8 Lemon Lasers", icon: "ScanLine", enabled: true, requirement: req("place_laser", 8), rewardCoins: 450, rewardSp: 1 },
-  { id: "weekly_upgrades", type: "weekly", title: "Fortified", desc: "Upgrade turrets 15 times", icon: "ChevronsUp", enabled: true, requirement: req("turret_upgrade", 15), rewardCoins: 550, rewardSp: 1 },
-  { id: "weekly_games", type: "weekly", title: "Active Defender", desc: "Finish 10 matches", icon: "Gamepad2", enabled: true, requirement: req("play_games", 10), rewardCoins: 600, rewardSp: 1 },
-  { id: "weekly_ranked", type: "weekly", title: "Ladder Duty", desc: "Finish 5 Ranked matches", icon: "Trophy", enabled: true, requirement: req("play_ranked_games", 5), rewardCoins: 700, rewardSp: 1, rewardGems: 5 },
-  { id: "weekly_horde", type: "weekly", title: "Horde Holdout", desc: "Clear 20 Horde waves", icon: "UsersRound", enabled: true, requirement: req("waves_cleared", 20, { mode: "horde" }), rewardCoins: 750, rewardSp: 1, rewardGems: 4 },
-  { id: "weekly_campaign", type: "weekly", title: "Road Through Rot", desc: "Clear 20 Campaign waves", icon: "Map", enabled: true, requirement: req("waves_cleared", 20, { mode: "campaign" }), rewardCoins: 750, rewardSp: 1, rewardGems: 4 },
-  { id: "weekly_damage", type: "weekly", title: "Blade Work", desc: "Deal 30,000 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 3e4), rewardCoins: 650, rewardSp: 1 },
-  { id: "weekly_juice", type: "weekly", title: "Full Reservoir", desc: "Collect 2,000 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 2e3), rewardCoins: 550, rewardSp: 1 },
-  { id: "weekly_reslice", type: "weekly", title: "No Pulp Wasted", desc: "Re-slice 100 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 100), rewardCoins: 600, rewardSp: 1 },
-  { id: "monthly_master", type: "monthly", title: "Master Season", desc: "Reach Master rank", icon: "Crown", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 2e3, rewardSp: 3, rewardGems: 60 },
-  { id: "monthly_grandmaster", type: "monthly", title: "Grandmaster Season", desc: "Reach Grandmaster rank", icon: "Flame", enabled: true, requirement: req("reach_grandmaster", 4e4), rewardCoins: 4e3, rewardSp: 5, rewardGems: 100 },
-  { id: "monthly_games_25", type: "monthly", title: "Season Regular", desc: "Finish 25 Ranked matches", icon: "CalendarCheck", enabled: true, requirement: req("monthly_games", 25), rewardCoins: 1200, rewardSp: 2, rewardGems: 15 },
-  { id: "monthly_games_75", type: "monthly", title: "Season Veteran", desc: "Finish 75 Ranked matches", icon: "BadgeCheck", enabled: true, requirement: req("monthly_games", 75), rewardCoins: 2500, rewardSp: 4, rewardGems: 40 },
-  { id: "monthly_score_50000", type: "monthly", title: "Score Vanguard", desc: "Earn a 50,000 Ranked score", icon: "Gauge", enabled: true, requirement: req("monthly_score", 5e4), rewardCoins: 3e3, rewardSp: 4, rewardGems: 60 },
-  { id: "monthly_waves", type: "monthly", title: "Unbroken Line", desc: "Clear 200 Ranked waves", icon: "Shield", enabled: true, requirement: req("wave_ranked", 200), rewardCoins: 3e3, rewardSp: 4, rewardGems: 50 }
-];
-var DEFAULT_MISSIONS = [
-  ...MISSION_SEEDS.map((mission) => ({ ...mission, type: "main" })),
-  { id: "daily_slice", type: "daily", title: "Fresh Cut", desc: "Slice 20 fruits", icon: "Slice", enabled: true, requirement: req("slice_any", 20), rewardCoins: 80, rewardSp: 0 },
-  { id: "daily_combo", type: "daily", title: "Quick Combo", desc: "Land 3 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 3, { minValue: 3 }), rewardCoins: 100, rewardSp: 0 },
-  { id: "daily_hold", type: "daily", title: "Hold the Line", desc: "Reach wave 5", icon: "Shield", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 120, rewardSp: 0 },
-  { id: "daily_boss", type: "daily", title: "Overlord Patrol", desc: "Defeat 1 boss", icon: "Crown", enabled: true, requirement: req("slice_boss", 1), rewardCoins: 150, rewardSp: 0, rewardGems: 1 },
-  { id: "daily_bomb", type: "daily", title: "Bomb Squad", desc: "Parry 3 explosive fruits", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 3), rewardCoins: 120, rewardSp: 0 }
-];
-var DEFAULT_ACHIEVEMENTS = [
-  { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "Sword", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: "first-cut" },
-  { id: "combo_5", title: "Combo Artist", desc: "Execute a 5x or higher combo slice", icon: "Zap", enabled: true, requirement: req("combo_reach_5", 5), rewardCoins: 100, rewardSp: 0 },
-  { id: "combo_10", title: "Blade Master", desc: "Execute a massive 10x combo slice", icon: "Swords", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "combo-king" },
-  { id: "fruit_100", title: "Fruit Peeler", desc: "Slice 100 total fruits", icon: "Apple", enabled: true, requirement: req("slice_any", 100), rewardCoins: 150, rewardSp: 0 },
-  { id: "fruit_500", title: "Juice Tycoon", desc: "Slice 500 total fruits", icon: "Droplets", enabled: true, requirement: req("slice_any", 500), rewardCoins: 300, rewardSp: 1 },
-  { id: "fruit_1000", title: "Legendary Samurai", desc: "Slice 1,000 total fruits", icon: "Medal", enabled: true, requirement: req("slice_any", 1e3), rewardCoins: 600, rewardSp: 2 },
-  { id: "wave_5", title: "Hold The Line", desc: "Survive to wave 5", icon: "Shield", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
-  { id: "wave_10", title: "Citrus Citadel", desc: "Survive to wave 10", icon: "Castle", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "wall-guard" },
-  { id: "super_juice", title: "Max Vitamin C", desc: "Activate Super Juice mode", icon: "Sparkles", enabled: true, requirement: req("super_activate", 1), rewardCoins: 100, rewardSp: 0 },
-  { id: "untouchable", title: "Pristine Wall", desc: "Clear a wave with 100% wall integrity", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 1), rewardCoins: 150, rewardSp: 0 },
-  { id: "turret_builder", title: "Fortress Architect", desc: "Place 3 turrets on your defensive wall", icon: "Hammer", enabled: true, requirement: req("turret_place", 3), rewardCoins: 150, rewardSp: 0 },
-  { id: "steam_connect", title: "Steam Cadet", desc: "Link your Steam profile to Fruit TD", icon: "Gamepad2", enabled: true, requirement: req("steam_link", 1), rewardCoins: 500, rewardSp: 1, rewardBadge: "steam-cadet" },
-  { id: "diamond_rank", title: "Diamond Slicer", desc: "Reach Diamond on the monthly ranked ladder", icon: "Diamond", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" },
-  { id: "combo_15", title: "Chain Commander", desc: "Reach a 15x combo", icon: "Link", enabled: true, requirement: req("combo_reach_15", 15), rewardCoins: 350, rewardSp: 1 },
-  { id: "combo_20", title: "Unbroken Edge", desc: "Reach a 20x combo", icon: "Infinity", enabled: true, requirement: req("combo_reach_20", 20), rewardCoins: 600, rewardSp: 2, rewardGems: 5, rewardBadge: "combo-legend" },
-  { id: "fruit_5000", title: "Orchard Reaper", desc: "Slice 5,000 total fruits", icon: "Skull", enabled: true, requirement: req("slice_any", 5e3), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "fruit-reaper" },
-  { id: "fruit_10000", title: "Extinction Event", desc: "Slice 10,000 total fruits", icon: "Flame", enabled: true, requirement: req("slice_any", 1e4), rewardCoins: 3e3, rewardSp: 5, rewardGems: 30 },
-  { id: "wave_25", title: "Iron Wall", desc: "Reach wave 25", icon: "ShieldCheck", enabled: true, requirement: req("wave_reach", 25), rewardCoins: 500, rewardSp: 1 },
-  { id: "wave_50", title: "Last Stronghold", desc: "Reach wave 50", icon: "Castle", enabled: true, requirement: req("wave_reach", 50), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
-  { id: "wave_100", title: "Century Hold", desc: "Reach wave 100", icon: "Landmark", enabled: true, requirement: req("wave_reach", 100), rewardCoins: 2500, rewardSp: 4, rewardGems: 30 },
-  { id: "boss_10", title: "Boss Breaker", desc: "Defeat 10 bosses", icon: "Skull", enabled: true, requirement: req("slice_boss", 10), rewardCoins: 700, rewardSp: 1, rewardBadge: "boss-breaker" },
-  { id: "boss_50", title: "Overlord Bane", desc: "Defeat 50 bosses", icon: "Crown", enabled: true, requirement: req("slice_boss", 50), rewardCoins: 2e3, rewardSp: 3, rewardGems: 25 },
-  { id: "bomb_50", title: "Blast Proof", desc: "Parry 50 bombs", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 50), rewardCoins: 600, rewardSp: 1, rewardBadge: "bomb-tech" },
-  { id: "reslice_250", title: "Pulp Specialist", desc: "Re-slice 250 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 250), rewardCoins: 700, rewardSp: 1 },
-  { id: "damage_100k", title: "Six Figures of Pain", desc: "Deal 100,000 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 1e5), rewardCoins: 1e3, rewardSp: 2 },
-  { id: "juice_5000", title: "Reservoir Master", desc: "Collect 5,000 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 5e3), rewardCoins: 800, rewardSp: 2 },
-  { id: "super_25", title: "Overcharged", desc: "Activate Super Juice 25 times", icon: "Sparkles", enabled: true, requirement: req("super_activate", 25), rewardCoins: 750, rewardSp: 2 },
-  { id: "perfect_25", title: "Flawless Defender", desc: "Clear 25 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 25), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10, rewardBadge: "perfect-guard" },
-  { id: "turrets_50", title: "Defence Network", desc: "Place 50 turrets", icon: "TowerControl", enabled: true, requirement: req("turret_place", 50), rewardCoins: 750, rewardSp: 2 },
-  { id: "upgrades_50", title: "Maximum Output", desc: "Upgrade turrets 50 times", icon: "ChevronsUp", enabled: true, requirement: req("turret_upgrade", 50), rewardCoins: 900, rewardSp: 2 },
-  { id: "sales_10", title: "Field Quartermaster", desc: "Sell 10 turrets", icon: "Coins", enabled: true, requirement: req("turret_sell", 10), rewardCoins: 400, rewardSp: 1 },
-  { id: "moves_25", title: "Mobile Defence", desc: "Move turrets 25 times", icon: "Move", enabled: true, requirement: req("turret_move", 25), rewardCoins: 500, rewardSp: 1 },
-  { id: "games_10", title: "Standing Orders", desc: "Finish 10 matches", icon: "Gamepad2", enabled: true, requirement: req("play_games", 10), rewardCoins: 400, rewardSp: 1 },
-  { id: "games_50", title: "Career Defender", desc: "Finish 50 matches", icon: "CalendarCheck", enabled: true, requirement: req("play_games", 50), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
-  { id: "games_200", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", enabled: true, requirement: req("play_games", 200), rewardCoins: 3e3, rewardSp: 5, rewardGems: 40, rewardBadge: "veteran" },
-  { id: "casual_25", title: "Casual Specialist", desc: "Finish 25 Casual matches", icon: "Leaf", enabled: true, requirement: req("play_casual_games", 25), rewardCoins: 700, rewardSp: 1 },
-  { id: "ranked_25", title: "Ranked Regular", desc: "Finish 25 Ranked matches", icon: "Trophy", enabled: true, requirement: req("play_ranked_games", 25), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
-  { id: "arena_25", title: "Arena Contender", desc: "Finish 25 Arena matches", icon: "Swords", enabled: true, requirement: req("play_arena_games", 25), rewardCoins: 900, rewardSp: 2 },
-  { id: "coop_25", title: "Reliable Partner", desc: "Finish 25 Co-op matches", icon: "UsersRound", enabled: true, requirement: req("play_coop_games", 25), rewardCoins: 900, rewardSp: 2 },
-  { id: "topfu_10", title: "Topfu Disciple", desc: "Start 10 runs as Topfu", icon: "UserRound", enabled: true, requirement: req("play_topfu", 10), rewardCoins: 500, rewardSp: 1 },
-  { id: "lagen_10", title: "Lagen Disciple", desc: "Start 10 runs as Lagen", icon: "UserRound", enabled: true, requirement: req("play_lagen", 10), rewardCoins: 500, rewardSp: 1 },
-  { id: "tripos_10", title: "Triple Path", desc: "Start 10 runs as Tripos", icon: "GitBranch", enabled: true, requirement: req("play_tripos", 10), rewardCoins: 600, rewardSp: 1 },
-  { id: "ki_10", title: "Spirit Path", desc: "Start 10 runs as Master Ki", icon: "Sparkles", enabled: true, requirement: req("play_ki", 10), rewardCoins: 600, rewardSp: 1 },
-  { id: "skills_10", title: "Trained Operative", desc: "Buy 10 skill ranks", icon: "BrainCircuit", enabled: true, requirement: req("buy_skill", 10), rewardCoins: 600, rewardSp: 2 },
-  { id: "skins_10", title: "Blade Collector", desc: "Buy 10 shop items", icon: "ShoppingBag", enabled: true, requirement: req("buy_skin", 10), rewardCoins: 700, rewardSp: 2, rewardBadge: "collector" },
-  { id: "daily_7", title: "One Week Strong", desc: "Claim 7 daily bonuses", icon: "CalendarCheck", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 500, rewardSp: 1, rewardGems: 5 },
-  { id: "daily_30", title: "Monthly Survivor", desc: "Claim 30 daily bonuses", icon: "CalendarDays", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 1500, rewardSp: 3, rewardGems: 25, rewardBadge: "daily-veteran" },
-  { id: "score_10000", title: "Five Digit Run", desc: "Reach 10,000 score in a run", icon: "Gauge", enabled: true, requirement: req("score_reach", 1e4), rewardCoins: 700, rewardSp: 1 },
-  { id: "score_50000", title: "Score Titan", desc: "Reach 50,000 score in a run", icon: "ChartNoAxesCombined", enabled: true, requirement: req("score_reach", 5e4), rewardCoins: 2e3, rewardSp: 3, rewardGems: 20 },
-  { id: "horde_wave_50", title: "Horde Holdout", desc: "Reach wave 50 in Horde", icon: "UsersRound", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "horde-veteran" },
-  { id: "pvp_first_win", title: "First Siege", desc: "Win your first server-verified PvP siege", icon: "Swords", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: "pvp-first-win" },
-  { id: "pvp_ten_wins", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardSp: 0, rewardGems: 10, rewardBadge: "pvp-wallbreaker" },
-  { id: "pvp_combo_50", title: "Fruit Storm", desc: "Reach a 50-slice combo in a PvP siege", icon: "Zap", enabled: true, requirement: req("pvp_combo", 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
-  { id: "pvp_multislice_5", title: "Five-Fruit Cut", desc: "Slice five fruit-zombies with one server-verified cut", icon: "Sword", enabled: true, requirement: req("pvp_multislice", 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 }
-];
-var DEFAULT_BADGES = [
-  { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "Sword", rarity: "common", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50 },
-  { id: "combo-king", title: "Combo King", desc: "Awarded for a 10x combo", icon: "Zap", rarity: "rare", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 150, rewardGems: 2 },
-  { id: "wall-guard", title: "Wall Guard", desc: "Hold the wall to wave 10", icon: "Shield", rarity: "rare", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 100, rewardGems: 2 },
-  { id: "steam-cadet", title: "Steam Cadet", desc: "Linked Steam account", icon: "Gamepad2", rarity: "common", enabled: true, requirement: req("steam_link", 1), rewardCoins: 100 },
-  { id: "bronze-slicer", title: "Bronze Slicer", desc: "Finish a Ranked match this month", icon: "Shield", rarity: "common", enabled: true, requirement: req("monthly_games", 1), rewardCoins: 100 },
-  { id: "silver-slicer", title: "Silver Slicer", desc: "Monthly Silver rank", icon: "Medal", rarity: "rare", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
-  { id: "gold-slicer", title: "Gold Slicer", desc: "Monthly Gold rank", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardGems: 10 },
-  { id: "diamond-slicer", title: "Diamond Slicer", desc: "Monthly Diamond rank", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 1e3, rewardGems: 25 },
-  { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "CalendarCheck", rarity: "rare", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 250, rewardGems: 5 },
-  { id: "combo-legend", title: "Combo Legend", desc: "Reach a 20x combo", icon: "Infinity", rarity: "epic", enabled: true, requirement: req("combo_reach_20", 20), rewardCoins: 400, rewardGems: 8 },
-  { id: "fruit-reaper", title: "Fruit Reaper", desc: "Slice 5,000 fruits", icon: "Skull", rarity: "epic", enabled: true, requirement: req("slice_any", 5e3), rewardCoins: 600, rewardGems: 10 },
-  { id: "boss-breaker", title: "Boss Breaker", desc: "Defeat 10 bosses", icon: "Crown", rarity: "epic", enabled: true, requirement: req("slice_boss", 10), rewardCoins: 500, rewardGems: 10 },
-  { id: "bomb-tech", title: "Bomb Technician", desc: "Parry 50 bombs", icon: "Bomb", rarity: "rare", enabled: true, requirement: req("bomb_parry", 50), rewardCoins: 350, rewardGems: 5 },
-  { id: "perfect-guard", title: "Perfect Guard", desc: "Clear 25 perfect waves", icon: "ShieldCheck", rarity: "epic", enabled: true, requirement: req("perfect_wave", 25), rewardCoins: 500, rewardGems: 10 },
-  { id: "collector", title: "Arsenal Collector", desc: "Buy 10 shop items", icon: "ShoppingBag", rarity: "rare", enabled: true, requirement: req("buy_skin", 10), rewardCoins: 400, rewardGems: 5 },
-  { id: "daily-veteran", title: "Daily Veteran", desc: "Claim 30 daily bonuses", icon: "CalendarDays", rarity: "epic", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 600, rewardGems: 15 },
-  { id: "master-slicer", title: "Master Slicer", desc: "Reach Master rank", icon: "Crown", rarity: "legendary", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 1e3, rewardGems: 25 },
-  { id: "horde-veteran", title: "Horde Veteran", desc: "Clear 50 Horde waves", icon: "UsersRound", rarity: "legendary", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1e3, rewardGems: 25 },
-  { id: "campaign-pathfinder", title: "Campaign Pathfinder", desc: "Clear 100 Campaign waves", icon: "Map", rarity: "epic", enabled: true, requirement: req("waves_cleared", 100, { mode: "campaign" }), rewardCoins: 750, rewardGems: 15 },
-  { id: "veteran", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", rarity: "legendary", enabled: true, requirement: req("play_games", 200), rewardCoins: 1e3, rewardGems: 25 },
-  { id: "pvp-first-win", title: "Siege Victor", desc: "Win a server-verified PvP siege", icon: "Swords", rarity: "common", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardGems: 2 },
-  { id: "pvp-wallbreaker", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", rarity: "rare", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardGems: 10 },
-  { id: "fr-silver", title: "Silver Defender", desc: "Reach Silver on the FR ladder", icon: "Medal", rarity: "rare", enabled: true, requirement: req("pvp_reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
-  { id: "fr-gold", title: "Gold Defender", desc: "Reach Gold on the FR ladder", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("pvp_reach_gold", 2e3), rewardCoins: 500, rewardGems: 10 },
-  { id: "fr-diamond", title: "Diamond Defender", desc: "Reach Diamond on the FR ladder", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("pvp_reach_diamond", 2500), rewardCoins: 900, rewardGems: 20 },
-  { id: "fr-emerald", title: "Emerald Defender", desc: "Reach Emerald on the FR ladder", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("reach_emerald", 2750), rewardCoins: 1400, rewardGems: 35 },
-  { id: "fr-sapphire", title: "Sapphire Defender", desc: "Reach Sapphire on the FR ladder", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("reach_sapphire", 3e3), rewardCoins: 2200, rewardGems: 60 },
-  { id: "pvp-bronze", title: "Bronze Season", desc: "Finish a season in Bronze", icon: "Shield", rarity: "common", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 100 },
-  { id: "pvp-silver", title: "Silver Season", desc: "Finish a season in Silver", icon: "Medal", rarity: "rare", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 250, rewardGems: 5 },
-  { id: "pvp-gold", title: "Gold Season", desc: "Finish a season in Gold", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 500, rewardGems: 10 },
-  { id: "pvp-diamond", title: "Diamond Season", desc: "Finish a season in Diamond", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 900, rewardGems: 20 },
-  { id: "pvp-emerald", title: "Emerald Season", desc: "Finish a season in Emerald", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 1400, rewardGems: 35 },
-  { id: "pvp-sapphire", title: "Sapphire Season", desc: "Finish a season in Sapphire", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 2200, rewardGems: 60 }
-];
-
-// src/game/slicers.ts
-var DEFAULT_SLICERS = [
-  {
-    id: "blade-default",
-    name: "Steel Blade",
-    blurb: "Reliable starter edge.",
-    enabled: true,
-    cost: 0,
-    sellValue: 0,
-    rarity: "common",
-    color: "#1d4ed8",
-    glowColor: "#38bdf8",
-    fxStyle: "solid",
-    trailWidth: 1,
-    glow: 0.35,
-    glint: 0.2,
-    damageMul: 1,
-    juiceMul: 1,
-    brittleBonus: 0
-  },
-  {
-    id: "blade-gold",
-    name: "Gold Blade",
-    blurb: "Bright trail, richer juice.",
-    enabled: true,
-    cost: 180,
-    sellValue: 60,
-    rarity: "rare",
-    color: "#f4c430",
-    glowColor: "#fde68a",
-    fxStyle: "spark",
-    trailWidth: 1.25,
-    glow: 0.55,
-    glint: 0.55,
-    damageMul: 1.08,
-    juiceMul: 1.15,
-    brittleBonus: 0
-  },
-  {
-    id: "blade-ink",
-    name: "Ink Blade",
-    blurb: "Dark slash with heavy hits.",
-    enabled: true,
-    cost: 240,
-    sellValue: 80,
-    rarity: "epic",
-    color: "#111827",
-    glowColor: "#a78bfa",
-    fxStyle: "plasma",
-    trailWidth: 1.4,
-    glow: 0.65,
-    glint: 0.4,
-    damageMul: 1.16,
-    juiceMul: 1,
-    brittleBonus: 0.4
-  },
-  {
-    id: "blade-cherry",
-    name: "Cherry Blade",
-    blurb: "Pink glints and brittle fruit.",
-    enabled: true,
-    cost: 320,
-    sellValue: 110,
-    rarity: "legendary",
-    color: "#f472b6",
-    glowColor: "#fecdd3",
-    fxStyle: "ember",
-    trailWidth: 1.55,
-    glow: 0.7,
-    glint: 0.75,
-    damageMul: 1.12,
-    juiceMul: 1.2,
-    brittleBonus: 0.8
-  }
-];
-
-// server/catalog.ts
-var cache = null;
-function invalidateCatalogCache() {
-  cache = null;
-}
-async function loadQuestCatalog() {
-  if (cache && Date.now() - cache.at < 4e3) return cache;
-  try {
-    const col = await getCollection("admin_config");
-    const doc = await col.findOne({ configKey: "game_config" });
-    cache = {
-      at: Date.now(),
-      missions: Array.isArray(doc?.missions) ? doc.missions : DEFAULT_MISSIONS,
-      achievements: Array.isArray(doc?.achievements) ? doc.achievements : DEFAULT_ACHIEVEMENTS,
-      badges: Array.isArray(doc?.badges) ? doc.badges : DEFAULT_BADGES,
-      ranks: mergeRewardDefaults(Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS, DEFAULT_RANK_TIERS),
-      slicers: Array.isArray(doc?.slicers) && doc.slicers.length ? doc.slicers : DEFAULT_SLICERS
-    };
-    return cache;
-  } catch {
-    return {
-      missions: DEFAULT_MISSIONS,
-      achievements: DEFAULT_ACHIEVEMENTS,
-      badges: DEFAULT_BADGES,
-      ranks: DEFAULT_RANK_TIERS,
-      slicers: DEFAULT_SLICERS
-    };
-  }
-}
-function getMonthKey() {
-  return currentMonthKey();
 }
 
 // server/auth.ts
@@ -550,100 +248,6 @@ async function deliverVerifyCode(email, code) {
   }
 }
 
-// server/validation.ts
-import { isDeepStrictEqual } from "node:util";
-function safeInput(value, depth = 0) {
-  if (depth > 24) return false;
-  if (value === null || typeof value !== "object") return true;
-  return Object.entries(value).every(([key, child]) => !key.startsWith("$") && !key.includes(".") && !["__proto__", "prototype", "constructor"].includes(key) && safeInput(child, depth + 1));
-}
-function validId(value) {
-  return typeof value === "string" && /^[a-zA-Z0-9_-]{1,120}$/.test(value);
-}
-function boundedInteger(value, max, min = 0) {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
-}
-var HEROES = ["jiju", "topfu", "lagen", "tripos", "ki"];
-var SKILLS = ["edge", "reach", "flow", "steel", "storm"];
-var HERO_PERKS = ["combo", "juice", "tower", "critical", "survival"];
-var DEFAULT_OWNABLE_SKINS = /* @__PURE__ */ new Set(["blade-default", "blade-gold", "blade-ink", "blade-cherry", "wall-brick", "wall-stone", "wall-night"]);
-var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
-var SERVER_OWNED_SAVE_KEYS = [
-  "xp",
-  "ownedHeroes",
-  "towerXp",
-  "towerLifetimeXp",
-  "highScore",
-  "rankedScore",
-  "bestWave",
-  "bestCombo",
-  "games",
-  "coins",
-  "gems",
-  "skillPoints",
-  "skills",
-  "ownedSkins",
-  "heroPerkRanks",
-  "vipStatus",
-  "hero",
-  "bladeSkin",
-  "wallSkin"
-];
-function sameJsonValue(a, b) {
-  return isDeepStrictEqual(a, b);
-}
-function serverOwnedSaveError(incoming, authoritative) {
-  for (const key of SERVER_OWNED_SAVE_KEYS) {
-    if (incoming[key] !== void 0 && !sameJsonValue(incoming[key], authoritative[key])) {
-      return `Server-owned field cannot be changed by profile sync: ${key}`;
-    }
-  }
-  return null;
-}
-function saveValidationError(value, allowedSkinIds = DEFAULT_OWNABLE_SKINS) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || !safeInput(value)) return "Invalid save object";
-  const save = value;
-  if (Object.keys(save).some((key) => !SAVE_KEYS.has(key))) return "Unknown save field";
-  const limits = { coins: 1e6, gems: 1e6, skillPoints: 1e4, towerXp: 1e8, towerLifetimeXp: 1e8, highScore: 1e8, rankedScore: 1e8, bestWave: 9999, bestCombo: 1e5, games: 1e6, saveRevision: Number.MAX_SAFE_INTEGER, savedAt: Number.MAX_SAFE_INTEGER };
-  for (const [key, max] of Object.entries(limits)) {
-    if (save[key] !== void 0 && !boundedInteger(save[key], max)) return `Invalid ${key}: expected a nonnegative integer within maximum`;
-  }
-  for (const key of ["xp", "skills", "heroPerkRanks"]) {
-    const field = save[key];
-    if (field !== void 0 && (!field || typeof field !== "object" || Array.isArray(field))) return `Invalid ${key}`;
-  }
-  if (save.xp && Object.entries(save.xp).some(([hero, xp]) => !HEROES.includes(hero) || !boundedInteger(xp, 1e6))) return "Invalid hero XP";
-  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !SKILLS.includes(id) || !boundedInteger(rank, 3))) return "Invalid skill ranks";
-  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS.includes(id) || !boundedInteger(rank, 3)))) return "Invalid hero perk ranks";
-  for (const key of ["ownedSkins", "ownedHeroes"]) {
-    const list = save[key];
-    if (list !== void 0 && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
-  }
-  if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES.includes(id))) return "Unknown hero";
-  if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return "Unknown owned skin";
-  if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return "Duplicate owned skin";
-  if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return "Duplicate owned hero";
-  if (save.hero !== void 0 && (typeof save.hero !== "string" || !HEROES.includes(save.hero))) return "Invalid hero";
-  if (save.mode !== void 0 && (typeof save.mode !== "string" || !["casual", "ranked", "coop", "arena", "horde", "campaign"].includes(save.mode))) return "Invalid mode";
-  if (save.campaignProgress !== void 0) {
-    const progress = save.campaignProgress;
-    if (!progress || typeof progress !== "object" || Array.isArray(progress) || Object.keys(progress).some((key) => !["unlocked", "cleared"].includes(key)) || !boundedInteger(progress.unlocked, 100, 1) || !Array.isArray(progress.cleared) || progress.cleared.length > 100 || progress.cleared.some((level) => !boundedInteger(level, 100, 1))) return "Invalid campaign progress";
-  }
-  if (save.vipStatus !== void 0 && (typeof save.vipStatus !== "string" || !["none", "bronze", "silver", "gold"].includes(save.vipStatus))) return "Invalid VIP status";
-  for (const [key, max] of [["nickname", 64], ["avatar", 9e5], ["bladeSkin", 120], ["wallSkin", 120]]) {
-    if (save[key] !== void 0 && (typeof save[key] !== "string" || save[key].length > max)) return `Invalid ${key}`;
-  }
-  for (const key of ["bladeSkin", "wallSkin"]) {
-    const equipped = save[key];
-    if (typeof equipped === "string" && equipped !== "" && equipped !== "none" && !allowedSkinIds.has(equipped)) return `Unknown ${key}`;
-    if (typeof equipped === "string" && equipped !== "" && equipped !== "none" && Array.isArray(save.ownedSkins) && !save.ownedSkins.includes(equipped)) return `${key} is not owned`;
-  }
-  return null;
-}
-function validProgressUpdates(value, idKey) {
-  return Array.isArray(value) && value.length <= 100 && value.every((row) => row && typeof row === "object" && validId(row[idKey]) && (row.setProgress !== void 0 && row.progressDelta === void 0 && boundedInteger(row.setProgress, 1e8) || row.progressDelta !== void 0 && row.setProgress === void 0 && boundedInteger(row.progressDelta, 1e8)));
-}
-
 // src/game/progression/heroEconomy.ts
 var HERO_PRICES = {
   tripos: { cost: 1800 },
@@ -676,7 +280,7 @@ function heroesUnlockedByJijuLevel(level) {
 }
 
 // src/game/heroes.ts
-var HEROES2 = [
+var HEROES = [
   { id: "jiju", name: "Master Jiju", title: "Clean blade", color: 3108845, trail: 1920728, blurb: "Classic wide cuts. Combos stack if you keep slicing.", mouse: "Precise flicks. Combo builds fast.", touch: "Wider finger slash. Easier to clip packs.", damage: 18, radius: 0.16, shake: 0.55, unlockLevel: 1 },
   { id: "topfu", name: "Topfu", title: "Soft pressure", color: 16040810, trail: 15251530, blurb: "Shorter reach, but fruit go brittle and slow.", mouse: "Short snap cuts. Stacks brittle.", touch: "Fat squash pad. Bigger slow zone.", damage: 13, radius: 0.1, shake: 0.35, unlockLevel: 10 },
   { id: "lagen", name: "Lagen", title: "Long reach", color: 3842906, trail: 2278750, blurb: "Lance slash. The swipe keeps going past your cursor.", mouse: "Fast flick = extra spear length.", touch: "Stable long line, a bit less extra reach.", damage: 16, radius: 0.12, shake: 0.45, unlockLevel: 25 },
@@ -685,7 +289,7 @@ var HEROES2 = [
 ];
 var MAX_HERO_LEVEL = 100;
 function heroDef(id) {
-  return HEROES2.find((h) => h.id === id) ?? HEROES2[0];
+  return HEROES.find((h) => h.id === id) ?? HEROES[0];
 }
 function heroXpForLevel(level) {
   const lv = Math.max(1, Math.min(MAX_HERO_LEVEL, Math.floor(level)));
@@ -704,7 +308,7 @@ function heroXpToLevel(xp) {
 }
 
 // src/game/skills.ts
-var SKILLS2 = [
+var SKILLS = [
   { id: "edge", name: "Edge", blurb: "Your slash hits harder.", max: 3 },
   { id: "reach", name: "Reach", blurb: "Wider cut. Easier multi-hits.", max: 3 },
   { id: "flow", name: "Flow", blurb: "Super juice fills faster.", max: 3 },
@@ -790,7 +394,7 @@ function canEquipHero(save, heroId) {
   return getHeroStatus(save, heroId).equippable;
 }
 function purchaseHeroAtomic(save, heroId) {
-  const def = HEROES2.find((h) => h.id === heroId);
+  const def = HEROES.find((h) => h.id === heroId);
   if (!def) return { ok: false, error: "invalid-hero", message: "Unknown hero" };
   if (!def.purchaseOnly || !def.purchaseCost) {
     return { ok: false, error: "not-purchasable", message: `${def.name} is not a purchasable hero` };
@@ -897,7 +501,7 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   set["saveData.gems"] = cappedCredit("gems", reward.gems ?? 0, 1e6);
   set["saveData.skillPoints"] = cappedCredit("skillPoints", reward.skillPoints ?? 0, 1e4);
   for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
-    if (HEROES2.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
+    if (HEROES.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
   }
   if ((reward.towerXp ?? 0) > 0) {
     set["saveData.towerXp"] = cappedCredit("towerXp", reward.towerXp, 1e9);
@@ -926,6 +530,1293 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   );
 }
 
+// src/game/onlineCoop.ts
+var DEFAULT_COOP_CONFIG = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 10, rewardCoinCap: 3e3, bladeDamage: 35, bladeRadius: 0.65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: 0.35, fruitSpeedMultiplier: 0.65 };
+function normalizeCoopConfig(raw) {
+  const row = raw && typeof raw === "object" ? raw : {};
+  return Object.fromEntries(Object.entries(DEFAULT_COOP_CONFIG).map(([key, fallback]) => {
+    const value = Number(row[key]);
+    const fractional = key.endsWith("Multiplier") || key === "bladeRadius";
+    const zeroAllowed = ["extraPerWave", "coinsPerKill", "coinsPerWave", "xpPerKill", "towerXpPerWave", "rewardCoinCap"].includes(key);
+    const min = fractional ? 0.05 : zeroAllowed ? 0 : key.includes("Ms") ? 100 : 1;
+    const max = key.includes("Ms") ? 6e4 : key === "rewardCoinCap" ? 1e4 : key === "bladeDamage" ? 1e3 : key === "bladeRadius" ? 2 : 100;
+    return [key, Number.isFinite(value) ? Math.max(min, Math.min(max, fractional ? value : Math.floor(value))) : fallback];
+  }));
+}
+function newCoopMatch(id, player, balance) {
+  return { id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: balance.startingFruts, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
+}
+function joinCoopMatch(match, player, now) {
+  if (match.status !== "waiting" || match.players.length !== 1 || match.players.some((p) => p.userId === player.userId)) throw new Error("Room is unavailable.");
+  match.players.push(player);
+  match.status = "countdown";
+  match.phaseUntil = now + 3e3;
+  match.revision++;
+}
+var distance = (p, a, b) => {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+};
+function applyCoopCommand(match, userId, sequence, command, now, balance, config = DEFAULT_COOP_CONFIG) {
+  const player = match.players.find((p) => p.userId === userId);
+  if (!player) throw new Error("Not a room member.");
+  if (!Number.isSafeInteger(sequence) || sequence !== player.sequence + 1) throw new Error("Stale command. Refresh the match.");
+  if (command.type === "leave") {
+    match.status = "complete";
+    match.reason = "left";
+  } else {
+    if (match.status !== "playing" && match.status !== "boss-intro") throw new Error("Wait for the match to start.");
+    if (command.type === "build") {
+      const stats = balance.towers[command.tower];
+      if (!stats || !Number.isInteger(command.cell) || command.cell < 121 || command.cell > 128 || match.towers.some((t) => t.cell === command.cell)) throw new Error("Choose an empty wall pad.");
+      if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
+      match.fruts -= stats.cost;
+      match.towers.push({ id: `${match.id}:${command.cell}`, type: command.tower, cell: command.cell, lastFiredAt: now });
+    } else if (command.type === "slash") {
+      for (const p of [command.from, command.to]) if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > 10 || p.y < 0 || p.y > 14) throw new Error("Invalid blade stroke.");
+      if (Math.hypot(command.from.x - command.to.x, command.from.y - command.to.y) < 0.15 || now - player.lastSlashAt < config.bladeCooldownMs) throw new Error("Swipe across the fruit.");
+      player.lastSlashAt = now;
+      player.lastStroke = { from: command.from, to: command.to, at: now };
+      for (const fruit of match.fruits) if (distance(fruit, command.from, command.to) <= config.bladeRadius) fruit.hp -= config.bladeDamage;
+      const killed = match.fruits.filter((f) => f.hp <= 0);
+      player.kills += killed.length;
+      collectKills(match, balance);
+    } else throw new Error("Unsupported command.");
+  }
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+}
+function collectKills(match, balance) {
+  for (const f of match.fruits.filter((f2) => f2.hp <= 0)) {
+    match.kills++;
+    match.score += f.boss ? 300 : 10;
+    match.fruts += balance.attacks[f.type].rewardFruts;
+  }
+  match.fruits = match.fruits.filter((f) => f.hp > 0);
+}
+function advanceCoopMatch(match, dt, now, balance, config) {
+  if (match.status === "waiting" || match.status === "complete") return;
+  if (match.players.some((p) => now - p.lastSeenAt > balance.reconnectGraceSeconds * 1e3)) {
+    match.status = "complete";
+    match.reason = "disconnect";
+    match.revision++;
+    return;
+  }
+  const delta = Math.max(0, Math.min(dt, 0.25));
+  match.fruts += balance.incomePerSecond * delta;
+  if (match.status === "countdown" || match.status === "boss-intro") {
+    if (now < match.phaseUntil) {
+      match.revision++;
+      return;
+    }
+    const boss = match.status === "boss-intro";
+    match.status = "playing";
+    match.remainingSpawns = boss ? 1 : Math.min(100, config.baseWaveSize + (match.wave - 1) * config.extraPerWave);
+    match.spawnAt = now;
+  }
+  if (match.remainingSpawns > 0 && now >= match.spawnAt) {
+    const boss = match.wave % (config.bossEveryWaves + 1) === 0;
+    const kind = boss ? "armored" : match.serial % 7 === 0 ? "armored" : match.serial % 4 === 0 ? "swift" : "normal";
+    const stats = balance.attacks[kind];
+    const serial = ++match.serial;
+    match.fruits.push({ id: `${match.id}:${serial}`, type: kind, x: boss ? 5 : 1 + serial * 37 % 80 / 10, y: 0, hp: stats.health * (boss ? config.bossHealthMultiplier : 1) * (1 + Math.floor(match.wave / 8) * 0.2), boss });
+    match.remainingSpawns--;
+    match.spawnAt = now + config.spawnGapMs;
+  }
+  for (const fruit of match.fruits) fruit.y += balance.attacks[fruit.type].speed * delta * (fruit.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier);
+  const fire = (x, y, stats, last) => {
+    if (now - last < stats.cooldownMs) return false;
+    const fruit = match.fruits.filter((f) => f.hp > 0 && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
+    if (!fruit) return false;
+    fruit.hp -= stats.damage;
+    return true;
+  };
+  for (const tower of match.towers) if (fire(tower.cell % 10 + 0.5, Math.floor(tower.cell / 10) + 0.5, balance.towers[tower.type], tower.lastFiredAt)) tower.lastFiredAt = now;
+  if (fire(5, 13.5, balance.mainTower, match.mainLastFiredAt)) match.mainLastFiredAt = now;
+  collectKills(match, balance);
+  for (const f of match.fruits.filter((f2) => f2.y >= 13.5)) match.wallHealth = Math.max(0, match.wallHealth - balance.attacks[f.type].wallDamage * (f.boss ? 10 : 1));
+  match.fruits = match.fruits.filter((f) => f.y < 13.5);
+  if (match.wallHealth <= 0) {
+    match.status = "complete";
+    match.reason = "wall";
+  } else if (!match.remainingSpawns && !match.fruits.length) {
+    match.completedWaves++;
+    match.wave++;
+    match.status = match.wave % (config.bossEveryWaves + 1) === 0 ? "boss-intro" : "countdown";
+    match.phaseUntil = now + (match.status === "boss-intro" ? config.bossIntroMs : config.intermissionMs);
+  }
+  match.revision++;
+}
+function coopRewards(match, config) {
+  if (match.completedWaves < 1) return { coins: 0, gems: 0, xp: 0, towerXp: 0 };
+  return { coins: Math.min(config.rewardCoinCap, match.kills * config.coinsPerKill + match.completedWaves * config.coinsPerWave), gems: Math.floor(match.completedWaves / config.gemsEveryWaves), xp: Math.min(1e4, match.kills * config.xpPerKill), towerXp: Math.min(1e4, match.completedWaves * config.towerXpPerWave) };
+}
+
+// src/game/creatorMedia.ts
+var number = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
+function normalizeCreatorMedia(raw) {
+  if (raw == null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) throw new Error("Creator pack must contain entities.");
+  const row = raw;
+  if (!row.entities || typeof row.entities !== "object" || Array.isArray(row.entities)) throw new Error("Creator pack must contain entities.");
+  if (Object.keys(row.entities).length > 200 || JSON.stringify(raw).length > 25e5) throw new Error("Creator pack is too large. Use smaller sprite sheets.");
+  const entities = /* @__PURE__ */ Object.create(null);
+  for (const [key, value] of Object.entries(row.entities)) {
+    if (!/^[a-z][a-z0-9-]{1,63}$/.test(key) || !value || typeof value !== "object") throw new Error("Invalid Creator entity.");
+    const sheet = value.sheetDataUrl;
+    if (sheet && (typeof sheet !== "string" || sheet.length > 1e6 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(sheet))) throw new Error("Sprite sheets must be PNG, JPEG or WebP images under 1 MB.");
+    const cols = Math.floor(number(value.cols, 1, 1, 64));
+    const rows = Math.floor(number(value.rows, 1, 1, 64));
+    const clips = {};
+    for (const [clip, definition] of Object.entries(value.clips || {})) {
+      if (!/^(idle|walk|run|hit|death)_(down|left|right|up)$/.test(clip) || !definition || typeof definition !== "object") continue;
+      const startFrame = Math.floor(number(definition.startFrame, 0, 0, cols * rows - 1));
+      clips[clip] = { startFrame, frameCount: Math.floor(number(definition.frameCount, 1, 1, cols * rows - startFrame)), ...definition.fps ? { fps: number(definition.fps, 10, 1, 60) } : {}, ...["none", "juice-burst", "spark", "dark-pulse", "screen-shake"].includes(definition.fx || "") ? { fx: definition.fx } : {} };
+    }
+    const events = {};
+    for (const hook of ["onSpawn", "onHit", "onDeath"]) {
+      const event = value.events?.[hook];
+      if (!event) continue;
+      events[hook] = { flash: Boolean(event.flash), shake: number(event.shake, 0, 0, 3), ...typeof event.sfxSlot === "string" && /^[a-z0-9-]{1,64}$/.test(event.sfxSlot) ? { sfxSlot: event.sfxSlot } : {}, ...["none", "juice-burst", "spark", "dark-pulse", "screen-shake"].includes(event.fx || "") ? { fx: event.fx } : {} };
+    }
+    entities[key] = { sheetDataUrl: sheet || null, cols, rows, frameW: Math.floor(number(value.frameW, 0, 0, 4096)), frameH: Math.floor(number(value.frameH, 0, 0, 4096)), clips, events, label: String(value.label || key).slice(0, 80) };
+  }
+  return { version: 2, entities, selectedEntity: typeof row.selectedEntity === "string" && entities[row.selectedEntity] ? row.selectedEntity : Object.keys(entities)[0] || "enemy-normal" };
+}
+
+// src/game/requirements.ts
+var REQUIREMENT_TYPES = [
+  { id: "coop_team_run", category: "social", label: "Complete six online Co-op waves", hint: "Verified by the online match server", event: "coop_result", progress: "increment", valueField: "count" },
+  { id: "slice_any", category: "slicing", label: "Slice any fruit", hint: "Count every fruit sliced", event: "fruit_slice", progress: "increment" },
+  { id: "slice_watermelon", category: "slicing", label: "Slice watermelons", hint: "Watermelon kills", event: "fruit_slice", progress: "increment", fruitKind: "watermelon" },
+  { id: "slice_lemon", category: "slicing", label: "Slice lemons", hint: "Lemon kills", event: "fruit_slice", progress: "increment", fruitKind: "lemon" },
+  { id: "slice_orange", category: "slicing", label: "Slice oranges", hint: "Orange kills", event: "fruit_slice", progress: "increment", fruitKind: "orange" },
+  { id: "slice_banana", category: "slicing", label: "Slice bananas", hint: "Banana kills", event: "fruit_slice", progress: "increment", fruitKind: "banana" },
+  { id: "slice_strawberry", category: "slicing", label: "Slice strawberries", hint: "Strawberry kills", event: "fruit_slice", progress: "increment", fruitKind: "strawberry" },
+  { id: "slice_pineapple", category: "slicing", label: "Slice pineapples", hint: "Pineapple kills", event: "fruit_slice", progress: "increment", fruitKind: "pineapple" },
+  { id: "slice_kiwi", category: "slicing", label: "Slice kiwis", hint: "Kiwi kills", event: "fruit_slice", progress: "increment", fruitKind: "kiwi" },
+  { id: "slice_citrus", category: "slicing", label: "Slice citrus family", hint: "Lemon, orange, banana, pineapple", event: "fruit_slice", progress: "increment", fruitFamily: "lemon" },
+  { id: "slice_berry", category: "slicing", label: "Slice berry family", hint: "Strawberry and kiwi", event: "fruit_slice", progress: "increment", fruitFamily: "berry" },
+  { id: "slice_melon", category: "slicing", label: "Slice melon family", hint: "Watermelons", event: "fruit_slice", progress: "increment", fruitFamily: "melon" },
+  { id: "slice_citrus_or_berry", category: "slicing", label: "Slice lemons or strawberries", hint: "Classic daily citrus mix", event: "fruit_slice", progress: "increment" },
+  { id: "slice_boss", category: "slicing", label: "Defeat boss fruit", hint: "Boss kills", event: "boss_kill", progress: "increment" },
+  { id: "reslice_halves", category: "slicing", label: "Re-slice fruit halves", hint: "Cut debris pieces", event: "reslice", progress: "increment" },
+  { id: "slice_casual", category: "slicing", label: "Slice fruit in Casual", hint: "Casual mode slices", event: "fruit_slice", progress: "increment", mode: "casual" },
+  { id: "slice_ranked", category: "slicing", label: "Slice fruit in Ranked", hint: "Ranked mode slices", event: "fruit_slice", progress: "increment", mode: "ranked" },
+  { id: "slice_arena", category: "slicing", label: "Slice fruit in Arena", hint: "Arena mode slices", event: "fruit_slice", progress: "increment", mode: "arena" },
+  { id: "slice_coop", category: "slicing", label: "Slice fruit in Co-op", hint: "Co-op mode slices", event: "fruit_slice", progress: "increment", mode: "coop" },
+  { id: "combo_count", category: "combat", label: "Land combos", hint: "Combos at or above Min Value", event: "combo", progress: "increment", usesMinValue: true },
+  { id: "combo_peak", category: "combat", label: "Reach combo size", hint: "Highest combo reached", event: "combo", progress: "max", valueField: "combo" },
+  { id: "combo_reach_5", category: "combat", label: "Reach 5x combo", hint: "Hit a 5x combo", event: "combo", progress: "max", valueField: "combo" },
+  { id: "combo_reach_10", category: "combat", label: "Reach 10x combo", hint: "Hit a 10x combo", event: "combo", progress: "max", valueField: "combo" },
+  { id: "combo_reach_15", category: "combat", label: "Reach 15x combo", hint: "Hit a 15x combo", event: "combo", progress: "max", valueField: "combo" },
+  { id: "slash_damage", category: "combat", label: "Deal slash damage", hint: "Accumulate blade damage", event: "slash_damage", progress: "increment", valueField: "damage" },
+  { id: "bomb_parry", category: "combat", label: "Parry bombs", hint: "Deflect bombs with a fast slash", event: "bomb_parry", progress: "increment" },
+  { id: "super_activate", category: "combat", label: "Activate Super Juice", hint: "Use Super", event: "super", progress: "increment" },
+  { id: "run_max_combo", category: "combat", label: "Max combo in a run", hint: "Best combo when the run ends", event: "game_over", progress: "max", valueField: "combo" },
+  { id: "run_fruits", category: "combat", label: "Fruits sliced in a run", hint: "Best single-run fruit count", event: "game_over", progress: "max", valueField: "amount" },
+  { id: "wave_reach", category: "defense", label: "Reach wave number", hint: "Highest wave reached", event: "wave_clear", progress: "max", valueField: "wave" },
+  { id: "waves_cleared", category: "defense", label: "Clear waves", hint: "Count of waves cleared", event: "wave_clear", progress: "increment" },
+  { id: "perfect_wave", category: "defense", label: "Clear waves at full lives", hint: "No damage that wave", event: "wave_clear", progress: "increment" },
+  { id: "turret_place", category: "defense", label: "Place any turret", hint: "Build turrets", event: "turret_place", progress: "increment" },
+  { id: "place_guillotine", category: "defense", label: "Place Guillotine", hint: "Build Guillotine", event: "turret_place", progress: "increment", turretKind: "guillotine" },
+  { id: "place_vortex", category: "defense", label: "Place Vortex Drain", hint: "Build Vortex", event: "turret_place", progress: "increment", turretKind: "vortex" },
+  { id: "place_laser", category: "defense", label: "Place Lemon Laser", hint: "Build Laser", event: "turret_place", progress: "increment", turretKind: "laser" },
+  { id: "place_railgun", category: "defense", label: "Place Melon Railgun", hint: "Build Railgun", event: "turret_place", progress: "increment", turretKind: "railgun" },
+  { id: "place_sprinkler", category: "defense", label: "Place Citrus Sprinkler", hint: "Build Sprinkler", event: "turret_place", progress: "increment", turretKind: "sprinkler" },
+  { id: "place_blender", category: "defense", label: "Place Blender Pit", hint: "Build Blender", event: "turret_place", progress: "increment", turretKind: "blender" },
+  { id: "turret_upgrade", category: "defense", label: "Upgrade turrets", hint: "Level up towers", event: "turret_upgrade", progress: "increment" },
+  { id: "turret_sell", category: "defense", label: "Sell turrets", hint: "Sell placed towers", event: "turret_sell", progress: "increment" },
+  { id: "turret_move", category: "defense", label: "Move turrets", hint: "Relocate towers", event: "turret_move", progress: "increment" },
+  { id: "prevent_leak", category: "defense", label: "Stop leaks (survive waves)", hint: "Same as waves cleared", event: "wave_clear", progress: "increment" },
+  { id: "play_jiju", category: "heroes", label: "Play as Master Jiju", hint: "Start or finish a run as Jiju", event: "game_start", progress: "increment", hero: "jiju" },
+  { id: "play_topfu", category: "heroes", label: "Play as Topfu", hint: "Start a run as Topfu", event: "game_start", progress: "increment", hero: "topfu" },
+  { id: "play_lagen", category: "heroes", label: "Play as Lagen", hint: "Start a run as Lagen", event: "game_start", progress: "increment", hero: "lagen" },
+  { id: "play_tripos", category: "heroes", label: "Play as Tripos", hint: "Start a run as Tripos", event: "game_start", progress: "increment", hero: "tripos" },
+  { id: "play_ki", category: "heroes", label: "Play as Master Ki", hint: "Start a run as Ki", event: "game_start", progress: "increment", hero: "ki" },
+  { id: "hero_level", category: "heroes", label: "Hero level-ups", hint: "Gain hero levels", event: "hero_level", progress: "increment" },
+  { id: "buy_skill", category: "heroes", label: "Buy skill ranks", hint: "Spend skill points", event: "skill_buy", progress: "increment" },
+  { id: "play_games", category: "heroes", label: "Finish matches", hint: "Game over count", event: "game_over", progress: "increment" },
+  { id: "play_casual_games", category: "heroes", label: "Finish Casual matches", hint: "Casual game overs", event: "game_over", progress: "increment", mode: "casual" },
+  { id: "play_ranked_games", category: "heroes", label: "Finish Ranked matches", hint: "Ranked game overs", event: "game_over", progress: "increment", mode: "ranked" },
+  { id: "play_arena_games", category: "heroes", label: "Finish Arena matches", hint: "Arena game overs", event: "game_over", progress: "increment", mode: "arena" },
+  { id: "play_coop_games", category: "heroes", label: "Finish Co-op matches", hint: "Co-op game overs", event: "game_over", progress: "increment", mode: "coop" },
+  { id: "score_reach", category: "economy", label: "Reach score", hint: "Highest score (max)", event: "game_over", progress: "max", valueField: "score" },
+  { id: "earn_score", category: "economy", label: "Earn score points", hint: "Add score as it is gained", event: "slash_damage", progress: "increment", valueField: "score" },
+  { id: "buy_skin", category: "economy", label: "Buy shop skins", hint: "Purchase blades or walls", event: "skin_buy", progress: "increment" },
+  { id: "juice_collect", category: "economy", label: "Collect juice", hint: "Juice bank pickups", event: "juice", progress: "increment", valueField: "amount" },
+  { id: "leak_hits", category: "economy", label: "Wall leaks taken", hint: "Fruit that reach the wall", event: "leak", progress: "increment" },
+  { id: "claim_daily", category: "social", label: "Claim daily bonus", hint: "Daily login claims", event: "daily_claim", progress: "increment" },
+  { id: "daily_streak", category: "social", label: "Reach daily streak", hint: "Highest streak day", event: "daily_claim", progress: "max", valueField: "streak" },
+  { id: "steam_link", category: "social", label: "Link Steam", hint: "Connect a Steam profile", event: "steam_link", progress: "increment" },
+  { id: "claim_mission", category: "social", label: "Claim missions", hint: "Turn claimable missions in", event: "mission_claim", progress: "increment" },
+  { id: "monthly_score", category: "ranked", label: "Monthly ranked score", hint: "Best score this month", event: "game_over", progress: "max", valueField: "score", mode: "ranked" },
+  { id: "reach_bronze", category: "ranked", label: "Reach Bronze", hint: "Hit Bronze monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "bronze" },
+  { id: "reach_silver", category: "ranked", label: "Reach Silver", hint: "Hit Silver monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "silver" },
+  { id: "reach_gold", category: "ranked", label: "Reach Gold", hint: "Hit Gold monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "gold" },
+  { id: "reach_platinum", category: "ranked", label: "Reach Platinum", hint: "Hit Platinum monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "platinum" },
+  { id: "reach_diamond", category: "ranked", label: "Reach Diamond", hint: "Hit Diamond monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "diamond" },
+  { id: "monthly_games", category: "ranked", label: "Play monthly ranked games", hint: "Ranked finishes this period", event: "game_over", progress: "increment", mode: "ranked" },
+  { id: "reach_master", category: "ranked", label: "Reach Master", hint: "Hit Master monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "master" },
+  { id: "reach_grandmaster", category: "ranked", label: "Reach Grandmaster", hint: "Hit Grandmaster monthly threshold", event: "game_over", progress: "max", valueField: "score", mode: "ranked", rankId: "grandmaster" },
+  { id: "pvp_win", category: "ranked", label: "Win PvP sieges", hint: "Wins verified by the match authority", event: "pvp_result", progress: "increment", valueField: "count" },
+  { id: "pvp_combo", category: "ranked", label: "Reach a PvP combo", hint: "Best server-verified PvP combo", event: "pvp_result", progress: "max", valueField: "combo" },
+  { id: "pvp_multislice", category: "ranked", label: "PvP multi-slices", hint: "Fruit-zombies sliced in one command", event: "pvp_result", progress: "max", valueField: "count" },
+  { id: "pvp_season", category: "ranked", label: "Finish a PvP season", hint: "Complete a ranked season", event: "pvp_result", progress: "increment", valueField: "count" },
+  { id: "pvp_reach_silver", category: "ranked", label: "Reach Silver on PvP ladder", hint: "Reach 1,500 FR", event: "pvp_result", progress: "max", valueField: "score" },
+  { id: "pvp_reach_gold", category: "ranked", label: "Reach Gold on PvP ladder", hint: "Reach 2,000 FR", event: "pvp_result", progress: "max", valueField: "score" },
+  { id: "pvp_reach_diamond", category: "ranked", label: "Reach Diamond on PvP ladder", hint: "Reach 2,500 FR", event: "pvp_result", progress: "max", valueField: "score" },
+  { id: "reach_emerald", category: "ranked", label: "Reach Emerald", hint: "Reach 2,750 FR on the PvP ladder", event: "pvp_result", progress: "max", valueField: "score" },
+  { id: "reach_sapphire", category: "ranked", label: "Reach Sapphire", hint: "Reach 3,000 FR on the PvP ladder", event: "pvp_result", progress: "max", valueField: "score" },
+  { id: "combo_reach_20", category: "combat", label: "Reach 20x combo", hint: "Hit a 20x combo", event: "combo", progress: "max", valueField: "combo" },
+  { id: "score_casual", category: "economy", label: "Casual high score", hint: "Best casual run score", event: "game_over", progress: "max", valueField: "score", mode: "casual" },
+  { id: "score_arena", category: "economy", label: "Arena high score", hint: "Best arena run score", event: "game_over", progress: "max", valueField: "score", mode: "arena" },
+  { id: "score_coop", category: "economy", label: "Co-op high score", hint: "Best co-op run score", event: "game_over", progress: "max", valueField: "score", mode: "coop" },
+  { id: "super_ranked", category: "combat", label: "Activate Super in Ranked", hint: "Use Super during Ranked", event: "super", progress: "increment", mode: "ranked" },
+  { id: "boss_ranked", category: "slicing", label: "Defeat bosses in Ranked", hint: "Boss kills during Ranked", event: "boss_kill", progress: "increment", mode: "ranked" },
+  { id: "slice_bomb", category: "slicing", label: "Parry or clear bombs", hint: "Bomb encounters you survive", event: "bomb_parry", progress: "increment" },
+  { id: "wave_ranked", category: "defense", label: "Clear ranked waves", hint: "Waves cleared in Ranked", event: "wave_clear", progress: "increment", mode: "ranked" }
+];
+function requirementById(id) {
+  return REQUIREMENT_TYPES.find((r) => r.id === id);
+}
+function migrateCoopCatalog(rows, defaults3, version = 0) {
+  if (version >= 1 || rows.length === 0) return rows;
+  const ids = new Set(rows.map((row) => row.id));
+  return [...rows, ...defaults3.filter((row) => (row.id.startsWith("coop_") || row.id.startsWith("coop-")) && !ids.has(row.id))];
+}
+function currentMonthKey(date = /* @__PURE__ */ new Date()) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+function monthlyLeaderboardMode(date = /* @__PURE__ */ new Date()) {
+  return `monthly-${currentMonthKey(date)}`;
+}
+var DEFAULT_RANK_TIERS = [
+  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "Shield", rewardCoins: 100 },
+  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "Medal", rewardCoins: 250, rewardGems: 5 },
+  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "Trophy", rewardCoins: 500, rewardGems: 10 },
+  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "BadgeCheck", rewardCoins: 750, rewardGems: 15 },
+  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "Diamond", rewardCoins: 1500, rewardGems: 30 },
+  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "Crown", rewardCoins: 2500, rewardGems: 60 },
+  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "Flame", rewardCoins: 5e3, rewardGems: 100 }
+];
+function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
+  const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
+  return sorted.find((t) => score >= t.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
+}
+function mergeRewardDefaults(items, defaults3) {
+  const byId = new Map(defaults3.map((item) => [item.id, item]));
+  const configuredById = new Map(items.filter((item) => item?.id).map((item) => [item.id, item]));
+  const mergedItems = [...configuredById.values(), ...defaults3.filter((item) => !configuredById.has(item.id))];
+  return mergedItems.map((item) => {
+    const fallback = byId.get(item.id);
+    const merged = { ...fallback, ...item };
+    const rewardCoins = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardCoins ?? fallback?.rewardCoins) || 0)));
+    const rewardGems = Math.max(0, Math.min(1e6, Math.floor(Number(item.rewardGems ?? fallback?.rewardGems) || 0)));
+    return {
+      ...merged,
+      rewardCoins,
+      rewardGems,
+      ..."rewardSp" in merged ? { rewardSp: Math.max(0, Math.min(1e4, Math.floor(Number(merged.rewardSp) || 0))) } : {}
+    };
+  });
+}
+function req(type, goal, extra = {}) {
+  return { type, goal, ...extra };
+}
+var MISSION_SEEDS = [
+  { id: "daily_lemons", type: "daily", title: "Citrus Squeeze", desc: "Slice 30 lemons or strawberries", icon: "Citrus", enabled: true, requirement: req("slice_citrus_or_berry", 30), rewardCoins: 80, rewardSp: 0 },
+  { id: "daily_combos", type: "daily", title: "Combo Fiend", desc: "Perform 4 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 4, { minValue: 3 }), rewardCoins: 120, rewardSp: 0 },
+  { id: "daily_wave", type: "daily", title: "Wave Survivor", desc: "Survive to wave 5 in any run", icon: "Waves", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
+  { id: "weekly_fruits", type: "weekly", title: "Fruit Apocalypse", desc: "Slice 250 total fruits this week", icon: "Swords", enabled: true, requirement: req("slice_any", 250), rewardCoins: 350, rewardSp: 1 },
+  { id: "monthly_ranked_climb", type: "monthly", title: "Monthly Climb", desc: "Score 4,000 in Ranked this month to reach Gold", icon: "Trophy", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardSp: 1, rewardGems: 10, rewardBadge: "gold-slicer" },
+  { id: "monthly_silver_climb", type: "monthly", title: "Silver Season", desc: "Score 1,500 in Ranked this month to reach Silver", icon: "Medal", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardSp: 0, rewardGems: 5, rewardBadge: "silver-slicer" },
+  { id: "monthly_diamond_climb", type: "monthly", title: "Diamond Season", desc: "Score 15,000 in Ranked this month to reach Diamond", icon: "Diamond", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" },
+  { id: "daily_apples", type: "daily", title: "Apple Purge", desc: "Slice 25 apples", icon: "Apple", enabled: true, requirement: req("slice_any", 25, { fruitKind: "apple" }), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_watermelons", type: "daily", title: "Crack the Rind", desc: "Slice 12 watermelons", icon: "CircleDot", enabled: true, requirement: req("slice_watermelon", 12), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_oranges", type: "daily", title: "Orange Alert", desc: "Slice 25 oranges", icon: "Citrus", enabled: true, requirement: req("slice_orange", 25), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_bananas", type: "daily", title: "Peel Patrol", desc: "Slice 25 bananas", icon: "Banana", enabled: true, requirement: req("slice_banana", 25), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_kiwis", type: "daily", title: "Kiwi Sweep", desc: "Slice 25 kiwis", icon: "Circle", enabled: true, requirement: req("slice_kiwi", 25), rewardCoins: 75, rewardSp: 0 },
+  { id: "daily_pineapples", type: "daily", title: "Crown Breaker", desc: "Slice 18 pineapples", icon: "Crown", enabled: true, requirement: req("slice_pineapple", 18), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_bombs", type: "daily", title: "Bomb Disposal", desc: "Parry 6 explosive fruits", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 6), rewardCoins: 130, rewardSp: 0 },
+  { id: "daily_juice", type: "daily", title: "Fresh Supply", desc: "Collect 120 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 120), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_damage", type: "daily", title: "Clean Cuts", desc: "Deal 1,500 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 1500), rewardCoins: 110, rewardSp: 0 },
+  { id: "daily_perfect", type: "daily", title: "Untouched Wall", desc: "Clear 2 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 2), rewardCoins: 130, rewardSp: 0 },
+  { id: "daily_super", type: "daily", title: "Vitamin Overdrive", desc: "Activate Super Juice twice", icon: "Sparkles", enabled: true, requirement: req("super_activate", 2), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_build", type: "daily", title: "Wall Engineer", desc: "Place 3 turrets", icon: "Hammer", enabled: true, requirement: req("turret_place", 3), rewardCoins: 90, rewardSp: 0 },
+  { id: "daily_upgrade", type: "daily", title: "Sharpen Defences", desc: "Upgrade 2 turrets", icon: "ArrowUpCircle", enabled: true, requirement: req("turret_upgrade", 2), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_move", type: "daily", title: "Tactical Shift", desc: "Move a turret once", icon: "Move", enabled: true, requirement: req("turret_move", 1), rewardCoins: 70, rewardSp: 0 },
+  { id: "daily_reslice", type: "daily", title: "Second Cut", desc: "Re-slice 12 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 12), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_score", type: "daily", title: "Score Run", desc: "Earn 2,000 score", icon: "Gauge", enabled: true, requirement: req("earn_score", 2e3), rewardCoins: 120, rewardSp: 0 },
+  { id: "daily_jiju", type: "daily", title: "Master on Duty", desc: "Start a run as Master Jiju", icon: "UserRound", enabled: true, requirement: req("play_jiju", 1), rewardCoins: 60, rewardSp: 0 },
+  { id: "daily_ranked", type: "daily", title: "Ranked Deployment", desc: "Finish a Ranked match", icon: "Medal", enabled: true, requirement: req("play_ranked_games", 1), rewardCoins: 140, rewardSp: 0, rewardGems: 1 },
+  { id: "weekly_fruit_raid", type: "weekly", title: "Orchard Raid", desc: "Slice 750 fruits", icon: "Swords", enabled: true, requirement: req("slice_any", 750), rewardCoins: 700, rewardSp: 1 },
+  { id: "weekly_melons", type: "weekly", title: "Melon Siege", desc: "Slice 80 watermelons", icon: "CircleDot", enabled: true, requirement: req("slice_watermelon", 80), rewardCoins: 500, rewardSp: 1 },
+  { id: "weekly_citrus", type: "weekly", title: "Citrus Storm", desc: "Slice 180 citrus fruits", icon: "Citrus", enabled: true, requirement: req("slice_citrus", 180), rewardCoins: 500, rewardSp: 1 },
+  { id: "weekly_berries", type: "weekly", title: "Berry Cleanup", desc: "Slice 150 berry fruits", icon: "Cherry", enabled: true, requirement: req("slice_berry", 150), rewardCoins: 500, rewardSp: 1 },
+  { id: "weekly_waves", type: "weekly", title: "Long Watch", desc: "Clear 30 waves", icon: "Waves", enabled: true, requirement: req("waves_cleared", 30), rewardCoins: 650, rewardSp: 1 },
+  { id: "weekly_perfect", type: "weekly", title: "Perfect Defence", desc: "Clear 12 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 12), rewardCoins: 700, rewardSp: 1, rewardGems: 3 },
+  { id: "weekly_combos", type: "weekly", title: "Chain Reaction", desc: "Land 30 combos of 5x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 30, { minValue: 5 }), rewardCoins: 650, rewardSp: 1 },
+  { id: "weekly_bosses", type: "weekly", title: "Overlord Hunter", desc: "Defeat 5 bosses", icon: "Skull", enabled: true, requirement: req("slice_boss", 5), rewardCoins: 800, rewardSp: 1, rewardGems: 5 },
+  { id: "weekly_guillotines", type: "weekly", title: "Falling Blades", desc: "Place 8 Guillotines", icon: "Scissors", enabled: true, requirement: req("place_guillotine", 8), rewardCoins: 450, rewardSp: 1 },
+  { id: "weekly_vortex", type: "weekly", title: "Drain the Horde", desc: "Place 8 Vortex Drains", icon: "Tornado", enabled: true, requirement: req("place_vortex", 8), rewardCoins: 450, rewardSp: 1 },
+  { id: "weekly_lasers", type: "weekly", title: "Lemon Lightshow", desc: "Place 8 Lemon Lasers", icon: "ScanLine", enabled: true, requirement: req("place_laser", 8), rewardCoins: 450, rewardSp: 1 },
+  { id: "weekly_upgrades", type: "weekly", title: "Fortified", desc: "Upgrade turrets 15 times", icon: "ChevronsUp", enabled: true, requirement: req("turret_upgrade", 15), rewardCoins: 550, rewardSp: 1 },
+  { id: "weekly_games", type: "weekly", title: "Active Defender", desc: "Finish 10 matches", icon: "Gamepad2", enabled: true, requirement: req("play_games", 10), rewardCoins: 600, rewardSp: 1 },
+  { id: "weekly_ranked", type: "weekly", title: "Ladder Duty", desc: "Finish 5 Ranked matches", icon: "Trophy", enabled: true, requirement: req("play_ranked_games", 5), rewardCoins: 700, rewardSp: 1, rewardGems: 5 },
+  { id: "weekly_horde", type: "weekly", title: "Horde Holdout", desc: "Clear 20 Horde waves", icon: "UsersRound", enabled: true, requirement: req("waves_cleared", 20, { mode: "horde" }), rewardCoins: 750, rewardSp: 1, rewardGems: 4 },
+  { id: "weekly_campaign", type: "weekly", title: "Road Through Rot", desc: "Clear 20 Campaign waves", icon: "Map", enabled: true, requirement: req("waves_cleared", 20, { mode: "campaign" }), rewardCoins: 750, rewardSp: 1, rewardGems: 4 },
+  { id: "weekly_damage", type: "weekly", title: "Blade Work", desc: "Deal 30,000 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 3e4), rewardCoins: 650, rewardSp: 1 },
+  { id: "weekly_juice", type: "weekly", title: "Full Reservoir", desc: "Collect 2,000 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 2e3), rewardCoins: 550, rewardSp: 1 },
+  { id: "weekly_reslice", type: "weekly", title: "No Pulp Wasted", desc: "Re-slice 100 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 100), rewardCoins: 600, rewardSp: 1 },
+  { id: "monthly_master", type: "monthly", title: "Master Season", desc: "Reach Master rank", icon: "Crown", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 2e3, rewardSp: 3, rewardGems: 60 },
+  { id: "monthly_grandmaster", type: "monthly", title: "Grandmaster Season", desc: "Reach Grandmaster rank", icon: "Flame", enabled: true, requirement: req("reach_grandmaster", 4e4), rewardCoins: 4e3, rewardSp: 5, rewardGems: 100 },
+  { id: "monthly_games_25", type: "monthly", title: "Season Regular", desc: "Finish 25 Ranked matches", icon: "CalendarCheck", enabled: true, requirement: req("monthly_games", 25), rewardCoins: 1200, rewardSp: 2, rewardGems: 15 },
+  { id: "monthly_games_75", type: "monthly", title: "Season Veteran", desc: "Finish 75 Ranked matches", icon: "BadgeCheck", enabled: true, requirement: req("monthly_games", 75), rewardCoins: 2500, rewardSp: 4, rewardGems: 40 },
+  { id: "monthly_score_50000", type: "monthly", title: "Score Vanguard", desc: "Earn a 50,000 Ranked score", icon: "Gauge", enabled: true, requirement: req("monthly_score", 5e4), rewardCoins: 3e3, rewardSp: 4, rewardGems: 60 },
+  { id: "monthly_waves", type: "monthly", title: "Unbroken Line", desc: "Clear 200 Ranked waves", icon: "Shield", enabled: true, requirement: req("wave_ranked", 200), rewardCoins: 3e3, rewardSp: 4, rewardGems: 50 }
+];
+var DEFAULT_MISSIONS = [
+  ...MISSION_SEEDS.map((mission) => ({ ...mission, type: "main" })),
+  { id: "daily_slice", type: "daily", title: "Fresh Cut", desc: "Slice 20 fruits", icon: "Slice", enabled: true, requirement: req("slice_any", 20), rewardCoins: 80, rewardSp: 0 },
+  { id: "daily_combo", type: "daily", title: "Quick Combo", desc: "Land 3 combos of 3x or higher", icon: "Zap", enabled: true, requirement: req("combo_count", 3, { minValue: 3 }), rewardCoins: 100, rewardSp: 0 },
+  { id: "daily_hold", type: "daily", title: "Hold the Line", desc: "Reach wave 5", icon: "Shield", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 120, rewardSp: 0 },
+  { id: "daily_boss", type: "daily", title: "Overlord Patrol", desc: "Defeat 1 boss", icon: "Crown", enabled: true, requirement: req("slice_boss", 1), rewardCoins: 150, rewardSp: 0, rewardGems: 1 },
+  { id: "daily_bomb", type: "daily", title: "Bomb Squad", desc: "Parry 3 explosive fruits", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 3), rewardCoins: 120, rewardSp: 0 }
+];
+var DEFAULT_ACHIEVEMENTS = [
+  { id: "coop_first_team_run", title: "Together We Hold", desc: "Complete six waves with an online teammate", icon: "UsersRound", enabled: true, requirement: req("coop_team_run", 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: "coop-team-slicer" },
+  { id: "first_slice", title: "First Blood", desc: "Slice your very first fruit", icon: "Sword", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50, rewardSp: 0, rewardGems: 1, rewardBadge: "first-cut" },
+  { id: "combo_5", title: "Combo Artist", desc: "Execute a 5x or higher combo slice", icon: "Zap", enabled: true, requirement: req("combo_reach_5", 5), rewardCoins: 100, rewardSp: 0 },
+  { id: "combo_10", title: "Blade Master", desc: "Execute a massive 10x combo slice", icon: "Swords", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "combo-king" },
+  { id: "fruit_100", title: "Fruit Peeler", desc: "Slice 100 total fruits", icon: "Apple", enabled: true, requirement: req("slice_any", 100), rewardCoins: 150, rewardSp: 0 },
+  { id: "fruit_500", title: "Juice Tycoon", desc: "Slice 500 total fruits", icon: "Droplets", enabled: true, requirement: req("slice_any", 500), rewardCoins: 300, rewardSp: 1 },
+  { id: "fruit_1000", title: "Legendary Samurai", desc: "Slice 1,000 total fruits", icon: "Medal", enabled: true, requirement: req("slice_any", 1e3), rewardCoins: 600, rewardSp: 2 },
+  { id: "wave_5", title: "Hold The Line", desc: "Survive to wave 5", icon: "Shield", enabled: true, requirement: req("wave_reach", 5), rewardCoins: 100, rewardSp: 0 },
+  { id: "wave_10", title: "Citrus Citadel", desc: "Survive to wave 10", icon: "Castle", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 250, rewardSp: 1, rewardBadge: "wall-guard" },
+  { id: "super_juice", title: "Max Vitamin C", desc: "Activate Super Juice mode", icon: "Sparkles", enabled: true, requirement: req("super_activate", 1), rewardCoins: 100, rewardSp: 0 },
+  { id: "untouchable", title: "Pristine Wall", desc: "Clear a wave with 100% wall integrity", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 1), rewardCoins: 150, rewardSp: 0 },
+  { id: "turret_builder", title: "Fortress Architect", desc: "Place 3 turrets on your defensive wall", icon: "Hammer", enabled: true, requirement: req("turret_place", 3), rewardCoins: 150, rewardSp: 0 },
+  { id: "steam_connect", title: "Steam Cadet", desc: "Link your Steam profile to Fruit TD", icon: "Gamepad2", enabled: true, requirement: req("steam_link", 1), rewardCoins: 500, rewardSp: 1, rewardBadge: "steam-cadet" },
+  { id: "diamond_rank", title: "Diamond Slicer", desc: "Reach Diamond on the monthly ranked ladder", icon: "Diamond", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 800, rewardSp: 2, rewardGems: 25, rewardBadge: "diamond-slicer" },
+  { id: "combo_15", title: "Chain Commander", desc: "Reach a 15x combo", icon: "Link", enabled: true, requirement: req("combo_reach_15", 15), rewardCoins: 350, rewardSp: 1 },
+  { id: "combo_20", title: "Unbroken Edge", desc: "Reach a 20x combo", icon: "Infinity", enabled: true, requirement: req("combo_reach_20", 20), rewardCoins: 600, rewardSp: 2, rewardGems: 5, rewardBadge: "combo-legend" },
+  { id: "fruit_5000", title: "Orchard Reaper", desc: "Slice 5,000 total fruits", icon: "Skull", enabled: true, requirement: req("slice_any", 5e3), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "fruit-reaper" },
+  { id: "fruit_10000", title: "Extinction Event", desc: "Slice 10,000 total fruits", icon: "Flame", enabled: true, requirement: req("slice_any", 1e4), rewardCoins: 3e3, rewardSp: 5, rewardGems: 30 },
+  { id: "wave_25", title: "Iron Wall", desc: "Reach wave 25", icon: "ShieldCheck", enabled: true, requirement: req("wave_reach", 25), rewardCoins: 500, rewardSp: 1 },
+  { id: "wave_50", title: "Last Stronghold", desc: "Reach wave 50", icon: "Castle", enabled: true, requirement: req("wave_reach", 50), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
+  { id: "wave_100", title: "Century Hold", desc: "Reach wave 100", icon: "Landmark", enabled: true, requirement: req("wave_reach", 100), rewardCoins: 2500, rewardSp: 4, rewardGems: 30 },
+  { id: "boss_10", title: "Boss Breaker", desc: "Defeat 10 bosses", icon: "Skull", enabled: true, requirement: req("slice_boss", 10), rewardCoins: 700, rewardSp: 1, rewardBadge: "boss-breaker" },
+  { id: "boss_50", title: "Overlord Bane", desc: "Defeat 50 bosses", icon: "Crown", enabled: true, requirement: req("slice_boss", 50), rewardCoins: 2e3, rewardSp: 3, rewardGems: 25 },
+  { id: "bomb_50", title: "Blast Proof", desc: "Parry 50 bombs", icon: "Bomb", enabled: true, requirement: req("bomb_parry", 50), rewardCoins: 600, rewardSp: 1, rewardBadge: "bomb-tech" },
+  { id: "reslice_250", title: "Pulp Specialist", desc: "Re-slice 250 fruit halves", icon: "Slice", enabled: true, requirement: req("reslice_halves", 250), rewardCoins: 700, rewardSp: 1 },
+  { id: "damage_100k", title: "Six Figures of Pain", desc: "Deal 100,000 slash damage", icon: "Sword", enabled: true, requirement: req("slash_damage", 1e5), rewardCoins: 1e3, rewardSp: 2 },
+  { id: "juice_5000", title: "Reservoir Master", desc: "Collect 5,000 juice", icon: "Droplets", enabled: true, requirement: req("juice_collect", 5e3), rewardCoins: 800, rewardSp: 2 },
+  { id: "super_25", title: "Overcharged", desc: "Activate Super Juice 25 times", icon: "Sparkles", enabled: true, requirement: req("super_activate", 25), rewardCoins: 750, rewardSp: 2 },
+  { id: "perfect_25", title: "Flawless Defender", desc: "Clear 25 perfect waves", icon: "ShieldCheck", enabled: true, requirement: req("perfect_wave", 25), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10, rewardBadge: "perfect-guard" },
+  { id: "turrets_50", title: "Defence Network", desc: "Place 50 turrets", icon: "TowerControl", enabled: true, requirement: req("turret_place", 50), rewardCoins: 750, rewardSp: 2 },
+  { id: "upgrades_50", title: "Maximum Output", desc: "Upgrade turrets 50 times", icon: "ChevronsUp", enabled: true, requirement: req("turret_upgrade", 50), rewardCoins: 900, rewardSp: 2 },
+  { id: "sales_10", title: "Field Quartermaster", desc: "Sell 10 turrets", icon: "Coins", enabled: true, requirement: req("turret_sell", 10), rewardCoins: 400, rewardSp: 1 },
+  { id: "moves_25", title: "Mobile Defence", desc: "Move turrets 25 times", icon: "Move", enabled: true, requirement: req("turret_move", 25), rewardCoins: 500, rewardSp: 1 },
+  { id: "games_10", title: "Standing Orders", desc: "Finish 10 matches", icon: "Gamepad2", enabled: true, requirement: req("play_games", 10), rewardCoins: 400, rewardSp: 1 },
+  { id: "games_50", title: "Career Defender", desc: "Finish 50 matches", icon: "CalendarCheck", enabled: true, requirement: req("play_games", 50), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
+  { id: "games_200", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", enabled: true, requirement: req("play_games", 200), rewardCoins: 3e3, rewardSp: 5, rewardGems: 40, rewardBadge: "veteran" },
+  { id: "casual_25", title: "Casual Specialist", desc: "Finish 25 Casual matches", icon: "Leaf", enabled: true, requirement: req("play_casual_games", 25), rewardCoins: 700, rewardSp: 1 },
+  { id: "ranked_25", title: "Ranked Regular", desc: "Finish 25 Ranked matches", icon: "Trophy", enabled: true, requirement: req("play_ranked_games", 25), rewardCoins: 1e3, rewardSp: 2, rewardGems: 10 },
+  { id: "arena_25", title: "Arena Contender", desc: "Finish 25 Arena matches", icon: "Swords", enabled: true, requirement: req("play_arena_games", 25), rewardCoins: 900, rewardSp: 2 },
+  { id: "coop_25", title: "Reliable Partner", desc: "Finish 25 Co-op matches", icon: "UsersRound", enabled: true, requirement: req("play_coop_games", 25), rewardCoins: 900, rewardSp: 2 },
+  { id: "topfu_10", title: "Topfu Disciple", desc: "Start 10 runs as Topfu", icon: "UserRound", enabled: true, requirement: req("play_topfu", 10), rewardCoins: 500, rewardSp: 1 },
+  { id: "lagen_10", title: "Lagen Disciple", desc: "Start 10 runs as Lagen", icon: "UserRound", enabled: true, requirement: req("play_lagen", 10), rewardCoins: 500, rewardSp: 1 },
+  { id: "tripos_10", title: "Triple Path", desc: "Start 10 runs as Tripos", icon: "GitBranch", enabled: true, requirement: req("play_tripos", 10), rewardCoins: 600, rewardSp: 1 },
+  { id: "ki_10", title: "Spirit Path", desc: "Start 10 runs as Master Ki", icon: "Sparkles", enabled: true, requirement: req("play_ki", 10), rewardCoins: 600, rewardSp: 1 },
+  { id: "skills_10", title: "Trained Operative", desc: "Buy 10 skill ranks", icon: "BrainCircuit", enabled: true, requirement: req("buy_skill", 10), rewardCoins: 600, rewardSp: 2 },
+  { id: "skins_10", title: "Blade Collector", desc: "Buy 10 shop items", icon: "ShoppingBag", enabled: true, requirement: req("buy_skin", 10), rewardCoins: 700, rewardSp: 2, rewardBadge: "collector" },
+  { id: "daily_7", title: "One Week Strong", desc: "Claim 7 daily bonuses", icon: "CalendarCheck", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 500, rewardSp: 1, rewardGems: 5 },
+  { id: "daily_30", title: "Monthly Survivor", desc: "Claim 30 daily bonuses", icon: "CalendarDays", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 1500, rewardSp: 3, rewardGems: 25, rewardBadge: "daily-veteran" },
+  { id: "score_10000", title: "Five Digit Run", desc: "Reach 10,000 score in a run", icon: "Gauge", enabled: true, requirement: req("score_reach", 1e4), rewardCoins: 700, rewardSp: 1 },
+  { id: "score_50000", title: "Score Titan", desc: "Reach 50,000 score in a run", icon: "ChartNoAxesCombined", enabled: true, requirement: req("score_reach", 5e4), rewardCoins: 2e3, rewardSp: 3, rewardGems: 20 },
+  { id: "horde_wave_50", title: "Horde Holdout", desc: "Reach wave 50 in Horde", icon: "UsersRound", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "horde-veteran" },
+  { id: "pvp_first_win", title: "First Siege", desc: "Win your first server-verified PvP siege", icon: "Swords", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: "pvp-first-win" },
+  { id: "pvp_ten_wins", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardSp: 0, rewardGems: 10, rewardBadge: "pvp-wallbreaker" },
+  { id: "pvp_combo_50", title: "Fruit Storm", desc: "Reach a 50-slice combo in a PvP siege", icon: "Zap", enabled: true, requirement: req("pvp_combo", 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
+  { id: "pvp_multislice_5", title: "Five-Fruit Cut", desc: "Slice five fruit-zombies with one server-verified cut", icon: "Sword", enabled: true, requirement: req("pvp_multislice", 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 }
+];
+var DEFAULT_BADGES = [
+  { id: "coop-team-slicer", title: "Team Slicer", desc: "Complete six waves in server-verified online Co-op", icon: "UsersRound", rarity: "rare", enabled: true, requirement: req("coop_team_run", 1), rewardCoins: 100, rewardGems: 2 },
+  { id: "first-cut", title: "First Cut", desc: "Awarded for your first slice", icon: "Sword", rarity: "common", enabled: true, requirement: req("slice_any", 1), rewardCoins: 50 },
+  { id: "combo-king", title: "Combo King", desc: "Awarded for a 10x combo", icon: "Zap", rarity: "rare", enabled: true, requirement: req("combo_reach_10", 10), rewardCoins: 150, rewardGems: 2 },
+  { id: "wall-guard", title: "Wall Guard", desc: "Hold the wall to wave 10", icon: "Shield", rarity: "rare", enabled: true, requirement: req("wave_reach", 10), rewardCoins: 100, rewardGems: 2 },
+  { id: "steam-cadet", title: "Steam Cadet", desc: "Linked Steam account", icon: "Gamepad2", rarity: "common", enabled: true, requirement: req("steam_link", 1), rewardCoins: 100 },
+  { id: "bronze-slicer", title: "Bronze Slicer", desc: "Finish a Ranked match this month", icon: "Shield", rarity: "common", enabled: true, requirement: req("monthly_games", 1), rewardCoins: 100 },
+  { id: "silver-slicer", title: "Silver Slicer", desc: "Monthly Silver rank", icon: "Medal", rarity: "rare", enabled: true, requirement: req("reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: "gold-slicer", title: "Gold Slicer", desc: "Monthly Gold rank", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("reach_gold", 4e3), rewardCoins: 500, rewardGems: 10 },
+  { id: "diamond-slicer", title: "Diamond Slicer", desc: "Monthly Diamond rank", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("reach_diamond", 15e3), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "daily-regular", title: "Daily Regular", desc: "Claim 7 daily bonuses", icon: "CalendarCheck", rarity: "rare", enabled: true, requirement: req("claim_daily", 7), rewardCoins: 250, rewardGems: 5 },
+  { id: "combo-legend", title: "Combo Legend", desc: "Reach a 20x combo", icon: "Infinity", rarity: "epic", enabled: true, requirement: req("combo_reach_20", 20), rewardCoins: 400, rewardGems: 8 },
+  { id: "fruit-reaper", title: "Fruit Reaper", desc: "Slice 5,000 fruits", icon: "Skull", rarity: "epic", enabled: true, requirement: req("slice_any", 5e3), rewardCoins: 600, rewardGems: 10 },
+  { id: "boss-breaker", title: "Boss Breaker", desc: "Defeat 10 bosses", icon: "Crown", rarity: "epic", enabled: true, requirement: req("slice_boss", 10), rewardCoins: 500, rewardGems: 10 },
+  { id: "bomb-tech", title: "Bomb Technician", desc: "Parry 50 bombs", icon: "Bomb", rarity: "rare", enabled: true, requirement: req("bomb_parry", 50), rewardCoins: 350, rewardGems: 5 },
+  { id: "perfect-guard", title: "Perfect Guard", desc: "Clear 25 perfect waves", icon: "ShieldCheck", rarity: "epic", enabled: true, requirement: req("perfect_wave", 25), rewardCoins: 500, rewardGems: 10 },
+  { id: "collector", title: "Arsenal Collector", desc: "Buy 10 shop items", icon: "ShoppingBag", rarity: "rare", enabled: true, requirement: req("buy_skin", 10), rewardCoins: 400, rewardGems: 5 },
+  { id: "daily-veteran", title: "Daily Veteran", desc: "Claim 30 daily bonuses", icon: "CalendarDays", rarity: "epic", enabled: true, requirement: req("claim_daily", 30), rewardCoins: 600, rewardGems: 15 },
+  { id: "master-slicer", title: "Master Slicer", desc: "Reach Master rank", icon: "Crown", rarity: "legendary", enabled: true, requirement: req("reach_master", 25e3), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "horde-veteran", title: "Horde Veteran", desc: "Clear 50 Horde waves", icon: "UsersRound", rarity: "legendary", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "campaign-pathfinder", title: "Campaign Pathfinder", desc: "Clear 100 Campaign waves", icon: "Map", rarity: "epic", enabled: true, requirement: req("waves_cleared", 100, { mode: "campaign" }), rewardCoins: 750, rewardGems: 15 },
+  { id: "veteran", title: "Orchard Veteran", desc: "Finish 200 matches", icon: "BadgeCheck", rarity: "legendary", enabled: true, requirement: req("play_games", 200), rewardCoins: 1e3, rewardGems: 25 },
+  { id: "pvp-first-win", title: "Siege Victor", desc: "Win a server-verified PvP siege", icon: "Swords", rarity: "common", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardGems: 2 },
+  { id: "pvp-wallbreaker", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", rarity: "rare", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardGems: 10 },
+  { id: "fr-silver", title: "Silver Defender", desc: "Reach Silver on the FR ladder", icon: "Medal", rarity: "rare", enabled: true, requirement: req("pvp_reach_silver", 1500), rewardCoins: 250, rewardGems: 5 },
+  { id: "fr-gold", title: "Gold Defender", desc: "Reach Gold on the FR ladder", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("pvp_reach_gold", 2e3), rewardCoins: 500, rewardGems: 10 },
+  { id: "fr-diamond", title: "Diamond Defender", desc: "Reach Diamond on the FR ladder", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("pvp_reach_diamond", 2500), rewardCoins: 900, rewardGems: 20 },
+  { id: "fr-emerald", title: "Emerald Defender", desc: "Reach Emerald on the FR ladder", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("reach_emerald", 2750), rewardCoins: 1400, rewardGems: 35 },
+  { id: "fr-sapphire", title: "Sapphire Defender", desc: "Reach Sapphire on the FR ladder", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("reach_sapphire", 3e3), rewardCoins: 2200, rewardGems: 60 },
+  { id: "pvp-bronze", title: "Bronze Season", desc: "Finish a season in Bronze", icon: "Shield", rarity: "common", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 100 },
+  { id: "pvp-silver", title: "Silver Season", desc: "Finish a season in Silver", icon: "Medal", rarity: "rare", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 250, rewardGems: 5 },
+  { id: "pvp-gold", title: "Gold Season", desc: "Finish a season in Gold", icon: "Trophy", rarity: "epic", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 500, rewardGems: 10 },
+  { id: "pvp-diamond", title: "Diamond Season", desc: "Finish a season in Diamond", icon: "Diamond", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 900, rewardGems: 20 },
+  { id: "pvp-emerald", title: "Emerald Season", desc: "Finish a season in Emerald", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 1400, rewardGems: 35 },
+  { id: "pvp-sapphire", title: "Sapphire Season", desc: "Finish a season in Sapphire", icon: "Gem", rarity: "legendary", enabled: true, requirement: req("pvp_season", 1), rewardCoins: 2200, rewardGems: 60 }
+];
+
+// src/game/slicers.ts
+var DEFAULT_SLICERS = [
+  {
+    id: "blade-default",
+    name: "Steel Blade",
+    blurb: "Reliable starter edge.",
+    enabled: true,
+    cost: 0,
+    sellValue: 0,
+    rarity: "common",
+    color: "#1d4ed8",
+    glowColor: "#38bdf8",
+    fxStyle: "solid",
+    trailWidth: 1,
+    glow: 0.35,
+    glint: 0.2,
+    damageMul: 1,
+    juiceMul: 1,
+    brittleBonus: 0
+  },
+  {
+    id: "blade-gold",
+    name: "Gold Blade",
+    blurb: "Bright trail, richer juice.",
+    enabled: true,
+    cost: 180,
+    sellValue: 60,
+    rarity: "rare",
+    color: "#f4c430",
+    glowColor: "#fde68a",
+    fxStyle: "spark",
+    trailWidth: 1.25,
+    glow: 0.55,
+    glint: 0.55,
+    damageMul: 1.08,
+    juiceMul: 1.15,
+    brittleBonus: 0
+  },
+  {
+    id: "blade-ink",
+    name: "Ink Blade",
+    blurb: "Dark slash with heavy hits.",
+    enabled: true,
+    cost: 240,
+    sellValue: 80,
+    rarity: "epic",
+    color: "#111827",
+    glowColor: "#a78bfa",
+    fxStyle: "plasma",
+    trailWidth: 1.4,
+    glow: 0.65,
+    glint: 0.4,
+    damageMul: 1.16,
+    juiceMul: 1,
+    brittleBonus: 0.4
+  },
+  {
+    id: "blade-cherry",
+    name: "Cherry Blade",
+    blurb: "Pink glints and brittle fruit.",
+    enabled: true,
+    cost: 320,
+    sellValue: 110,
+    rarity: "legendary",
+    color: "#f472b6",
+    glowColor: "#fecdd3",
+    fxStyle: "ember",
+    trailWidth: 1.55,
+    glow: 0.7,
+    glint: 0.75,
+    damageMul: 1.12,
+    juiceMul: 1.2,
+    brittleBonus: 0.8
+  }
+];
+
+// src/game/campaignStory.ts
+var DEFAULT_CAMPAIGN_STORIES = [
+  { chapter: 1, title: "The First Signal", text: "When the first Rot King falls, the wall radios crackle with a signal that sounds almost like a heartbeat. It is travelling through the orchard roots, and every infected fruit turns toward it. Your crew marks the source and heads beyond the safe lanes." },
+  { chapter: 2, title: "Beneath the Rind", text: "A broken irrigation pipe runs under the farms, carrying glowing juice instead of water. The scouts follow it until their lamps reveal fresh tool marks in the soil. Someone kept the system running after the outbreak began." },
+  { chapter: 3, title: "Broken Harvest", text: "The growers burn their stores to starve the horde, but the fruit marches straight through the smoke. At dawn you find a crate stamped with the town seal among the ashes. The infection reached the harvest before anyone raised the alarm." },
+  { chapter: 4, title: "The Greenhouse", text: "The sealed greenhouse opens from the inside. Rows of fruit hang beneath artificial light, each one wired to the same pulse beneath the ground. A handwritten log ends with one warning: do not let the Crown Seed wake." },
+  { chapter: 5, title: "Night Watch", text: "The wall survives its longest night. Beyond the watchfires, whole trees lean together whenever the pulse sounds. The crew sees the orchard for what it is now: a single creature learning to move." },
+  { chapter: 6, title: "The Lost Convoy", text: "A supply convoy vanishes on the river road. You recover its radio and hear a final message beneath the static: the water is carrying seeds. With the gate running low on parts, your crew follows the convoy tracks into the marsh." },
+  { chapter: 7, title: "River of Pulp", text: "The river glows bright with infected juice. Every splash plants a new enemy on the bank, and the old filters cannot stop it. The only clean route lies upstream, toward the machine that feeds the roots." },
+  { chapter: 8, title: "The Orchard Crown", text: "Inside a wrecked pump station lies a crown-shaped seed bearing the growers\u2019 seal. It answers the underground pulse with one of its own. The greenhouse logs name it a control key, but nobody knows who still holds the lock." },
+  { chapter: 9, title: "Roots in Stone", text: "The blight crosses the stone road and climbs through the city foundations. Your crew cuts it away room by room while families retreat to the last gate. A map scratched into the root points to the seed vault below the orchard." },
+  { chapter: 10, title: "The City Gate", text: "The evacuation begins under a red sky. Your tower holds long enough for the final transport to escape, but the root network wraps around the gate behind them. The city is lost; the people are not." },
+  { chapter: 11, title: "The Seed Vault", text: "The vault records reveal an experiment built to grow food through any drought. Its Crown Seed linked every crop to one underground heart. The first test succeeded. Then the heart learned to keep growing without its makers." },
+  { chapter: 12, title: "A Second Bloom", text: "The orchard changes its tactics. Rind plates harden around the fallen, runners slip past the old firing lines, and seed pods burst into fresh attackers. Each victory gives the heart another lesson, so your crew begins changing the defense between waves." },
+  { chapter: 13, title: "The Silent Farm", text: "No scouts return from the silent farm. Their distress beacon repeats from an empty house, drawing the crew beneath a floor webbed with roots. You find the missing scouts alive, trapped beside a tunnel leading toward the old engine." },
+  { chapter: 14, title: "The Old Engine", text: "The pumping engine drives infected juice into every root. Your turrets keep the lane clear while the crew tears out its gears. The pulse stops for one breath, then returns from deeper underground. The engine was only one of its hands." },
+  { chapter: 15, title: "The Black Canopy", text: "Branches close over the road until daylight disappears. The wall\u2019s lamps become a trail through the dark, and the horde attacks every light it sees. At the canopy\u2019s center, you find a clean patch of soil guarded by the heaviest fruit yet." },
+  { chapter: 16, title: "Last Harvest", text: "The surviving growers join the defense. Their oldest maps show a service path straight to the heartwood, but the path crosses every active root. They bring the last uninfected seeds with them, refusing to leave the land to rot." },
+  { chapter: 17, title: "The Heartwood", text: "All the roots meet at a trunk that beats like a machine. The Crown Seed fits a socket at its base and opens the way forward. For the first time, the pulse becomes words: grow, defend, repeat. The heart believes it is saving the orchard." },
+  { chapter: 18, title: "The Final Gate", text: "The heart raises a living gate around its core. Each fallen guardian becomes another wave, and the crew must hold the line while the growers break the seal. When it opens, the pulse surges through every lane at once." },
+  { chapter: 19, title: "Before Dawn", text: "The last defense is built from repaired steel, salvaged blades, and every seed the growers carried. Nobody promises an easy victory. As the sky begins to pale, your crew steps into the core and gives the wall one final order: hold." },
+  { chapter: 20, title: "A New Season", text: "The final overlord falls and the pulse goes quiet. The roots loosen their grip on the wall, leaving a scar across the orchard but no command to follow. In the clean soil beside the gate, the growers plant their first seed. This time, they let it grow on its own." }
+];
+
+// src/game/pvp.ts
+function route(waypoints) {
+  const cells = [];
+  for (let i = 0; i < waypoints.length; i++) {
+    const [x, y] = waypoints[i];
+    const [nextX, nextY] = waypoints[i + 1] ?? [x, y];
+    if (!cells.length) cells.push(y * 10 + x);
+    if (nextY !== y) {
+      const step = Math.sign(nextY - y);
+      for (let row = y + step; row !== nextY + step; row += step) cells.push(row * 10 + x);
+    } else if (nextX !== x) {
+      const step = Math.sign(nextX - x);
+      for (let column = x + step; column !== nextX + step; column += step) cells.push(y * 10 + column);
+    }
+  }
+  return cells;
+}
+function makeMap(id, name, waypoints) {
+  const width = 10;
+  const height = 14;
+  const pathCells = route(waypoints);
+  return { id, name, width, height, pathCells, buildCells: Array.from({ length: width * height }, (_, i) => i).filter((cell) => !pathCells.includes(cell)) };
+}
+var DEFAULT_PVP_CONFIG = {
+  version: 1,
+  map: makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
+  maps: [
+    makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
+    makeMap("windfall", "Windfall Run", [[1, 0], [1, 3], [8, 3], [8, 6], [2, 6], [2, 9], [7, 9], [7, 13]]),
+    makeMap("old-grove", "Old Grove", [[8, 0], [8, 2], [2, 2], [2, 5], [7, 5], [7, 8], [1, 8], [1, 11], [6, 11], [6, 13]]),
+    makeMap("riverbend", "Riverbend", [[5, 0], [5, 4], [1, 4], [1, 7], [8, 7], [8, 10], [3, 10], [3, 13]]),
+    makeMap("twin-rows", "Twin Rows", [[0, 0], [0, 3], [6, 3], [6, 5], [2, 5], [2, 8], [9, 8], [9, 11], [4, 11], [4, 13]]),
+    makeMap("stone-arch", "Stone Arch", [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
+    makeMap("long-harvest", "Long Harvest", [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]])
+  ],
+  durationSeconds: 180,
+  wallHealth: 1e3,
+  startingFruts: 180,
+  incomePerSecond: 6,
+  reconnectGraceSeconds: 45,
+  mainTower: { damage: 18, range: 2, cooldownMs: 1e3 },
+  towers: {
+    guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
+    vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
+    laser: { cost: 180, damage: 62, range: 6, cooldownMs: 1600 },
+    railgun: { cost: 220, damage: 110, range: 8, cooldownMs: 2600 },
+    sprinkler: { cost: 150, damage: 12, range: 3, cooldownMs: 350 },
+    blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 }
+  },
+  attacks: {
+    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
+    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
+    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
+    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
+  },
+  rating: {
+    start: 1e3,
+    win: 50,
+    tie: 20,
+    loss: -50,
+    bonusCap: 20,
+    combo: [{ at: 5, points: 1 }, { at: 10, points: 2 }, { at: 20, points: 3 }, { at: 35, points: 4 }, { at: 50, points: 5 }],
+    multiKill3: 2,
+    multiKill5: 3,
+    seasonResetPercent: 25,
+    tiers: [{ name: "Amateur", min: 0 }, { name: "Bronze", min: 500 }, { name: "Silver", min: 1500 }, { name: "Gold", min: 2e3 }, { name: "Diamond", min: 2500 }, { name: "Emerald", min: 2750 }, { name: "Sapphire", min: 3e3 }]
+  },
+  seasonRewards: [
+    { tier: "Bronze", coins: 100, gems: 0, badgeId: "pvp-bronze" },
+    { tier: "Silver", coins: 250, gems: 5, badgeId: "pvp-silver" },
+    { tier: "Gold", coins: 500, gems: 10, badgeId: "pvp-gold" },
+    { tier: "Diamond", coins: 900, gems: 20, badgeId: "pvp-diamond" },
+    { tier: "Emerald", coins: 1400, gems: 35, badgeId: "pvp-emerald" },
+    { tier: "Sapphire", coins: 2200, gems: 60, badgeId: "pvp-sapphire" }
+  ]
+};
+function normalizePvpMaps(input) {
+  if (!Array.isArray(input) || input.length !== 7) return structuredClone(DEFAULT_PVP_CONFIG.maps);
+  return input.map((raw, index) => {
+    const fallback = DEFAULT_PVP_CONFIG.maps[index];
+    if (!raw || typeof raw !== "object") return structuredClone(fallback);
+    const row = raw;
+    const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
+    const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
+    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
+    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - path[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1] / width)) === 1)) && Math.floor(path[0] / width) === 0 && Math.floor(path.at(-1) / width) === height - 1;
+    if (!valid) return structuredClone(fallback);
+    return { id: String(row.id || fallback.id).slice(0, 48), name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: Array.from({ length: width * height }, (_, cell) => cell).filter((cell) => !path.includes(cell)) };
+  });
+}
+function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
+  return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
+}
+function resetSeasonRating(points, config = DEFAULT_PVP_CONFIG) {
+  const retain = 1 - config.rating.seasonResetPercent / 100;
+  return Math.max(0, Math.round(config.rating.start + (points - config.rating.start) * retain));
+}
+function calculatePvpRating(points, outcome, comboMilestones, maxSingleSlashKills, config = DEFAULT_PVP_CONFIG) {
+  const base = config.rating[outcome];
+  const comboBonus = comboMilestones.reduce((sum, milestone) => sum + (config.rating.combo.find((tier) => tier.at === milestone)?.points ?? 0), 0);
+  const multiBonus = maxSingleSlashKills >= 5 ? config.rating.multiKill5 : maxSingleSlashKills >= 3 ? config.rating.multiKill3 : 0;
+  let performance = Math.min(config.rating.bonusCap, Math.max(0, comboBonus + multiBonus));
+  if (outcome === "loss") performance = Math.min(performance, Math.max(0, Math.abs(base) - 1));
+  const delta = base + performance;
+  const rating = Math.max(0, points + delta);
+  return { outcome, base, performance, delta: rating - points, rating, tier: pvpTier(rating, config) };
+}
+function fruitOnSlash(pathCell, width, from, to) {
+  const x = pathCell % width + 0.5;
+  const y = Math.floor(pathCell / width) + 0.5;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const t = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(x - (from.x + dx * t), y - (from.y + dy * t)) <= 0.46;
+}
+function createPvpPlayer(userId, name, side, config, now = Date.now()) {
+  return { userId, name: name.slice(0, 32), side, connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
+}
+function newPvpMatch(id, queue, players, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  const mapPool = structuredClone(config.maps);
+  players.forEach((player) => {
+    player.lastSeenAt = now;
+  });
+  return { id, queue, status: "draft", createdAt: now, endsAt: 0, players, winnerId: null, resultReason: null, revision: 0, mapPool, vetoTurn: players[Math.floor(Math.random() * 2)].userId, map: null, vetoHistory: [] };
+}
+function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "draft") throw new Error("Map veto is already complete");
+  const player = match.players.find((item) => item.userId === userId);
+  if (!player) throw new Error("Player is not in this match");
+  if (match.vetoTurn !== userId) throw new Error("Wait for the other player to veto a path");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed veto");
+  if (match.mapPool.length <= 2) throw new Error("Only the final two paths remain");
+  if (!match.mapPool.some((item) => item.id === mapId)) throw new Error("That path is no longer available");
+  match.mapPool = match.mapPool.filter((item) => item.id !== mapId);
+  match.vetoHistory.push({ userId, mapId });
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  if (match.mapPool.length === 2) {
+    match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
+    match.status = "active";
+    match.endsAt = now + config.durationSeconds * 1e3;
+    match.players.forEach((item) => {
+      item.wallHealth = config.wallHealth;
+      item.fruts = config.startingFruts;
+    });
+  } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
+  return match;
+}
+function applyPvpCommand(match, userId, command, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "active") throw new Error("Match is not active");
+  if (now >= match.endsAt) throw new Error("Match timer has expired");
+  const player = match.players.find((item) => item.userId === userId);
+  if (!player) throw new Error("Player is not in this match");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
+  if (!player.connected) throw new Error("Player is disconnected");
+  if (command.type === "build") {
+    const tower = config.towers[command.tower];
+    const map = match.map ?? config.map;
+    const mapSize = map.width * map.height;
+    if (!tower || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map.buildCells.includes(command.cell)) throw new Error("Invalid tower or build cell");
+    if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
+    if (player.fruts < tower.cost) throw new Error("Not enough match Fruts");
+    player.fruts -= tower.cost;
+    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now });
+  } else if (command.type === "send") {
+    const attack = config.attacks[command.enemy];
+    if (!attack) throw new Error("Invalid fruit-zombie type");
+    if (player.fruts < attack.cost) throw new Error("Not enough match Fruts");
+    const target = match.players.find((item) => item.userId !== userId);
+    const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
+    if (target.attackers.length + count > 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
+    player.fruts -= attack.cost;
+    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, progress: -i * 0.8 });
+  } else if (command.type === "slash") {
+    const map = match.map ?? config.map;
+    const validPoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
+    if (!validPoint(command.from) || !validPoint(command.to) || Math.hypot(command.to.x - command.from.x, command.to.y - command.from.y) < 0.5) throw new Error("Invalid blade stroke");
+    if (player.lastStroke && now - player.lastStroke.at < 100) throw new Error("Blade is recovering");
+    player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
+    const killed = player.attackers.filter((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1 && fruitOnSlash(map.pathCells[Math.floor(item.progress)], map.width, command.from, command.to)).slice(0, 8);
+    const ids = new Set(killed.map((item) => item.id));
+    player.attackers = player.attackers.filter((item) => !ids.has(item.id));
+    player.score += killed.length * 10;
+    player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type].rewardFruts, 0);
+    player.currentCombo = !killed.length ? 0 : player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
+    player.lastSlashAt = killed.length ? now : null;
+    player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
+    player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
+    for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
+  } else throw new Error("Unknown match action");
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  return match;
+}
+function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "active") return match;
+  const dt = Math.max(0, Math.min(1, elapsedSeconds));
+  const map = match.map ?? config.map;
+  const path = map.pathCells;
+  for (const player of match.players) {
+    player.fruts += config.incomePerSecond * dt;
+    for (const attacker of player.attackers) attacker.progress += config.attacks[attacker.type].speed * dt;
+    const shoot = (cell, stats, lastFiredAt) => {
+      if (now - lastFiredAt < stats.cooldownMs) return false;
+      const target = [...player.attackers].filter((attacker) => {
+        const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
+        return attacker.progress >= 0 && attacker.hp > 0 && Math.abs(pathCell % map.width - cell % map.width) + Math.abs(Math.floor(pathCell / map.width) - Math.floor(cell / map.width)) <= stats.range;
+      }).sort((a, b) => b.progress - a.progress)[0];
+      if (!target) return false;
+      target.hp -= stats.damage;
+      return true;
+    };
+    for (const tower of player.towers) {
+      const stats = config.towers[tower.type];
+      if (stats && shoot(tower.cell, stats, tower.lastFiredAt ?? tower.placedAt)) tower.lastFiredAt = now;
+    }
+    if (shoot(path.at(-1), config.mainTower, player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
+    for (const attacker of [...player.attackers]) {
+      if (attacker.hp <= 0) {
+        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
+        player.score += 10;
+        player.fruts += config.attacks[attacker.type].rewardFruts;
+      } else if (attacker.progress >= path.length - 1) {
+        player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type].wallDamage);
+        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
+      }
+    }
+  }
+  const dead = match.players.find((player) => player.wallHealth <= 0);
+  if (dead) {
+    match.status = "complete";
+    match.winnerId = match.players.find((player) => player !== dead).userId;
+    match.resultReason = "wall";
+  } else if (match.players.some((player) => player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3)) {
+    for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3) {
+      player.connected = false;
+      player.disconnectedAt = player.lastSeenAt;
+    }
+    const forfeiter = match.players.find((player) => !player.connected);
+    match.status = "complete";
+    match.winnerId = match.players.find((player) => player !== forfeiter)?.userId ?? null;
+    match.resultReason = "disconnect";
+  } else if (match.players.some((player) => player.disconnectedAt !== null && now - player.disconnectedAt >= config.reconnectGraceSeconds * 1e3)) {
+    match.status = "complete";
+    match.winnerId = match.players.find((player) => player.connected)?.userId ?? null;
+    match.resultReason = "disconnect";
+  } else if (now >= match.endsAt) {
+    match.status = "complete";
+    match.resultReason = "timeout";
+    const [a, b] = match.players;
+    match.winnerId = a.wallHealth === b.wallHealth ? a.score === b.score ? null : a.score > b.score ? a.userId : b.userId : a.wallHealth > b.wallHealth ? a.userId : b.userId;
+  }
+  match.revision++;
+  return match;
+}
+
+// src/services/admin.ts
+var DEFAULT_ADMIN_CONFIG = {
+  configKey: "game_config",
+  dailyRewards: [
+    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: "50 Coins + 5 Gems", iconType: "coin" },
+    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: "100 Coins + 1 SP + 10 Gems", iconType: "gem" },
+    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: "150 Coins + 15 Gems", iconType: "coin" },
+    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: "200 Coins + 20 Gems", iconType: "coin" },
+    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: "300 Coins + 2 SP + 25 Gems", iconType: "gem" },
+    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: "450 Coins + 30 Gems", iconType: "chest" },
+    { day: 7, coins: 1e3, skillPoints: 2, gems: 50, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade + 50 Gems!", iconType: "blade" }
+  ],
+  vipTiers: [
+    { tier: "bronze", title: "Bronze VIP", price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: "+10% coins, +5% XP, 25 daily coins" },
+    { tier: "silver", title: "Silver VIP", price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ["blade-silver-vip"], description: "+25% coins, +15% XP, 75 daily coins + 1 SP" },
+    { tier: "gold", title: "Gold VIP", price: 5e3, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ["blade-gold-vip", "wall-gold-vip"], description: "+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins" }
+  ],
+  menuConfig: {
+    eyebrow: "FRUIT TD \xB7 HOLD THE WALL",
+    title: "Slice.\nHold the Wall.",
+    subtitle: "Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.",
+    announcement: "WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.",
+    themeColor: "#a3e635",
+    backgroundImage: "",
+    logoImage: "",
+    faviconImage: ""
+  },
+  gameplayConfig: {
+    startMoney: 140,
+    startLives: 15,
+    scoreMultiplier: 1,
+    superChargeMultiplier: 1
+  },
+  pvpConfig: structuredClone(DEFAULT_PVP_CONFIG),
+  missions: DEFAULT_MISSIONS,
+  achievements: DEFAULT_ACHIEVEMENTS,
+  badges: DEFAULT_BADGES,
+  ranks: DEFAULT_RANK_TIERS,
+  slicers: DEFAULT_SLICERS,
+  enemies: [],
+  waves: { version: 1, levels: {} },
+  campaignBosses: [],
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES)
+};
+function mergeAdminConfig(raw) {
+  const src = raw || {};
+  return {
+    ...DEFAULT_ADMIN_CONFIG,
+    ...src,
+    dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG.dailyRewards,
+    vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
+    menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...src.menuConfig || {} },
+    gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...src.gameplayConfig || {} },
+    coopConfig: normalizeCoopConfig(src.coopConfig),
+    pvpConfig: mergePvpConfig(src.pvpConfig),
+    creatorMedia: normalizeCreatorMedia(src.creatorMedia),
+    coopCatalogVersion: 1,
+    // A present catalogue is authoritative: Admin must be able to remove an entry
+    // without the defaults silently restoring it on the next load.
+    missions: structuredClone(Array.isArray(src.missions) ? src.missions : DEFAULT_ADMIN_CONFIG.missions),
+    achievements: structuredClone(migrateCoopCatalog(Array.isArray(src.achievements) ? src.achievements : DEFAULT_ADMIN_CONFIG.achievements, DEFAULT_ACHIEVEMENTS, src.coopCatalogVersion)),
+    badges: structuredClone(migrateCoopCatalog(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG.badges, DEFAULT_BADGES, src.coopCatalogVersion)),
+    ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks), DEFAULT_ADMIN_CONFIG.ranks),
+    slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
+    enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
+    waves: src.waves && typeof src.waves === "object" ? structuredClone(src.waves) : structuredClone(DEFAULT_ADMIN_CONFIG.waves),
+    campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
+    campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20 ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES)
+  };
+}
+function mergePvpConfig(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  const bounded = (n, fallback, min, max) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
+  const maps = normalizePvpMaps(value.maps);
+  const towers = { ...DEFAULT_PVP_CONFIG.towers };
+  for (const [id, fallback] of Object.entries(towers)) {
+    const row = value.towers?.[id];
+    if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), damage: bounded(row.damage, fallback.damage, 1, 1e4), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 6e4) };
+  }
+  const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
+  for (const [id, fallback] of Object.entries(attacks)) {
+    const row = value.attacks?.[id];
+    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), health: bounded(row.health, fallback.health, 1, 1e4), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 1e4), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 1e4), packSize: Math.floor(bounded(row.packSize, fallback.packSize || 1, 1, 8)) };
+  }
+  const tiers = Array.isArray(value.rating?.tiers) ? value.rating.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
+  return {
+    version: 1,
+    maps,
+    map: maps[0],
+    durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
+    wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 1e5),
+    startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 1e5),
+    incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
+    reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
+    mainTower: {
+      damage: bounded(value.mainTower?.damage, DEFAULT_PVP_CONFIG.mainTower.damage, 0, 1e4),
+      range: bounded(value.mainTower?.range, DEFAULT_PVP_CONFIG.mainTower.range, 0, 24),
+      cooldownMs: bounded(value.mainTower?.cooldownMs, DEFAULT_PVP_CONFIG.mainTower.cooldownMs, 100, 6e4)
+    },
+    towers,
+    attacks,
+    rating: {
+      ...DEFAULT_PVP_CONFIG.rating,
+      ...value.rating || {},
+      start: bounded(value.rating?.start, 1e3, 0, 1e6),
+      win: bounded(value.rating?.win, 50, 0, 1e3),
+      tie: bounded(value.rating?.tie, 20, 0, 1e3),
+      loss: -bounded(Math.abs(value.rating?.loss ?? -50), 50, 1, 1e3),
+      bonusCap: bounded(value.rating?.bonusCap, 20, 0, 1e3),
+      seasonResetPercent: bounded(value.rating?.seasonResetPercent, 25, 0, 100),
+      combo: DEFAULT_PVP_CONFIG.rating.combo,
+      tiers: tiers.map((tier, i) => ({ name: DEFAULT_PVP_CONFIG.rating.tiers[i].name, min: bounded(tier?.min, DEFAULT_PVP_CONFIG.rating.tiers[i].min, 0, 1e6) }))
+    },
+    seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((item, i) => ({ ...item, ...value.seasonRewards?.[i] || {}, tier: item.tier }))
+  };
+}
+
+// server/routes/coop.ts
+function createCoopService(deps = {}) {
+  const getCollection2 = deps.collection ?? getCollection;
+  const resolveRequestUser2 = deps.resolveUser ?? resolveRequestUser;
+  const creditClaimReward2 = deps.creditReward ?? creditClaimReward;
+  const coopRouter2 = Router();
+  let publisher = null;
+  let authority = null;
+  let ticking = false;
+  const fail2 = (res, code, error2) => res.status(code).json({ success: false, error: error2 });
+  async function config() {
+    const row = await (await getCollection2("admin_config")).findOne({ configKey: "game_config" });
+    return { balance: mergeAdminConfig(row).pvpConfig, coop: normalizeCoopConfig(row?.coopConfig) };
+  }
+  async function publish(room) {
+    try {
+      if (deps.publish) {
+        await deps.publish(`fruittd-coop-${room.id}`, room);
+        return;
+      }
+      if (!process.env.ABLY_API_KEY) return;
+      publisher ??= new Rest({ key: process.env.ABLY_API_KEY });
+      await publisher.channels.get(`fruittd-coop-${room.id}`).publish("match.snapshot", room);
+    } catch (error2) {
+      console.error("Co-op publish failed", error2);
+    }
+  }
+  async function settle(room) {
+    if (room.status !== "complete" || room.settled) return;
+    const cfg = await config();
+    const reward = coopRewards(room, cfg.coop);
+    for (const player2 of room.players) {
+      if (room.completedWaves < 1) continue;
+      await creditClaimReward2(player2.userId, `coop:${room.id}`, { coins: reward.coins, gems: reward.gems, xp: { [player2.hero]: reward.xp }, towerXp: reward.towerXp, games: 1, bestWave: room.completedWaves, highScore: room.score });
+      if (room.completedWaves >= 6) {
+        await (await getCollection2("achievements")).updateOne({ userId: player2.userId, achievementId: "coop_first_team_run" }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 }, $setOnInsert: { claimed: false } }, { upsert: true });
+        await (await getCollection2("badges")).updateOne({ userId: player2.userId, badgeId: "coop-team-slicer" }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 } }, { upsert: true });
+      }
+    }
+    await (await getCollection2("coop_matches")).updateOne({ id: room.id }, { $set: { settled: true } });
+    room.settled = true;
+  }
+  async function tick(room, now) {
+    if (room.status === "complete") return room;
+    const cfg = await config();
+    const revision = room.revision;
+    if (room.status === "waiting") {
+      if (now - room.players[0].lastSeenAt <= cfg.balance.reconnectGraceSeconds * 1e3) return room;
+      room.status = "complete";
+      room.reason = "disconnect";
+      room.revision++;
+    }
+    let remaining = Math.min(2, Math.max(0, (now - room.updatedAt.getTime()) / 1e3));
+    let at = now - remaining * 1e3;
+    while (remaining > 0 && room.status !== "complete") {
+      const dt = Math.min(0.2, remaining);
+      at += dt * 1e3;
+      advanceCoopMatch(room, dt, at, cfg.balance, cfg.coop);
+      remaining -= dt;
+    }
+    room.updatedAt = new Date(now);
+    if (room.status === "complete") delete room.activePlayers;
+    const saved = await (await getCollection2("coop_matches")).replaceOne({ id: room.id, revision }, room);
+    if (!saved.modifiedCount) return null;
+    void publish(room);
+    if (room.status === "complete") await settle(room);
+    return room;
+  }
+  async function player(user) {
+    const save = await (await getCollection2("cloud_saves")).findOne({ userId: user.userId });
+    const hero = save?.saveData?.hero;
+    return { userId: user.userId, name: String(user.nickname || "Slicer").slice(0, 64), hero: HEROES.some((h) => h.id === hero) ? hero : "jiju", sequence: 0, lastSeenAt: Date.now(), lastSlashAt: 0, kills: 0 };
+  }
+  coopRouter2.get("/status", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in to play online Co-op.");
+    try {
+      const rooms = await getCollection2("coop_matches");
+      let room = await rooms.findOne({ "players.userId": user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, $or: [{ status: { $ne: "complete" } }, { status: "complete", seenBy: { $ne: user.userId } }] });
+      if (room) {
+        await rooms.updateOne({ id: room.id }, { $set: { "players.$[self].lastSeenAt": Date.now() }, $inc: { revision: 1 } }, { arrayFilters: [{ "self.userId": user.userId }] });
+        room = await rooms.findOne({ id: room.id });
+        if (room) {
+          await tick(room, Date.now());
+          room = await rooms.findOne({ id: room.id });
+          if (room?.status === "complete") await settle(room);
+        }
+      }
+      const cfg = await config();
+      res.json({ success: true, room, balance: cfg.balance, coop: cfg.coop, yourId: user.userId });
+    } catch (error2) {
+      console.error("Co-op status failed", error2);
+      fail2(res, 503, "Co-op storage is unavailable.");
+    }
+  });
+  coopRouter2.post("/create", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in first.");
+    try {
+      await (await getCollection2("coop_matches")).updateOne({ activePlayers: user.userId, expiresAt: { $lte: /* @__PURE__ */ new Date() } }, { $unset: { activePlayers: "" }, $set: { status: "complete", reason: "expired" } });
+      const rooms = await getCollection2("coop_matches");
+      const existing = await rooms.findOne({ "players.userId": user.userId, status: { $ne: "complete" }, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+      if (existing) return fail2(res, 409, "Leave your current room first.");
+      const cfg = await config();
+      const self = await player(user);
+      if (req2.body?.public === true) {
+        const open = await rooms.findOne({ public: true, status: "waiting", "players.0.lastSeenAt": { $gt: Date.now() - cfg.balance.reconnectGraceSeconds * 1e3 }, "players.userId": { $ne: user.userId }, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+        if (open) {
+          const revision = open.revision;
+          joinCoopMatch(open, self, Date.now());
+          open.activePlayers = open.players.map((p) => p.userId);
+          open.updatedAt = /* @__PURE__ */ new Date();
+          const updated = await rooms.replaceOne({ id: open.id, revision, status: "waiting" }, open);
+          if (updated.modifiedCount) {
+            void publish(open);
+            return res.json({ success: true, room: open });
+          }
+        }
+      }
+      const room = { ...newCoopMatch(randomUUID().replace(/-/g, "").slice(0, 10), self, cfg.balance), public: req2.body?.public === true, activePlayers: [user.userId], updatedAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1e3) };
+      await rooms.insertOne(room);
+      res.json({ success: true, room });
+    } catch (error2) {
+      if (error2.code === 11e3) return fail2(res, 409, "You already have an active Co-op room.");
+      console.error("Co-op room creation failed", error2);
+      fail2(res, 503, "Could not create the room.");
+    }
+  });
+  coopRouter2.post("/join", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in first.");
+    try {
+      await (await getCollection2("coop_matches")).updateOne({ activePlayers: user.userId, expiresAt: { $lte: /* @__PURE__ */ new Date() } }, { $unset: { activePlayers: "" }, $set: { status: "complete", reason: "expired" } });
+      const rooms = await getCollection2("coop_matches");
+      if (await rooms.findOne({ "players.userId": user.userId, status: { $ne: "complete" }, expiresAt: { $gt: /* @__PURE__ */ new Date() } })) return fail2(res, 409, "Leave your current room first.");
+      const id = String(req2.body?.code || "").trim().toLowerCase();
+      if (!/^[a-f0-9]{10}$/.test(id)) return fail2(res, 400, "Enter the 10-character room code.");
+      const room = await rooms.findOne({ id, status: "waiting", expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+      if (!room) return fail2(res, 404, "Room is full or no longer available.");
+      const revision = room.revision;
+      joinCoopMatch(room, await player(user), Date.now());
+      room.activePlayers = room.players.map((p) => p.userId);
+      room.updatedAt = /* @__PURE__ */ new Date();
+      const saved = await rooms.replaceOne({ id, revision, status: "waiting" }, room);
+      if (!saved.modifiedCount) return fail2(res, 409, "Another player joined this room.");
+      void publish(room);
+      res.json({ success: true, room });
+    } catch (error2) {
+      if (error2.code === 11e3) return fail2(res, 409, "You already have an active Co-op room.");
+      console.error("Co-op join failed", error2);
+      fail2(res, 503, "Could not join the room.");
+    }
+  });
+  coopRouter2.post("/:id/command", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in first.");
+    try {
+      const rooms = await getCollection2("coop_matches");
+      const room = await rooms.findOne({ id: req2.params.id, "players.userId": user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+      if (!room) return fail2(res, 404, "Room is unavailable.");
+      if (room.status === "complete") return fail2(res, 409, "Match has finished.");
+      const cfg = await config();
+      const revision = room.revision;
+      try {
+        applyCoopCommand(room, user.userId, req2.body.sequence, req2.body.command, Date.now(), cfg.balance, cfg.coop);
+      } catch (error2) {
+        return fail2(res, 400, error2 instanceof Error ? error2.message : "Invalid action.");
+      }
+      if (room.status === "complete") delete room.activePlayers;
+      const saved = await rooms.replaceOne({ id: room.id, revision }, room);
+      if (!saved.modifiedCount) return fail2(res, 409, "Match updated. Try the action again.");
+      void publish(room);
+      await settle(room);
+      res.json({ success: true, room });
+    } catch (error2) {
+      console.error("Co-op command failed", error2);
+      fail2(res, 503, "Could not apply the action.");
+    }
+  });
+  coopRouter2.post("/:id/ack", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in first.");
+    await (await getCollection2("coop_matches")).updateOne({ id: req2.params.id, status: "complete", "players.userId": user.userId }, { $addToSet: { seenBy: user.userId } });
+    res.json({ success: true });
+  });
+  coopRouter2.post("/:id/token", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in first.");
+    const room = await (await getCollection2("coop_matches")).findOne({ id: req2.params.id, "players.userId": user.userId, status: { $ne: "complete" }, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+    if (!room) return fail2(res, 404, "Room unavailable.");
+    if (!process.env.ABLY_API_KEY && !deps.token) return fail2(res, 503, "Realtime service is not configured.");
+    try {
+      const params = { clientId: user.userId, ttl: 6e4, capability: JSON.stringify({ [`fruittd-coop-${room.id}`]: ["subscribe"] }) };
+      let token;
+      if (deps.token) token = await deps.token(params);
+      else {
+        publisher ??= new Rest({ key: process.env.ABLY_API_KEY });
+        token = await publisher.auth.createTokenRequest(params);
+      }
+      res.json(token);
+    } catch (error2) {
+      console.error("Co-op token failed", error2);
+      fail2(res, 503, "Could not authorize realtime.");
+    }
+  });
+  function startCoopAuthority2() {
+    if (authority) return;
+    authority = setInterval(async () => {
+      if (ticking) return;
+      ticking = true;
+      try {
+        const rooms = await (await getCollection2("coop_matches")).find({ status: { $in: ["waiting", "countdown", "playing", "boss-intro"] }, expiresAt: { $gt: /* @__PURE__ */ new Date() } }).limit(100).toArray();
+        for (const room of rooms) await tick(room, Date.now());
+      } catch (error2) {
+        console.error("Co-op authority failed", error2);
+      } finally {
+        ticking = false;
+      }
+    }, 200);
+    authority.unref?.();
+  }
+  return { router: coopRouter2, startAuthority: startCoopAuthority2 };
+}
+var service = createCoopService();
+var coopRouter = service.router;
+var startCoopAuthority = service.startAuthority;
+
+// server/app.ts
+import express from "express";
+import cors from "cors";
+
+// server/routes/leaderboard.ts
+import { Router as Router2 } from "express";
+import crypto2 from "node:crypto";
+
+// server/catalog.ts
+var cache = null;
+function invalidateCatalogCache() {
+  cache = null;
+}
+async function loadQuestCatalog() {
+  if (cache && Date.now() - cache.at < 4e3) return cache;
+  try {
+    const col = await getCollection("admin_config");
+    const doc = await col.findOne({ configKey: "game_config" });
+    cache = {
+      at: Date.now(),
+      missions: Array.isArray(doc?.missions) ? doc.missions : DEFAULT_MISSIONS,
+      achievements: migrateCoopCatalog(Array.isArray(doc?.achievements) ? doc.achievements : DEFAULT_ACHIEVEMENTS, DEFAULT_ACHIEVEMENTS, doc?.coopCatalogVersion),
+      badges: migrateCoopCatalog(Array.isArray(doc?.badges) ? doc.badges : DEFAULT_BADGES, DEFAULT_BADGES, doc?.coopCatalogVersion),
+      ranks: mergeRewardDefaults(Array.isArray(doc?.ranks) && doc.ranks.length ? doc.ranks : DEFAULT_RANK_TIERS, DEFAULT_RANK_TIERS),
+      slicers: Array.isArray(doc?.slicers) && doc.slicers.length ? doc.slicers : DEFAULT_SLICERS
+    };
+    return cache;
+  } catch {
+    return {
+      missions: DEFAULT_MISSIONS,
+      achievements: DEFAULT_ACHIEVEMENTS,
+      badges: DEFAULT_BADGES,
+      ranks: DEFAULT_RANK_TIERS,
+      slicers: DEFAULT_SLICERS
+    };
+  }
+}
+function getMonthKey() {
+  return currentMonthKey();
+}
+
+// server/validation.ts
+import { isDeepStrictEqual } from "node:util";
+function safeInput(value, depth = 0) {
+  if (depth > 24) return false;
+  if (value === null || typeof value !== "object") return true;
+  return Object.entries(value).every(([key, child]) => !key.startsWith("$") && !key.includes(".") && !["__proto__", "prototype", "constructor"].includes(key) && safeInput(child, depth + 1));
+}
+function validId(value) {
+  return typeof value === "string" && /^[a-zA-Z0-9_-]{1,120}$/.test(value);
+}
+function boundedInteger(value, max, min = 0) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
+}
+var HEROES2 = ["jiju", "topfu", "lagen", "tripos", "ki"];
+var SKILLS2 = ["edge", "reach", "flow", "steel", "storm"];
+var HERO_PERKS2 = ["combo", "juice", "tower", "critical", "survival"];
+var DEFAULT_OWNABLE_SKINS = /* @__PURE__ */ new Set(["blade-default", "blade-gold", "blade-ink", "blade-cherry", "wall-brick", "wall-stone", "wall-night"]);
+var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
+var SERVER_OWNED_SAVE_KEYS = [
+  "xp",
+  "ownedHeroes",
+  "towerXp",
+  "towerLifetimeXp",
+  "highScore",
+  "rankedScore",
+  "bestWave",
+  "bestCombo",
+  "games",
+  "coins",
+  "gems",
+  "skillPoints",
+  "skills",
+  "ownedSkins",
+  "heroPerkRanks",
+  "vipStatus",
+  "hero",
+  "bladeSkin",
+  "wallSkin"
+];
+function sameJsonValue(a, b) {
+  return isDeepStrictEqual(a, b);
+}
+function serverOwnedSaveError(incoming, authoritative) {
+  for (const key of SERVER_OWNED_SAVE_KEYS) {
+    if (incoming[key] !== void 0 && !sameJsonValue(incoming[key], authoritative[key])) {
+      return `Server-owned field cannot be changed by profile sync: ${key}`;
+    }
+  }
+  return null;
+}
+function saveValidationError(value, allowedSkinIds = DEFAULT_OWNABLE_SKINS) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !safeInput(value)) return "Invalid save object";
+  const save = value;
+  if (Object.keys(save).some((key) => !SAVE_KEYS.has(key))) return "Unknown save field";
+  const limits = { coins: 1e6, gems: 1e6, skillPoints: 1e4, towerXp: 1e8, towerLifetimeXp: 1e8, highScore: 1e8, rankedScore: 1e8, bestWave: 9999, bestCombo: 1e5, games: 1e6, saveRevision: Number.MAX_SAFE_INTEGER, savedAt: Number.MAX_SAFE_INTEGER };
+  for (const [key, max] of Object.entries(limits)) {
+    if (save[key] !== void 0 && !boundedInteger(save[key], max)) return `Invalid ${key}: expected a nonnegative integer within maximum`;
+  }
+  for (const key of ["xp", "skills", "heroPerkRanks"]) {
+    const field = save[key];
+    if (field !== void 0 && (!field || typeof field !== "object" || Array.isArray(field))) return `Invalid ${key}`;
+  }
+  if (save.xp && Object.entries(save.xp).some(([hero, xp]) => !HEROES2.includes(hero) || !boundedInteger(xp, 1e6))) return "Invalid hero XP";
+  if (save.skills && Object.entries(save.skills).some(([id, rank]) => !SKILLS2.includes(id) || !boundedInteger(rank, 3))) return "Invalid skill ranks";
+  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES2.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS2.includes(id) || !boundedInteger(rank, 3)))) return "Invalid hero perk ranks";
+  for (const key of ["ownedSkins", "ownedHeroes"]) {
+    const list = save[key];
+    if (list !== void 0 && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
+  }
+  if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES2.includes(id))) return "Unknown hero";
+  if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return "Unknown owned skin";
+  if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return "Duplicate owned skin";
+  if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return "Duplicate owned hero";
+  if (save.hero !== void 0 && (typeof save.hero !== "string" || !HEROES2.includes(save.hero))) return "Invalid hero";
+  if (save.mode !== void 0 && (typeof save.mode !== "string" || !["casual", "ranked", "coop", "arena", "horde", "campaign"].includes(save.mode))) return "Invalid mode";
+  if (save.campaignProgress !== void 0) {
+    const progress = save.campaignProgress;
+    if (!progress || typeof progress !== "object" || Array.isArray(progress) || Object.keys(progress).some((key) => !["unlocked", "cleared"].includes(key)) || !boundedInteger(progress.unlocked, 100, 1) || !Array.isArray(progress.cleared) || progress.cleared.length > 100 || progress.cleared.some((level) => !boundedInteger(level, 100, 1))) return "Invalid campaign progress";
+  }
+  if (save.vipStatus !== void 0 && (typeof save.vipStatus !== "string" || !["none", "bronze", "silver", "gold"].includes(save.vipStatus))) return "Invalid VIP status";
+  for (const [key, max] of [["nickname", 64], ["avatar", 9e5], ["bladeSkin", 120], ["wallSkin", 120]]) {
+    if (save[key] !== void 0 && (typeof save[key] !== "string" || save[key].length > max)) return `Invalid ${key}`;
+  }
+  for (const key of ["bladeSkin", "wallSkin"]) {
+    const equipped = save[key];
+    if (typeof equipped === "string" && equipped !== "" && equipped !== "none" && !allowedSkinIds.has(equipped)) return `Unknown ${key}`;
+    if (typeof equipped === "string" && equipped !== "" && equipped !== "none" && Array.isArray(save.ownedSkins) && !save.ownedSkins.includes(equipped)) return `${key} is not owned`;
+  }
+  return null;
+}
+function validProgressUpdates(value, idKey) {
+  return Array.isArray(value) && value.length <= 100 && value.every((row) => row && typeof row === "object" && validId(row[idKey]) && (row.setProgress !== void 0 && row.progressDelta === void 0 && boundedInteger(row.setProgress, 1e8) || row.progressDelta !== void 0 && row.setProgress === void 0 && boundedInteger(row.progressDelta, 1e8)));
+}
+
 // server/routes/leaderboard.ts
 var defaultDeps = {
   resolveUser: resolveRequestUser,
@@ -938,7 +1829,7 @@ function resolveMode(mode) {
   return mode || "ranked";
 }
 function createLeaderboardRouter(deps = defaultDeps) {
-  const router = Router();
+  const router = Router2();
   router.post("/run", async (req2, res) => {
     try {
       const mode = req2.body?.mode ?? "casual";
@@ -1232,10 +2123,10 @@ function createLeaderboardRouter(deps = defaultDeps) {
 var leaderboardRouter = createLeaderboardRouter();
 
 // server/routes/achievements.ts
-import { Router as Router2 } from "express";
+import { Router as Router3 } from "express";
 var defaultDeps2 = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
 function createAchievementsRouter(deps = defaultDeps2) {
-  const router = Router2();
+  const router = Router3();
   router.get("/", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -1296,6 +2187,8 @@ function createAchievementsRouter(deps = defaultDeps2) {
       for (const update of updates) {
         const def = catalog.achievements.find((a) => a.id === update.achievementId && a.enabled !== false);
         if (!def) continue;
+        const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+        if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
         const existing = await col.findOne({ userId, achievementId: def.id });
         let currentProgress = existing?.progress || 0;
         const maxProgress = def.requirement?.goal || 1;
@@ -1375,7 +2268,7 @@ function createAchievementsRouter(deps = defaultDeps2) {
 var achievementsRouter = createAchievementsRouter();
 
 // server/routes/missions.ts
-import { Router as Router3 } from "express";
+import { Router as Router4 } from "express";
 var defaultDeps3 = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
 function getDayKey() {
   const d = /* @__PURE__ */ new Date();
@@ -1394,7 +2287,7 @@ function periodKey(type) {
   return getDayKey();
 }
 function createMissionsRouter(deps = defaultDeps3) {
-  const router = Router3();
+  const router = Router4();
   router.get("/", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -1456,6 +2349,8 @@ function createMissionsRouter(deps = defaultDeps3) {
       for (const update of updates) {
         const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
         if (!def) continue;
+        const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+        if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
         const activeKey = periodKey(def.type);
         const existing = await col.findOne({ userId, missionId: def.id, dayKey: activeKey });
         let currentProgress = existing?.progress || 0;
@@ -1535,296 +2430,12 @@ function createMissionsRouter(deps = defaultDeps3) {
 var missionsRouter = createMissionsRouter();
 
 // server/routes/daily.ts
+import { Router as Router6 } from "express";
+
+// server/routes/admin.ts
 import { Router as Router5 } from "express";
-
-// server/routes/admin.ts
-import { Router as Router4 } from "express";
 import { ObjectId } from "mongodb";
-
-// src/game/campaignStory.ts
-var DEFAULT_CAMPAIGN_STORIES = [
-  { chapter: 1, title: "The First Signal", text: "When the first Rot King falls, the wall radios crackle with a signal that sounds almost like a heartbeat. It is travelling through the orchard roots, and every infected fruit turns toward it. Your crew marks the source and heads beyond the safe lanes." },
-  { chapter: 2, title: "Beneath the Rind", text: "A broken irrigation pipe runs under the farms, carrying glowing juice instead of water. The scouts follow it until their lamps reveal fresh tool marks in the soil. Someone kept the system running after the outbreak began." },
-  { chapter: 3, title: "Broken Harvest", text: "The growers burn their stores to starve the horde, but the fruit marches straight through the smoke. At dawn you find a crate stamped with the town seal among the ashes. The infection reached the harvest before anyone raised the alarm." },
-  { chapter: 4, title: "The Greenhouse", text: "The sealed greenhouse opens from the inside. Rows of fruit hang beneath artificial light, each one wired to the same pulse beneath the ground. A handwritten log ends with one warning: do not let the Crown Seed wake." },
-  { chapter: 5, title: "Night Watch", text: "The wall survives its longest night. Beyond the watchfires, whole trees lean together whenever the pulse sounds. The crew sees the orchard for what it is now: a single creature learning to move." },
-  { chapter: 6, title: "The Lost Convoy", text: "A supply convoy vanishes on the river road. You recover its radio and hear a final message beneath the static: the water is carrying seeds. With the gate running low on parts, your crew follows the convoy tracks into the marsh." },
-  { chapter: 7, title: "River of Pulp", text: "The river glows bright with infected juice. Every splash plants a new enemy on the bank, and the old filters cannot stop it. The only clean route lies upstream, toward the machine that feeds the roots." },
-  { chapter: 8, title: "The Orchard Crown", text: "Inside a wrecked pump station lies a crown-shaped seed bearing the growers\u2019 seal. It answers the underground pulse with one of its own. The greenhouse logs name it a control key, but nobody knows who still holds the lock." },
-  { chapter: 9, title: "Roots in Stone", text: "The blight crosses the stone road and climbs through the city foundations. Your crew cuts it away room by room while families retreat to the last gate. A map scratched into the root points to the seed vault below the orchard." },
-  { chapter: 10, title: "The City Gate", text: "The evacuation begins under a red sky. Your tower holds long enough for the final transport to escape, but the root network wraps around the gate behind them. The city is lost; the people are not." },
-  { chapter: 11, title: "The Seed Vault", text: "The vault records reveal an experiment built to grow food through any drought. Its Crown Seed linked every crop to one underground heart. The first test succeeded. Then the heart learned to keep growing without its makers." },
-  { chapter: 12, title: "A Second Bloom", text: "The orchard changes its tactics. Rind plates harden around the fallen, runners slip past the old firing lines, and seed pods burst into fresh attackers. Each victory gives the heart another lesson, so your crew begins changing the defense between waves." },
-  { chapter: 13, title: "The Silent Farm", text: "No scouts return from the silent farm. Their distress beacon repeats from an empty house, drawing the crew beneath a floor webbed with roots. You find the missing scouts alive, trapped beside a tunnel leading toward the old engine." },
-  { chapter: 14, title: "The Old Engine", text: "The pumping engine drives infected juice into every root. Your turrets keep the lane clear while the crew tears out its gears. The pulse stops for one breath, then returns from deeper underground. The engine was only one of its hands." },
-  { chapter: 15, title: "The Black Canopy", text: "Branches close over the road until daylight disappears. The wall\u2019s lamps become a trail through the dark, and the horde attacks every light it sees. At the canopy\u2019s center, you find a clean patch of soil guarded by the heaviest fruit yet." },
-  { chapter: 16, title: "Last Harvest", text: "The surviving growers join the defense. Their oldest maps show a service path straight to the heartwood, but the path crosses every active root. They bring the last uninfected seeds with them, refusing to leave the land to rot." },
-  { chapter: 17, title: "The Heartwood", text: "All the roots meet at a trunk that beats like a machine. The Crown Seed fits a socket at its base and opens the way forward. For the first time, the pulse becomes words: grow, defend, repeat. The heart believes it is saving the orchard." },
-  { chapter: 18, title: "The Final Gate", text: "The heart raises a living gate around its core. Each fallen guardian becomes another wave, and the crew must hold the line while the growers break the seal. When it opens, the pulse surges through every lane at once." },
-  { chapter: 19, title: "Before Dawn", text: "The last defense is built from repaired steel, salvaged blades, and every seed the growers carried. Nobody promises an easy victory. As the sky begins to pale, your crew steps into the core and gives the wall one final order: hold." },
-  { chapter: 20, title: "A New Season", text: "The final overlord falls and the pulse goes quiet. The roots loosen their grip on the wall, leaving a scar across the orchard but no command to follow. In the clean soil beside the gate, the growers plant their first seed. This time, they let it grow on its own." }
-];
-
-// src/game/pvp.ts
-function route(waypoints) {
-  const cells = [];
-  for (let i = 0; i < waypoints.length; i++) {
-    const [x, y] = waypoints[i];
-    const [nextX, nextY] = waypoints[i + 1] ?? [x, y];
-    if (!cells.length) cells.push(y * 10 + x);
-    if (nextY !== y) {
-      const step = Math.sign(nextY - y);
-      for (let row = y + step; row !== nextY + step; row += step) cells.push(row * 10 + x);
-    } else if (nextX !== x) {
-      const step = Math.sign(nextX - x);
-      for (let column = x + step; column !== nextX + step; column += step) cells.push(y * 10 + column);
-    }
-  }
-  return cells;
-}
-function makeMap(id, name, waypoints) {
-  const width = 10;
-  const height = 14;
-  const pathCells = route(waypoints);
-  return { id, name, width, height, pathCells, buildCells: Array.from({ length: width * height }, (_, i) => i).filter((cell) => !pathCells.includes(cell)) };
-}
-var DEFAULT_PVP_CONFIG = {
-  version: 1,
-  map: makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
-  maps: [
-    makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
-    makeMap("windfall", "Windfall Run", [[1, 0], [1, 3], [8, 3], [8, 6], [2, 6], [2, 9], [7, 9], [7, 13]]),
-    makeMap("old-grove", "Old Grove", [[8, 0], [8, 2], [2, 2], [2, 5], [7, 5], [7, 8], [1, 8], [1, 11], [6, 11], [6, 13]]),
-    makeMap("riverbend", "Riverbend", [[5, 0], [5, 4], [1, 4], [1, 7], [8, 7], [8, 10], [3, 10], [3, 13]]),
-    makeMap("twin-rows", "Twin Rows", [[0, 0], [0, 3], [6, 3], [6, 5], [2, 5], [2, 8], [9, 8], [9, 11], [4, 11], [4, 13]]),
-    makeMap("stone-arch", "Stone Arch", [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
-    makeMap("long-harvest", "Long Harvest", [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]])
-  ],
-  durationSeconds: 180,
-  wallHealth: 1e3,
-  startingFruts: 180,
-  incomePerSecond: 6,
-  reconnectGraceSeconds: 45,
-  mainTower: { damage: 18, range: 2, cooldownMs: 1e3 },
-  towers: {
-    guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
-    vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
-    laser: { cost: 180, damage: 62, range: 6, cooldownMs: 1600 },
-    railgun: { cost: 220, damage: 110, range: 8, cooldownMs: 2600 },
-    sprinkler: { cost: 150, damage: 12, range: 3, cooldownMs: 350 },
-    blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 }
-  },
-  attacks: {
-    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
-    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
-    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
-    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
-  },
-  rating: {
-    start: 1e3,
-    win: 50,
-    tie: 20,
-    loss: -50,
-    bonusCap: 20,
-    combo: [{ at: 5, points: 1 }, { at: 10, points: 2 }, { at: 20, points: 3 }, { at: 35, points: 4 }, { at: 50, points: 5 }],
-    multiKill3: 2,
-    multiKill5: 3,
-    seasonResetPercent: 25,
-    tiers: [{ name: "Amateur", min: 0 }, { name: "Bronze", min: 500 }, { name: "Silver", min: 1500 }, { name: "Gold", min: 2e3 }, { name: "Diamond", min: 2500 }, { name: "Emerald", min: 2750 }, { name: "Sapphire", min: 3e3 }]
-  },
-  seasonRewards: [
-    { tier: "Bronze", coins: 100, gems: 0, badgeId: "pvp-bronze" },
-    { tier: "Silver", coins: 250, gems: 5, badgeId: "pvp-silver" },
-    { tier: "Gold", coins: 500, gems: 10, badgeId: "pvp-gold" },
-    { tier: "Diamond", coins: 900, gems: 20, badgeId: "pvp-diamond" },
-    { tier: "Emerald", coins: 1400, gems: 35, badgeId: "pvp-emerald" },
-    { tier: "Sapphire", coins: 2200, gems: 60, badgeId: "pvp-sapphire" }
-  ]
-};
-function normalizePvpMaps(input) {
-  if (!Array.isArray(input) || input.length !== 7) return structuredClone(DEFAULT_PVP_CONFIG.maps);
-  return input.map((raw, index) => {
-    const fallback = DEFAULT_PVP_CONFIG.maps[index];
-    if (!raw || typeof raw !== "object") return structuredClone(fallback);
-    const row = raw;
-    const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
-    const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
-    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
-    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - path[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1] / width)) === 1)) && Math.floor(path[0] / width) === 0 && Math.floor(path.at(-1) / width) === height - 1;
-    if (!valid) return structuredClone(fallback);
-    return { id: String(row.id || fallback.id).slice(0, 48), name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: Array.from({ length: width * height }, (_, cell) => cell).filter((cell) => !path.includes(cell)) };
-  });
-}
-function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
-  return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
-}
-function resetSeasonRating(points, config = DEFAULT_PVP_CONFIG) {
-  const retain = 1 - config.rating.seasonResetPercent / 100;
-  return Math.max(0, Math.round(config.rating.start + (points - config.rating.start) * retain));
-}
-function calculatePvpRating(points, outcome, comboMilestones, maxSingleSlashKills, config = DEFAULT_PVP_CONFIG) {
-  const base = config.rating[outcome];
-  const comboBonus = comboMilestones.reduce((sum, milestone) => sum + (config.rating.combo.find((tier) => tier.at === milestone)?.points ?? 0), 0);
-  const multiBonus = maxSingleSlashKills >= 5 ? config.rating.multiKill5 : maxSingleSlashKills >= 3 ? config.rating.multiKill3 : 0;
-  let performance = Math.min(config.rating.bonusCap, Math.max(0, comboBonus + multiBonus));
-  if (outcome === "loss") performance = Math.min(performance, Math.max(0, Math.abs(base) - 1));
-  const delta = base + performance;
-  const rating = Math.max(0, points + delta);
-  return { outcome, base, performance, delta: rating - points, rating, tier: pvpTier(rating, config) };
-}
-function fruitOnSlash(pathCell, width, from, to) {
-  const x = pathCell % width + 0.5;
-  const y = Math.floor(pathCell / width) + 0.5;
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const t = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / (dx * dx + dy * dy)));
-  return Math.hypot(x - (from.x + dx * t), y - (from.y + dy * t)) <= 0.46;
-}
-function createPvpPlayer(userId, name, side, config, now = Date.now()) {
-  return { userId, name: name.slice(0, 32), side, connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
-}
-function newPvpMatch(id, queue, players, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  const mapPool = structuredClone(config.maps);
-  players.forEach((player) => {
-    player.lastSeenAt = now;
-  });
-  return { id, queue, status: "draft", createdAt: now, endsAt: 0, players, winnerId: null, resultReason: null, revision: 0, mapPool, vetoTurn: players[Math.floor(Math.random() * 2)].userId, map: null, vetoHistory: [] };
-}
-function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  if (match.status !== "draft") throw new Error("Map veto is already complete");
-  const player = match.players.find((item) => item.userId === userId);
-  if (!player) throw new Error("Player is not in this match");
-  if (match.vetoTurn !== userId) throw new Error("Wait for the other player to veto a path");
-  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed veto");
-  if (match.mapPool.length <= 2) throw new Error("Only the final two paths remain");
-  if (!match.mapPool.some((item) => item.id === mapId)) throw new Error("That path is no longer available");
-  match.mapPool = match.mapPool.filter((item) => item.id !== mapId);
-  match.vetoHistory.push({ userId, mapId });
-  player.sequence = sequence;
-  player.lastSeenAt = now;
-  match.revision++;
-  if (match.mapPool.length === 2) {
-    match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
-    match.status = "active";
-    match.endsAt = now + config.durationSeconds * 1e3;
-    match.players.forEach((item) => {
-      item.wallHealth = config.wallHealth;
-      item.fruts = config.startingFruts;
-    });
-  } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
-  return match;
-}
-function applyPvpCommand(match, userId, command, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  if (match.status !== "active") throw new Error("Match is not active");
-  if (now >= match.endsAt) throw new Error("Match timer has expired");
-  const player = match.players.find((item) => item.userId === userId);
-  if (!player) throw new Error("Player is not in this match");
-  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
-  if (!player.connected) throw new Error("Player is disconnected");
-  if (command.type === "build") {
-    const tower = config.towers[command.tower];
-    const map = match.map ?? config.map;
-    const mapSize = map.width * map.height;
-    if (!tower || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map.buildCells.includes(command.cell)) throw new Error("Invalid tower or build cell");
-    if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
-    if (player.fruts < tower.cost) throw new Error("Not enough match Fruts");
-    player.fruts -= tower.cost;
-    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now });
-  } else if (command.type === "send") {
-    const attack = config.attacks[command.enemy];
-    if (!attack) throw new Error("Invalid fruit-zombie type");
-    if (player.fruts < attack.cost) throw new Error("Not enough match Fruts");
-    const target = match.players.find((item) => item.userId !== userId);
-    const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
-    if (target.attackers.length + count > 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
-    player.fruts -= attack.cost;
-    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, progress: -i * 0.8 });
-  } else if (command.type === "slash") {
-    const map = match.map ?? config.map;
-    const validPoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
-    if (!validPoint(command.from) || !validPoint(command.to) || Math.hypot(command.to.x - command.from.x, command.to.y - command.from.y) < 0.5) throw new Error("Invalid blade stroke");
-    const killed = player.attackers.filter((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1 && fruitOnSlash(map.pathCells[Math.floor(item.progress)], map.width, command.from, command.to)).slice(0, 8);
-    if (!killed.length) throw new Error("Blade missed the fruit");
-    const ids = new Set(killed.map((item) => item.id));
-    player.attackers = player.attackers.filter((item) => !ids.has(item.id));
-    player.score += killed.length * 10;
-    player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type].rewardFruts, 0);
-    player.currentCombo = player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
-    player.lastSlashAt = now;
-    player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
-    player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
-    player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
-    for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
-  } else throw new Error("Unknown match action");
-  player.sequence = sequence;
-  player.lastSeenAt = now;
-  match.revision++;
-  return match;
-}
-function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  if (match.status !== "active") return match;
-  const dt = Math.max(0, Math.min(1, elapsedSeconds));
-  const map = match.map ?? config.map;
-  const path = map.pathCells;
-  for (const player of match.players) {
-    player.fruts += config.incomePerSecond * dt;
-    for (const attacker of player.attackers) attacker.progress += config.attacks[attacker.type].speed * dt;
-    const shoot = (cell, stats, lastFiredAt) => {
-      if (now - lastFiredAt < stats.cooldownMs) return false;
-      const target = [...player.attackers].filter((attacker) => {
-        const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
-        return attacker.progress >= 0 && attacker.hp > 0 && Math.abs(pathCell % map.width - cell % map.width) + Math.abs(Math.floor(pathCell / map.width) - Math.floor(cell / map.width)) <= stats.range;
-      }).sort((a, b) => b.progress - a.progress)[0];
-      if (!target) return false;
-      target.hp -= stats.damage;
-      return true;
-    };
-    for (const tower of player.towers) {
-      const stats = config.towers[tower.type];
-      if (stats && shoot(tower.cell, stats, tower.lastFiredAt ?? tower.placedAt)) tower.lastFiredAt = now;
-    }
-    if (shoot(path.at(-1), config.mainTower, player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
-    for (const attacker of [...player.attackers]) {
-      if (attacker.hp <= 0) {
-        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
-        player.score += 10;
-        player.fruts += config.attacks[attacker.type].rewardFruts;
-      } else if (attacker.progress >= path.length - 1) {
-        player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type].wallDamage);
-        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
-      }
-    }
-  }
-  const dead = match.players.find((player) => player.wallHealth <= 0);
-  if (dead) {
-    match.status = "complete";
-    match.winnerId = match.players.find((player) => player !== dead).userId;
-    match.resultReason = "wall";
-  } else if (match.players.some((player) => player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3)) {
-    for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3) {
-      player.connected = false;
-      player.disconnectedAt = player.lastSeenAt;
-    }
-    const forfeiter = match.players.find((player) => !player.connected);
-    match.status = "complete";
-    match.winnerId = match.players.find((player) => player !== forfeiter)?.userId ?? null;
-    match.resultReason = "disconnect";
-  } else if (match.players.some((player) => player.disconnectedAt !== null && now - player.disconnectedAt >= config.reconnectGraceSeconds * 1e3)) {
-    match.status = "complete";
-    match.winnerId = match.players.find((player) => player.connected)?.userId ?? null;
-    match.resultReason = "disconnect";
-  } else if (now >= match.endsAt) {
-    match.status = "complete";
-    match.resultReason = "timeout";
-    const [a, b] = match.players;
-    match.winnerId = a.wallHealth === b.wallHealth ? a.score === b.score ? null : a.score > b.score ? a.userId : b.userId : a.wallHealth > b.wallHealth ? a.userId : b.userId;
-  }
-  match.revision++;
-  return match;
-}
-
-// server/routes/admin.ts
-var adminRouter = Router4();
+var adminRouter = Router5();
 var ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || "";
 var ICON_TYPES = /* @__PURE__ */ new Set(["coin", "gem", "chest", "blade"]);
 function campaignBossRosterError(value) {
@@ -1840,7 +2451,7 @@ function campaignStoriesError(value) {
 }
 function normalizeDailyRewards(input) {
   const rows = Array.isArray(input) ? input : [];
-  return DEFAULT_ADMIN_CONFIG.dailyRewards.map((fallback, i) => {
+  return DEFAULT_ADMIN_CONFIG2.dailyRewards.map((fallback, i) => {
     const row = rows[i] ?? {};
     const iconType = ICON_TYPES.has(row.iconType) ? row.iconType : fallback.iconType;
     const coins = Math.max(0, Number(row.coins ?? fallback.coins) || 0);
@@ -1867,7 +2478,7 @@ function normalizePrizeCatalog(input, defaults3) {
     ..."rewardSp" in item ? { rewardSp: Math.max(0, Math.min(1e4, Math.floor(Number(item.rewardSp) || 0))) } : {}
   }));
 }
-function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG.menuConfig) {
+function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG2.menuConfig) {
   const row = input && typeof input === "object" ? input : {};
   const text = (value, previous, max) => typeof value === "string" ? value.slice(0, max) : previous;
   const asset = (value, previous = "") => {
@@ -1897,18 +2508,18 @@ function normalizeGameplayConfig(input) {
     return Math.min(max, Math.max(min, n));
   };
   return {
-    startMoney: num(row.startMoney, DEFAULT_ADMIN_CONFIG.gameplayConfig.startMoney, 0, 1e5),
-    startLives: num(row.startLives, DEFAULT_ADMIN_CONFIG.gameplayConfig.startLives, 1, 100),
-    scoreMultiplier: num(row.scoreMultiplier, DEFAULT_ADMIN_CONFIG.gameplayConfig.scoreMultiplier, 0.1, 10),
+    startMoney: num(row.startMoney, DEFAULT_ADMIN_CONFIG2.gameplayConfig.startMoney, 0, 1e5),
+    startLives: num(row.startLives, DEFAULT_ADMIN_CONFIG2.gameplayConfig.startLives, 1, 100),
+    scoreMultiplier: num(row.scoreMultiplier, DEFAULT_ADMIN_CONFIG2.gameplayConfig.scoreMultiplier, 0.1, 10),
     superChargeMultiplier: num(
       row.superChargeMultiplier,
-      DEFAULT_ADMIN_CONFIG.gameplayConfig.superChargeMultiplier,
+      DEFAULT_ADMIN_CONFIG2.gameplayConfig.superChargeMultiplier,
       0.5,
       5
     )
   };
 }
-var DEFAULT_ADMIN_CONFIG = {
+var DEFAULT_ADMIN_CONFIG2 = {
   configKey: "game_config",
   dailyRewards: [
     { day: 1, coins: 50, skillPoints: 0, gems: 5, label: "50 Coins + 5 Gems", iconType: "coin" },
@@ -1960,7 +2571,7 @@ adminRouter.get("/config", async (_req, res) => {
     let doc = await col.findOne({ configKey: "game_config" });
     if (!doc) {
       const seed = {
-        ...DEFAULT_ADMIN_CONFIG,
+        ...DEFAULT_ADMIN_CONFIG2,
         updatedAt: /* @__PURE__ */ new Date()
       };
       await col.insertOne(seed);
@@ -1970,19 +2581,19 @@ adminRouter.get("/config", async (_req, res) => {
     res.json({
       success: true,
       config: {
-        ...DEFAULT_ADMIN_CONFIG,
+        ...DEFAULT_ADMIN_CONFIG2,
         ...cfg,
         menuConfig: normalizeMenuConfig(cfg.menuConfig),
-        vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
+        vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG2.vipTiers,
         missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
-        achievements: normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS),
-        badges: normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES),
+        achievements: migrateCoopCatalog(normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, cfg.coopCatalogVersion),
+        badges: migrateCoopCatalog(normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES), DEFAULT_BADGES, cfg.coopCatalogVersion),
         ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
-        waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG.waves,
+        waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG2.waves,
         campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : [],
-        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG.campaignStories
+        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG2.campaignStories
       }
     });
   } catch (err) {
@@ -1990,7 +2601,7 @@ adminRouter.get("/config", async (_req, res) => {
     res.json({
       success: true,
       offline: true,
-      config: { ...DEFAULT_ADMIN_CONFIG, updatedAt: /* @__PURE__ */ new Date() }
+      config: { ...DEFAULT_ADMIN_CONFIG2, updatedAt: /* @__PURE__ */ new Date() }
     });
   }
 });
@@ -2007,6 +2618,13 @@ adminRouter.post("/config", async (req2, res) => {
   }
   try {
     const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
+    if (req2.body.creatorMedia !== void 0) {
+      try {
+        normalizeCreatorMedia(req2.body.creatorMedia);
+      } catch (error2) {
+        return res.status(400).json({ success: false, error: error2 instanceof Error ? error2.message : "Invalid Creator media." });
+      }
+    }
     const bossRosterError = campaignBosses === void 0 ? null : campaignBossRosterError(campaignBosses);
     if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
     const storyError = campaignStories === void 0 ? null : campaignStoriesError(campaignStories);
@@ -2015,20 +2633,23 @@ adminRouter.post("/config", async (req2, res) => {
     const existing = await col.findOne({ configKey: "game_config" });
     const updated = {
       configKey: "game_config",
-      dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG.dailyRewards,
-      vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG.vipTiers,
+      dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG2.dailyRewards,
+      vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG2.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig)) : normalizeMenuConfig(existing?.menuConfig),
-      gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
+      gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG2.gameplayConfig,
       pvpConfig: normalizePvpConfig(req2.body.pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
-      achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),
-      badges: normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES),
+      coopCatalogVersion: 1,
+      achievements: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, req2.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
+      badges: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES), DEFAULT_BADGES, req2.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
       ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
-      waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG.waves,
+      coopConfig: normalizeCoopConfig(req2.body.coopConfig ?? existing?.coopConfig),
+      creatorMedia: normalizeCreatorMedia(req2.body.creatorMedia === void 0 ? existing?.creatorMedia : req2.body.creatorMedia),
+      waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG2.waves,
       campaignBosses: campaignBosses !== void 0 ? campaignBosses : existing?.campaignBosses || [],
-      campaignStories: campaignStories !== void 0 ? campaignStories : existing?.campaignStories || DEFAULT_ADMIN_CONFIG.campaignStories,
+      campaignStories: campaignStories !== void 0 ? campaignStories : existing?.campaignStories || DEFAULT_ADMIN_CONFIG2.campaignStories,
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
@@ -2141,7 +2762,7 @@ var defaultDeps4 = {
   vipTiers: async () => {
     const col = await getCollection("admin_config");
     const doc = await col.findOne({ configKey: "game_config" });
-    return doc?.vipTiers?.length ? doc.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers || [];
+    return doc?.vipTiers?.length ? doc.vipTiers : DEFAULT_ADMIN_CONFIG2.vipTiers || [];
   },
   allowedSkinIds: async () => {
     const catalog = await loadQuestCatalog();
@@ -2153,7 +2774,7 @@ async function getActiveDailyRewards() {
     const col = await getCollection("admin_config");
     const doc = await col.findOne({ configKey: "game_config" });
     if (doc?.dailyRewards && Array.isArray(doc.dailyRewards) && doc.dailyRewards.length > 0) {
-      return DEFAULT_ADMIN_CONFIG.dailyRewards.map((fallback, i) => ({
+      return DEFAULT_ADMIN_CONFIG2.dailyRewards.map((fallback, i) => ({
         ...fallback,
         ...doc.dailyRewards[i] || {},
         day: i + 1
@@ -2161,7 +2782,7 @@ async function getActiveDailyRewards() {
     }
   } catch {
   }
-  return DEFAULT_ADMIN_CONFIG.dailyRewards;
+  return DEFAULT_ADMIN_CONFIG2.dailyRewards;
 }
 async function withVipDailyBonus(userId, rewards, deps) {
   if (!deps.vipTiers) return rewards;
@@ -2183,7 +2804,7 @@ function getDayKey2(date = /* @__PURE__ */ new Date()) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 function createDailyRouter(deps = defaultDeps4) {
-  const router = Router5();
+  const router = Router6();
   router.get("/", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -2294,7 +2915,7 @@ function createDailyRouter(deps = defaultDeps4) {
 var dailyRouter = createDailyRouter();
 
 // server/routes/steam.ts
-import { Router as Router7 } from "express";
+import { Router as Router8 } from "express";
 import crypto4 from "crypto";
 
 // server/steam.ts
@@ -2397,9 +3018,9 @@ function validateUsername(raw) {
 }
 
 // server/routes/auth.ts
-import { Router as Router6 } from "express";
+import { Router as Router7 } from "express";
 import crypto3 from "crypto";
-var authRouter = Router6();
+var authRouter = Router7();
 function bearer(req2) {
   const h = req2.headers.authorization;
   if (h?.startsWith("Bearer ")) return h.slice(7);
@@ -2674,7 +3295,7 @@ authRouter.post("/complete-profile", async (req2, res) => {
 });
 
 // server/routes/steam.ts
-var steamRouter = Router7();
+var steamRouter = Router8();
 function frontendOrigin() {
   return (process.env.APP_URL || process.env.PUBLIC_URL || "http://localhost:5173").replace(/\/$/, "");
 }
@@ -2865,7 +3486,7 @@ steamRouter.get("/status", async (req2, res) => {
 });
 
 // server/routes/profile.ts
-import { Router as Router8 } from "express";
+import { Router as Router9 } from "express";
 var defaultDeps5 = {
   resolveUser: resolveRequestUser,
   collection: getCollection,
@@ -2881,7 +3502,7 @@ function serverRevision(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 function createProfileRouter(deps = defaultDeps5) {
-  const router = Router8();
+  const router = Router9();
   router.get("/", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -2984,8 +3605,8 @@ function createProfileRouter(deps = defaultDeps5) {
 var profileRouter = createProfileRouter();
 
 // server/routes/badges.ts
-import { Router as Router9 } from "express";
-var badgesRouter = Router9();
+import { Router as Router10 } from "express";
+var badgesRouter = Router10();
 badgesRouter.get("/", async (req2, res) => {
   try {
     const user = await resolveRequestUser(req2);
@@ -3079,6 +3700,8 @@ badgesRouter.post("/progress", async (req2, res) => {
     for (const update of updates) {
       const def = catalog.badges.find((b) => b.id === update.badgeId && b.enabled !== false);
       if (!def) continue;
+      const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+      if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
       const existing = await col.findOne({ userId, badgeId: def.id });
       let currentProgress = existing?.progress || 0;
       const maxProgress = def.requirement?.goal || 1;
@@ -3109,8 +3732,8 @@ badgesRouter.post("/progress", async (req2, res) => {
 });
 
 // server/routes/social.ts
-import { Router as Router10 } from "express";
-import { randomUUID } from "node:crypto";
+import { Router as Router11 } from "express";
+import { randomUUID as randomUUID2 } from "node:crypto";
 var defaults = { resolveUser: resolveRequestUser, collection: getCollection };
 var fail = (res, status, error2) => res.status(status).json({ success: false, error: error2 });
 var safeName = (user) => String(user.username || user.nickname || "Slicer").slice(0, 32);
@@ -3123,13 +3746,13 @@ async function byUsername(col, username) {
 }
 async function notify(col, userId, actorId, actorName, type, title, body) {
   try {
-    await col.insertOne({ notificationId: randomUUID(), userId, actorId, actorName, type, title, body: body.slice(0, 240), createdAt: /* @__PURE__ */ new Date() });
+    await col.insertOne({ notificationId: randomUUID2(), userId, actorId, actorName, type, title, body: body.slice(0, 240), createdAt: /* @__PURE__ */ new Date() });
   } catch (err) {
     console.error("Could not save social notification:", err);
   }
 }
 function createSocialRouter(deps = defaults) {
-  const router = Router10();
+  const router = Router11();
   router.get("/forum", async (_req, res) => {
     try {
       const posts = await (await deps.collection("forum_posts")).find({}).sort({ createdAt: -1 }).limit(50).toArray();
@@ -3147,7 +3770,7 @@ function createSocialRouter(deps = defaults) {
       const title = typeof req2.body?.title === "string" ? req2.body.title.trim() : "";
       const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
       if (title.length < 3 || title.length > 100 || body.length < 3 || body.length > 2e3) return fail(res, 400, "Title must be 3\u2013100 characters and post 3\u20132,000 characters");
-      const post = { postId: randomUUID(), userId: user.userId, author: safeName(user), title, body, createdAt: /* @__PURE__ */ new Date(), replies: [] };
+      const post = { postId: randomUUID2(), userId: user.userId, author: safeName(user), title, body, createdAt: /* @__PURE__ */ new Date(), replies: [] };
       await (await deps.collection("forum_posts")).insertOne(post);
       res.status(201).json({ success: true, post });
     } catch (err) {
@@ -3161,7 +3784,7 @@ function createSocialRouter(deps = defaults) {
       if (!user) return fail(res, 401, "Sign in to reply");
       const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
       if (!body || body.length > 1e3) return fail(res, 400, "Reply must contain 1\u20131,000 characters");
-      const reply = { replyId: randomUUID(), userId: user.userId, author: safeName(user), body, createdAt: /* @__PURE__ */ new Date() };
+      const reply = { replyId: randomUUID2(), userId: user.userId, author: safeName(user), body, createdAt: /* @__PURE__ */ new Date() };
       const posts = await deps.collection("forum_posts");
       const post = await posts.findOne({ postId: String(req2.params.postId) });
       if (!post) return fail(res, 404, "Post not found");
@@ -3324,7 +3947,7 @@ function createSocialRouter(deps = defaults) {
       if (!body || body.length > 1e3) return fail(res, 400, "Messages must contain 1 to 1,000 characters");
       const relation = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: peer.userId, state: "accepted" });
       if (!relation) return fail(res, 403, "You can message friends only");
-      const message = { messageId: randomUUID(), conversationId: pairKey(user.userId, peer.userId), senderId: user.userId, recipientId: peer.userId, body, createdAt: /* @__PURE__ */ new Date() };
+      const message = { messageId: randomUUID2(), conversationId: pairKey(user.userId, peer.userId), senderId: user.userId, recipientId: peer.userId, body, createdAt: /* @__PURE__ */ new Date() };
       await (await deps.collection("messages")).insertOne(message);
       await notify(await deps.collection("notifications"), peer.userId, user.userId, safeName(user), "message", "New message", body.slice(0, 100));
       res.status(201).json({ success: true, message });
@@ -3338,13 +3961,13 @@ function createSocialRouter(deps = defaults) {
 var socialRouter = createSocialRouter();
 
 // server/routes/lobbies.ts
-import { randomBytes, randomUUID as randomUUID2 } from "node:crypto";
-import { Router as Router11 } from "express";
+import { randomBytes, randomUUID as randomUUID3 } from "node:crypto";
+import { Router as Router12 } from "express";
 var defaults2 = { resolveUser: resolveRequestUser, collection: getCollection };
 var error = (res, status, message) => res.status(status).json({ success: false, error: message });
 var active = () => ({ status: "waiting", expiresAt: { $gt: /* @__PURE__ */ new Date() } });
 function createLobbyRouter(deps = defaults2) {
-  const router = Router11();
+  const router = Router12();
   const identity = async (req2, res) => {
     const user = await deps.resolveUser(req2);
     if (!user) error(res, 401, "Sign in to use online lobbies");
@@ -3380,7 +4003,7 @@ function createLobbyRouter(deps = defaults2) {
       const existing = await rooms.findOne({ "members.userId": user.userId, ...active() });
       if (existing) return error(res, 409, "Leave your current lobby first");
       const lobby = {
-        lobbyId: randomUUID2(),
+        lobbyId: randomUUID3(),
         code: randomBytes(4).toString("hex").toUpperCase(),
         hostId: user.userId,
         visibility: req2.body?.visibility === "public" ? "public" : "friends",
@@ -3463,7 +4086,7 @@ function createLobbyRouter(deps = defaults2) {
       const relationship = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: friend.userId, state: "accepted" });
       if (!relationship) return error(res, 403, "Invite accepted friends only");
       await (await deps.collection("notifications")).insertOne({
-        notificationId: randomUUID2(),
+        notificationId: randomUUID3(),
         userId: friend.userId,
         actorId: user.userId,
         actorName: String(user.username || user.nickname || "Slicer").slice(0, 32),
@@ -3482,7 +4105,7 @@ function createLobbyRouter(deps = defaults2) {
 var lobbyRouter = createLobbyRouter();
 
 // server/routes/items.ts
-import { Router as Router12 } from "express";
+import { Router as Router13 } from "express";
 var VIP_FALLBACK = {
   bronze: { price: 500, coins: 1e3 },
   silver: { price: 1500, coins: 2500 },
@@ -3500,7 +4123,7 @@ function isSlicer(id, slicers) {
   return slicers.find((item) => item.id === id && item.enabled !== false);
 }
 function createItemsRouter(deps = defaultDeps6) {
-  const router = Router12();
+  const router = Router13();
   router.post("/action", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -3514,7 +4137,7 @@ function createItemsRouter(deps = defaultDeps6) {
       const slicer = isSlicer(id, slicers);
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith("hero:") ? id.slice(5) : null;
-      const hero = heroId && HEROES2.find((item) => item.id === heroId);
+      const hero = heroId && HEROES.find((item) => item.id === heroId);
       if (!["buy-vip", "buy-skill"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
       const col = await deps.collection("cloud_saves");
       const current = await col.findOne({ userId: user.userId });
@@ -3538,7 +4161,7 @@ function createItemsRouter(deps = defaultDeps6) {
         saveData.vipStatus = tier;
         saveData.coins = Math.min(1e6, (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + VIP_FALLBACK[tier].coins);
       } else if (action === "buy-skill") {
-        const skill = SKILLS2.find((entry) => entry.id === id);
+        const skill = SKILLS.find((entry) => entry.id === id);
         if (!skill) return res.status(404).json({ success: false, error: "Skill not found" });
         if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: "Not enough skill points" });
         if (!saveData.skills || !Number.isSafeInteger(saveData.skills[skill.id]) || saveData.skills[skill.id] >= skill.max) return res.status(409).json({ success: false, error: "Skill is already at maximum rank" });
@@ -3637,123 +4260,9 @@ function rateLimit(maxRequests, windowMs) {
 }
 
 // server/routes/pvp.ts
-import { Router as Router13 } from "express";
-import { randomUUID as randomUUID3 } from "node:crypto";
-import { Rest } from "ably";
-
-// src/services/admin.ts
-var DEFAULT_ADMIN_CONFIG2 = {
-  configKey: "game_config",
-  dailyRewards: [
-    { day: 1, coins: 50, skillPoints: 0, gems: 5, label: "50 Coins + 5 Gems", iconType: "coin" },
-    { day: 2, coins: 100, skillPoints: 1, gems: 10, label: "100 Coins + 1 SP + 10 Gems", iconType: "gem" },
-    { day: 3, coins: 150, skillPoints: 0, gems: 15, label: "150 Coins + 15 Gems", iconType: "coin" },
-    { day: 4, coins: 200, skillPoints: 0, gems: 20, label: "200 Coins + 20 Gems", iconType: "coin" },
-    { day: 5, coins: 300, skillPoints: 2, gems: 25, label: "300 Coins + 2 SP + 25 Gems", iconType: "gem" },
-    { day: 6, coins: 450, skillPoints: 0, gems: 30, label: "450 Coins + 30 Gems", iconType: "chest" },
-    { day: 7, coins: 1e3, skillPoints: 2, gems: 50, skinUnlock: "blade-gold", label: "1,000 Coins + Gold Blade + 50 Gems!", iconType: "blade" }
-  ],
-  vipTiers: [
-    { tier: "bronze", title: "Bronze VIP", price: 500, coinBonus: 10, xpBonus: 5, dailyCoins: 25, dailySp: 0, exclusiveSkins: [], description: "+10% coins, +5% XP, 25 daily coins" },
-    { tier: "silver", title: "Silver VIP", price: 1500, coinBonus: 25, xpBonus: 15, dailyCoins: 75, dailySp: 1, exclusiveSkins: ["blade-silver-vip"], description: "+25% coins, +15% XP, 75 daily coins + 1 SP" },
-    { tier: "gold", title: "Gold VIP", price: 5e3, coinBonus: 50, xpBonus: 30, dailyCoins: 200, dailySp: 2, exclusiveSkins: ["blade-gold-vip", "wall-gold-vip"], description: "+50% coins, +30% XP, 200 daily coins + 2 SP, exclusive skins" }
-  ],
-  menuConfig: {
-    eyebrow: "FRUIT TD \xB7 HOLD THE WALL",
-    title: "Slice.\nHold the Wall.",
-    subtitle: "Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.",
-    announcement: "WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.",
-    themeColor: "#a3e635",
-    backgroundImage: "",
-    logoImage: "",
-    faviconImage: ""
-  },
-  gameplayConfig: {
-    startMoney: 140,
-    startLives: 15,
-    scoreMultiplier: 1,
-    superChargeMultiplier: 1
-  },
-  pvpConfig: structuredClone(DEFAULT_PVP_CONFIG),
-  missions: DEFAULT_MISSIONS,
-  achievements: DEFAULT_ACHIEVEMENTS,
-  badges: DEFAULT_BADGES,
-  ranks: DEFAULT_RANK_TIERS,
-  slicers: DEFAULT_SLICERS,
-  enemies: [],
-  waves: { version: 1, levels: {} },
-  campaignBosses: [],
-  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES)
-};
-function mergeAdminConfig(raw) {
-  const src = raw || {};
-  return {
-    ...DEFAULT_ADMIN_CONFIG2,
-    ...src,
-    dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG2.dailyRewards,
-    vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG2.vipTiers,
-    menuConfig: { ...DEFAULT_ADMIN_CONFIG2.menuConfig, ...src.menuConfig || {} },
-    gameplayConfig: { ...DEFAULT_ADMIN_CONFIG2.gameplayConfig, ...src.gameplayConfig || {} },
-    pvpConfig: mergePvpConfig(src.pvpConfig),
-    // A present catalogue is authoritative: Admin must be able to remove an entry
-    // without the defaults silently restoring it on the next load.
-    missions: structuredClone(Array.isArray(src.missions) ? src.missions : DEFAULT_ADMIN_CONFIG2.missions),
-    achievements: structuredClone(Array.isArray(src.achievements) ? src.achievements : DEFAULT_ADMIN_CONFIG2.achievements),
-    badges: structuredClone(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG2.badges),
-    ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG2.ranks), DEFAULT_ADMIN_CONFIG2.ranks),
-    slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG2.slicers),
-    enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG2.enemies),
-    waves: src.waves && typeof src.waves === "object" ? structuredClone(src.waves) : structuredClone(DEFAULT_ADMIN_CONFIG2.waves),
-    campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
-    campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20 ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES)
-  };
-}
-function mergePvpConfig(raw) {
-  const value = raw && typeof raw === "object" ? raw : {};
-  const bounded = (n, fallback, min, max) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
-  const maps = normalizePvpMaps(value.maps);
-  const towers = { ...DEFAULT_PVP_CONFIG.towers };
-  for (const [id, fallback] of Object.entries(towers)) {
-    const row = value.towers?.[id];
-    if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), damage: bounded(row.damage, fallback.damage, 1, 1e4), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 6e4) };
-  }
-  const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
-  for (const [id, fallback] of Object.entries(attacks)) {
-    const row = value.attacks?.[id];
-    if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), health: bounded(row.health, fallback.health, 1, 1e4), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 1e4), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 1e4), packSize: Math.floor(bounded(row.packSize, fallback.packSize || 1, 1, 8)) };
-  }
-  const tiers = Array.isArray(value.rating?.tiers) ? value.rating.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
-  return {
-    version: 1,
-    maps,
-    map: maps[0],
-    durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
-    wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 1e5),
-    startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 1e5),
-    incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
-    reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
-    mainTower: {
-      damage: bounded(value.mainTower?.damage, DEFAULT_PVP_CONFIG.mainTower.damage, 0, 1e4),
-      range: bounded(value.mainTower?.range, DEFAULT_PVP_CONFIG.mainTower.range, 0, 24),
-      cooldownMs: bounded(value.mainTower?.cooldownMs, DEFAULT_PVP_CONFIG.mainTower.cooldownMs, 100, 6e4)
-    },
-    towers,
-    attacks,
-    rating: {
-      ...DEFAULT_PVP_CONFIG.rating,
-      ...value.rating || {},
-      start: bounded(value.rating?.start, 1e3, 0, 1e6),
-      win: bounded(value.rating?.win, 50, 0, 1e3),
-      tie: bounded(value.rating?.tie, 20, 0, 1e3),
-      loss: -bounded(Math.abs(value.rating?.loss ?? -50), 50, 1, 1e3),
-      bonusCap: bounded(value.rating?.bonusCap, 20, 0, 1e3),
-      seasonResetPercent: bounded(value.rating?.seasonResetPercent, 25, 0, 100),
-      combo: DEFAULT_PVP_CONFIG.rating.combo,
-      tiers: tiers.map((tier, i) => ({ name: DEFAULT_PVP_CONFIG.rating.tiers[i].name, min: bounded(tier?.min, DEFAULT_PVP_CONFIG.rating.tiers[i].min, 0, 1e6) }))
-    },
-    seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((item, i) => ({ ...item, ...value.seasonRewards?.[i] || {}, tier: item.tier }))
-  };
-}
+import { Router as Router14 } from "express";
+import { randomUUID as randomUUID4 } from "node:crypto";
+import { Rest as Rest2 } from "ably";
 
 // src/game/pvpBot.ts
 function choosePvpBotCommand(match, botUserId, config) {
@@ -3776,8 +4285,8 @@ function choosePvpBotCommand(match, botUserId, config) {
     const cells = map.buildCells.filter((cell) => !bot.towers.some((tower) => tower.cell === cell));
     const middle = map.pathCells.slice(Math.floor(map.pathCells.length * 0.25), Math.ceil(map.pathCells.length * 0.8));
     cells.sort((a, b) => {
-      const distance = (cell) => Math.min(...middle.map((pathCell) => Math.abs(cell % map.width - pathCell % map.width) + Math.abs(Math.floor(cell / map.width) - Math.floor(pathCell / map.width))));
-      return distance(a) - distance(b) || Math.abs(Math.floor(a / map.width) - map.height * 0.55) - Math.abs(Math.floor(b / map.width) - map.height * 0.55);
+      const distance2 = (cell) => Math.min(...middle.map((pathCell) => Math.abs(cell % map.width - pathCell % map.width) + Math.abs(Math.floor(cell / map.width) - Math.floor(pathCell / map.width))));
+      return distance2(a) - distance2(b) || Math.abs(Math.floor(a / map.width) - map.height * 0.55) - Math.abs(Math.floor(b / map.width) - map.height * 0.55);
     });
     if (cells.length) return { type: "build", tower: type, cell: cells[0] };
   }
@@ -3801,7 +4310,7 @@ function playPvpBotTurn(match, botUserId, now, config) {
 }
 
 // server/routes/pvp.ts
-var pvpRouter = Router13();
+var pvpRouter = Router14();
 var seasonKey = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
 var routerError = (res, status, message) => res.status(status).json({ success: false, error: message });
 var settlingMatches = /* @__PURE__ */ new Set();
@@ -3847,7 +4356,7 @@ async function publishMatch(match) {
   const key = process.env.ABLY_API_KEY;
   if (!key) return;
   try {
-    ablyPublisher ??= new Rest({ key });
+    ablyPublisher ??= new Rest2({ key });
     await ablyPublisher.channels.get(`fruittd-pvp-${match.id}`).publish("match.snapshot", { id: match.id, revision: match.revision, status: match.status, endsAt: match.endsAt, map: match.map, mapPool: match.mapPool, vetoTurn: match.vetoTurn, players: match.players, winnerId: match.winnerId, resultReason: match.resultReason });
   } catch (error2) {
     console.error("Ably match event publish failed:", error2);
@@ -3876,7 +4385,7 @@ function publicMatch(match, userId) {
   };
 }
 async function makeMatch(queue, left, right, config) {
-  const match = newPvpMatch(randomUUID3(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
+  const match = newPvpMatch(randomUUID4(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
   match.updatedAt = /* @__PURE__ */ new Date();
   await (await getCollection("pvp_matches")).insertOne(match);
   void publishMatch(match);
@@ -4010,7 +4519,7 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
     const active2 = await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": user.userId });
     if (active2) return routerError(res, 409, "Finish your current match before starting a test.");
     const now = Date.now();
-    const id = randomUUID3();
+    const id = randomUUID4();
     const botUserId = `bot:${id}`;
     const match = newPvpMatch(id, queue, [createPvpPlayer(user.userId, user.username || user.nickname || "Slicer", "blue", config, now), createPvpPlayer(botUserId, "Orchard Siege Bot", "red", config, now)], now, config);
     match.status = "active";
@@ -4074,10 +4583,10 @@ pvpRouter.post("/challenge", async (req2, res) => {
     const users = await getCollection("users");
     const friend = await users.findOne({ userId: friendId });
     if (!friend) return routerError(res, 404, "Friend not found.");
-    const challenge = { challengeId: randomUUID3(), fromId: user.userId, fromName: user.username || user.nickname || "Slicer", toId: friendId, createdAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 12e4) };
+    const challenge = { challengeId: randomUUID4(), fromId: user.userId, fromName: user.username || user.nickname || "Slicer", toId: friendId, createdAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 12e4) };
     await (await getCollection("pvp_challenges")).insertOne(challenge);
     try {
-      await (await getCollection("notifications")).insertOne({ notificationId: randomUUID3(), userId: friendId, actorId: user.userId, actorName: challenge.fromName, type: "pvp_challenge", title: "Arena challenge", body: `${challenge.fromName} challenged you to an Arena siege. Open Arena to accept within two minutes.`, createdAt: /* @__PURE__ */ new Date() });
+      await (await getCollection("notifications")).insertOne({ notificationId: randomUUID4(), userId: friendId, actorId: user.userId, actorName: challenge.fromName, type: "pvp_challenge", title: "Arena challenge", body: `${challenge.fromName} challenged you to an Arena siege. Open Arena to accept within two minutes.`, createdAt: /* @__PURE__ */ new Date() });
     } catch (error2) {
       console.error("Could not create the Arena challenge notification:", error2);
     }
@@ -4223,7 +4732,7 @@ pvpRouter.post("/match/:id/token", async (req2, res) => {
     const scopedKey = subscriberKey();
     if (!key || !scopedKey || key.app !== scopedKey.app) return routerError(res, 503, "Ably server and subscribe-only keys are not configured for the same app.");
     const capability = JSON.stringify({ [`fruittd-pvp-${match.id}`]: ["subscribe"] });
-    ablySubscriber ??= new Rest({ key: process.env.ABLY_SUBSCRIBE_KEY });
+    ablySubscriber ??= new Rest2({ key: process.env.ABLY_SUBSCRIBE_KEY });
     const token = await ablySubscriber.auth.requestToken({ clientId: `player-${user.userId}`, capability, ttl: 10 * 60 * 1e3 });
     res.json({ success: true, token, channel: `fruittd-pvp-${match.id}` });
   } catch {
@@ -4263,6 +4772,7 @@ function createApp() {
       res.status(500).json({ status: "error", error: err.message });
     }
   });
+  app2.use("/api/coop", rateLimit(900, 6e4), coopRouter);
   app2.use("/api/auth", rateLimit(30, 6e4), authRouter);
   app2.use("/api/leaderboard", rateLimit(60, 6e4), leaderboardRouter);
   app2.use("/api/achievements", achievementsRouter);

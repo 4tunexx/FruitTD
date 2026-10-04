@@ -1,3 +1,6 @@
+import { normalizeCoopConfig, type CoopConfig } from '../../src/game/onlineCoop';
+import { normalizeCreatorMedia } from '../../src/game/creatorMedia';
+import type { MediaStudioStore } from '../../src/ui/adminMediaStudio';
 import { Router, Request, Response } from 'express';
 import { getCollection, DailyBonusDoc, LeaderboardDoc } from '../db';
 import { ObjectId } from 'mongodb';
@@ -7,7 +10,7 @@ import {
   DEFAULT_BADGES,
   DEFAULT_MISSIONS,
   DEFAULT_RANK_TIERS,
-  monthlyLeaderboardMode,
+  monthlyLeaderboardMode, migrateCoopCatalog,
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
 import { campaignWaves } from '../../src/game/campaign';
@@ -21,6 +24,7 @@ export const adminRouter = Router();
 export const ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || '';
 
 export interface AdminConfigDoc {
+  coopCatalogVersion?: number;
   configKey: string; // 'game_config'
   dailyRewards: Array<{
     day: number;
@@ -59,6 +63,8 @@ export interface AdminConfigDoc {
     superChargeMultiplier: number;
   };
   pvpConfig?: PvpConfig;
+  coopConfig?: CoopConfig;
+  creatorMedia?: MediaStudioStore | null;
   missions?: any[];
   achievements?: any[];
   badges?: any[];
@@ -251,8 +257,8 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         menuConfig: normalizeMenuConfig(cfg.menuConfig),
         vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
         missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
-        achievements: normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS),
-        badges: normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES),
+        achievements: migrateCoopCatalog(normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, cfg.coopCatalogVersion),
+        badges: migrateCoopCatalog(normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES), DEFAULT_BADGES, cfg.coopCatalogVersion),
         ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
         slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
@@ -289,6 +295,10 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
 
   try {
     const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req.body;
+    if (req.body.creatorMedia !== undefined) {
+      try { normalizeCreatorMedia(req.body.creatorMedia); }
+      catch (error) { return res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Invalid Creator media.' }); }
+    }
     const bossRosterError = campaignBosses === undefined ? null : campaignBossRosterError(campaignBosses);
     if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
     const storyError = campaignStories === undefined ? null : campaignStoriesError(campaignStories);
@@ -306,11 +316,14 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
         gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
         pvpConfig: normalizePvpConfig((req.body as any).pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
-      achievements: normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS),
-      badges: normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES),
+      coopCatalogVersion: 1,
+      achievements: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, req.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
+      badges: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES), DEFAULT_BADGES, req.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
       ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
+      coopConfig: normalizeCoopConfig(req.body.coopConfig ?? existing?.coopConfig),
+      creatorMedia: normalizeCreatorMedia(req.body.creatorMedia === undefined ? existing?.creatorMedia : req.body.creatorMedia),
       waves: waves && typeof waves === 'object' ? waves : (existing?.waves || DEFAULT_ADMIN_CONFIG.waves),
       campaignBosses: campaignBosses !== undefined ? campaignBosses : ((existing as any)?.campaignBosses || []),
       campaignStories: campaignStories !== undefined ? campaignStories : (existing?.campaignStories || DEFAULT_ADMIN_CONFIG.campaignStories),

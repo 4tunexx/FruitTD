@@ -483,17 +483,17 @@ export function coopHubTab(onStart?: () => void): HubTab {
     label: 'Co-op',
     icon: UsersRound,
     renderMain: (root) => {
-      void import('./coopLobby').then(({ renderCoopLobby }) => {
-        if (root.isConnected) renderCoopLobby(root, () => onStart?.());
+      void import('./onlineCoop').then(({ renderOnlineCoop }) => {
+        if (root.isConnected) renderOnlineCoop(root, () => onStart?.());
       });
     },
     renderSub: (root) => {
       root.appendChild(el('aside', { class: 'ftd-hub-context' }, [
-        el('p', { class: 'ftd-hub-context__eyebrow', text: 'TWO PLAYER CONTROLS' }),
+        el('p', { class: 'ftd-hub-context__eyebrow', text: 'ONLINE TEAM PLAY' }),
         el('h2', { text: 'Defend together' }),
-        el('p', { text: 'Player 1 uses the mouse or touch to slice fruit, place towers, and buy upgrades.' }),
-        el('p', { text: 'Player 2 uses arrow keys to move the blue cursor and holds Enter to slice fruit.' }),
-        el('p', { text: 'The wall, coins, and match rewards belong to the current profile.' }),
+        el('p', { text: 'Both online players use mouse or touch to slice fruit and build shared defenses.' }),
+        el('p', { text: 'Create a private room for a friend or find a random teammate.' }),
+        el('p', { text: 'The wall and Fruts are shared. Each connected account receives the same match rewards.' }),
         GameButton({ label: 'Choose another mode', variant: 'outline', block: true, onClick: () => openScreen('MAIN_MENU') }),
       ]));
     },
@@ -535,7 +535,7 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     });
     const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
-    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Local Co-op' }), el('small', { text: 'Two players · mouse + keyboard' })]);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op' }), el('small', { text: 'Online teammates · local play available' })]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
     const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Real-time 1v1 · quick match' })]);
     arena.addEventListener('click', () => openScreen('ARENA')); grid.appendChild(arena);

@@ -1,5 +1,5 @@
 /** Edit the actual configuration through labeled controls; no code editor required. */
-export function renderConfigForm(root: HTMLElement, config: object): void {
+export function renderConfigForm(root: HTMLElement, config: object, onChange: () => void = () => {}): void {
   root.replaceChildren();
   const label = (key: string) => key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ');
   function render(parent: HTMLElement, value: Record<string, unknown>, depth: number): void {
@@ -21,6 +21,7 @@ export function renderConfigForm(root: HTMLElement, config: object): void {
         input.addEventListener('input', () => {
           if (!input.checkValidity()) return;
           value[key] = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+          onChange();
         });
         row.append(caption, input); parent.append(row);
       }

@@ -1,3 +1,4 @@
+import { animateBladePreview } from './screens/bladePreview';
 import {
   REQ_CATEGORIES,
   REQUIREMENT_TYPES,
@@ -445,11 +446,19 @@ export function renderSlicerEditor(container: HTMLElement, items: CatalogSlicer[
       <p class="admin-slicer-fx-note">Effects on fruit: damage ×${item.damageMul.toFixed(2)}, juice ×${item.juiceMul.toFixed(2)}, brittle +${item.brittleBonus.toFixed(1)}s · look: ${escapeAttr(item.fxStyle)}</p>
     `;
 
+    const live = document.createElement('canvas');
+    live.className = 'ftd-blade-preview__live admin-slicer-live';
+    live.setAttribute('aria-label', `${item.name} live blade preview. Drag to try.`);
+    card.append(live);
+    let previewControl: ReturnType<typeof animateBladePreview> | null = null;
+    requestAnimationFrame(() => { if (live.isConnected) previewControl = animateBladePreview(live, item); });
+    card.addEventListener('input', () => previewControl?.update(item));
+    card.addEventListener('change', () => previewControl?.update(item));
     const bindText = (sel: string, apply: (v: string) => void) => {
-      card.querySelector(sel)?.addEventListener('change', (e) => apply((e.target as HTMLInputElement).value));
+      card.querySelector(sel)?.addEventListener('input', (e) => apply((e.target as HTMLInputElement).value));
     };
     const bindNum = (sel: string, apply: (v: number) => void) => {
-      card.querySelector(sel)?.addEventListener('change', (e) => apply(Number((e.target as HTMLInputElement).value) || 0));
+      card.querySelector(sel)?.addEventListener('input', (e) => apply(Number((e.target as HTMLInputElement).value) || 0));
     };
     const bindRange = (sel: string, apply: (v: number) => void) => {
       const input = card.querySelector(sel) as HTMLInputElement | null;

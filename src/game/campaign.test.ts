@@ -1,6 +1,38 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { campaignBoss, campaignWaves, defaultCampaignBoss, sanitizeCampaignProgress } from './campaign';
+import { campaignBoss, campaignWaves, completeCampaignStage, defaultCampaignBoss, sanitizeCampaignProgress } from './campaign';
+import { planBossWave, planWave } from './waves';
+
+test('all 100 campaign stages produce playable waves and a single final boss, and unlock in order', () => {
+  let progress = { unlocked: 1, cleared: [] as number[] };
+  let chapters = 0;
+  for (let stage = 1; stage <= 100; stage++) {
+    const count = campaignWaves(stage);
+    for (let wave = 1; wave <= count; wave++) {
+      const plan = planWave(wave, 'campaign', stage, wave, count);
+      assert.ok(plan.items.length > 0);
+      assert.ok(plan.gap > 0 && Number.isFinite(plan.hpScale));
+      assert.equal(plan.boss, false);
+    }
+    const boss = planBossWave(count + 1, 'campaign', stage, campaignBoss(stage).difficulty);
+    assert.equal(boss.boss, true);
+    assert.equal(boss.items.filter(item => item.boss).length, 1);
+    assert.equal(boss.items.find(item => item.boss)!.bossStage, stage);
+    const completion = completeCampaignStage(progress, stage);
+    progress = completion.progress;
+    chapters += Number(completion.chapter);
+    assert.equal(completion.final, stage === 100);
+    assert.equal(completion.nextStage, Math.min(100, stage + 1));
+    assert.equal(progress.cleared.length, stage);
+  }
+  assert.equal(chapters, 20);
+  assert.equal(progress.unlocked, 100);
+  assert.deepEqual(completeCampaignStage(progress, 100).progress, progress);
+});
+
+test('locked, fractional and out-of-range stages cannot advance Campaign', () => {
+  for (const stage of [0, 2, 1.5, 101, NaN]) assert.throws(() => completeCampaignStage({ unlocked: 1, cleared: [] }, stage));
+});
 import { modeRules } from './modes';
 import { wavesPerLevel } from './waves';
 

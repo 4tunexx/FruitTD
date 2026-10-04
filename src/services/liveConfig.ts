@@ -1,3 +1,4 @@
+import { setPublishedCreatorMedia } from '../game/creatorMedia';
 import { DEFAULT_ADMIN_CONFIG, fetchAdminConfig, mergeAdminConfig, type AdminConfig } from './admin';
 import { setLiveWavesConfig } from '../game/creatorWaves';
 
@@ -124,6 +125,7 @@ export function setLiveConfig(config: AdminConfig): void {
   cached = config;
   applyMenuAppearance(config);
   setLiveWavesConfig(cached.waves);
+  setPublishedCreatorMedia(cached.creatorMedia);
 }
 
 export async function loadLiveConfig(force = false): Promise<AdminConfig> {

@@ -86,13 +86,15 @@ describe('Arena and Ranked PvP rules', () => {
     const game = match(); game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
     const defender = game.players[0]!;
     defender.attackers.push({ id: 'incoming', type: 'normal', hp: 100, progress: 4 });
-    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 0, y: 4.5 }, to: { x: 2, y: 4.5 } }, 1, 2_000, cfg), /missed/);
+    applyPvpCommand(game, 'a', { type: 'slash', from: { x: 0, y: 4.5 }, to: { x: 2, y: 4.5 } }, 1, 2_000, cfg);
+    assert.equal(defender.currentCombo, 0);
+    assert.equal(defender.lastStroke?.at, 2_000);
     assert.equal(defender.attackers.length, 1);
-    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: -10, y: 4.5 }, to: { x: 6, y: 4.5 } }, 1, 2_001, cfg), /Invalid blade/);
-    applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 1, 2_002, cfg);
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: -10, y: 4.5 }, to: { x: 6, y: 4.5 } }, 2, 2_001, cfg), /Invalid blade/);
+    applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 2, 2_202, cfg);
     assert.equal(defender.attackers.length, 0);
     assert.equal(defender.score, 10);
-    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 1, 2_003, cfg), /replayed/);
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 2, 2_203, cfg), /replayed/);
   });
 
   it('awards correct FR deltas, caps performance, keeps a loss net negative, and uses configured tiers', () => {

@@ -1,3 +1,4 @@
+import { startCoopAuthority } from './routes/coop';
 import dotenv from 'dotenv';
 import { createApp } from './app';
 import { getDb } from './db';
@@ -12,6 +13,7 @@ async function start() {
   try {
     await getDb();
     startPvpAuthority();
+    startCoopAuthority();
     app.listen(PORT, () => {
       console.log(`🚀 Fruit TD Backend API running on http://localhost:${PORT}`);
     });

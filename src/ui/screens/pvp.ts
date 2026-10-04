@@ -6,10 +6,11 @@ import type { Realtime as AblyRealtime } from 'ably';
 import { socialApi } from '../../services/social';
 import { PvpBattlefield } from './pvpBattlefield';
 import { turretDef, type TurretKind } from '../../game/turrets';
+import { LoadingIndicator } from '../components/loading';
 
 type MapView = { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] };
 type MatchView = { id: string; queue: PvpQueue; status: string; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ userId: string; name: string; side: string; fruts: number; wallHealth: number; score: number; towers: Array<{ id: string; type: string; cell: number }>; attackers: Array<{ id: string; type: string; progress: number }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
-type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: { points: number; tier: string; season: string; matches: number; wins: number; ties: number; losses: number }; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps'> };
+type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: { points: number; tier: string; season: string; matches: number; wins: number; ties: number; losses: number }; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps'> };
 const timers = new WeakMap<HTMLElement, number>();
 const realtimeClients = new WeakMap<HTMLElement, AblyRealtime>();
 const cleanups = new WeakMap<HTMLElement, () => void>();
@@ -17,7 +18,7 @@ const pvpApiBase = (import.meta.env?.VITE_PVP_API_URL || '/api/pvp').replace(/\/
 
 async function request(path: string, init: RequestInit = {}): Promise<any> {
   const token = getAuthToken();
-  const response = await fetch(`${pvpApiBase}${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } });
+  const response = await fetch(`${pvpApiBase}${path}`, { ...init, signal: init.signal ?? AbortSignal.timeout(12000), headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'PvP service is unavailable.');
   return data;
@@ -49,9 +50,9 @@ export function renderPvpHub(root: HTMLElement, queue: PvpQueue): void {
   const body = el('div', { class: 'ftd-pvp__body', 'aria-live': 'polite' }); main.appendChild(body);
 
   const refresh = async () => {
-    if (refreshing || !root.isConnected) return;
+    if (refreshing || !main.isConnected) return;
     refreshing = true;
-    try { status = await request('/status'); if (!battlefield?.interacting) render(); }
+    try { const incoming = await request('/status'); if (!main.isConnected) return; if (!status.match || !incoming.match || status.match.id !== incoming.match.id || incoming.match.revision >= status.match.revision) status = incoming; if (!battlefield?.interacting) render(); }
     catch (error) { body.replaceChildren(label(error instanceof Error ? error.message : 'Could not connect.')); }
     finally { refreshing = false; }
   };
@@ -60,7 +61,7 @@ export function renderPvpHub(root: HTMLElement, queue: PvpQueue): void {
     attachingRealtime = true;
     try {
       const { Realtime } = await import('ably');
-      if (!root.isConnected) return;
+      if (!main.isConnected) return;
       const client = new Realtime({ authCallback: async (_params, callback) => {
         try { const response = await request(`/match/${match.id}/token`, { method: 'POST' }); callback(null, response.token); }
         catch (error) { callback({ name: 'PvpTokenError', message: error instanceof Error ? error.message : 'PvP authentication failed', code: 500, statusCode: 500 }, null); }
@@ -118,8 +119,8 @@ export function renderPvpHub(root: HTMLElement, queue: PvpQueue): void {
         friendsLoading = true;
         void socialApi.friends().then(({ friends }) => {
           friendOptions = friends.filter((friend) => friend.state === 'accepted').map((friend) => ({ userId: friend.userId, name: friend.nickname || friend.username }));
-          if (root.isConnected) render();
-        }).catch(() => { friendsError = true; if (root.isConnected) render(); }).finally(() => { friendsLoading = false; });
+          if (main.isConnected) render();
+        }).catch(() => { friendsError = true; if (main.isConnected) render(); }).finally(() => { friendsLoading = false; });
       }
       return;
     }
@@ -150,7 +151,7 @@ export function renderPvpHub(root: HTMLElement, queue: PvpQueue): void {
       label(opponent.connected ? 'Opponent connected' : 'Opponent reconnecting…'),
       ...(match.testMatch ? [GameButton({ label: 'End test', variant: 'outline', onClick: () => void send(`/match/${match.id}/end-test`) })] : []),
     ]));
-    const sceneConfig = { towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
+    const sceneConfig = { wallHealth: status.config?.wallHealth, towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
     if (!battlefield || battlefieldId !== match.id) {
       battlefield?.dispose();
       try {
@@ -178,8 +179,9 @@ export function renderPvpHub(root: HTMLElement, queue: PvpQueue): void {
     ]);
     body.append(el('div', { class: 'ftd-pvp__siege-layout' }, [battlefield.element, controls]));
   };
+  body.appendChild(LoadingIndicator('Connecting to the match service…'));
   void refresh();
-  const timer = globalThis.setInterval(() => { if (!root.isConnected) { globalThis.clearInterval(timer); battlefield?.dispose(); const client = realtimeClients.get(root); if (client) void client.close(); realtimeClients.delete(root); return; } void refresh(); }, 900) as unknown as number;
+  const timer = globalThis.setInterval(() => { if (!main.isConnected) { globalThis.clearInterval(timer); battlefield?.dispose(); const client = realtimeClients.get(root); if (client) void client.close(); realtimeClients.delete(root); return; } void refresh(); }, 900) as unknown as number;
   timers.set(root, timer);
   cleanups.set(root, () => { globalThis.clearInterval(timer); battlefield?.dispose(); const client = realtimeClients.get(root); if (client) void client.close(); realtimeClients.delete(root); });
 }
