@@ -99,3 +99,25 @@ test('opening Campaign from the hub routes into a stage launch, not Inventory', 
   resetHub();
   hub.remove(); campaign.remove();
 });
+
+test('hub keeps launch beside the map after moving boss intel to its side panel', async () => {
+  const { menuHubTabs } = await import('./menuHubTabs');
+  const { renderHub, registerHubTab, resetHub } = await import('./hub');
+  resetHub();
+  const starts: number[] = [];
+  for (const tab of menuHubTabs({ onOpenDaily() {}, onToggleSound() {}, onLogout() {}, onStartCampaign: stage => starts.push(stage), showLobbyPage() {} })) registerHubTab(tab);
+  const root = document.createElement('div');
+  const save = defaultSave(); save.campaignProgress = { unlocked: 3, cleared: [1, 2] };
+  renderHub(root, save, 'CAMPAIGN', { onPlay() {} });
+  const main = root.querySelector('.ftd-hub__main')!;
+  const sub = root.querySelector('.ftd-hub__sub')!;
+  assert.ok(main.querySelector('[data-testid="campaign-start-stage"]'));
+  assert.ok(sub.querySelector('.ftd-boss-reveal'));
+  assert.equal(sub.querySelector('[data-testid="campaign-start-stage"]'), null);
+  Array.from(main.querySelectorAll<HTMLButtonElement>('.ftd-stage')).find(stage => stage.getAttribute('aria-label') === 'Stage 1, cleared')!.click();
+  const launch = main.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')!;
+  assert.match(launch.textContent || '', /REPLAY STAGE/);
+  root.querySelector<HTMLButtonElement>('.ftd-hub-launch')!.click();
+  assert.deepEqual(starts, [1], 'pinned launch starts the selected stage without scrolling boss intel');
+  resetHub();
+});

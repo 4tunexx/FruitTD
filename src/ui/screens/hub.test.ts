@@ -508,3 +508,34 @@ test('re-rendering the same active tab (e.g. after a purchase) refreshes data wi
   const content = hub.querySelector('.ftd-hub__main')!.querySelector('.ftd-hub-panel-content')!;
   assert.equal(content.classList.contains('is-sliding-in-forward'), false, 'same-tab refresh must not slide');
 });
+
+test('Casual and Horde selection launch their selected mode through Play', () => {
+  resetHub();
+  const save = defaultSave();
+  const starts: string[] = [];
+  registerHubTab(homeHubTab(() => starts.push(save.mode), mode => { save.mode = mode; }));
+  const root = host(); renderHub(root, save, 'MAIN_MENU', { onPlay: () => starts.push(save.mode) });
+  for (const mode of ['casual', 'horde']) {
+    root.querySelector<HTMLButtonElement>(`[data-testid="mode-${mode}"]`)!.click();
+    root.querySelector<HTMLButtonElement>('.ftd-hub-launch')!.click();
+  }
+  assert.deepEqual(starts, ['casual', 'horde']);
+  resetHub();
+});
+
+test('Co-op, Arena and Ranked buttons open their own lobby destinations', () => {
+  resetHub(); resetRegistry(); navigation.reset('MAIN_MENU');
+  const root = host(); root.id = 'mode-routing-host'; document.body.appendChild(root);
+  const entered: string[] = [];
+  for (const id of ['MAIN_MENU', 'CO_OP', 'ARENA', 'RANKED'] as const) registerScreen({ id, elementId: root.id, onEnter: () => { entered.push(id); } });
+  installScreenRouter();
+  registerHubTab(homeHubTab(() => undefined));
+  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay() {} });
+  for (const [button, destination] of [['mode-coop', 'CO_OP'], ['mode-arena', 'ARENA'], ['mode-ranked', 'RANKED']] as const) {
+    navigation.reset('MAIN_MENU');
+    root.querySelector<HTMLButtonElement>(`[data-testid="${button}"]`)!.click();
+    assert.equal(navigation.state, destination);
+    assert.equal(entered.at(-1), destination);
+  }
+  resetRegistry(); resetHub(); navigation.reset('MAIN_MENU'); root.remove();
+});

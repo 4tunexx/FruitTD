@@ -49,7 +49,7 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
       root.appendChild(page);
       renderCampaign(page, save, actions.onStartCampaign);
     }, renderSub: (root) => {
-      const boss = root.closest('.ftd-hub')?.querySelector<HTMLElement>('.ftd-hub__main .ftd-boss-reveal');
+      const boss = root.closest('.ftd-hub')?.querySelector('.ftd-hub__main')?.querySelector<HTMLElement>('.ftd-boss-reveal');
       if (boss) root.appendChild(boss);
     } },
     ...([

@@ -23,6 +23,12 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
   ]);
   head.querySelector('button')?.addEventListener('click', () => back());
   root.appendChild(head);
+  // Keep launch controls with the stage map; boss intel may move to a
+  // desktop side panel and must never take the only launch button with it.
+  const launch = el('button', { type: 'button', class: 'ftd-campaign__launch', 'data-testid': 'campaign-start-stage' }, [icon(Swords), el('span')]);
+  launch.addEventListener('click', () => onStart(selected));
+  root.appendChild(launch);
+
 
   const browse = el('nav', { class: 'ftd-campaign__browse', 'aria-label': 'Browse campaign stages' });
   const previous = el('button', { type: 'button', 'data-testid': 'campaign-prev', text: '← EARLIER STAGES' }) as HTMLButtonElement;
@@ -41,6 +47,10 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
   let nodes: HTMLButtonElement[] = [];
   const renderDetails = () => {
     const boss = campaignBoss(selected, roster);
+    const launchLabel = progress.cleared.includes(selected) ? `REPLAY STAGE ${String(selected).padStart(2, '0')}` : `ENTER STAGE ${String(selected).padStart(2, '0')}`;
+    launch.querySelector('span')!.textContent = launchLabel;
+    const pinnedLaunch = root.closest('.ftd-hub')?.querySelector<HTMLElement>('.ftd-hub-launch');
+    if (pinnedLaunch) pinnedLaunch.textContent = launchLabel;
     clear(detail);
     detail.dataset.stage = String(selected);
     const art = el('div', { class: 'ftd-boss-reveal__art' }, [
@@ -56,9 +66,7 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
         el('span', { text: `${campaignWaves(selected)} WAVES` }), el('span', { text: `THREAT ×${boss.difficulty.toFixed(1)}` }),
         el('span', { text: `REWARD  ${boss.rewardCoins.toLocaleString()} COINS${boss.rewardGems ? ` · ${boss.rewardGems} GEMS` : ''}` }),
       ]),
-      el('button', { type: 'button', class: 'ftd-campaign__launch', 'data-testid': 'campaign-start-stage' }, [icon(Swords), el('span', { text: progress.cleared.includes(selected) ? 'REPLAY STAGE' : `ENTER STAGE ${String(selected).padStart(2, '0')}` })]),
     ]));
-    detail.querySelector('.ftd-campaign__launch')?.addEventListener('click', () => onStart(selected));
     nodes.forEach((node) => node.classList.toggle('is-selected', Number(node.querySelector('strong')?.textContent) === selected));
   };
   const renderMap = () => {
