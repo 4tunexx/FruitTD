@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Fruit TD · Outpost design preview</title></head>
+<body><div id="screen-hub"></div><script type="module">
+import '/src/style.css';
+import '/src/ui/screens/screens.css';
+import '/src/ui/screens/hub.css';
+import '/src/ui/screens/campaign.css';
+import '/src/ui/apocalypse.css';
+import { themeStore } from '/src/ui/theme/themeStore.ts';
+import { defaultSave } from '/src/game/save.ts';
+import { registerHubTab, renderHub, switchHubTab } from '/src/ui/screens/hub.ts';
+import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab } from '/src/ui/screens/hubTabs.ts';
+import { navigation } from '/src/game/navigation.ts';
+import { renderPvpHub, disposePvpHub } from '/src/ui/screens/pvp.ts';
+import { DEFAULT_PVP_CONFIG, newPvpMatch, createPvpPlayer, applyPvpCommand, advancePvpMatch } from '/src/game/pvp.ts';
+import { playPvpBotTurn } from '/src/game/pvpBot.ts';
+import { Swords } from 'lucide';
+import { installMenuInput } from '/src/ui/menuInput.ts';
+if (!import.meta.env.DEV) throw new Error('Local design preview only');
+themeStore.boot();
+installMenuInput();
+const save=defaultSave();save.nickname='Outpost Slicer';save.coins=2480;save.gems=35;
+save.ownedSkins=['blade-default','wall-brick']; save.bladeSkin='blade-default';save.wallSkin='wall-brick';
+const root=document.querySelector('#screen-hub');
+const home=homeHubTab(()=>navigation.open('ARENA'),mode=>{save.mode=mode;switchHubTab(root,save,'MAIN_MENU')},()=>navigation.open('CAMPAIGN'));
+const cb={onEquip(){},onBuy(){},onSell(){}};
+registerHubTab(home);registerHubTab(heroesHubTab(cb));registerHubTab(inventoryHubTab(cb));registerHubTab(shopHubTab(cb));registerHubTab(profileHubTab(()=>({})));
+const cfg=structuredClone(DEFAULT_PVP_CONFIG);
+let game=null, previous=Date.now(), botAt=0;
+function view() { return game ? {...structuredClone(game), yourSide:'blue', yourSequence:game.players[0].sequence, yourCombo:0, yourVetoTurn:false, vetoesRemaining:0, remainingMs:Math.max(0,game.endsAt-Date.now()),testMatch:true} : null; }
+const localRequest=async (path,init={})=>{
+  if(path==='/admin/bot'){
+    const now=Date.now();game=newPvpMatch('local-outpost','arena',[createPvpPlayer('human','You','blue',cfg),createPvpPlayer('bot','Scrap Raider','red',cfg)],now,cfg);
+    game.status='active';game.map=cfg.maps[0];game.endsAt=now+cfg.durationSeconds*1000;previous=now;botAt=now+1800;
+  } else if(path.endsWith('/command')) { const payload=JSON.parse(init.body);applyPvpCommand(game,'human',payload.command,payload.sequence,Date.now(),cfg); }
+  else if(path.endsWith('/ack')) game=null;
+  else if(path.endsWith('/end-test')) {game.status='complete';game.resultReason='test-ended';}
+  if(game?.status==='active'){
+    const now=Date.now();game.players.forEach(p=>{p.lastSeenAt=now;p.connected=true;});
+    advancePvpMatch(game,(now-previous)/1000,now,cfg);previous=now;
+    if(now>=botAt){playPvpBotTurn(game,'bot',now,cfg);botAt=now+1600;}
+  }
+  return {success:true,canStartBotMatch:true,config:cfg,match:view(),rating:{tier:'Amateur',points:0}};
+};
+let arenaRoot=null;
+registerHubTab({id:'ARENA',label:'Arena',icon:Swords,renderMain:root=>{arenaRoot=root;renderPvpHub(root,'arena',{request:localRequest,isAuthenticated:()=>true,realtime:false})}});
+navigation.onChange(()=>switchHubTab(root,save,navigation.state));
+navigation.onChange(change=>{if(change.from==='ARENA'&&arenaRoot){disposePvpHub(arenaRoot);arenaRoot=null;}});
+renderHub(root,save,'MAIN_MENU',{onPlay(){},onOpenDaily(){}});
+</script></body></html>

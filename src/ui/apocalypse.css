@@ -1,0 +1,225 @@
+/* Orchard outpost: warm industrial chrome; blue/red remain combat information. */
+:root { --outpost-ink:var(--ftd-color-background,#161719); --outpost-panel:var(--ftd-color-panel,#222428); --outpost-steel:var(--ftd-color-panel-secondary,#282a2e); --outpost-line:var(--ftd-color-border,#655d4d); --outpost-yellow:var(--ftd-color-primary,#ffca28); --outpost-orange:var(--ftd-color-secondary,#f48120); --outpost-text:var(--ftd-color-text,#fff3d6); --outpost-muted:var(--ftd-color-text-muted,#b6b2aa); }
+body { background:var(--outpost-ink); }
+#title-screen { background:linear-gradient(90deg,#161719dd,#16171966 55%,#16171922),url('../assets/orchard-siege-menu.webp') 65% center / cover no-repeat,var(--outpost-ink); }
+#title-screen::before { background:linear-gradient(0deg,#161719dd,transparent 50%); }
+#title-inner.bl-panel--title { background:#202226e8; border-color:var(--outpost-orange); box-shadow:6px 7px #101113; }
+#title-screen .title-eyebrow { color:var(--outpost-yellow); }
+.title-btn { background:linear-gradient(120deg,#383a3f,#232529); border-color:#80704f; color:#fff0d1; }
+#title-screen #title-menu .title-btn--primary { background:linear-gradient(120deg,color-mix(in srgb,var(--outpost-yellow) 88%,white),var(--outpost-orange)); color:#191a1d; border-color:#ffeaaa; }
+.title-btn:hover { border-color:var(--outpost-yellow); background:#57432a; color:#ffdb70; }
+.title-lore-panel,.title-tip-panel { background:#202226e8; border-color:#70624a; color:#ddd2bc; }
+.title-logo__td { color:var(--outpost-yellow); }
+#boot-loader { background:radial-gradient(ellipse at 50% 35%,#68421c 0%,#191a1d 65%); color:#fff0d1; }
+.boot-copy { color:var(--outpost-yellow); }
+.boot-sub { color:#bfb6a5; }
+.boot-bar>i { background:linear-gradient(90deg,var(--outpost-orange),var(--outpost-yellow)); }
+.boot-slash { background:linear-gradient(90deg,transparent,#fff4d1,var(--outpost-yellow),#fff4d1,transparent); box-shadow:0 0 16px var(--outpost-orange); }
+#screen-hub.ftd-hub { background:radial-gradient(ellipse at 80% 10%,#5a351c44,transparent 55%),#191a1d; color:#fff3d6; }
+.ftd-hub__header { border-bottom:2px solid #f4812055; }
+.ftd-hub-identity { background:linear-gradient(120deg,#3b3831,#222428); border-color:var(--outpost-orange); }
+.ftd-hub-identity__name,.ftd-hub-logo__main { color:#fff3d6; }
+.ftd-hub-identity__meta { color:#bfb9ab; }
+.ftd-hub-identity__avatar { border-color:var(--outpost-yellow); background:#27292d; }
+.ftd-hub-logo__accent { color:var(--outpost-yellow); text-shadow:2px 2px #131416; }
+.ftd-hub-utility,.ftd-hub-currency__button { background:var(--outpost-steel); border-color:#4c4a42; color:#e3d9c2; }
+.ftd-hub-utility:hover,.ftd-hub-currency__button:hover,.ftd-hub-identity:hover { background:#403629; border-color:var(--outpost-yellow); color:#ffdf74; }
+.ftd-hub__main,.ftd-hub__sub { border-color:#625746; background:linear-gradient(140deg,#25272b,#1c1e21); }
+.ftd-hub__main { border-left-color:var(--outpost-orange); }
+.ftd-hub__sub { border-left-color:var(--outpost-yellow); }
+.ftd-hub__footer { border-top:2px solid #f4812066; background:#17181b; }
+.ftd-hub-tab { background:linear-gradient(145deg,#34363b,#232529); border:2px solid #514f48; color:#c7c2b6; box-shadow:0 4px #0e0f10; }
+.ftd-hub-tab.is-active { background:linear-gradient(145deg,color-mix(in srgb,var(--outpost-yellow) 88%,white),var(--outpost-orange)); border-color:#fff0a2; color:#191a1d; box-shadow:0 4px #a95518; }
+.ftd-hub-tab:hover,.ftd-hub-tab:focus-visible { background:#4c402a; border-color:var(--outpost-yellow); color:#ffdf74; }
+.ftd-hub .ftd-btn { box-shadow:0 3px #101113; font-weight:900; }
+.ftd-hub :is(button,a,input,select):focus-visible { outline:3px solid #ffe080; outline-offset:3px; }
+.ftd-hub .ftd-btn--solid.ftd-tone-primary { background:linear-gradient(120deg,color-mix(in srgb,var(--outpost-yellow) 88%,white),#f69a22); color:#191a1d; border-color:#ffec96; }
+.ftd-hub .ftd-btn--outline { background:#25272b; border-color:#70624e; color:#fbd570; }
+.ftd-hub .ftd-catbar__tab.is-active { color:#191a1d; background:var(--outpost-yellow); border-color:#ffdf74; }
+.ftd-hub :is(.ftd-item-card,.ftd-hero-tile,.ftd-stat,.ftd-hub-sub-card,.ftd-profile-banner,.ftd-profile-mastery__block,.ftd-loadout,.ftd-mission-progress) { background:linear-gradient(145deg,#33353a,#232529); border-color:#675b47; color:#eee6d5; }
+.ftd-hub :is(.ftd-hub-sub-card__label,.ftd-loadout__label,.ftd-loadout__hero,.ftd-hub-catalog-heading h1,.ftd-profile-banner__name,.ftd-stat__value) { color:var(--outpost-yellow); }
+.ftd-hub :is(.ftd-hub-sub-card__hint,.ftd-loadout__title,.ftd-loadout__xp,.ftd-item-card__description) { color:#bfb9ad; }
+.ftd-loadout__bar,.ftd-mission-progress__track { background:#111214; border-color:#5c5548; }
+.ftd-loadout__bar i,.ftd-mission-progress__track i { background:linear-gradient(90deg,var(--outpost-orange),var(--outpost-yellow)); }
+.ftd-hub .ftd-loadout__stat { background:#1b1d20; border-color:#4f4b42; }
+.ftd-hub .ftd-loadout__stat span { color:#aaa69e; }
+.ftd-hub.is-home .ftd-hub__main { border:0; background:var(--outpost-panel); }
+.ftd-hub.is-home .ftd-playcard { position:relative; isolation:isolate; display:grid; grid-template-columns:1fr; grid-template-rows:minmax(300px,1fr) auto; align-items:stretch; gap:0; padding:0; height:100%; min-height:570px; overflow:hidden; background:var(--outpost-panel); }
+.ftd-hub.is-home .ftd-playcard { border-color:#a47735; }
+.ftd-hub.is-home .ftd-playcard::after { background:linear-gradient(var(--outpost-yellow),#f4812055); }
+.ftd-outpost-art { position:absolute; inset:0 0 150px; z-index:-2; background:url('../assets/orchard-siege-menu.webp') 62% 50% / cover no-repeat; }
+.ftd-outpost-art::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#141517ee 0%,#141517a0 30%,transparent 63%),linear-gradient(0deg,var(--outpost-panel),transparent 45%); }
+.ftd-hub.is-home .ftd-playcard__content { position:relative; grid-row:1; padding:clamp(24px,4vw,60px); display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:12px; max-width:56%; }
+.ftd-hub.is-home .ftd-playcard__eyebrow { color:var(--outpost-yellow); font-size:10px; letter-spacing:.18em; max-width:28em; }
+.ftd-hub.is-home .ftd-playcard__title { display:block; font-size:clamp(60px,7vw,112px); line-height:.85; font-style:italic; letter-spacing:-.07em; margin:10px 0; transform:rotate(-3deg); text-shadow:4px 5px #111, -1px -1px #111; }
+.ftd-playcard__title-main { color:#fff4d7; }
+.ftd-playcard__title-accent { color:var(--outpost-yellow); }
+.ftd-hub.is-home .ftd-playcard__tagline { display:block; color:var(--outpost-yellow); font-weight:900; font-size:clamp(15px,1.5vw,22px); letter-spacing:.08em; }
+.ftd-playcard__brief { color:#c9c1b1; font-size:14px; line-height:1.5; max-width:24em; margin:0; }
+.ftd-hub.is-home .ftd-playcard__cta { position:relative; min-width:230px; min-height:66px; font-size:27px; font-style:italic; letter-spacing:.03em; background:linear-gradient(135deg,#ffdc4f,#ffab23 65%,var(--outpost-orange)); color:#17181b; border:3px solid #ffe888; box-shadow:5px 6px #101113; transform:rotate(-2deg); overflow:hidden; }
+.ftd-playcard__cta::after { content:''; position:absolute; inset:-50% auto -50% -40%; width:25%; background:#fff6; transform:skewX(-20deg); animation:outpost-gleam 6s infinite; pointer-events:none; }
+.ftd-hub.is-home .ftd-playcard__mode { color:#b7ad99; font-size:10px; letter-spacing:.14em; }
+.ftd-outpost-shortcuts { position:absolute; right:14px; top:14px; z-index:2; display:flex; flex-direction:column; gap:8px; }
+.ftd-outpost-shortcuts .ftd-btn { font-size:10px; min-height:42px; background:#17181bd9; border:2px solid #be8c39; }
+.ftd-hub.is-home .ftd-mode-select { grid-row:2; padding:16px 20px 20px; margin:0; background:var(--outpost-panel); border:0; border-top:3px solid var(--outpost-orange); width:100%; box-shadow:none; }
+.ftd-hub.is-home .ftd-mode-select__heading h2 { color:var(--outpost-yellow); font-size:11px; letter-spacing:.15em; }
+.ftd-hub.is-home .ftd-mode-select__heading span { color:#b9b3a8; }
+.ftd-hub.is-home .ftd-mode-select__grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); grid-template-rows:auto; gap:8px; }
+.ftd-hub.is-home .ftd-mode-card { background:linear-gradient(140deg,#37393e,#27292d); border:2px solid #666054; min-height:70px; padding:12px 10px; border-radius:3px; box-shadow:0 4px #131416; }
+.ftd-hub.is-home .ftd-mode-card strong { color:#fff2d0; font-size:13px; }
+.ftd-hub.is-home .ftd-mode-card small { color:#b5b0a5; font-size:10px; line-height:1.35; }
+.ftd-hub.is-home .ftd-mode-card.is-active { background:linear-gradient(140deg,#ffda40,#f5a026); border-color:#ffed9a; }
+.ftd-hub.is-home .ftd-mode-card.is-active :is(strong,small) { color:#25221b; }
+.ftd-hub.is-home .ftd-mode-card:hover { border-color:var(--outpost-yellow); background:#4c402c; }
+.ftd-hub.is-home .ftd-mode-card--campaign { border-color:#cf8429; background:linear-gradient(140deg,#533c24,#2a2926); }
+.ftd-mode-card[data-testid='mode-arena'] { border-color:#a3703d; }
+/* Match chrome never competes with the blue/red battlefield. */
+.ftd-pvp.is-battle { background:#191a1d; }
+.ftd-duel-hud { background:linear-gradient(#303238,#1c1e21); border-color:var(--outpost-orange); padding:10px 18px; }
+.ftd-duel-player__crest { background:#17191c; border-radius:2px; }
+.ftd-duel-player strong { color:#fff4db; }
+.ftd-duel-player span:not(.ftd-duel-player__crest) { color:#bfb9ac; }
+.ftd-duel-hp { background:#111214; box-shadow:0 0 0 1px #56524a; }
+.ftd-duel-clock small { color:#bfb4a0; }
+.ftd-duel-clock strong { color:var(--outpost-yellow); }
+.ftd-duel-objective { background:#191b1e; border-color:#5d5040; }
+.ftd-duel-dock { background:linear-gradient(#303238,var(--outpost-panel)); border-top:3px solid var(--outpost-orange); box-shadow:0 -6px 20px #10111377; }
+.ftd-duel-resource span { color:var(--outpost-yellow); }
+.ftd-duel-resource .ftd-btn span { color:inherit; }
+.ftd-duel-resource small,.ftd-duel-economy small { color:#c4baaa; }
+.ftd-duel-tabs button { background:#1a1c1f; border:2px solid #615949; color:#c4baaa; border-radius:2px; min-height:36px; }
+.ftd-duel-tabs button.is-active { background:var(--outpost-yellow); color:#191a1d; border-color:#ffeaa1; box-shadow:0 2px #996128; }
+.ftd-duel-card { background:linear-gradient(135deg,#383b41,#23262c); border-color:#777064; border-radius:3px; color:#fff0d1; box-shadow:0 4px #131416; }
+.ftd-duel-card.is-selected { border-color:#ffdf63; box-shadow:0 0 0 1px var(--outpost-yellow),0 4px #121315; background:linear-gradient(135deg,#685029,#34312b); }
+.ftd-duel-card.is-attack { background:linear-gradient(135deg,#4e3a28,#292724); border-color:#c18438; }
+.ftd-duel-card small { color:#e6c888; }
+.ftd-duel-cards { scrollbar-color:var(--outpost-orange) #232529; }
+.ftd-duel-guide { color:#ddd4c0; }
+.ftd-duel-focus { background:#232529e8; border-color:var(--outpost-yellow); color:#ffeaa0; }
+.ftd-duel-confirm section { background:var(--outpost-steel); border-color:var(--outpost-orange); }
+.ftd-duel-confirm { background:#191a1dcc; }
+.ftd-duel-upgrade { background:#40352a; border-color:#cc953e; color:#ffdf80; border-radius:3px; }
+.ftd-duel-upgrade small { color:#c9baa0; }
+.ftd-duel-card:focus-visible,.ftd-duel-tabs button:focus-visible { outline-color:#ffe080; }
+.ftd-pvp.is-battle .ftd-pvp__result { align-self:center; margin:auto; width:min(90%,620px); padding:clamp(24px,5vw,64px); text-align:center; justify-items:center; border:3px solid var(--outpost-yellow); border-radius:3px; background:radial-gradient(ellipse at top,#6b4b20,#24262a 65%); box-shadow:8px 9px #0e0f11; animation:outpost-result .45s ease-out; }
+.ftd-duel-result-overlay { position:absolute; inset:0; z-index:10; display:grid; place-items:center; background:#16171999; backdrop-filter:blur(2px); }
+.ftd-pvp__result p { margin:14px 0; color:#ddd2b8; }
+.ftd-pvp__result .ftd-btn { min-height:52px; margin-top:20px; }
+.ftd-campaign { background:radial-gradient(ellipse at top,#6c4725,var(--outpost-steel) 60%,#1b1d20); color:#fff3d6; }
+.ftd-campaign__header,.ftd-campaign__map,.ftd-boss-reveal { background:linear-gradient(130deg,#33353a,var(--outpost-panel)); border-color:#b68239; }
+.ftd-campaign__back,.ftd-campaign__browse button { background:var(--outpost-steel); border-color:#9a793d; color:#ffdd78; }
+.ftd-campaign__progress strong,.ftd-campaign__browse,.ftd-stage.is-cleared { color:var(--outpost-yellow); }
+.ftd-stage { background:linear-gradient(135deg,#3b3d42,#24262b); border-color:#736550; color:#e6d5b2; }
+.ftd-stage.is-selected { border-color:var(--outpost-yellow); background:linear-gradient(135deg,#765626,#34312c); }
+.ftd-boss-reveal__art { background:radial-gradient(circle,#9a6427,#40332a 50%,#232529 80%); border-color:#9a793d; }
+.ftd-campaign-story__panel { background:#222428ee; border-color:var(--outpost-yellow); }
+.ftd-pvp.is-battle .ftd-pvp__result h2 { color:#ffda40; font-size:clamp(42px,8vw,86px); font-style:italic; text-shadow:3px 4px #121315; transform:rotate(-3deg); margin:0 0 24px; }
+.ftd-duel-feedback { position:absolute; top:108px; left:50%; transform:translateX(-50%); z-index:5; max-width:90%; padding:10px 20px; background:var(--outpost-yellow); color:#191a1d; font-size:13px; font-weight:900; border:2px solid #ffeaa0; box-shadow:3px 4px #111; pointer-events:none; }
+.ftd-pvp__howto { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0; }
+.ftd-pvp__howto > div { border:2px solid #655846; background:#2d2f33; padding:16px; }
+.ftd-pvp__howto b { color:var(--outpost-yellow); font-size:14px; display:block; margin-bottom:8px; }
+.ftd-pvp__howto p { font-size:13px; color:#d0c5b0; line-height:1.5; margin:0; }
+.ftd-duel-arsenal { background:#222428; border:1px solid #665946; color:var(--outpost-yellow); padding:6px 12px; font:inherit; font-size:11px; cursor:pointer; }
+.ftd-loading { background:#222428; color:#ffda63; }
+.ftd-loading__spinner { border-color:#665136; border-top-color:var(--outpost-yellow); border-radius:4px; }
+.campaign-boss-victory { background:#131416bb; }
+.campaign-boss-victory section { background:radial-gradient(ellipse at top,#81521e,var(--outpost-steel) 70%); border-color:var(--outpost-yellow); box-shadow:7px 8px #101113; border-radius:3px; }
+.campaign-boss-victory h1 { color:var(--outpost-yellow); text-shadow:3px 3px #141517; font-style:italic; }
+.campaign-boss-victory button { background:linear-gradient(120deg,#ffdc53,var(--outpost-orange)); color:#191a1d; border:2px solid #ffeaa0; border-radius:3px; box-shadow:3px 4px #111; }
+.ftd-mode-stats,.ftd-leaderboards { background:#232529; border-color:#655846; }
+.ftd-mode-stats h2,.ftd-leaderboards h2 { color:var(--outpost-yellow); }
+.ftd-score-chart i { background:linear-gradient(#ffdc4f,#ef771d); }
+.ftd-score-chart { border-color:#82613c; }
+.ftd-accuracy-summary { display:flex; align-items:center; gap:20px; padding:16px 0; }
+.ftd-accuracy-summary h3 { font-size:13px; color:var(--outpost-yellow); letter-spacing:.1em; }
+.ftd-accuracy-summary p { font-size:12px; color:#bfb5a3; }
+.ftd-accuracy-ring { position:relative; flex-shrink:0; width:90px; height:90px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--outpost-yellow) calc(var(--accuracy)*1%),#141517 0); animation:outpost-result .5s ease-out; }
+.ftd-accuracy-ring::before { content:''; position:absolute; inset:8px; border-radius:50%; background:#292b30; }
+.ftd-accuracy-ring strong { position:relative; z-index:1; font-size:22px; color:#ffdf77; }
+.ftd-board-tabs button[aria-pressed='true'] { background:var(--outpost-yellow); color:#191a1d; }
+.ftd-board-row { border-color:#4f4b42; }
+.ftd-board-row.is-you { background:#4c3b24; border-color:var(--outpost-yellow); }
+.ftd-board-row small { color:#b9b1a3; }
+.ftd-hub .ftd-catbar { background:#25272bf5; border-color:#786344; }
+.ftd-hub .ftd-catbar__tab { background:#313338; border-color:#70624a; color:#d8ccaf; }
+.ftd-hub .ftd-catbar__tab.is-active:hover { background:#ffe073; color:#191a1d; }
+.ftd-hub .menu-page[data-hub-legacy='true'] { background:#25272bee; border-color:#786344; }
+.ftd-hub-legacy__header { background:#303238; border-color:#b37c30; }
+#player-chip,#game-topbar,#sidebar,#boss-health,#turret-picker,.modal { background-color:#25272bee; border-color:#776347; }
+@keyframes outpost-gleam { 0%,70% { left:-40%; } 90%,100% { left:130%; } }
+@keyframes outpost-result { from { opacity:0; transform:scale(.8) rotate(-5deg); } to { opacity:1; transform:scale(1) rotate(0); } }
+@media(min-width:1100px) and (min-height:600px) {
+  .ftd-pvp.is-battle .ftd-pvp-scene { position:absolute; top:114px; left:0; right:330px; bottom:0; }
+  .ftd-duel-dock { position:absolute; top:114px; right:0; bottom:0; width:330px; display:flex; flex-direction:column; padding:16px; border-top:0; border-left:3px solid var(--outpost-orange); }
+  .ftd-duel-resource { flex-wrap:wrap; gap:12px; }
+  .ftd-duel-resource > span { font-size:20px; }
+  .ftd-duel-resource small { width:100%; font-size:12px; }
+  .ftd-duel-economy { margin:8px 0 12px; flex-wrap:wrap; gap:8px; }
+  .ftd-duel-guide { line-height:1.5; font-size:12px; min-height:54px; margin-bottom:12px; }
+  .ftd-duel-tabs { flex-shrink:0; }
+  .ftd-duel-tabs button { font-size:9px; letter-spacing:.04em; }
+  .ftd-duel-cards { flex:1; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; gap:10px; padding:4px 3px 8px; }
+  .ftd-duel-card { width:100%; max-width:none; min-height:80px; flex:0 0 auto; display:grid; grid-template-columns:42px 1fr; align-content:center; gap:5px 10px; text-align:left; padding:12px; }
+  .ftd-duel-card .ftd-duel-card__art { grid-column:1; grid-row:1 / span 4; justify-self:center; }
+  .ftd-duel-card strong { text-align:left; font-size:16px; grid-column:2; }
+  .ftd-duel-card small { grid-column:2; font-size:12px; }
+  .ftd-duel-arsenal { flex-shrink:0; min-height:40px; }
+  .ftd-duel-feedback { left:calc((100% - 330px)/2); top:125px; }
+}
+@media(min-width:901px) and (max-height:800px) {
+  .ftd-hub.is-home .ftd-playcard { min-height:440px; grid-template-rows:minmax(270px,1fr) auto; }
+  .ftd-hub.is-home .ftd-playcard__content { padding:24px 30px; gap:8px; }
+  .ftd-hub.is-home .ftd-playcard__title { font-size:76px; }
+  .ftd-hub.is-home .ftd-playcard__cta { min-height:58px; }
+}
+@media(max-width:900px) {
+  .ftd-hub.is-home .ftd-hub__body { display:block; overflow-y:auto; }
+  .ftd-hub.is-home .ftd-hub__main { min-height:100%; overflow:visible; }
+  .ftd-hub.is-home .ftd-hub__sub { max-height:none; margin-top:12px; }
+  .ftd-hub.is-home .ftd-playcard { min-height:640px; grid-template-rows:minmax(420px,1fr) auto; height:auto; }
+  .ftd-outpost-art { bottom:195px; background-position:90% center; }
+  .ftd-outpost-art::after { background:linear-gradient(0deg,var(--outpost-panel),transparent 60%),linear-gradient(90deg,#111214aa,transparent 70%); }
+  .ftd-hub.is-home .ftd-playcard__content { justify-content:flex-end; max-width:100%; padding:24px 20px 18px; gap:8px; }
+  .ftd-hub.is-home .ftd-playcard__eyebrow { position:absolute; top:18px; left:18px; max-width:16em; line-height:1.7; font-size:9px; }
+  .ftd-hub.is-home .ftd-playcard__title { display:block; font-size:62px; margin:0; }
+  .ftd-hub.is-home .ftd-playcard__tagline { font-size:13px; margin:4px 0; }
+  .ftd-playcard__brief { display:none; }
+  .ftd-hub.is-home .ftd-playcard__cta { min-height:60px; width:100%; align-self:stretch; font-size:25px; }
+  .ftd-hub.is-home .ftd-playcard__mode { align-self:center; margin:4px 0; }
+  .ftd-hub.is-home .ftd-mode-select { padding:14px; }
+  .ftd-hub.is-home .ftd-mode-select__grid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:auto; gap:8px; }
+  .ftd-hub.is-home .ftd-mode-card { min-height:58px; padding:10px; }
+  .ftd-mode-card[data-testid='mode-arena'] { grid-column:1/-1; min-height:58px; }
+  .ftd-hub.is-home .ftd-mode-card strong { font-size:13px; }
+  .ftd-hub.is-home .ftd-mode-card small { font-size:10px; }
+  .ftd-outpost-shortcuts { top:18px; right:12px; gap:10px; }
+  .ftd-outpost-shortcuts .ftd-btn { min-height:44px; padding:8px; font-size:9px; }
+  .ftd-duel-hud { padding:8px; }
+  .ftd-pvp__howto { grid-template-columns:1fr; }
+}
+@media(max-width:600px) {
+  .ftd-hub { padding-left:8px; padding-right:8px; }
+  .ftd-hub-utils { flex-wrap:nowrap; justify-content:flex-start; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+  .ftd-hub-utils > button { flex-shrink:0; min-height:44px; }
+  .ftd-hub.is-home .ftd-playcard { min-height:650px; grid-template-rows:410px auto; }
+  .ftd-outpost-art { bottom:235px; }
+  .ftd-duel-card { max-width:none; flex:1 0 85px; }
+  .ftd-duel-feedback { top:105px; width:max-content; text-align:center; font-size:11px; padding:8px 12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .ftd-playcard__cta,.ftd-playcard__cta::after,.ftd-pvp__result,.ftd-loading__spinner,.boot-slash,.boot-half,.boot-drip,.boot-bar>i { animation:none; }
+}
+[data-ftd-motion='reduced'] :is(.ftd-playcard__cta,.ftd-pvp__result,.ftd-score-chart i,.campaign-boss-victory section,.ftd-loading__spinner),[data-ftd-motion='reduced'] .ftd-playcard__cta::after { animation:none; }
+
+/* Keep the publishing workspace in the same outpost palette as player menus. */
+#modal-admin .admin-tabs-nav { background:var(--outpost-panel); border-bottom:1px solid var(--outpost-line); }
+#modal-admin .admin-tab-btn { color:var(--outpost-text); border-color:var(--outpost-line); background:var(--outpost-steel); }
+#modal-admin .admin-tab-btn.is-active { color:#171719; background:linear-gradient(115deg,var(--outpost-yellow),var(--outpost-orange)); border-color:var(--outpost-yellow); }
+#modal-admin :is(.admin-live-stat strong,.admin-config-form summary) { color:var(--outpost-yellow); }
+#modal-admin :is(.admin-input,.admin-reward-inputs input,.admin-reward-inputs select) { color:var(--outpost-text); background:var(--outpost-ink); border-color:var(--outpost-line); accent-color:var(--outpost-yellow); }
+#modal-admin .admin-config-form details { border-color:var(--outpost-line); background:var(--outpost-ink); }
+#modal-admin .admin-catalog-card { background:var(--outpost-steel); border-color:var(--outpost-line); }
+@media(max-width:600px) {
+  #modal-admin .modal-card--admin { padding:14px; }
+  #modal-admin .admin-tabs-nav { top:-14px; flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding:8px 0; scrollbar-width:thin; }
+}

@@ -41,6 +41,7 @@ const DESTINATIONS: MenuDestination[] = [
   { id: 'ACHIEVEMENTS', label: 'Achievements', icon: Medal, hint: 'Career marks' },
   { id: 'CO_OP', label: 'Co-op', icon: UsersRound, hint: 'Defend together' },
   { id: 'PROFILE', label: 'Profile', icon: UserRound, hint: 'Your record' },
+  { id: 'LEADERBOARD', label: 'Leaderboard', icon: Medal, hint: 'Ranks, friends & records' },
 ];
 
 function icon(node: typeof Swords, className: string): HTMLElement | SVGElement {

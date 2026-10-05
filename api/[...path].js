@@ -1249,8 +1249,6 @@ function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = D
   if (match.mapPool.length === 2) {
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
     match.status = "active";
-    match.nextWaveAt = now + 15e3;
-    match.neutralWave = 0;
     match.endsAt = now + config.durationSeconds * 1e3;
     match.players.forEach((item) => {
       item.wallHealth = config.wallHealth;
@@ -1342,17 +1340,6 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;
   const path = map.pathCells;
-  if (match.nextWaveAt !== void 0 && now >= match.nextWaveAt) {
-    match.neutralWave = (match.neutralWave || 0) + 1;
-    const waveTypes = ["normal", "swift", "armored", "explosive"].filter((type2) => config.attacks[type2]);
-    const type = match.neutralWave >= 3 ? waveTypes[match.neutralWave % waveTypes.length] : "normal";
-    const health = config.attacks[type].health * (1 + match.neutralWave * 0.15);
-    for (const player of match.players) {
-      const count = Math.min(4, 1 + Math.floor(match.neutralWave / 3));
-      for (let i = 0; i < count && player.attackers.length < 128; i++) player.attackers.push({ id: `wave:${match.neutralWave}:${player.userId}:${i}`, type, hp: health, maxHp: health, progress: -i * 0.8 });
-    }
-    match.nextWaveAt = now + 15e3;
-  }
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
     for (const attacker of player.attackers) {
@@ -1452,7 +1439,7 @@ var DEFAULT_ADMIN_CONFIG = {
     title: "Slice.\nHold the Wall.",
     subtitle: "Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.",
     announcement: "WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.",
-    themeColor: "#a3e635",
+    themeColor: "#ffca28",
     backgroundImage: "",
     logoImage: "",
     faviconImage: ""
@@ -1583,6 +1570,10 @@ function createCoopService(deps = {}) {
     for (const player2 of room.players) {
       if (room.completedWaves < 1) continue;
       await creditClaimReward2(player2.userId, `coop:${room.id}`, { coins: reward.coins, gems: reward.gems, xp: { [player2.hero]: reward.xp }, towerXp: reward.towerXp, games: 1, bestWave: room.completedWaves, highScore: room.score });
+      const board = await getCollection2("leaderboards");
+      const record = { userId: player2.userId, nickname: player2.name, avatar: "", hero: player2.hero, mode: "coop", score: room.score, wave: room.completedWaves, fruitsSliced: room.kills, maxCombo: 0, createdAt: /* @__PURE__ */ new Date() };
+      await board.updateOne({ userId: player2.userId, mode: "coop" }, { $setOnInsert: record }, { upsert: true });
+      await board.updateOne({ userId: player2.userId, mode: "coop", $or: [{ score: { $lt: room.score } }, { score: room.score, wave: { $lt: room.completedWaves } }] }, { $set: record });
       if (room.completedWaves >= 6) {
         await (await getCollection2("achievements")).updateOne({ userId: player2.userId, achievementId: "coop_first_team_run" }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 }, $setOnInsert: { claimed: false } }, { upsert: true });
         await (await getCollection2("badges")).updateOne({ userId: player2.userId, badgeId: "coop-team-slicer" }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 } }, { upsert: true });
@@ -1924,6 +1915,32 @@ function resolveMode(mode) {
 }
 function createLeaderboardRouter(deps = defaultDeps) {
   const router = Router2();
+  router.get("/boards", async (req2, res) => {
+    const category = String(req2.query.category || "ranked"), scope = String(req2.query.scope || "global");
+    if (!["ranked", "casual", "horde", "coop", "campaign", "coins", "gems"].includes(category) || !["global", "friends"].includes(scope)) return res.status(400).json({ error: "Invalid leaderboard category." });
+    try {
+      const user = await deps.resolveUser(req2);
+      const filter = {};
+      if (scope === "friends") {
+        if (!user) return res.status(401).json({ error: "Sign in to compare with friends." });
+        const friends = await (await deps.collection("friends")).find({ userId: user.userId, state: "accepted" }).toArray();
+        filter.userId = { $in: [user.userId, ...friends.map((friend) => friend.friendId)] };
+      }
+      const wallet = category === "coins" || category === "gems", ranked = category === "ranked";
+      const collection = ranked ? "pvp_ratings" : wallet ? "cloud_saves" : "leaderboards";
+      const field = ranked ? "points" : wallet ? `saveData.${category}` : category === "horde" ? "wave" : "score";
+      if (ranked) {
+        filter.season = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+        filter.matches = { $gt: 0 };
+      } else if (!wallet) filter.mode = category;
+      const rows = await (await deps.collection(collection)).find(filter).sort({ [field]: -1, ...category === "horde" ? { score: -1 } : {}, userId: 1 }).limit(50).toArray();
+      const users = rows.length ? await (await deps.collection("users")).find({ userId: { $in: rows.map((row) => row.userId) } }).toArray() : [];
+      const names = new Map(users.map((person) => [person.userId, person.username || person.nickname || "Slicer"]));
+      res.json({ metric: ranked ? "FR points" : wallet ? category : category === "horde" ? "highest wave" : "high score", entries: rows.map((row, index) => ({ rank: index + 1, name: names.get(row.userId) || row.nickname || "Slicer", value: Number(ranked ? row.points : wallet ? row.saveData?.[category] || 0 : row[field]), detail: ranked ? `${row.wins || 0} wins \xB7 ${row.matches} matches` : wallet ? "Current balance" : `Wave ${row.wave} \xB7 Best combo \xD7${row.maxCombo || 0}`, isYou: row.userId === user?.userId })) });
+    } catch {
+      res.status(503).json({ error: "Leaderboards are temporarily unavailable. Try again." });
+    }
+  });
   router.post("/run", async (req2, res) => {
     try {
       const mode = req2.body?.mode ?? "casual";
@@ -3014,7 +3031,7 @@ import crypto4 from "crypto";
 
 // server/steam.ts
 import dotenv2 from "dotenv";
-dotenv2.config();
+dotenv2.config({ quiet: true });
 var STEAM_API_KEY = process.env.STEAM_API_KEY || "";
 async function fetchSteamPlayerSummary(steamId) {
   if (!STEAM_API_KEY) {

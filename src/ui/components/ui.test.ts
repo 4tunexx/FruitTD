@@ -186,7 +186,7 @@ test('theme store applies css variables to the document and persists', async () 
     const { themeStore } = await import('../theme/themeStore');
     themeStore.boot();
     const root = (document as any).documentElement;
-    assert.equal(root.style['--ftd-color-primary'], '#a3e635');
+    assert.equal(root.style['--ftd-color-primary'], '#ffca28');
     themeStore.patch({ colors: { primary: '#ff0000' } });
     assert.equal(root.style['--ftd-color-primary'], '#ff0000');
     assert.equal(root.dataset.ftdTheme, 'fruittd-default');
@@ -197,7 +197,7 @@ test('theme store applies css variables to the document and persists', async () 
 
     themeStore.reset();
     assert.equal(themeStore.get().id, 'fruittd-default');
-    assert.equal(root.style['--ftd-color-primary'], '#a3e635');
+    assert.equal(root.style['--ftd-color-primary'], '#ffca28');
   });
 });
 

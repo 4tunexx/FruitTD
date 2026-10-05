@@ -9,6 +9,7 @@
 import './screens.css';
 import './hub.css';
 import './campaign.css';
+import '../apocalypse.css';
 import { registerScreen, installScreenRouter, installNavLinks, installEscHandler } from './registry';
 import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubOptions } from './hub';
 import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab, coopHubTab } from './hubTabs';
@@ -20,7 +21,7 @@ import type { ProfileStats } from './profile';
 import { loadLiveConfig } from '../../services/liveConfig';
 
 /** Nav states painted inside the persistent hub shell (Panels 1–4), rather than as their own screen host. */
-const HUB_TAB_STATES: readonly NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'CO_OP', 'NEWS', 'SETTINGS', 'CAMPAIGN', 'SOCIAL', 'MESSAGES', 'NOTIFICATIONS', 'MISSIONS', 'ACHIEVEMENTS', 'RANKED', 'ARENA'];
+const HUB_TAB_STATES: readonly NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'LEADERBOARD', 'CO_OP', 'NEWS', 'SETTINGS', 'CAMPAIGN', 'SOCIAL', 'MESSAGES', 'NOTIFICATIONS', 'MISSIONS', 'ACHIEVEMENTS', 'RANKED', 'ARENA'];
 
 export interface ScreenHostCallbacks {
   /** Latest save — read fresh on every render so screens never show stale data. */

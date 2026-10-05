@@ -32,6 +32,29 @@ function resolveMode(mode: string): string {
 export function createLeaderboardRouter(deps: LeaderboardRouteDeps = defaultDeps): Router {
 const router = Router();
 
+router.get('/boards', async (req: Request, res: Response) => {
+  const category = String(req.query.category || 'ranked'), scope = String(req.query.scope || 'global');
+  if (!['ranked','casual','horde','coop','campaign','coins','gems'].includes(category) || !['global','friends'].includes(scope)) return res.status(400).json({ error: 'Invalid leaderboard category.' });
+  try {
+    const user = await deps.resolveUser(req);
+    const filter: Record<string, any> = {};
+    if (scope === 'friends') {
+      if (!user) return res.status(401).json({ error: 'Sign in to compare with friends.' });
+      const friends = await (await deps.collection<any>('friends')).find({ userId: user.userId, state: 'accepted' }).toArray();
+      filter.userId = { $in: [user.userId, ...friends.map(friend => friend.friendId)] };
+    }
+    const wallet = category === 'coins' || category === 'gems', ranked = category === 'ranked';
+    const collection = ranked ? 'pvp_ratings' : wallet ? 'cloud_saves' : 'leaderboards';
+    const field = ranked ? 'points' : wallet ? `saveData.${category}` : category === 'horde' ? 'wave' : 'score';
+    if (ranked) { filter.season = new Date().toISOString().slice(0, 7); filter.matches = { $gt: 0 }; }
+    else if (!wallet) filter.mode = category;
+    const rows = await (await deps.collection<any>(collection)).find(filter).sort({ [field]: -1, ...(category === 'horde' ? { score: -1 } : {}), userId: 1 }).limit(50).toArray();
+    const users = rows.length ? await (await deps.collection<any>('users')).find({ userId: { $in: rows.map(row => row.userId) } }).toArray() : [];
+    const names = new Map(users.map(person => [person.userId, person.username || person.nickname || 'Slicer']));
+    res.json({ metric: ranked ? 'FR points' : wallet ? category : category === 'horde' ? 'highest wave' : 'high score', entries: rows.map((row, index) => ({ rank: index + 1, name: names.get(row.userId) || row.nickname || 'Slicer', value: Number(ranked ? row.points : wallet ? row.saveData?.[category] || 0 : row[field]), detail: ranked ? `${row.wins || 0} wins · ${row.matches} matches` : wallet ? 'Current balance' : `Wave ${row.wave} · Best combo ×${row.maxCombo || 0}`, isYou: row.userId === user?.userId })) });
+  } catch { res.status(503).json({ error: 'Leaderboards are temporarily unavailable. Try again.' }); }
+});
+
 router.post('/run', async (req: Request, res: Response) => {
   try {
     const mode = req.body?.mode ?? 'casual';

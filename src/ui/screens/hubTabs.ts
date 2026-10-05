@@ -1,4 +1,5 @@
 import { bindArenaRating } from '../../services/pvpRating';
+import { renderModeStats } from './modeStats';
 /**
  * Hub tab adapters — one per destination in the footer tab bar.
  *
@@ -412,6 +413,7 @@ function profileMain(getStats: () => ProfileStats) {
       statCard('Season', stats.season ?? currentSeasonLabel()),
     ]);
     root.appendChild(grid);
+    renderModeStats(root);
     const rankCard = grid.children[2]?.querySelector<HTMLElement>('.ftd-stat__value');
     bindArenaRating(rankCard);
     root.appendChild(
@@ -419,6 +421,7 @@ function profileMain(getStats: () => ProfileStats) {
         GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
         GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
+        GameButton({ label: 'Leaderboard', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
         GameButton({ label: 'Local Co-op', variant: 'outline', onClick: () => openScreen('CO_OP') }),
         GameButton({ label: 'Settings', variant: 'outline', onClick: () => openScreen('SETTINGS') }),
       ]),
@@ -510,14 +513,15 @@ export function coopHubTab(onStart?: () => void): HubTab {
 function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').GameMode) => void, onCampaign?: () => void) {
   return (root: HTMLElement, save: SaveData) => {
     const playContent = el('div', { class: 'ftd-playcard__content' }, [
-      el('p', { class: 'ftd-playcard__eyebrow', text: 'HOLD THE WALL' }),
+      el('p', { class: 'ftd-playcard__eyebrow', text: 'ORCHARD OUTPOST / READY FOR ACTION' }),
       el('h1', { class: 'ftd-playcard__title' }, [
         el('span', { class: 'ftd-playcard__title-main', text: 'FRUIT' }),
         el('span', { class: 'ftd-playcard__title-accent', text: 'TD' }),
       ]),
-      el('p', { class: 'ftd-playcard__tagline', text: 'The orchard turned. Sharpen your blade and hold the line.' }),
-      GameButton({ label: 'PLAY', tone: 'primary', size: 'lg', class: 'ftd-playcard__cta', onClick: onPlay }),
-      el('p', { class: 'ftd-playcard__mode', text: `Mode · ${save.mode.toUpperCase()}` }),
+      el('p', { class: 'ftd-playcard__tagline', text: 'SLICE. BUILD. SURVIVE.' }),
+      el('p', { class: 'ftd-playcard__brief', text: 'Swipe the fruit. Power your defences. Keep the wall standing.' }),
+      GameButton({ label: 'BATTLE!', tone: 'primary', size: 'lg', class: 'ftd-playcard__cta', onClick: onPlay }),
+      el('p', { class: 'ftd-playcard__mode', text: `${save.mode.toUpperCase()} / READY TO DEPLOY` }),
     ]);
     playContent.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'nav-play');
     const modes = el('section', { class: 'ftd-mode-select', 'aria-label': 'Game modes' }, [
@@ -539,7 +543,12 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
     const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Tower siege · Normal or Ranked' })]);
     arena.addEventListener('click', () => openScreen('ARENA')); grid.appendChild(arena);
-    root.appendChild(el('div', { class: 'ftd-playcard' }, [playContent, modes]));
+    const shortcuts = el('nav', { class: 'ftd-outpost-shortcuts', 'aria-label': 'Outpost shortcuts' }, [
+      GameButton({ label: 'MISSIONS', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
+      GameButton({ label: 'RANKINGS', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
+      GameButton({ label: 'GEAR UP', variant: 'outline', onClick: () => openScreen('INVENTORY') }),
+    ]);
+    root.appendChild(el('div', { class: 'ftd-playcard' }, [el('div', { class: 'ftd-outpost-art', 'aria-hidden': 'true' }), shortcuts, playContent, modes]));
   };
 }
 

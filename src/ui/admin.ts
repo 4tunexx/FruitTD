@@ -46,6 +46,13 @@ export class AdminController {
   private activeTab: AdminTab = 'daily';
   private onConfigSaved: ((config: AdminConfig) => void) | null = null;
   private onDailyReset: (() => void) | null = null;
+  private leaderboardRequest = 0;
+
+  private bindDraftInput(input: HTMLInputElement | HTMLTextAreaElement | null, update: (value: string) => void): void {
+    if (!input || input.dataset.draftWired === '1') return;
+    input.dataset.draftWired = '1';
+    input.addEventListener('input', () => update(input.value));
+  }
 
   constructor(onConfigSaved?: (config: AdminConfig) => void, onDailyReset?: () => void) {
     this.onConfigSaved = onConfigSaved || null;
@@ -108,6 +115,8 @@ export class AdminController {
           this.activeTab = tab;
           this.renderTabs();
           this.renderActiveTab();
+          const workspace = this.modal?.querySelector<HTMLElement>('.modal-card--admin');
+          if (workspace) workspace.scrollTop = 0;
         }
       });
     });
@@ -260,18 +269,18 @@ export class AdminController {
     document.getElementById('admin-stat-status')?.classList.toggle('is-fallback', !isLive);
   }
 
-  private renderCatalogEditors(): void {
+  private renderCatalogEditors(tab?: AdminTab): void {
     if (!this.config) return;
     const missions = document.getElementById('admin-missions-list');
     const achievements = document.getElementById('admin-achievements-list');
     const badges = document.getElementById('admin-badges-list');
     const ranks = document.getElementById('admin-ranks-list');
     const slicers = document.getElementById('admin-slicers-list');
-    if (missions) renderMissionEditor(missions, this.config.missions);
-    if (achievements) renderAchievementEditor(achievements, this.config.achievements);
-    if (badges) renderBadgeEditor(badges, this.config.badges);
-    if (ranks) renderRankEditor(ranks, this.config.ranks);
-    if (slicers) renderSlicerEditor(slicers, this.config.slicers);
+    if (missions && (!tab || tab === 'missions')) renderMissionEditor(missions, this.config.missions);
+    if (achievements && (!tab || tab === 'achievements')) renderAchievementEditor(achievements, this.config.achievements);
+    if (badges && (!tab || tab === 'badges')) renderBadgeEditor(badges, this.config.badges);
+    if (ranks && (!tab || tab === 'ranks')) renderRankEditor(ranks, this.config.ranks);
+    if (slicers && (!tab || tab === 'slicers')) renderSlicerEditor(slicers, this.config.slicers);
   }
 
   private renderActiveTab(): void {
@@ -288,7 +297,7 @@ export class AdminController {
       this.activeTab === 'ranks' ||
       this.activeTab === 'slicers'
     ) {
-      this.renderCatalogEditors();
+      this.renderCatalogEditors(this.activeTab);
     } else if (this.activeTab === 'sprites' || this.activeTab === 'studio') {
       installMediaStudio();
     } else if (this.activeTab === 'branding') {
@@ -386,6 +395,10 @@ export class AdminController {
             <input type="number" class="admin-in-coins" data-idx="${idx}" value="${r.coins}" min="0" step="50" />
           </label>
           <label>
+            <span>Gems</span>
+            <input type="number" class="admin-in-gems" data-idx="${idx}" value="${r.gems ?? 0}" min="0" step="1" />
+          </label>
+          <label>
             <span>Skill Pts</span>
             <input type="number" class="admin-in-sp" data-idx="${idx}" value="${r.skillPoints}" min="0" max="10" />
           </label>
@@ -409,19 +422,22 @@ export class AdminController {
         </div>
       `;
 
-      card.querySelector('.admin-in-coins')?.addEventListener('change', (e) => {
+      card.querySelector('.admin-in-coins')?.addEventListener('input', (e) => {
         this.config!.dailyRewards[idx].coins = Number((e.target as HTMLInputElement).value);
       });
-      card.querySelector('.admin-in-sp')?.addEventListener('change', (e) => {
+      card.querySelector('.admin-in-gems')?.addEventListener('input', (e) => {
+        this.config!.dailyRewards[idx].gems = Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0));
+      });
+      card.querySelector('.admin-in-sp')?.addEventListener('input', (e) => {
         this.config!.dailyRewards[idx].skillPoints = Number((e.target as HTMLInputElement).value);
       });
       card.querySelector('.admin-in-icon')?.addEventListener('change', (e) => {
         this.config!.dailyRewards[idx].iconType = (e.target as HTMLSelectElement).value as any;
       });
-      card.querySelector('.admin-in-label')?.addEventListener('change', (e) => {
+      card.querySelector('.admin-in-label')?.addEventListener('input', (e) => {
         this.config!.dailyRewards[idx].label = (e.target as HTMLInputElement).value;
       });
-      card.querySelector('.admin-in-item')?.addEventListener('change', (e) => {
+      card.querySelector('.admin-in-item')?.addEventListener('input', (e) => {
         const value = (e.target as HTMLInputElement).value.trim();
         if (value) this.config!.dailyRewards[idx].skinUnlock = value;
         else delete this.config!.dailyRewards[idx].skinUnlock;
@@ -455,7 +471,12 @@ export class AdminController {
     if (inTitle) inTitle.value = menuConfig.title;
     if (inSubtitle) inSubtitle.value = menuConfig.subtitle;
     if (inAnnouncement) inAnnouncement.value = menuConfig.announcement;
-    if (inTheme) inTheme.value = menuConfig.themeColor || '#a3e635';
+    if (inTheme) inTheme.value = menuConfig.themeColor || '#ffca28';
+    this.bindDraftInput(inEyebrow, value => { if (this.config) this.config.menuConfig.eyebrow = value; });
+    this.bindDraftInput(inTitle, value => { if (this.config) this.config.menuConfig.title = value; });
+    this.bindDraftInput(inSubtitle, value => { if (this.config) this.config.menuConfig.subtitle = value; });
+    this.bindDraftInput(inAnnouncement, value => { if (this.config) this.config.menuConfig.announcement = value; });
+    this.bindDraftInput(inTheme, value => { if (this.config) this.config.menuConfig.themeColor = value; });
     if (inBg) inBg.value = menuConfig.backgroundImage || '';
     if (inLogo) inLogo.value = menuConfig.logoImage || '';
     if (inFavicon) inFavicon.value = menuConfig.faviconImage || '';
@@ -563,6 +584,17 @@ export class AdminController {
     if (inLives) inLives.value = String(gameplayConfig.startLives);
     if (inScoreMul) inScoreMul.value = String(gameplayConfig.scoreMultiplier);
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
+    const bindNumber = (input: HTMLInputElement | null, field: keyof AdminConfig['gameplayConfig']) => {
+      this.bindDraftInput(input, value => {
+        if (!this.config || !value.trim()) return;
+        const number = Number(value);
+        if (Number.isFinite(number)) this.config.gameplayConfig[field] = number;
+      });
+    };
+    bindNumber(inMoney, 'startMoney');
+    bindNumber(inLives, 'startLives');
+    bindNumber(inScoreMul, 'scoreMultiplier');
+    bindNumber(inSuperMul, 'superChargeMultiplier');
     const pvpEditor = document.getElementById('admin-pvp-config');
     if (pvpEditor && this.activeTab === 'pvp') {
       renderPvpEditor(pvpEditor, this.config.pvpConfig);
@@ -577,9 +609,11 @@ export class AdminController {
   private async renderLeaderboardManager(): Promise<void> {
     const listEl = document.getElementById('admin-lb-table');
     if (!listEl) return;
+    const requestId = ++this.leaderboardRequest;
     listEl.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading MongoDB scores...</div>';
 
     const entries = await adminFetchLeaderboards();
+    if (requestId !== this.leaderboardRequest) return;
     if (entries.length === 0) {
       listEl.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">No scores found in MongoDB.</div>';
       return;
@@ -589,14 +623,19 @@ export class AdminController {
     entries.forEach((e: any) => {
       const row = document.createElement('div');
       row.className = 'admin-lb-row';
-      row.innerHTML = `
-        <span class="font-bold text-white text-xs w-28 truncate">${e.steamPersona || e.nickname}</span>
-        <span class="text-xs text-slate-300 w-16 uppercase">${e.mode}</span>
-        <span class="text-xs text-lime-400 font-bold w-20">${e.score?.toLocaleString()}</span>
-        <span class="text-xs text-slate-400 w-14">W${e.wave}</span>
-        <span class="text-[10px] text-slate-500 flex-1 truncate">${e._id}</span>
-        <button class="admin-del-btn" data-id="${e._id}">Delete</button>
-      `;
+      const cells: Array<[string, string]> = [
+        ['font-bold text-white text-xs w-28 truncate', String(e.steamPersona || e.nickname || 'Player')],
+        ['text-xs text-slate-300 w-16 uppercase', String(e.mode || '')],
+        ['text-xs text-lime-400 font-bold w-20', Number(e.score || 0).toLocaleString()],
+        ['text-xs text-slate-400 w-14', `W${e.wave ?? 0}`],
+        ['text-[10px] text-slate-500 flex-1 truncate', String(e._id || '')],
+      ];
+      for (const [className, text] of cells) {
+        const cell = document.createElement('span'); cell.className = className; cell.textContent = text; row.appendChild(cell);
+      }
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button'; deleteButton.className = 'admin-del-btn'; deleteButton.dataset.id = String(e._id || ''); deleteButton.textContent = 'Delete';
+      row.appendChild(deleteButton);
 
       row.querySelector('.admin-del-btn')?.addEventListener('click', async () => {
         const ok = await confirmModal({
@@ -606,7 +645,7 @@ export class AdminController {
           tone: 'danger',
         });
         if (ok) {
-          await adminDeleteScore(e._id);
+          if (!await adminDeleteScore(e._id)) { GameToast('Could not delete this score. Try again.', 'danger'); return; }
           this.renderLeaderboardManager();
         }
       });
@@ -667,7 +706,8 @@ export class AdminController {
     if (inSuperMul) this.config.gameplayConfig.superChargeMultiplier = Number(inSuperMul.value);
 
 
-    const res = await saveAdminConfig(this.config);
+    const published = structuredClone(this.config);
+    const res = await saveAdminConfig(published);
 
     if (statusEl) {
       statusEl.textContent = res.message || res.error || 'Saved!';
@@ -675,8 +715,8 @@ export class AdminController {
     }
 
     if (res.success) {
-      setLiveConfig(this.config);
-      this.onConfigSaved?.(this.config);
+      setLiveConfig(published);
+      this.onConfigSaved?.(published);
     }
 
     if (saveBtn) {

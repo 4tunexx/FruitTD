@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fruit TD · Local admin verification</title></head>
+<body><script type="module">
+import '/src/style.css';
+import '/src/ui/screens/screens.css';
+import '/src/ui/screens/hub.css';
+import '/src/ui/apocalypse.css';
+import { AdminController } from '/src/ui/admin.ts';
+import { DEFAULT_ADMIN_CONFIG } from '/src/services/admin.ts';
+import { themeStore } from '/src/ui/theme/themeStore.ts';
+import { installSpriteUploads } from '/src/ui/adminSprites.ts';
+import { installMediaStudio } from '/src/ui/adminMediaStudio.ts';
+import { installCreatorWaveBoard } from '/src/ui/creatorWaveBoard.ts';
+import { installCreatorSlicerVfx } from '/src/ui/creatorSlicerVfx.ts';
+if (!import.meta.env.DEV) throw new Error('Development verification only');
+themeStore.boot();
+const source = new DOMParser().parseFromString(await (await fetch('/index.html')).text(), 'text/html');
+const modal = source.querySelector('#modal-admin'); document.body.append(modal);
+let config = structuredClone(DEFAULT_ADMIN_CONFIG);
+let entries = [{_id:'local-score',nickname:'Local Slicer',mode:'casual',score:12500,wave:9}];
+// All API actions are isolated in this page. No credentials or server writes.
+window.fetch = async (url, init = {}) => {
+  const path = new URL(String(url), location.href).pathname;
+  let result;
+  if (path === '/api/admin/config') {
+    if (init.method === 'POST') Object.assign(config, JSON.parse(init.body));
+    result = {success:true,config:structuredClone(config),message:'Saved in local preview memory.'};
+  } else if (path === '/api/admin/leaderboard') result = {entries:structuredClone(entries)};
+  else if (path === '/api/admin/leaderboard/delete') {entries=[];result={success:true};}
+  else if (path === '/api/admin/reset-daily') result={success:true,message:'Local reset verified.'};
+  else return new Response(JSON.stringify({success:false,error:'API unavailable in isolated preview.'}),{status:503});
+  return new Response(JSON.stringify(result),{headers:{'Content-Type':'application/json'}});
+};
+const controller = new AdminController();
+await controller.loadConfig();
+controller.renderTabs(); controller.renderActiveTab();
+installSpriteUploads(); installMediaStudio(); installCreatorWaveBoard(); installCreatorSlicerVfx();
+modal.classList.remove('hidden');
+const note=document.createElement('p'); note.textContent='LOCAL ADMIN CHECK · All saves stay in preview memory';note.style.cssText='color:#ffca28;font-weight:900';
+modal.querySelector('.admin-header-row').append(note);
+</script></body></html>

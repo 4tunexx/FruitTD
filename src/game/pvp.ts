@@ -186,7 +186,7 @@ export function vetoPvpMap(match: PvpMatch, userId: string, mapId: string, seque
   match.revision++;
   if (match.mapPool.length === 2) {
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]!);
-    match.status = 'active'; match.nextWaveAt = now + 15_000; match.neutralWave = 0; match.endsAt = now + config.durationSeconds * 1000;
+    match.status = 'active'; match.endsAt = now + config.durationSeconds * 1000;
     match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = config.startingFruts; item.rallyReadyAt = now + PVP_RALLY.openingMs; });
   } else match.vetoTurn = match.players.find((item) => item.userId !== userId)!.userId;
   return match;
@@ -268,17 +268,8 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;
   const path = map.pathCells;
-  if (match.nextWaveAt !== undefined && now >= match.nextWaveAt) {
-    match.neutralWave = (match.neutralWave || 0) + 1;
-    const waveTypes = ['normal', 'swift', 'armored', 'explosive'].filter(type => config.attacks[type]);
-    const type = match.neutralWave >= 3 ? waveTypes[match.neutralWave % waveTypes.length]! : 'normal';
-    const health = config.attacks[type]!.health * (1 + match.neutralWave * .15);
-    for (const player of match.players) {
-      const count = Math.min(4, 1 + Math.floor(match.neutralWave / 3));
-      for (let i = 0; i < count && player.attackers.length < 128; i++) player.attackers.push({ id: `wave:${match.neutralWave}:${player.userId}:${i}`, type, hp: health, maxHp: health, progress: -i * .8 });
-    }
-    match.nextWaveAt = now + 15_000;
-  }
+  // Arena squads come from the opponent's send/release command. Random shared
+  // waves obscured who was attacking whom and punished both players for waiting.
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
     for (const attacker of player.attackers) {

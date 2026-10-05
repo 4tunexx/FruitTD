@@ -7,6 +7,7 @@ import type { CoopMatch, CoopConfig, CoopCommand } from '../../game/onlineCoop';
 import type { PvpConfig } from '../../game/pvp';
 import { turretDef, type TurretKind } from '../../game/turrets';
 import type { Realtime } from 'ably';
+import { recordRun } from '../../game/runStats';
 const cleanup=new WeakMap<HTMLElement,()=>void>();
 const base=(import.meta.env?.VITE_PVP_API_URL || '/api/pvp').replace(/\/pvp\/?$/,'/coop');
 async function api(path:string,body?:object){const token=getAuthToken();const response=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(12000),method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok||data.success===false)throw new Error(data.error||'Co-op service unavailable.');return data;}
@@ -15,11 +16,13 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  host.append(el('h2',{text:'CO-OP · DEFEND TOGETHER'}),el('p',{text:'Two online players slice together, share one wall and Fruts, and receive equal match rewards.'}));
  const notice=el('p',{role:'status',class:'ftd-pvp__intro'});const body=el('div');host.append(notice,body);
  let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let selected='guillotine';let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;
- const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();client?.close();};
+ const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();client?.close();client=null;connectedRoom='';};
+ const canAttachRoom=(id:string)=>Boolean(room&&room.id===id&&room.status!=='complete');
  const attach=async()=>{if(!room||room.status==='complete'||attaching||connectedRoom===room.id)return;attaching=true;const id=room.id;
-  try{const {Realtime}=await import('ably');if(disposed||!body.isConnected||room?.id!==id)return;client?.close();client=new Realtime({authCallback:(_params,callback)=>{api(`/${id}/token`,{}).then(data=>callback(null,data)).catch(error=>callback(error.message,null));}});connectedRoom=id;
-  await client.channels.get(`fruittd-coop-${id}`).subscribe('match.snapshot',(event)=>{if(disposed||!body.isConnected||room?.id!==id)return;const incoming=event.data as CoopMatch;if(incoming.revision>=room.revision){room=incoming;render();}});
-  }catch(error){notice.textContent='Realtime interrupted; recovering match state from the server.';connectedRoom='';client?.close();client=null;}finally{attaching=false;}};
+  let candidate:Realtime|null=null;
+  try{const {Realtime}=await import('ably');if(disposed||!body.isConnected||!canAttachRoom(id))return;client?.close();candidate=new Realtime({authCallback:(_params,callback)=>{if(disposed||!canAttachRoom(id)){callback({name:'CoopTokenError',message:'Match view closed.',code:500,statusCode:500},null);return;}api(`/${id}/token`,{}).then(data=>{if(disposed||!canAttachRoom(id))callback({name:'CoopTokenError',message:'Match view closed.',code:500,statusCode:500},null);else callback(null,data);}).catch(error=>callback({name:'CoopTokenError',message:error instanceof Error?error.message:'Co-op authentication failed.',code:500,statusCode:500},null));}});if(disposed||!body.isConnected||!canAttachRoom(id)){candidate.close();return;}client=candidate;connectedRoom=id;
+  await candidate.channels.get(`fruittd-coop-${id}`).subscribe('match.snapshot',(event)=>{if(disposed||!body.isConnected||room?.id!==id)return;const incoming=event.data as CoopMatch;if(incoming.revision>=room.revision){room=incoming;render();}});
+  }catch(error){if(!disposed&&room?.id===id)notice.textContent='Realtime interrupted; recovering match state from the server.';if(candidate){candidate.close();if(client===candidate)client=null;}if(connectedRoom===id)connectedRoom='';}finally{attaching=false;if(!disposed&&room&&canAttachRoom(room.id)&&room.id!==id)void attach();}};
  const refresh=async()=>{if(working||disposed)return;working=true;try{const data=await api('/status');if(disposed||!body.isConnected)return;if(!room||!data.room||room.id!==data.room.id||data.room.revision>=room.revision)room=data.room;balance=data.balance;coop=data.coop;yourId=data.yourId;render();}catch(error){notice.textContent=error instanceof Error?error.message:'Could not load Co-op.';if(!room&&!disposed&&body.isConnected)body.replaceChildren(GameButton({label:'Retry connection',tone:'primary',onClick:()=>void refresh()}),GameButton({label:'Play locally on this PC',variant:'outline',onClick:()=>{dispose();startLocal();}}));}finally{working=false;}};
  const send=async(path:string,value:object)=>{if(working||disposed)return;working=true;try{const data=await api(path,value);if(data.room&&(!room||room.id!==data.room.id||data.room.revision>=room.revision))room=data.room;notice.textContent='';}catch(error){notice.textContent=error instanceof Error?error.message:'Action failed.';}finally{working=false;await refresh();}};
  const commands: CoopCommand[] = [];
@@ -52,6 +55,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   const own=room.players.find(p=>p.userId===yourId);if(!own)return;
   if(room.status==='waiting'){body.append(el('h3',{text:`ROOM ${room.id.toUpperCase()}`}),LoadingIndicator('Waiting for your teammate…'),el('p',{text:'Share this code with a friend. Public rooms also accept the next available player.'}),GameButton({label:'Copy room code',variant:'outline',onClick:()=>{void navigator.clipboard.writeText(room!.id).then(()=>notice.textContent='Room code copied.').catch(()=>notice.textContent='Select and copy the room code above.');}}),GameButton({label:'Delete room',variant:'outline',onClick:()=>command({type:'leave'})}));return;}
   if(room.status==='complete'){scene?.dispose();scene=null;client?.close();client=null;connectedRoom='';
+   if(room.completedWaves||room.kills)recordRun({id:`coop:${room.id}`,mode:'coop',score:room.score,wave:room.wave,combo:0,kills:room.kills,strokes:0,hits:0,completed:room.reason!=='left',date:Date.now()});
    const coins=room.completedWaves?Math.min(coop.rewardCoinCap,room.kills*coop.coinsPerKill+room.completedWaves*coop.coinsPerWave):0;
    body.append(el('h3',{text:room.reason==='wall'?'WALL BREACHED':'TEAM RUN ENDED'}),el('p',{text:`${room.completedWaves} waves · ${room.kills} fruit · ${room.score} score`}),el('p',{text:`Each account earns ${coins} coins · ${Math.floor(room.completedWaves/coop.gemsEveryWaves)} gems. Server settlement applies XP and team achievements.`}),GameButton({label:'Back to Co-op lobby',tone:'primary',onClick:()=>void send(`/${room!.id}/ack`,{})}));return;
   }

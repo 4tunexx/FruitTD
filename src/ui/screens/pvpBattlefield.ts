@@ -36,7 +36,7 @@ export class PvpBattlefield {
   private readonly pieces = new Group();
   private readonly trail = new BladeTrail();
   private readonly remoteTrail = new BladeTrail();
-  private readonly marker = new Mesh(new CylinderGeometry(HEX_RADIUS * .95, HEX_RADIUS * .95, .07, 6), new MeshBasicMaterial({ color: 0xa3e635, transparent: true, opacity: .4 }));
+  private readonly marker = new Mesh(new CylinderGeometry(HEX_RADIUS * .95, HEX_RADIUS * .95, .07, 6), new MeshBasicMaterial({ color: 0xffca28, transparent: true, opacity: .5 }));
   private readonly observer: ResizeObserver;
   private readonly towers = new Map<string, { rig: TurretRig; type: string; own: boolean; cell: number; level?: number }>();
   private readonly fruits = new Map<string, { mesh: Mesh; player: PlayerView; progress: number; x?: number; y?: number; boss?: boolean; type: string; own: boolean }>();
@@ -57,20 +57,22 @@ export class PvpBattlefield {
   private readonly effects: Array<{ object: Mesh | Line; life: number; velocity?: Vector3; target?: Vector3 }> = [];
   private zoom = 1;
   private focusOwn = false;
+  private framingInitialised = false;
   private mapKey = '';
   get interacting(): boolean { return this.stroke !== null; }
 
   constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
     this.snapshot = snapshot; this.config = config;
     if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
-    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Choose a tower · Tap a blue hex to build · Tap a tower to upgrade' }));
+    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'YOU = BLUE · ENEMY = RED · Build on blue tiles to stop RED fruit. Send BLUE fruit to destroy the RED base.' }));
     if (!snapshot.shared) {
-      const focus = el('button', { class: 'ftd-duel-focus', type: 'button', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
-      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; focus.textContent = this.focusOwn ? 'Whole arena' : 'My defence'; this.resize(); }); this.element.appendChild(focus);
+      this.element.append(el('div', { class: 'ftd-duel-team is-own', text: 'BLUE · YOUR BASE' }), el('div', { class: 'ftd-duel-team is-rival', text: 'RED · ENEMY BASE' }));
+      const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
+      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.resize(); }); this.element.appendChild(focus);
     }
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    this.scene.background = new Color(0x102a23);
+    this.scene.background = new Color(snapshot.shared ? 0x102a23 : 0x202226);
     this.scene.add(new AmbientLight(0xe8f4dc, 1.2));
     const sun = new DirectionalLight(0xfff1cf, 1.6); sun.position.set(12, 30, -15); this.scene.add(sun);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
@@ -103,7 +105,22 @@ export class PvpBattlefield {
     const towerIds = new Set<string>(); const fruitIds = new Set<string>();
     for (const player of snapshot.players) {
       const own = player.side === snapshot.yourSide;
-      const hp = this.health.get(player.userId); if (hp) hp.scale.x = Math.max(.001, player.wallHealth / Number(hp.userData.maxHealth));
+      const hp = this.health.get(player.userId);
+      if (hp) {
+        if (hp.userData.lastHealth !== undefined && player.wallHealth < hp.userData.lastHealth) {
+          const origin = new Vector3(); hp.getWorldPosition(origin); origin.y = 1;
+          const count = player.wallHealth <= 0 ? 36 : 10;
+          for (let i = 0; i < count; i++) {
+            const shard = new Mesh(new BoxGeometry(.18,.18,.18), new MeshBasicMaterial({ color:i % 2 ? 0xffca28 : 0xf48120 }));
+            shard.position.copy(origin); this.scene.add(shard);
+            const angle = i / count * Math.PI * 2;
+            this.effects.push({ object:shard, life:player.wallHealth <= 0 ? 2 : .65, velocity:new Vector3(Math.cos(angle)*6,3+i%4,Math.sin(angle)*6) });
+          }
+          if (player.wallHealth <= 0) hp.parent?.traverse(object => { if (object instanceof Mesh && object !== hp) object.visible = false; });
+        }
+        hp.userData.lastHealth = player.wallHealth;
+        hp.scale.x = Math.max(.001, player.wallHealth / Number(hp.userData.maxHealth));
+      }
       for (const tower of player.towers) {
         towerIds.add(tower.id);
         if (!this.towers.has(tower.id) && (tower.type === 'catcher' || TURRETS.some((item) => item.kind === tower.type))) {
@@ -133,16 +150,16 @@ export class PvpBattlefield {
         if (!entry) {
           const kind = fruit.type === 'swift' ? 'strawberry' : fruit.type === 'armored' ? 'watermelon' : fruit.type === 'explosive' ? 'bomb' : 'orange';
           const def = FRUIT_DEFS[kind];
-          const texture = getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin);
-          const mesh = new Mesh(new SphereGeometry(fruit.type === 'armored' ? .68 : .48, 14, 10), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, emissive: def.emissive, emissiveIntensity: .12 }));
-          if (fruit.released) { (mesh.material as MeshLambertMaterial).emissive.set(0x9340df); (mesh.material as MeshLambertMaterial).emissiveIntensity = .35; }
+          const texture = snapshot.shared ? getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin) : null;
+          const teamColor = own ? COLORS.red : COLORS.blue;
+          const mesh = new Mesh(new SphereGeometry(fruit.type === 'armored' ? .68 : .48, 14, 10), new MeshLambertMaterial({ color: snapshot.shared ? texture ? 0xffffff : def.color : teamColor, map: texture, emissive: snapshot.shared ? def.emissive : teamColor, emissiveIntensity: .22 }));
           const shell = new Mesh(mesh.geometry, new MeshBasicMaterial({ color: 0x07110c, side: BackSide })); shell.scale.setScalar(1.09); mesh.add(shell);
           const stem = new Mesh(new CylinderGeometry(.07, .05, .3, 5), new MeshLambertMaterial({ color: 0x274925 })); stem.position.y = .5; mesh.add(stem);
           for (const x of [-.16, .16]) { const eye = new Mesh(new SphereGeometry(.09, 7, 5), new MeshBasicMaterial({ color: 0xf5edb5 })); eye.position.set(x, .12, -.43); mesh.add(eye); }
           if (!snapshot.shared) {
             const bar = new Group(); bar.position.y = .85;
             const back = new Mesh(new BoxGeometry(.85, .08, .15), new MeshBasicMaterial({ color: 0x07120b }));
-            const fill = new Mesh(new BoxGeometry(.75, .045, .17), new MeshBasicMaterial({ color: 0xc4fa52 }));
+            const fill = new Mesh(new BoxGeometry(.75, .045, .17), new MeshBasicMaterial({ color: teamColor }));
             bar.add(back, fill); mesh.add(bar); mesh.userData.hpBar = bar; mesh.userData.hpFill = fill;
           }
           this.pieces.add(mesh); entry = { mesh, player, progress: fruit.progress, type: fruit.type, own }; this.fruits.set(fruit.id, entry);
@@ -188,7 +205,7 @@ export class PvpBattlefield {
   private buildTerrain(map: PvpMap): void {
     while (this.terrain.children.length) this.release(this.terrain.children[0] as Group);
     this.health.clear(); this.buildPads.length = 0;
-    const floor = new Mesh(new BoxGeometry(map.width * TILE_X + 5, .4, (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2)), new MeshLambertMaterial({ color: 0x4d7c39 }));
+    const floor = new Mesh(new BoxGeometry(map.width * TILE_X + 5, .4, (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2)), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x4d7c39 : 0x33353a }));
     floor.position.y = -.3; if (this.snapshot.shared) floor.position.z = -(map.height + 2) * TILE / 2; this.terrain.add(floor);
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
@@ -199,6 +216,7 @@ export class PvpBattlefield {
         const rim = new Mesh(new CylinderGeometry(HEX_RADIUS * .985, HEX_RADIUS, .16, 6), new MeshLambertMaterial({ color: isPath ? 0x4c4230 : build ? own ? 0x337589 : 0x824843 : 0x2f4831 }));
         rim.position.copy(this.cellPoint(cell, own)); rim.position.y = -.02;
         const tile = new Mesh(new CylinderGeometry(HEX_RADIUS * .90, HEX_RADIUS * .93, .08, 6), new MeshLambertMaterial({ color: isPath ? 0xcbb87b : own ? (cell % 3 ? 0x547a43 : 0x60864b) : (cell % 3 ? 0x6c773c : 0x7a8345) }));
+        if (!this.snapshot.shared) (tile.material as MeshLambertMaterial).color.set(isPath ? own ? 0x193b59 : 0x542129 : own ? 0x215473 : 0x703039);
         tile.position.y = .12; rim.add(tile); this.terrain.add(rim);
         if (own && build) { rim.userData.cell = cell; this.buildPads.push(rim); }
         if (build && cell % 3 === 0) {
@@ -206,17 +224,25 @@ export class PvpBattlefield {
           cross.add(new Mesh(new BoxGeometry(.4, .02, .08), mat), new Mesh(new BoxGeometry(.08, .02, .4), mat)); cross.position.y = .18; rim.add(cross);
         }
       }
+      if (!this.snapshot.shared) {
+        for (let index = 2; index < map.pathCells.length - 1; index += 5) {
+          const from = this.cellPoint(map.pathCells[index]!, own), to = this.cellPoint(map.pathCells[index + 1]!, own);
+          const arrow = new Mesh(new ConeGeometry(.32, .85, 3), new MeshBasicMaterial({ color: own ? COLORS.red : COLORS.blue, transparent: true, opacity: .8 }));
+          arrow.position.copy(from); arrow.position.y = .23;
+          arrow.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), to.sub(from).normalize()); this.terrain.add(arrow);
+        }
+      }
       // Orchard trees stand outside legal build cells, preserving every editable route.
       for (let row = 1; row < map.height; row += 3) for (const edge of [-1.3, map.width + 1.3]) {
         const tree = new Group();
         const trunk = new Mesh(new CylinderGeometry(.13, .2, 1.3, 6), new MeshLambertMaterial({ color: 0x67412a })); trunk.position.y = .65;
-      const crown = new Mesh(new ConeGeometry(.9, 2.1, 7), new MeshLambertMaterial({ color: 0x1d592e })); crown.position.y = 1.8;
+      const crown = new Mesh(new ConeGeometry(.9, 2.1, 7), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x1d592e : 0x655032 })); crown.position.y = 1.8;
         tree.add(trunk, crown); tree.position.copy(pvpWorldPoint(map, edge, row, own)); this.terrain.add(tree);
       }
       const endpoint = this.cellPoint((map.pathCells.at(-1) ?? (map.height - 1) * map.width + Math.floor(map.width / 2)), own); endpoint.z += own ? -TILE * 1.5 : TILE * 1.5;
       const gateX = endpoint.x;
       const base = new Group(); base.position.copy(endpoint); base.position.x = 0;
-      const wall = new Mesh(new BoxGeometry(map.width * TILE_X, 1.05, 1.3), new MeshLambertMaterial({ color: WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? (own ? 0x355c91 : 0x9a4034) })); wall.position.y = .5;
+      const wall = new Mesh(new BoxGeometry(map.width * TILE_X, 1.05, 1.3), new MeshLambertMaterial({ color: this.snapshot.shared ? WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? COLORS.blue : color })); wall.position.y = .5;
       const keep = new Mesh(new CylinderGeometry(1.05, 1.3, 2.4, 10), new MeshLambertMaterial({ color })); keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
       const towerTexture = getAdminTexture('tower-main'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
       const hero = heroDef((player.hero || 'jiju') as HeroId);
@@ -244,6 +270,16 @@ export class PvpBattlefield {
       const bridge = new Mesh(new BoxGeometry(TILE_X * .75, .14, a.distanceTo(b)), new MeshLambertMaterial({ color: 0xcbb87b }));
       bridge.position.copy(a.clone().add(b).multiplyScalar(.5)); bridge.position.y = .05;
       bridge.rotation.y = Math.atan2(b.x - a.x, b.z - a.z); this.terrain.add(bridge);
+      for (const own of [true, false]) {
+        const entrance = this.cellPoint(first, own);
+        const team = own ? COLORS.red : COLORS.blue;
+        const portal = new Mesh(new CylinderGeometry(.85, .85, .12, 12), new MeshBasicMaterial({ color: team, transparent: true, opacity: .8 }));
+        portal.position.copy(entrance); portal.position.y = .22; this.terrain.add(portal);
+        for (const x of [-.9, .9]) {
+          const beacon = new Mesh(new BoxGeometry(.13, 1.5, .13), new MeshBasicMaterial({ color: team }));
+          beacon.position.copy(entrance); beacon.position.x += x; beacon.position.y = .85; this.terrain.add(beacon);
+        }
+      }
     }
     this.resize();
   }
@@ -313,15 +349,31 @@ export class PvpBattlefield {
     this.selectedCell = cell; this.marker.visible = cell !== null;
     if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
   }
+  setAttackView(attacking: boolean): void {
+    if (this.snapshot.shared) return;
+    this.focusOwn = !attacking && this.element.getBoundingClientRect().width < 600;
+    this.zoom = 1; this.resize();
+  }
   private pointerCancel = () => { this.stroke = null; this.trail.reset(); };
   private wheel = (event: WheelEvent) => { event.preventDefault(); this.zoom = Math.max(.65, Math.min(2.5, this.zoom * (event.deltaY > 0 ? .92 : 1.08))); this.resize(); };
   private resize(): void {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+    if (this.framingInitialised === false) {
+      this.framingInitialised = true;
+      this.focusOwn = !this.snapshot.shared && rect.width < 600;
+    }
+    this.element.classList.toggle('is-focused', this.focusOwn);
+    const focus = this.element.querySelector<HTMLElement>('.ftd-duel-focus');
+    if (focus) { focus.textContent = this.focusOwn ? 'Whole arena' : 'My defence'; focus.setAttribute('aria-label', this.focusOwn ? 'Show both bases and attack routes' : 'Zoom to your build territory'); }
     this.renderer.setSize(rect.width, rect.height, false);
     const map = this.snapshot.map; const aspect = rect.width / rect.height;
-    const half = Math.max(map ? (map.height + 3.7) * TILE * (this.snapshot.shared || this.focusOwn ? .5 : .90) : 34, map ? (map.width + 2) * TILE_X / 2 / aspect : 0) / this.zoom;
+    const landscape = aspect > 1.25 && !this.snapshot.shared && !this.focusOwn;
+    this.element.classList.toggle('is-landscape', landscape);
+    const length = map ? (map.height + 3.7) * TILE * (this.snapshot.shared || this.focusOwn ? .5 : 1.02) : 34;
+    const breadth = map ? (map.width + 3) * TILE_X / 2 : 12;
+    const half = (landscape ? Math.max(breadth, length / aspect) : Math.max(length, breadth / aspect)) / this.zoom;
     const centerZ = (this.snapshot.shared || this.focusOwn) && map ? -(map.height + 2) * TILE / 2 : 0;
-    this.camera.position.set(0, 75, centerZ - 48); this.camera.lookAt(0, 0, centerZ);
+    this.camera.position.set(landscape ? -48 : 0, 75, landscape ? centerZ : centerZ - 48); this.camera.lookAt(0, 0, centerZ);
     this.camera.left = -half * aspect; this.camera.right = half * aspect; this.camera.top = half; this.camera.bottom = -half;
     this.camera.updateProjectionMatrix();
   }

@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY || '';
 

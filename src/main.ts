@@ -1,4 +1,5 @@
 import { finishCampaignAttempt } from './game/campaignAttempt';
+import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
 import './style.css';
 import { Sfx } from './audio/sfx';
@@ -73,10 +74,12 @@ import {
 } from './game/studioRuntime';
 import { fireCreatorSlicerVfx, setCreatorVfxCallbacks } from './game/creatorVfx';
 import { mountLucideIcon, mountLucidePlaceholders } from './ui/lucideIcon';
+import { installMenuInput } from './ui/menuInput';
 
 // Theme + layout must be applied before any UI renders.
 initThemeSystem();
 mountLucidePlaceholders();
+installMenuInput();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -190,6 +193,9 @@ let guestAttackHeld = false;
 const guestCursor = document.getElementById('coop-guest-cursor');
 const guestHelp = document.getElementById('coop-guest-help');
 let totalFruitsSliced = 0;
+let statsRunId = `${Date.now()}`;
+let statsStrokes = 0;
+let statsHits = 0;
 let lootEligibleKills = 0;
 let sessionMaxCombo = 0;
 let sessionLeaks = 0;
@@ -698,6 +704,7 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
 }
 
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): void {
+  if (fruit.boss && (fruit.alive || fruit.hp > 0)) return;
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   debris.spawnPair(fruit, swipe, cutNormal);
@@ -733,6 +740,12 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   const scr = worldPct(fruit.group.position.x, fruit.group.position.y + 0.35, fruit.group.position.z);
   if (fruit.boss) {
     floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'boss');
+    const position = fruit.group.position;
+    juice.burst(position.x, position.y, position.z, fruit.kind, swipe, 4);
+    for (let burst = 0; burst < 8; burst++) {
+      const angle = burst * Math.PI / 4;
+      slashFx.spawn(position.x + Math.cos(angle), position.z + Math.sin(angle), FRUIT_DEFS[fruit.kind].splash, Math.cos(angle), Math.sin(angle), 1.5);
+    }
     renderer.impulseShake(1.4);
     combatImpact.trigger('boss');
   } else if (fruit.enemyKind !== 'normal') {
@@ -786,6 +799,9 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   }
 }
 
+let bossCelebrationRemaining = 0;
+let bossVictoryContinue: (() => void) | null = null;
+
 function finishCampaignStage(): void {
   const cleared = state.level;
   if (campaignRunSettled) return;
@@ -799,15 +815,22 @@ function finishCampaignStage(): void {
   void syncCloudSave(save);
   // Snapshot rewards before menu cleanup; never start a new run here.
   const settlement = submitCurrentRun(true);
-  quitToMenu(true);
-  fruits.reset();
   document.getElementById('boss-health')?.classList.add('hidden');
-  navigation.open('CAMPAIGN');
-  if (completion.chapter) showCampaignChapter(cleared);
   const session = campaignSession;
-  void settlement.finally(() => {
+  bossCelebrationRemaining = 2.4;
+  renderer.impulseShake(2.2);
+  renderer.impulseBlast(1.8);
+  sfx.bombExplode();
+  bossVictoryContinue = () => {
+    if (session !== campaignSession) return;
+    quitToMenu(true);
+    fruits.reset();
+    navigation.open('CAMPAIGN');
+    if (completion.chapter) showCampaignChapter(cleared);
+  };
+  void settlement.then(() => {
     if (session === campaignSession && navigation.state === 'CAMPAIGN') refreshCurrentScreen();
-  });
+  }).catch(() => { /* submitCurrentRun owns settlement feedback. */ });
 }
 
 function showGameOverOverlay(): void {
@@ -823,6 +846,7 @@ function showGameOverOverlay(): void {
 
 function submitCurrentRun(completed: boolean): Promise<void> {
   if (runSettlementPending) return runSettlementPending;
+  recordRun({ id: statsRunId, mode: state.mode, score: state.score, wave: state.wave, combo: sessionMaxCombo, kills: totalFruitsSliced, strokes: statsStrokes, hits: statsHits, completed, date: Date.now() });
   const steamState = getCachedSteamState();
   const feedbackEl = document.getElementById('lb-submit-feedback');
   if (completed && feedbackEl) feedbackEl.innerHTML = '<span>Syncing score and rewards…</span>';
@@ -1008,6 +1032,11 @@ function restart(): void {
   guestCursor?.classList.toggle('hidden', !rules.guest);
   guestHelp?.classList.toggle('hidden', !rules.guest);
   totalFruitsSliced = 0;
+  statsRunId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  statsStrokes = statsHits = 0;
+  bossCelebrationRemaining = 0;
+  bossVictoryContinue = null;
+  document.querySelector('.campaign-boss-victory')?.remove();
   lootEligibleKills = 0;
   matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
   sessionMaxCombo = 0;
@@ -1304,6 +1333,9 @@ function quitToMenu(explicitMenuAction = false): void {
     return;
   }
   leaveMatchApproved = false;
+  bossCelebrationRemaining = 0;
+  bossVictoryContinue = null;
+  document.querySelector('.campaign-boss-victory')?.remove();
   campaignSession += 1;
   campaignStageSaving = false;
   bossRevealRemaining = 0;
@@ -1528,6 +1560,24 @@ function kiPulse(x: number, z: number): void {
 }
 
 function simulate(dt: number): void {
+  if (bossCelebrationRemaining > 0) {
+    bossCelebrationRemaining = Math.max(0, bossCelebrationRemaining - dt);
+    blade.consumeClick(); blade.consumeSlash(); blade.consumeStrokeEnd();
+    juice.update(dt); debris.update(dt); slashFx.update(dt); floatingScore.update(dt); renderer.update(dt);
+    if (bossCelebrationRemaining === 0 && navigation.isInGame()) {
+      const victory = document.createElement('div');
+      victory.className = 'campaign-boss-victory';
+      victory.setAttribute('role', 'dialog');
+      victory.setAttribute('aria-modal', 'true');
+      victory.setAttribute('aria-label', 'Boss defeated');
+      victory.innerHTML = `<section><p>STAGE ${state.level} CLEARED</p><h1>BOSS DESTROYED</h1><p>${state.level === 100 ? 'The orchard is saved. Campaign complete!' : 'Your wall holds. Next stage unlocked.'}</p><button type="button">CONTINUE TO CAMPAIGN</button></section>`;
+      document.getElementById('app')?.appendChild(victory);
+      const button = victory.querySelector('button')!;
+      button.addEventListener('click', () => { victory.remove(); const proceed = bossVictoryContinue; bossVictoryContinue = null; proceed?.(); });
+      button.focus();
+    }
+    return;
+  }
   if (campaignStoryActive || campaignStageSaving) {
     blade.consumeClick();
     blade.consumeSlash();
@@ -1592,7 +1642,10 @@ function simulate(dt: number): void {
   }
   if (!state.running) return;
   const finishedStroke = blade.consumeStrokeEnd();
-  if (finishedStroke != null && playerContacts.missed(finishedStroke)) resetCombo('miss');
+  if (finishedStroke != null) {
+    statsStrokes++;
+    if (playerContacts.missed(finishedStroke)) resetCombo('miss'); else statsHits++;
+  }
 
   if (state.bossIntro) {
     if (state.bossIntroTimer === BOSS_INTRO_DURATION) {

@@ -19,6 +19,7 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
     if (value && typeof value === 'object' && !(value instanceof Date)) {
       if ('$ne' in value) return candidates.every(v => v !== value.$ne);
       if ('$gt' in value) return candidates.some(v => v > value.$gt);
+      if ('$lt' in value) return candidates.some(v => v < value.$lt);
       if ('$lte' in value) return candidates.some(v => v <= value.$lte);
       if ('$in' in value) return candidates.some(v => value.$in.includes(v));
     }
@@ -83,6 +84,8 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
   assert.equal(credits.size, 2);
   assert.deepEqual(credits.get(`one:coop:${id}`), credits.get(`two:coop:${id}`));
   assert.equal(rows('achievements').length, 2);
+  assert.equal(rows('leaderboards').length, 2, 'both teammates receive a server verified Co-op record');
+  assert.ok(rows('leaderboards').every(row => row.mode === 'coop' && row.wave === 6 && row.score === rows('coop_matches')[0].score));
   assert.equal((await post(`/${id}/command`, 'two', { sequence: 2, command: cut })).status, 409);
   assert.equal((await post(`/${id}/token`, 'one')).status, 404);
   assert.equal((await post(`/${id}/ack`, 'one')).status, 200);

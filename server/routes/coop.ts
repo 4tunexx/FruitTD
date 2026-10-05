@@ -19,6 +19,10 @@ async function config(){const row=await(await getCollection<any>('admin_config')
 async function publish(room:Room){try{if(deps.publish){await deps.publish(`fruittd-coop-${room.id}`,room);return;}if(!process.env.ABLY_API_KEY)return;publisher??=new Rest({key:process.env.ABLY_API_KEY});await publisher.channels.get(`fruittd-coop-${room.id}`).publish('match.snapshot',room);}catch(error){console.error('Co-op publish failed',error);}}
 async function settle(room:Room){if(room.status!=='complete'||room.settled)return;const cfg=await config();const reward=coopRewards(room,cfg.coop);
  for(const player of room.players){if(room.completedWaves<1)continue;await creditClaimReward(player.userId,`coop:${room.id}`,{coins:reward.coins,gems:reward.gems,xp:{[player.hero]:reward.xp},towerXp:reward.towerXp,games:1,bestWave:room.completedWaves,highScore:room.score});
+ const board=await getCollection<any>('leaderboards');
+ const record={userId:player.userId,nickname:player.name,avatar:'',hero:player.hero,mode:'coop',score:room.score,wave:room.completedWaves,fruitsSliced:room.kills,maxCombo:0,createdAt:new Date()};
+ await board.updateOne({userId:player.userId,mode:'coop'},{$setOnInsert:record},{upsert:true});
+ await board.updateOne({userId:player.userId,mode:'coop',$or:[{score:{$lt:room.score}},{score:room.score,wave:{$lt:room.completedWaves}}]},{$set:record});
  if(room.completedWaves>=6){await(await getCollection<any>('achievements')).updateOne({userId:player.userId,achievementId:'coop_first_team_run'},{$set:{unlocked:true,unlockedAt:new Date(),progress:1,maxProgress:1},$setOnInsert:{claimed:false}},{upsert:true});await(await getCollection<any>('badges')).updateOne({userId:player.userId,badgeId:'coop-team-slicer'},{$set:{unlocked:true,unlockedAt:new Date(),progress:1,maxProgress:1}},{upsert:true});}}
  await(await getCollection<Room>('coop_matches')).updateOne({id:room.id},{$set:{settled:true}});room.settled=true;
 }

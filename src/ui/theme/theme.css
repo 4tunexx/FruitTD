@@ -6,15 +6,15 @@
 ══════════════════════════════════════════════════════════════════ */
 
 :root {
-  --ftd-color-primary: #a3e635;
-  --ftd-color-secondary: #65a30d;
-  --ftd-color-accent: #fbbf24;
-  --ftd-color-background: #050a0f;
-  --ftd-color-panel: rgba(255, 255, 255, 0.04);
-  --ftd-color-panel-secondary: rgba(255, 255, 255, 0.07);
-  --ftd-color-border: rgba(255, 255, 255, 0.09);
-  --ftd-color-text: #f1f5f9;
-  --ftd-color-text-muted: #94a3b8;
+  --ftd-color-primary: #ffca28;
+  --ftd-color-secondary: #ef771d;
+  --ftd-color-accent: #ff9b21;
+  --ftd-color-background: #161719;
+  --ftd-color-panel: #222428;
+  --ftd-color-panel-secondary: #303238;
+  --ftd-color-border: #57534a;
+  --ftd-color-text: #fff3d6;
+  --ftd-color-text-muted: #b6b2aa;
   --ftd-color-success: #3ad15c;
   --ftd-color-warning: #fbbf24;
   --ftd-color-danger: #fb7185;
@@ -48,7 +48,7 @@
 
   --ftd-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   --ftd-shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.3);
-  --ftd-glow: 0 0 18px rgba(163, 230, 53, 0.45);
+  --ftd-glow: 0 0 18px rgba(255, 202, 40, 0.45);
   --ftd-blur: 12px;
   --ftd-panel-opacity: 1;
   --ftd-muted-opacity: 0.62;

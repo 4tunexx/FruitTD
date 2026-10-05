@@ -14,6 +14,85 @@ import { renderHub, registerHubTab, resetHub } from './hub';
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise<void>(resolve => setImmediate(resolve)); };
 const rating: ArenaRating = { points: 1000, tier: 'Bronze', season: '2026-10', matches: 2, wins: 1, ties: 0, losses: 1, nextTier: { name: 'Silver', min: 1500 }, arena: { matches: 3, wins: 2, ties: 0, losses: 1 } };
 
+type RealtimeModule = Awaited<ReturnType<NonNullable<PvpHubOptions['loadRealtime']>>>;
+function realtimeWorkspace(loadRealtime: NonNullable<PvpHubOptions['loadRealtime']>, tokenRequest?: () => Promise<any>, existingRoot?: HTMLElement) {
+  if (!existingRoot) resetDom(); setAuthToken('test-only');
+  const root = existingRoot ?? document.createElement('div'); if (!existingRoot) document.body.appendChild(root);
+  const game = newPvpMatch('realtime-match', 'arena', [createPvpPlayer('a', 'You', 'blue', config), createPvpPlayer('b', 'Rival', 'red', config)], Date.now(), config);
+  game.status = 'active'; game.map = config.map;
+  renderPvpHub(root, 'arena', {
+    polling: false, loadRealtime,
+    request: async path => path.endsWith('/token') ? tokenRequest?.() : ({ success: true, config, match: { ...game, remainingMs: 180000, yourSide: 'blue', yourSequence: 0, yourCombo: 0 } }),
+    createBattlefield: () => ({ element: document.createElement('div'), interacting: false, update: () => {}, selectCell: () => {}, dispose: () => {} }),
+  });
+  return root;
+}
+
+test('failed realtime subscription falls back without an immediate retry loop', async () => {
+  let loads = 0; let closes = 0;
+  class FailedRealtime {
+    channels = { get: () => ({ subscribe: async () => { throw new Error('Connection closed'); } }) };
+    close() { closes++; }
+  }
+  const priorWarn = console.warn; console.warn = () => {};
+  const root = realtimeWorkspace(async () => {
+    loads++;
+    // Bound a regressed loop so the test can report a failure rather than hang.
+    if (loads > 3) return new Promise<RealtimeModule>(() => {});
+    return { Realtime: FailedRealtime } as unknown as RealtimeModule;
+  });
+  try { await flush(); assert.equal(loads, 1); assert.equal(closes, 1); }
+  finally { disposePvpHub(root); setAuthToken(null); console.warn = priorWarn; resetDom(); }
+});
+
+test('leaving Arena during a delayed realtime import never creates a late client', async () => {
+  let resolveImport!: (module: RealtimeModule) => void; let created = 0;
+  class LateRealtime { constructor() { created++; } }
+  const root = realtimeWorkspace(() => new Promise(resolve => { resolveImport = resolve; }));
+  try {
+    await flush(); disposePvpHub(root);
+    resolveImport({ Realtime: LateRealtime } as unknown as RealtimeModule);
+    await flush(); assert.equal(created, 0);
+  } finally { disposePvpHub(root); setAuthToken(null); resetDom(); }
+});
+
+test('a late subscription failure from an old Arena screen cannot close its replacement client', async () => {
+  let created = 0; let rejectOld!: (error: Error) => void;
+  const closed: number[] = [];
+  class ReplacementRealtime {
+    id = ++created;
+    channels = { get: () => ({ subscribe: () => this.id === 1 ? new Promise<void>((_resolve, reject) => { rejectOld = reject; }) : Promise.resolve() }) };
+    close() { closed.push(this.id); }
+  }
+  const load = async () => ({ Realtime: ReplacementRealtime } as unknown as RealtimeModule);
+  const root = realtimeWorkspace(load);
+  try {
+    await flush(); realtimeWorkspace(load, undefined, root); await flush();
+    assert.equal(created, 2); assert.deepEqual(closed, [1]);
+    rejectOld(new Error('Old connection closed')); await flush();
+    assert.deepEqual(closed, [1], 'only the old screen may dispose its own connection');
+  } finally { disposePvpHub(root); setAuthToken(null); resetDom(); }
+});
+
+test('late Arena tokens are rejected after disposal and pending subscriptions are handled', async () => {
+  let authenticate!: (params: object, callback: (error: unknown, token: unknown) => void) => Promise<void>;
+  let resolveToken!: (token: any) => void; let rejectSubscription!: (error: Error) => void;
+  let closes = 0;
+  class PendingRealtime {
+    constructor(options: { authCallback: typeof authenticate }) { authenticate = options.authCallback; }
+    channels = { get: () => ({ subscribe: () => new Promise<void>((_resolve, reject) => { rejectSubscription = reject; }) }) };
+    close() { closes++; rejectSubscription(new Error('Connection closed')); }
+  }
+  const root = realtimeWorkspace(async () => ({ Realtime: PendingRealtime } as unknown as RealtimeModule), () => new Promise(resolve => { resolveToken = resolve; }));
+  try {
+    await flush();
+    let authError: unknown; let authToken: unknown;
+    const pendingAuth = authenticate({}, (error, token) => { authError = error; authToken = token; });
+    disposePvpHub(root); resolveToken({ token: 'late-token' }); await pendingAuth; await flush();
+    assert.ok(authError); assert.equal(authToken, null); assert.equal(closes, 1);
+  } finally { disposePvpHub(root); setAuthToken(null); resetDom(); }
+});
+
 test('profile and header show the server Arena tier instead of survival score', async () => {
   resetDom(); resetHub(); setAuthToken('test-only');
   const priorFetch = globalThis.fetch;
@@ -84,7 +163,11 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize);
     button('MAIN LV').click(); await flush(); assert.equal(game.players[0].mainLevel, 2); assert.equal(game.players[0].wallMaxHealth, 1250);
     button('RALLY +25%').click(); await flush(); assert.ok(game.players[0].rallyUntil! > Date.now());
-    button('BUILD').click(); root.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click();
+    button('BUILD').click();
+    assert.equal(root.querySelectorAll('.ftd-duel-card').length, 3, 'core loadout is easy to scan');
+    assert.equal(root.querySelector('[data-testid="arena-build-catcher"]'), null);
+    button('Advanced towers').click();
+    root.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click();
     game.players[0].attackers.push({ id: 'weakened', type: 'normal', hp: 25, progress: 0 });
     const cageCell = config.map.buildCells.find(cell => pvpHexDistance(cell, config.map.pathCells[0]!, config.map.width) <= 1)!;
     select!(cageCell); await flush(); assert.equal(game.players[0].captured!.length, 1);
@@ -94,10 +177,11 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.equal(scenes, 1, 'snapshots must reuse the renderer');
     button('Exit').click(); assert.ok(root.querySelector('[role="dialog"]'));
     button('Leave match').click(); await flush();
-    assert.equal(game.status, 'complete'); assert.match(root.textContent!, /DEFEAT/); assert.equal(disposed, 1);
+    assert.equal(game.status, 'complete'); assert.match(root.textContent!, /DEFEAT/); assert.equal(disposed, 0, 'battlefield remains visible behind the result');
     if (queue === 'ranked') assert.match(root.textContent!, /−50 FR|-50 FR/);
     else assert.doesNotMatch(root.textContent!, /FR change/);
     button('Back to queue').click(); await flush();
+    assert.equal(disposed, 1, 'acknowledging the result releases the renderer');
     assert.equal(hub.classList.contains('is-pvp-battle'), false);
     assert.match(root.textContent!, /Find an opponent/);
     assert.deepEqual(commands.map(command => command.type), ['build', 'upgrade', 'sell', 'send', 'upgrade-main', 'rally', 'build', 'release', 'surrender']);

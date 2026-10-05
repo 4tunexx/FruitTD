@@ -193,7 +193,7 @@ export async function fetchMonthlyRank(): Promise<{
   hasEntry: boolean;
   claimedRankIds: string[];
 } | null> {
-  const userId = getUserId();
+  if (!getAuthToken()) return null;
   const res = await apiRequest<{
     success: boolean;
     season: string;
@@ -203,7 +203,7 @@ export async function fetchMonthlyRank(): Promise<{
     claimed: boolean;
     hasEntry: boolean;
     claimedRankIds: string[];
-  }>(`/api/leaderboard/monthly-rank?userId=${encodeURIComponent(userId)}`);
+  }>('/api/leaderboard/monthly-rank');
   return res && res.success ? res : null;
 }
 

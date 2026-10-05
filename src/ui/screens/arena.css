@@ -7,7 +7,7 @@
 .ftd-hub.is-pvp-battle .ftd-hub-panel-content { transform:none !important; animation:none !important; }
 .ftd-pvp.is-battle { position:fixed; inset:0; height:100dvh; z-index:150; display:block; padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); background:#0b1b16; }
 .ftd-pvp.is-battle > .ftd-pvp__heading { display:none; }
-.ftd-pvp.is-battle .ftd-pvp__body { position:relative; width:min(100%,850px); height:100%; min-height:0; margin:auto; display:flex; flex-direction:column; }
+.ftd-pvp.is-battle .ftd-pvp__body { position:relative; width:100%; height:100%; min-height:0; margin:auto; display:flex; flex-direction:column; }
 .ftd-pvp.is-battle .ftd-pvp-scene { flex:1; min-height:0; height:auto; border:0; border-radius:0; background:#102a23; }
 .ftd-duel-hud { position:relative; z-index:2; display:grid; grid-template-columns:minmax(0,1fr) 65px minmax(0,1fr); align-items:center; gap:6px; padding:8px 10px; background:linear-gradient(#132d22,#071510); border-bottom:2px solid #668c42; }
 .ftd-duel-player { display:flex; align-items:center; gap:5px; min-width:0; --side:#43ccec; }
@@ -19,24 +19,24 @@
 .ftd-duel-hp { height:7px; overflow:hidden; background:#020b09; border-radius:3px; box-shadow:0 0 0 1px #1f4a35; }
 .ftd-duel-hp i { display:block; height:100%; background:var(--side); transition:width .25s; }
 .ftd-duel-clock { text-align:center; }
-.ftd-duel-clock small { display:block; font-size:8px; font-weight:900; color:#dbeebc; letter-spacing:1px; }
+.ftd-duel-clock small { display:block; font-size:8px; font-weight:900; color:#e7d5ae; letter-spacing:1px; }
 .ftd-duel-clock strong { display:block; color:#ffde6a; font-size:21px; line-height:1.1; }
 .ftd-duel-clock .ftd-btn { min-height:24px; padding:1px 5px; font-size:10px; }
-.ftd-duel-dock { flex-shrink:0; padding:7px 10px 9px; color:#eaf3d8; background:linear-gradient(#183326,#0a1b15); border-top:2px solid #7b9c4a; box-shadow:0 -6px 25px #07120a80; }
+.ftd-duel-dock { flex-shrink:0; padding:7px 10px 9px; color:#eee1c4; background:linear-gradient(#183326,#0a1b15); border-top:2px solid #7b9c4a; box-shadow:0 -6px 25px #07120a80; }
 .ftd-duel-resource { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:5px; }
-.ftd-duel-resource span { display:flex; align-items:center; gap:6px; color:#b6f238; font-size:14px; }
-.ftd-duel-resource small { font-size:10px; color:#b9c9a6; }
+.ftd-duel-resource span { display:flex; align-items:center; gap:6px; color:#ffca28; font-size:14px; }
+.ftd-duel-resource small { font-size:10px; color:#c2b9a8; }
 .ftd-duel-tabs { display:flex; gap:4px; margin-bottom:6px; }
-.ftd-duel-tabs button { flex:1; min-height:30px; background:#0b1c17; border:1px solid #4c6c3e; color:#aabc99; border-radius:5px; font-size:10px; font-weight:900; letter-spacing:1px; cursor:pointer; }
-.ftd-duel-tabs button.is-active { background:#a8e62d; color:#102008; border-color:#d3f67d; }
+.ftd-duel-tabs button { flex:1; min-height:30px; background:#0b1c17; border:1px solid #4c6c3e; color:#bfb4a0; border-radius:5px; font-size:10px; font-weight:900; letter-spacing:1px; cursor:pointer; }
+.ftd-duel-tabs button.is-active { background:#ffca28; color:#102008; border-color:#ffeaa0; }
 .ftd-duel-cards { display:flex; gap:6px; overflow-x:auto; scrollbar-width:thin; scrollbar-color:#7d9f41 #14261b; padding:2px 2px 5px; scroll-snap-type:x proximity; }
 .ftd-duel-card { position:relative; flex:1 0 72px; min-width:72px; max-width:130px; min-height:84px; display:flex; align-items:center; flex-direction:column; justify-content:center; gap:4px; padding:6px 4px; color:#e4f4cf; background:linear-gradient(145deg,#304c37,#102a20); border:2px solid #729a54; border-radius:8px; box-shadow:0 3px 0 #050e09; cursor:pointer; scroll-snap-align:start; }
 .ftd-duel-card__art { color:#89d9ea; filter:drop-shadow(0 2px #06100b); }
 .ftd-duel-card.is-attack { border-color:#b6734d; background:linear-gradient(145deg,#4b382d,#221d18); }
 .ftd-duel-card.is-attack .ftd-duel-card__art { color:#ffbd68; }
 .ftd-duel-card strong { font-size:10px; text-align:center; line-height:1.15; }
-.ftd-duel-card small { color:#d2e48c; font-size:9px; white-space:nowrap; }
-.ftd-duel-card.is-selected { border-color:#d0ff4f; box-shadow:0 0 0 1px #a3e635,0 3px 0 #050e09; background:linear-gradient(145deg,#42642c,#1a3521); }
+.ftd-duel-card small { color:#e4c58a; font-size:9px; white-space:nowrap; }
+.ftd-duel-card.is-selected { border-color:#ffe080; box-shadow:0 0 0 1px #ffca28,0 3px 0 #050e09; background:linear-gradient(145deg,#42642c,#1a3521); }
 .ftd-duel-card.is-unaffordable { opacity:.55; }
 .ftd-duel-card:disabled { opacity:.4; cursor:default; }
 .ftd-duel-card:focus-visible,.ftd-duel-tabs button:focus-visible { outline:2px solid #eaff9f; outline-offset:2px; }
@@ -73,5 +73,29 @@
 
 .ftd-duel-economy { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
 .ftd-duel-economy .ftd-btn { min-height:28px; padding:4px 8px; font-size:10px; }
-.ftd-duel-economy small { font-size:10px; color:#b9c9a6; }
+.ftd-duel-economy small { font-size:10px; color:#c2b9a8; }
 .ftd-duel-resource { flex-wrap:wrap; }
+.ftd-duel-team { position:absolute; z-index:2; left:10px; padding:5px 8px; border:1px solid currentColor; border-radius:5px; background:#07111dcc; font-size:10px; font-weight:900; pointer-events:none; }
+.ftd-duel-team.is-own { bottom:32px; color:#38bdf8; }
+.ftd-duel-team.is-rival { top:50px; color:#ff6363; }
+.ftd-pvp-scene.is-focused .ftd-duel-team.is-rival { display:none; }
+.ftd-pvp.is-battle .ftd-pvp-scene__hint { display:none; }
+.ftd-pvp-scene.is-landscape .ftd-duel-team.is-own { top:10px; bottom:auto; left:120px; }
+.ftd-pvp-scene.is-landscape .ftd-duel-team.is-rival { top:10px; left:auto; right:10px; }
+
+.ftd-duel-objective { padding:7px 12px; font-size:12px; color:#dfefff; background:#101e30; text-align:center; flex:none; }
+.ftd-duel-objective b { color:#38bdf8; }
+.ftd-duel-objective em { color:#ff6363; font-style:normal; font-weight:900; }
+.ftd-duel-guide { margin:4px 0 8px; font-size:12px; line-height:1.4; color:#e3eccf; }
+@media (min-width:1000px) and (min-height:521px) {
+  .ftd-duel-dock { padding:10px 24px; }
+  .ftd-duel-card { max-width:180px; min-height:84px; }
+  .ftd-duel-card strong { font-size:13px; }
+  .ftd-duel-card small { font-size:11px; }
+  .ftd-duel-tabs { max-width:600px; }
+}
+@media (max-width:600px) {
+  .ftd-duel-card { min-height:76px; }
+  .ftd-duel-guide { font-size:11px; margin:3px 0; }
+  .ftd-duel-objective { font-size:10px; padding:5px; }
+}

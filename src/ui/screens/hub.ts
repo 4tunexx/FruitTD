@@ -130,6 +130,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]),
     el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]),
     GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
+    GameButton({ label: 'Leaderboard', variant: 'ghost', size: 'sm', onClick: () => openScreen('LEADERBOARD') }),
     ...(opts.onOpenDaily ? [GameButton({ label: 'Daily', variant: 'outline', size: 'sm', onClick: opts.onOpenDaily })] : []),
     GameButton({ label: 'Settings', variant: 'ghost', size: 'sm', onClick: () => openScreen('SETTINGS') }),
     ...(opts.onAdmin

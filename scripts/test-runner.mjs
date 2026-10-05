@@ -20,5 +20,10 @@ function findTests(dir) {
 const tests = [...findTests('server'), ...findTests('src')];
 // Running `tsx` through its CLI creates an IPC socket. Launch the Node test
 // runner with tsx's loader instead so sandboxed/locked-down environments work.
-const res = spawnSync(process.execPath, ['--import', 'tsx', '--test', ...tests], { stdio: 'inherit' });
-process.exit(res.status ?? 0);
+// Bound Windows worker fan-out: launching one loader process per CPU caused
+// intermittent native access violations before test assertions could run.
+const concurrency = process.platform === 'win32' ? ['--test-concurrency=4'] : [];
+const res = spawnSync(process.execPath, ['--import', 'tsx', '--test', ...concurrency, ...tests], { stdio: 'inherit' });
+// A worker launch error or signal termination must never be reported as a pass.
+if (res.error) console.error('Could not start the test runner:', res.error.message);
+process.exit(res.status ?? 1);

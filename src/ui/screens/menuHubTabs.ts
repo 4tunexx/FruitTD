@@ -9,6 +9,7 @@ import type { HubTab } from './hub';
 import type { NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
 import { renderPvpHub } from './pvp';
+import { renderLeaderboards } from './leaderboards';
 
 function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>): void {
   const actions = el('div', { class: 'ftd-hub-context__actions' }, links.map(({ label, open }) => GameButton({ label, variant: 'outline', block: true, onClick: open })));
@@ -32,6 +33,7 @@ export interface MenuHubActions {
 
 export function menuHubTabs(actions: MenuHubActions): HubTab[] {
   const simple: HubTab[] = [
+    { id: 'LEADERBOARD', label: 'Leaderboard', icon: Trophy, renderMain: renderLeaderboards, renderSub: root => context(root, 'THE LEADERBOARDS', 'Choose your challenge', 'Ranked uses Arena FR points. Casual and Co-op use high scores. Horde rewards the highest wave. Coins and gems show current balances.', [route('Your statistics', 'PROFILE'), route('Play Ranked', 'RANKED')]) },
     { id: 'NEWS', label: 'News', icon: Newspaper, renderMain: (root, save) => {
       const page = el('div', { class: 'ftd-hub-embedded' }); root.appendChild(page);
       renderNews(page, save, actions.onOpenDaily);

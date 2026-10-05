@@ -19,6 +19,7 @@ export type NavState =
   | 'PAUSED'
   | 'GAME_OVER'
   | 'PROFILE'
+  | 'LEADERBOARD'
   | 'HEROES'
   | 'INVENTORY'
   | 'SHOP'
@@ -39,6 +40,7 @@ export type NavState =
 /** Screens that sit on top of the menu rather than replacing the game. */
 export const OVERLAY_STATES: readonly NavState[] = [
   'PROFILE',
+  'LEADERBOARD',
   'HEROES',
   'INVENTORY',
   'SHOP',

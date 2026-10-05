@@ -5,6 +5,18 @@ import { DEFAULT_PVP_CONFIG as cfg, advancePvpMatch, applyPvpCommand, calculateP
 describe('Arena and Ranked PvP rules', () => {
   const match = () => newPvpMatch('test', 'ranked', [createPvpPlayer('a', 'A', 'blue', cfg), createPvpPlayer('b', 'B', 'red', cfg)], 1_000, cfg);
 
+  it('spawns only player-sent squads, including matches carrying legacy wave timers', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000;
+    game.nextWaveAt = 2_000;
+    advancePvpMatch(game, 1, 30_000, cfg);
+    assert.equal(game.players[0].attackers.length, 0);
+    assert.equal(game.players[1].attackers.length, 0);
+    assert.equal(game.players[0].wallHealth, cfg.wallHealth);
+    applyPvpCommand(game, 'a', { type: 'send', enemy: 'normal' }, 1, 30_001, cfg);
+    assert.equal(game.players[0].attackers.length, 0);
+    assert.equal(game.players[1].attackers.length, cfg.attacks.normal!.packSize);
+  });
+
   it('provides seven long editable routes with top-to-bottom adjacent path cells', () => {
     const maps = normalizePvpMaps(cfg.maps);
     assert.equal(maps.length, 7);
@@ -148,12 +160,15 @@ describe('Arena and Ranked PvP rules', () => {
     assert.equal(game.players[0].attackers[0]!.hp, game.players[1].attackers[0]!.hp);
   });
 
-  it('spawns equal timed defence waves and preserves their stagger', () => {
-    const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000; game.nextWaveAt = 16_000;
-    advancePvpMatch(game, 0, 16_000, cfg);
-    assert.equal(game.players[0].attackers.length, 1); assert.equal(game.players[1].attackers.length, 1);
-    assert.equal(game.players[0].attackers[0]!.hp, game.players[1].attackers[0]!.hp);
-    assert.equal(game.nextWaveAt, 31_000);
+  it('preserves the spacing of an intentionally sent squad', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000;
+    applyPvpCommand(game, 'a', { type: 'send', enemy: 'normal' }, 1, 16_000, cfg);
+    const attackers = game.players[1].attackers;
+    assert.equal(attackers.length, cfg.attacks.normal!.packSize);
+    advancePvpMatch(game, .1, 16_100, cfg);
+    assert.ok(attackers[0]!.progress > attackers[1]!.progress);
+    assert.ok(attackers[1]!.progress > attackers[2]!.progress);
+    assert.equal(game.players[0].attackers.length, 0);
   });
 
   it('awards correct FR deltas, caps performance, keeps a loss net negative, and uses configured tiers', () => {

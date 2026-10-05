@@ -270,7 +270,7 @@ test('profile keeps destinations reachable without a Play action', () => {
   const actions = main.querySelector('.ftd-profile-actions');
   const actionButtons = actions?.querySelectorAll('button') ?? [];
   const actionLabels = [...actionButtons].map((button) => button.textContent);
-  assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Ranked', 'Local Co-op', 'Settings']);
+  assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Ranked', 'Leaderboard', 'Local Co-op', 'Settings']);
   assert.equal(played, 0);
   assert.ok(!actionLabels.includes('Play now'));
 });
@@ -549,7 +549,7 @@ test('Home owns one Play button and other menu adapters own none', () => {
   registerHubTab(shopHubTab({ onBuy() {} }));
   registerHubTab(profileHubTab(() => ({})));
   const root = host(); renderHub(root, save, 'MAIN_MENU', { onPlay() {} });
-  const playButtons = () => [...root.querySelectorAll('button')].filter(button => /^(PLAY|PLAY NOW)$/i.test(button.textContent));
+  const playButtons = () => [...root.querySelectorAll('button')].filter(button => button.getAttribute('data-testid') === 'nav-play');
   assert.equal(playButtons().length, 1);
   for (const menu of ['HEROES', 'INVENTORY', 'SHOP', 'PROFILE'] as const) {
     switchHubTab(root, save, menu);

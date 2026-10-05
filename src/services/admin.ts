@@ -102,7 +102,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     title: 'Slice.\nHold the Wall.',
     subtitle: 'Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.',
     announcement: 'WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.',
-    themeColor: '#a3e635',
+    themeColor: '#ffca28',
     backgroundImage: '',
     logoImage: '',
     faviconImage: '',
