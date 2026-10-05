@@ -1,5 +1,4 @@
 import './gameFeel.css';
-import './slicerPreview';
 import { COMBAT_COMBO_STREAKS } from '../game/progression/combo';
 
 type Slot = 'hit' | 'streak' | 'reslice';
