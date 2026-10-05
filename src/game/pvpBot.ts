@@ -1,11 +1,15 @@
-import { applyPvpCommand, pvpUpgradeCost, pvpTowerLevel, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
+import { applyPvpCommand, pvpUpgradeCost, pvpTowerLevel, pvpReleaseCost, pvpMainUpgradeCost, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
 
 /** Runs the test opponent through the same validated commands as a human player. */
-export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: PvpConfig): PvpCommand | null {
+export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: PvpConfig, now = match.createdAt): PvpCommand | null {
   if (match.status !== 'active' || !match.map) return null;
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
   const map = match.map;
+  if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15000)) return { type: 'rally' };
+  const captured = bot.captured?.find(item => bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost));
+  if (captured) return { type: 'release', capturedId: captured.id };
+  if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < .75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: 'upgrade-main' };
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)]!;
@@ -33,7 +37,7 @@ export function playPvpBotTurn(match: PvpMatch, botUserId: string, now: number, 
   bot.connected = true;
   bot.disconnectedAt = null;
   bot.lastSeenAt = now;
-  const command = choosePvpBotCommand(match, botUserId, config);
+  const command = choosePvpBotCommand(match, botUserId, config, now);
   if (!command) return false;
   applyPvpCommand(match, botUserId, command, bot.sequence + 1, now, config);
   return true;

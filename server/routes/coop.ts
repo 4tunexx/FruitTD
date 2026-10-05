@@ -15,7 +15,7 @@ const coopRouter=Router();
 type Room=CoopMatch & {public:boolean;updatedAt:Date;expiresAt:Date;settled?:boolean;seenBy?:string[];activePlayers?:string[]};
 let publisher:Rest|null=null;let authority:ReturnType<typeof setInterval>|null=null;let ticking=false;
 const fail=(res:Response,code:number,error:string)=>res.status(code).json({success:false,error});
-async function config(){const row=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});return {balance:mergeAdminConfig(row).pvpConfig,coop:normalizeCoopConfig(row?.coopConfig)};}
+async function config(){const row=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});const balance=mergeAdminConfig(row).pvpConfig;delete balance.towers.catcher;return {balance,coop:normalizeCoopConfig(row?.coopConfig)};}
 async function publish(room:Room){try{if(deps.publish){await deps.publish(`fruittd-coop-${room.id}`,room);return;}if(!process.env.ABLY_API_KEY)return;publisher??=new Rest({key:process.env.ABLY_API_KEY});await publisher.channels.get(`fruittd-coop-${room.id}`).publish('match.snapshot',room);}catch(error){console.error('Co-op publish failed',error);}}
 async function settle(room:Room){if(room.status!=='complete'||room.settled)return;const cfg=await config();const reward=coopRewards(room,cfg.coop);
  for(const player of room.players){if(room.completedWaves<1)continue;await creditClaimReward(player.userId,`coop:${room.id}`,{coins:reward.coins,gems:reward.gems,xp:{[player.hero]:reward.xp},towerXp:reward.towerXp,games:1,bestWave:room.completedWaves,highScore:room.score});

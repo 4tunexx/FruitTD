@@ -70,3 +70,8 @@
   .ftd-duel-cards { flex-wrap:wrap; overflow:visible; }
   .ftd-duel-card { min-height:75px; }
 }
+
+.ftd-duel-economy { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+.ftd-duel-economy .ftd-btn { min-height:28px; padding:4px 8px; font-size:10px; }
+.ftd-duel-economy small { font-size:10px; color:#b9c9a6; }
+.ftd-duel-resource { flex-wrap:wrap; }

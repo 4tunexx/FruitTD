@@ -7,7 +7,7 @@ const storage = new Map<string, string>();
 import { setAuthToken } from '../../services/auth';
 import { acceptArenaRating, arenaRankPresentation, type ArenaRating } from '../../services/pvpRating';
 import { defaultSave } from '../../game/save';
-import { DEFAULT_PVP_CONFIG as config, applyPvpCommand, createPvpPlayer, newPvpMatch, type PvpCommand } from '../../game/pvp';
+import { DEFAULT_PVP_CONFIG as config, applyPvpCommand, advancePvpMatch, pvpHexDistance, createPvpPlayer, newPvpMatch, type PvpCommand } from '../../game/pvp';
 import { renderPvpHub, disposePvpHub, type PvpHubOptions } from './pvp';
 import { profileHubTab } from './hubTabs';
 import { renderHub, registerHubTab, resetHub } from './hub';
@@ -43,7 +43,7 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
   resetDom(); setAuthToken('test-only');
   const priorFetch = globalThis.fetch;
   const game = newPvpMatch('ui-match', queue, [createPvpPlayer('a', 'You', 'blue', config), createPvpPlayer('b', 'Rival', 'red', config)], Date.now(), config);
-  game.status = 'active'; game.map = config.map; game.endsAt = Date.now() + 180000;
+  game.status = 'active'; game.map = config.map; game.endsAt = Date.now() + 180000; game.players[0].fruts = 1000; game.players[0].rallyReadyAt = Date.now() - 1;
   let acknowledged = false;
   const commands: PvpCommand[] = [];
   const view = () => ({ ...structuredClone(game), testMatch: false, remainingMs: 180000, yourSide: 'blue', yourSequence: game.players[0].sequence, yourCombo: 0, vetoesRemaining: 0, yourVetoTurn: false });
@@ -52,6 +52,7 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     if (path.endsWith('/command')) {
       const payload = JSON.parse(String(init?.body)); commands.push(payload.command);
       applyPvpCommand(game, 'a', payload.command, payload.sequence, Date.now(), config);
+      if (payload.command.type === 'build' && payload.command.tower === 'catcher') advancePvpMatch(game, 0, Date.now() + 3000, config);
       if (game.status === 'complete' && queue === 'ranked') game.players[0].ratingDelta = -50;
       return new Response(JSON.stringify({ success: true, match: view() }));
     }
@@ -81,6 +82,15 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     button('SEND ATTACK').click();
     root.querySelector<HTMLButtonElement>('[data-testid="arena-send-normal"]')!.click(); await flush();
     assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize);
+    button('MAIN LV').click(); await flush(); assert.equal(game.players[0].mainLevel, 2); assert.equal(game.players[0].wallMaxHealth, 1250);
+    button('RALLY +25%').click(); await flush(); assert.ok(game.players[0].rallyUntil! > Date.now());
+    button('BUILD').click(); root.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click();
+    game.players[0].attackers.push({ id: 'weakened', type: 'normal', hp: 25, progress: 0 });
+    const cageCell = config.map.buildCells.find(cell => pvpHexDistance(cell, config.map.pathCells[0]!, config.map.width) <= 1)!;
+    select!(cageCell); await flush(); assert.equal(game.players[0].captured!.length, 1);
+    button('CAPTURED').click(); root.querySelector<HTMLButtonElement>('[data-testid="arena-release"]')!.click(); await flush();
+    assert.equal(game.players[0].captured!.length, 0); assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize! + 1);
+    assert.equal(game.players[1].attackers.at(-1)!.released, true);
     assert.equal(scenes, 1, 'snapshots must reuse the renderer');
     button('Exit').click(); assert.ok(root.querySelector('[role="dialog"]'));
     button('Leave match').click(); await flush();
@@ -90,7 +100,7 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     button('Back to queue').click(); await flush();
     assert.equal(hub.classList.contains('is-pvp-battle'), false);
     assert.match(root.textContent!, /Find an opponent/);
-    assert.deepEqual(commands.map(command => command.type), ['build', 'upgrade', 'sell', 'send', 'surrender']);
+    assert.deepEqual(commands.map(command => command.type), ['build', 'upgrade', 'sell', 'send', 'upgrade-main', 'rally', 'build', 'release', 'surrender']);
   } finally { disposePvpHub(root); globalThis.fetch = priorFetch; setAuthToken(null); resetDom(); }
 });
 
