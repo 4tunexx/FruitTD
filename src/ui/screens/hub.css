@@ -280,8 +280,6 @@
 .ftd-item-card__swatch-mark { display: grid; place-items: center; width: 68px; height: 68px; border: 1px solid #ffffff88; border-radius: 50%; background: #06120a55; color: #fff; box-shadow: 0 0 20px #ffffff33; }
 .ftd-item-card__swatch-mark svg { width: 38px; height: 38px; filter: drop-shadow(0 2px 5px #000a); }
 .ftd-hub .ftd-blade-preview { height: 100px; border: 1px solid #9ed47b66; background-color: #223528; }
-.ftd-hub .ftd-blade-preview::before { content:''; position:absolute; z-index:2; width:13px; height:67px; left:50%; top:5px; transform:translateX(-50%) rotate(35deg); clip-path:polygon(50% 0,100% 24%,72% 100%,28% 100%,0 24%); background:linear-gradient(90deg,var(--blade-color,#a3e635),#f7fff2 48%,var(--blade-color,#a3e635)); box-shadow:0 0 18px var(--blade-glow,#a3e635); }
-.ftd-hub .ftd-blade-preview::after { content:''; position:absolute; z-index:2; width:24px; height:6px; left:50%; top:68px; transform:translateX(-50%) rotate(35deg); border-radius:3px; background:#e4d7ad; box-shadow:0 0 9px var(--blade-glow,#a3e635); }
 .ftd-blade-preview__glyph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 0 9px var(--blade-glow, #a3e635)); }
 .ftd-blade-preview__glyph svg { width: 38px; height: 38px; }
 
@@ -825,3 +823,16 @@
 .ftd-coop-phase { display: flex; gap: 20px; justify-content: center; padding: 16px; color: #fbbf24; border: 1px solid #806529; background: #241e11; animation: coop-phase-glow 1s ease-in-out infinite alternate; }
 @keyframes coop-phase-glow { to { box-shadow: inset 0 0 30px #fbbf2420; } }
 @media(prefers-reduced-motion:reduce) { .ftd-coop-phase { animation: none; } }
+
+/* Stack mobile panels in one scroll area so tall boss cards cannot shrink
+   inside a clipped grid row. Header and navigation remain outside the scroll. */
+@media (max-width: 900px) {
+  .ftd-hub__body { display: block; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .ftd-hub__main, .ftd-hub__sub:not(.is-empty) { overflow: visible; max-height: none; height: auto; }
+  .ftd-hub-panel-content { height: auto; }
+  .ftd-hub-panel-content > * { flex-shrink: 0; }
+  .ftd-hub .ftd-boss-reveal { display: flex; flex-direction: column; margin: 0; }
+  .ftd-hub .ftd-boss-reveal__copy { order: -1; }
+  .ftd-hub .ftd-campaign__launch { order: -1; width: 100%; justify-content: center; margin: 0 0 14px; flex-shrink: 0; }
+  .ftd-hub .ftd-boss-reveal__art { min-height: 120px; max-height: 160px; }
+}

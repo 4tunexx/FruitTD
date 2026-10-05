@@ -230,7 +230,11 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
 
   clear(mainHost);
   mainHost.appendChild(mainInner);
-  if (direction !== 'none') mainHost.scrollTop = 0;
+  if (direction !== 'none') {
+    mainHost.scrollTop = 0;
+    const body = root.querySelector('.ftd-hub__body');
+    if (body) body.scrollTop = 0;
+  }
 
   if (subHost) {
     clear(subHost);

@@ -46,16 +46,10 @@ export function slicerPreview(item: CatalogItem): HTMLElement {
     preview.style.setProperty('--blade-glint', String(slicer.glint));
     preview.dataset.fx = slicer.fxStyle;
   }
-  preview.appendChild(el('span', { class: 'ftd-blade-preview__trail' }));
-  preview.appendChild(el('span', { class: 'ftd-blade-preview__edge' }));
   const canvas = el('canvas', { class: 'ftd-blade-preview__live', 'aria-label': `${item.name} live swipe preview. Drag to try the blade.` });
   preview.appendChild(canvas);
-  preview.appendChild(el('span', { class: 'ftd-blade-preview__caption', text: 'LIVE SWIPE · DRAG TO TRY' }));
   if (typeof requestAnimationFrame === 'function') {
     void import('./bladePreview').then(({ animateBladePreview }) => { if (canvas.isConnected) animateBladePreview(canvas, slicer); });
-  }
-  if (slicer && slicer.glint > 0.3) {
-    preview.appendChild(el('span', { class: 'ftd-blade-preview__glint' }));
   }
   return preview;
 }
