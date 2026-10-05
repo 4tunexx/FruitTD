@@ -1,29 +1,32 @@
-import { AmbientLight, BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, Raycaster, Scene, SphereGeometry, Vector2, Vector3, WebGLRenderer } from 'three';
+import { AmbientLight, BackSide, BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, Raycaster, Scene, SphereGeometry, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer } from 'three';
 import { TurretRig, TURRETS, type TurretKind } from '../../game/turrets';
 import { BladeTrail } from '../../game/trail';
 import { FRUIT_DEFS } from '../../game/fruits';
 import { fruitAtlas } from '../../game/atlas';
 import { getAdminTexture } from '../../game/adminTextureLoader';
 import { findCatalogItem } from '../../game/catalog';
-import { loadSave } from '../../game/save';
-import type { PvpCommand, PvpConfig, PvpMap } from '../../game/pvp';
+import { loadSave, WALL_SKINS } from '../../game/save';
+import { heroDef, type HeroId } from '../../game/heroes';
+import { heroIdToStudioKey, sampleStudioTexture } from '../../game/studioRuntime';
+import { pvpTowerLevel, pvpTowerStats, type PvpCommand, type PvpConfig, type PvpMap } from '../../game/pvp';
 import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
-type PlayerView = { userId: string; name: string; side: string; wallHealth: number; towers: Array<{ id: string; type: string; cell: number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number }>; lastStroke?: Stroke | null };
+type PlayerView = { userId: string; name: string; side: string; wallHealth: number; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number }>; lastStroke?: Stroke | null };
 export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke };
-const TILE = 1.8;
-const TILE_X = 3.6;
+const TILE = 1.7;
+const TILE_X = Math.sqrt(3) * TILE / 1.5;
+const HEX_RADIUS = TILE / 1.5;
 const COLORS = { blue: 0x38bdf8, red: 0xef5350 };
 
 /** Both server lanes meet at the centre; the viewer's wall is always at the bottom. */
 export function pvpWorldPoint(map: Pick<PvpMap, 'width'>, x: number, y: number, own: boolean): Vector3 {
-  return new Vector3((x - map.width / 2) * TILE_X * (own ? 1 : -1), 0, (y + 1) * TILE * (own ? -1 : 1));
+  return new Vector3((x + (Math.floor(y) % 2 ? .5 : 0) - map.width / 2 - .25) * TILE_X * (own ? 1 : -1), 0, (y + 1) * TILE * (own ? -1 : 1));
 }
 
 export class PvpBattlefield {
   readonly element = el('div', { class: 'ftd-pvp-scene' });
-  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': '3D fruit siege battlefield. Click your territory to build. Drag over incoming fruit to slice.' });
+  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Hex arena. Choose a tower then tap a blue hex to build. Tap a placed tower to upgrade or sell.' });
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new OrthographicCamera(-20, 20, 30, -30, 0.1, 200);
@@ -33,10 +36,12 @@ export class PvpBattlefield {
   private readonly pieces = new Group();
   private readonly trail = new BladeTrail();
   private readonly remoteTrail = new BladeTrail();
-  private readonly marker = new Mesh(new BoxGeometry(TILE_X * .93, .06, TILE * .93), new MeshBasicMaterial({ color: 0xa3e635, transparent: true, opacity: .4 }));
+  private readonly marker = new Mesh(new CylinderGeometry(HEX_RADIUS * .95, HEX_RADIUS * .95, .07, 6), new MeshBasicMaterial({ color: 0xa3e635, transparent: true, opacity: .4 }));
   private readonly observer: ResizeObserver;
-  private readonly towers = new Map<string, { rig: TurretRig; own: boolean; cell: number }>();
+  private readonly towers = new Map<string, { rig: TurretRig; own: boolean; cell: number; level?: number }>();
   private readonly fruits = new Map<string, { mesh: Mesh; player: PlayerView; progress: number; x?: number; y?: number; boss?: boolean; type: string; own: boolean }>();
+  private readonly buildPads: Mesh[] = [];
+  private selectedCell: number | null = null;
   private readonly health = new Map<string, Mesh>();
   private snapshot: BattlefieldSnapshot;
   private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number };
@@ -51,15 +56,21 @@ export class PvpBattlefield {
   private readonly shots = new Map<string, number>();
   private readonly effects: Array<{ object: Mesh | Line; life: number; velocity?: Vector3 }> = [];
   private zoom = 1;
+  private focusOwn = false;
   private mapKey = '';
   get interacting(): boolean { return this.stroke !== null; }
 
-  constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }, private readonly command: (command: PvpCommand) => void) {
+  constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
     this.snapshot = snapshot; this.config = config;
-    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: 'Click to build · Drag to slice · Scroll to zoom' }));
+    if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
+    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Choose a tower · Tap a blue hex to build · Tap a tower to upgrade' }));
+    if (!snapshot.shared) {
+      const focus = el('button', { class: 'ftd-duel-focus', type: 'button', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
+      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; focus.textContent = this.focusOwn ? 'Whole arena' : 'My defence'; this.resize(); }); this.element.appendChild(focus);
+    }
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    this.scene.background = new Color(0x294b32);
+    this.scene.background = new Color(0x102a23);
     this.scene.add(new AmbientLight(0xe8f4dc, 1.2));
     const sun = new DirectionalLight(0xfff1cf, 1.6); sun.position.set(12, 30, -15); this.scene.add(sun);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
@@ -81,7 +92,8 @@ export class PvpBattlefield {
   update(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }): void {
     this.snapshot = snapshot; this.config = config; this.receivedAt = performance.now();
     const map = snapshot.map; if (!map) return;
-    if (this.mapKey !== JSON.stringify(map)) { this.mapKey = JSON.stringify(map); this.buildTerrain(map); }
+    const terrainKey = JSON.stringify([map, snapshot.players.map(p => [p.hero, p.wallSkin])]);
+    if (this.mapKey !== terrainKey) { this.mapKey = terrainKey; this.buildTerrain(map); }
     if (snapshot.sharedStroke && snapshot.sharedStroke.at > this.remoteAt) {
       this.remoteAt = snapshot.sharedStroke.at;
       const a = pvpWorldPoint(map, snapshot.sharedStroke.from.x, snapshot.sharedStroke.from.y, true);
@@ -96,10 +108,14 @@ export class PvpBattlefield {
         towerIds.add(tower.id);
         if (!this.towers.has(tower.id) && TURRETS.some((item) => item.kind === tower.type)) {
           const rig = new TurretRig(tower.type as TurretKind);
-          rig.group.position.copy(this.cellPoint(tower.cell, own)); rig.group.scale.setScalar(1.2);
-          const pad = new Mesh(new CylinderGeometry(.7, .8, .12, 12), new MeshLambertMaterial({ color: COLORS[player.side as keyof typeof COLORS] || COLORS.blue }));
-          rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, own, cell: tower.cell });
+          const bodies: Mesh[] = []; rig.group.traverse((object) => { if (object instanceof Mesh) bodies.push(object); });
+          for (const object of bodies) { const outline = new Mesh(object.geometry, new MeshBasicMaterial({ color: 0x07110b, side: BackSide })); outline.scale.setScalar(1.06); object.add(outline); }
+          rig.group.position.copy(this.cellPoint(tower.cell, own)); rig.group.scale.setScalar(1.15);
+          const pad = new Mesh(new CylinderGeometry(.7, .8, .12, 12), new MeshLambertMaterial({ color: own ? COLORS.blue : COLORS.red }));
+          rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, own, cell: tower.cell, level: pvpTowerLevel(tower.level) });
         }
+        const entry = this.towers.get(tower.id);
+        if (entry) { entry.level = pvpTowerLevel(tower.level); entry.rig.group.scale.setScalar(1.15 + (entry.level - 1) * .14); }
       }
       for (const fruit of player.attackers) {
         fruitIds.add(fruit.id);
@@ -109,11 +125,14 @@ export class PvpBattlefield {
           const def = FRUIT_DEFS[kind];
           const texture = getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin);
           const mesh = new Mesh(new SphereGeometry(fruit.type === 'armored' ? .68 : .48, 14, 10), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, emissive: def.emissive, emissiveIntensity: .12 }));
+          const shell = new Mesh(mesh.geometry, new MeshBasicMaterial({ color: 0x07110c, side: BackSide })); shell.scale.setScalar(1.09); mesh.add(shell);
+          const stem = new Mesh(new CylinderGeometry(.07, .05, .3, 5), new MeshLambertMaterial({ color: 0x274925 })); stem.position.y = .5; mesh.add(stem);
+          for (const x of [-.16, .16]) { const eye = new Mesh(new SphereGeometry(.09, 7, 5), new MeshBasicMaterial({ color: 0xf5edb5 })); eye.position.set(x, .12, -.43); mesh.add(eye); }
           this.pieces.add(mesh); entry = { mesh, player, progress: fruit.progress, type: fruit.type, own }; this.fruits.set(fruit.id, entry);
         }
         entry.player = player; entry.progress = fruit.progress; entry.x = fruit.x; entry.y = fruit.y; entry.boss = fruit.boss;
       }
-      if (!own && player.lastStroke && player.lastStroke.at > this.remoteAt) {
+      if (snapshot.shared && !own && player.lastStroke && player.lastStroke.at > this.remoteAt) {
         this.remoteAt = player.lastStroke.at;
         const { from, to } = player.lastStroke;
         const a = pvpWorldPoint(map, from.x, from.y, false); const b = pvpWorldPoint(map, to.x, to.y, false);
@@ -140,32 +159,63 @@ export class PvpBattlefield {
 
   private buildTerrain(map: PvpMap): void {
     while (this.terrain.children.length) this.release(this.terrain.children[0] as Group);
-    this.health.clear();
+    this.health.clear(); this.buildPads.length = 0;
     const floor = new Mesh(new BoxGeometry(map.width * TILE_X + 5, .4, (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2)), new MeshLambertMaterial({ color: 0x4d7c39 }));
     floor.position.y = -.3; if (this.snapshot.shared) floor.position.z = -(map.height + 2) * TILE / 2; this.terrain.add(floor);
-    const river = new Mesh(new BoxGeometry(map.width * TILE_X + 5, .12, TILE), new MeshLambertMaterial({ color: 0x307e89 })); if (!this.snapshot.shared) this.terrain.add(river); else { river.geometry.dispose(); (river.material as MeshLambertMaterial).dispose(); }
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
-      const color = COLORS[player.side as keyof typeof COLORS] || COLORS.blue;
-      for (const cell of map.pathCells) {
-        const tile = new Mesh(new BoxGeometry(TILE_X * 1.02, .09, TILE * 1.02), new MeshLambertMaterial({ color: 0xb4a36f }));
-        tile.position.copy(this.cellPoint(cell, own)); tile.position.y = .04; this.terrain.add(tile);
+      const color = own ? COLORS.blue : COLORS.red;
+      const route = new Set(map.pathCells); const builds = new Set(map.buildCells);
+      for (let cell = 0; cell < map.width * map.height; cell++) {
+        const isPath = route.has(cell); const build = builds.has(cell);
+        const rim = new Mesh(new CylinderGeometry(HEX_RADIUS * .985, HEX_RADIUS, .16, 6), new MeshLambertMaterial({ color: isPath ? 0x4c4230 : build ? own ? 0x337589 : 0x824843 : 0x2f4831 }));
+        rim.position.copy(this.cellPoint(cell, own)); rim.position.y = -.02;
+        const tile = new Mesh(new CylinderGeometry(HEX_RADIUS * .90, HEX_RADIUS * .93, .08, 6), new MeshLambertMaterial({ color: isPath ? 0xcbb87b : own ? (cell % 3 ? 0x547a43 : 0x60864b) : (cell % 3 ? 0x6c773c : 0x7a8345) }));
+        tile.position.y = .12; rim.add(tile); this.terrain.add(rim);
+        if (own && build) { rim.userData.cell = cell; this.buildPads.push(rim); }
+        if (build && cell % 3 === 0) {
+          const cross = new Group(); const mat = new MeshBasicMaterial({ color: own ? 0xa4e8e4 : 0xe2a89e, transparent: true, opacity: .4 });
+          cross.add(new Mesh(new BoxGeometry(.4, .02, .08), mat), new Mesh(new BoxGeometry(.08, .02, .4), mat)); cross.position.y = .18; rim.add(cross);
+        }
       }
       // Orchard trees stand outside legal build cells, preserving every editable route.
       for (let row = 1; row < map.height; row += 3) for (const edge of [-1.3, map.width + 1.3]) {
         const tree = new Group();
         const trunk = new Mesh(new CylinderGeometry(.13, .2, 1.3, 6), new MeshLambertMaterial({ color: 0x67412a })); trunk.position.y = .65;
-        const crown = new Mesh(new ConeGeometry(.9, 2.1, 7), new MeshLambertMaterial({ color: 0x1d592e })); crown.position.y = 1.8;
+      const crown = new Mesh(new ConeGeometry(.9, 2.1, 7), new MeshLambertMaterial({ color: 0x1d592e })); crown.position.y = 1.8;
         tree.add(trunk, crown); tree.position.copy(pvpWorldPoint(map, edge, row, own)); this.terrain.add(tree);
       }
       const endpoint = this.cellPoint((map.pathCells.at(-1) ?? (map.height - 1) * map.width + Math.floor(map.width / 2)), own); endpoint.z += own ? -TILE * 1.5 : TILE * 1.5;
-      const base = new Group(); base.position.copy(endpoint);
-      const wall = new Mesh(new BoxGeometry(map.width * TILE_X, 1.05, 1.3), new MeshLambertMaterial({ color: own ? 0x355c91 : 0x9a4034 })); wall.position.y = .5;
-      const keep = new Mesh(new CylinderGeometry(1.05, 1.3, 2.4, 10), new MeshLambertMaterial({ color })); keep.position.y = 1.2;
+      const gateX = endpoint.x;
+      const base = new Group(); base.position.copy(endpoint); base.position.x = 0;
+      const wall = new Mesh(new BoxGeometry(map.width * TILE_X, 1.05, 1.3), new MeshLambertMaterial({ color: WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? (own ? 0x355c91 : 0x9a4034) })); wall.position.y = .5;
+      const keep = new Mesh(new CylinderGeometry(1.05, 1.3, 2.4, 10), new MeshLambertMaterial({ color })); keep.position.set(gateX, 1.2, 0);
       const towerTexture = getAdminTexture('tower-main'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
-      const crown = new Mesh(new SphereGeometry(.48, 12, 8), new MeshLambertMaterial({ color: 0xf1e3bd })); crown.position.y = 2.7;
+      const hero = heroDef((player.hero || 'jiju') as HeroId);
+      const heroTexture = sampleStudioTexture(heroIdToStudioKey(hero.id), 'idle') || getAdminTexture(`hero-${hero.id}`);
+      if (heroTexture) {
+        const avatar = new Sprite(new SpriteMaterial({ map: heroTexture, transparent: true }));
+        avatar.position.set(gateX + 2.2, 1.7, own ? -.4 : .4); avatar.scale.set(2.5, 3, 1); base.add(avatar);
+      } else {
+        const actor = new Group(); actor.position.set(gateX + 2.2, 0, 0);
+        const body = new Mesh(new CylinderGeometry(.42, .65, 1.4, 6), new MeshLambertMaterial({ color: hero.color })); body.position.y = .85;
+        const head = new Mesh(new SphereGeometry(.38, 10, 8), new MeshLambertMaterial({ color: 0xf1d3a0 })); head.position.y = 1.95;
+        actor.add(body, head); base.add(actor);
+      }
+      for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
+        const turret = new Mesh(new CylinderGeometry(.8, 1, 2, 6), new MeshLambertMaterial({ color: own ? 0x5e8595 : 0xb06048 })); turret.position.set(x, 1, 0); base.add(turret);
+        for (let i = 0; i < 6; i++) { const crenel = new Mesh(new BoxGeometry(.3, .5, .3), new MeshLambertMaterial({ color: 0xc3c7a4 })); crenel.position.set(x + Math.sin(i * Math.PI / 3) * .75, 2.1, Math.cos(i * Math.PI / 3) * .75); base.add(crenel); }
+      }
+      const crown = new Mesh(new SphereGeometry(.48, 12, 8), new MeshLambertMaterial({ color: 0xf1e3bd })); crown.position.set(gateX, 2.7, 0);
       const rail = new Mesh(new BoxGeometry(map.width * TILE_X * .8, .12, .35), new MeshBasicMaterial({ color })); rail.position.set(0, .2, own ? -1.6 : 1.6); rail.userData.maxHealth = this.config.wallHealth ?? player.wallHealth;
       this.health.set(player.userId, rail); base.add(wall, keep, crown, rail); this.terrain.add(base);
+    }
+    if (!this.snapshot.shared) {
+      const first = map.pathCells[0]!;
+      const a = this.cellPoint(first, true); const b = this.cellPoint(first, false);
+      const bridge = new Mesh(new BoxGeometry(TILE_X * .75, .14, a.distanceTo(b)), new MeshLambertMaterial({ color: 0xcbb87b }));
+      bridge.position.copy(a.clone().add(b).multiplyScalar(.5)); bridge.position.y = .05;
+      bridge.rotation.y = Math.atan2(b.x - a.x, b.z - a.z); this.terrain.add(bridge);
     }
     this.resize();
   }
@@ -175,8 +225,22 @@ export class PvpBattlefield {
     const rect = this.canvas.getBoundingClientRect();
     this.ray.setFromCamera(new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera);
     const hit = this.ray.ray.intersectPlane(this.ground, new Vector3()); if (!hit) return null;
-    const x = hit.x / TILE_X + map.width / 2; const y = -hit.z / TILE - 1;
+    const y = -hit.z / TILE - 1; const x = hit.x / TILE_X + map.width / 2 + .25 - (Math.floor(y) % 2 ? .5 : 0);
     return x >= 0 && x <= map.width && y >= 0 && y <= map.height ? { x, y } : null;
+  }
+
+  private buildCell(event: PointerEvent): number | null {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    this.ray.setFromCamera(new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera);
+    const hit = this.ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), -.16), new Vector3());
+    if (!hit) return null;
+    const radius = HEX_RADIUS * .985;
+    for (const pad of this.buildPads) {
+      const dx = Math.abs(hit.x - pad.position.x); const dz = Math.abs(hit.z - pad.position.z);
+      if (dx <= radius * Math.sqrt(3) / 2 && dz <= radius - dx / Math.sqrt(3)) return Number(pad.userData.cell);
+    }
+    return null;
   }
 
   private pointerDown = (event: PointerEvent) => {
@@ -187,9 +251,13 @@ export class PvpBattlefield {
   };
   private pointerMove = (event: PointerEvent) => {
     const point = this.point(event); const map = this.snapshot.map!;
-    this.marker.visible = Boolean(point && map.buildCells.includes(Math.floor(point.y) * map.width + Math.floor(point.x)));
-    if (point) { this.marker.position.copy(this.cellPoint(Math.floor(point.y) * map.width + Math.floor(point.x), true)); this.marker.position.y = .1; }
+    if (point && this.selectedCell === null) {
+      const cell = this.buildCell(event);
+      this.marker.visible = cell !== null;
+      if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .21; }
+    }
     if (!this.stroke || this.stroke.id !== event.pointerId || !point) return;
+    if (!this.snapshot.shared) { if (Math.hypot(point.x - this.stroke.from.x, point.y - this.stroke.from.y) >= .5) this.stroke.sliced = true; return; }
     const world = pvpWorldPoint(map, point.x, point.y, true); world.y = .8;
     if (!this.stroke.points.length) { const start = pvpWorldPoint(map, this.stroke.from.x, this.stroke.from.y, true); start.y = .8; this.stroke.points.push(start); }
     this.stroke.points.push(world); if (this.stroke.points.length > 16) this.stroke.points.shift();
@@ -204,20 +272,27 @@ export class PvpBattlefield {
     if (!stroke || stroke.id !== event.pointerId) return;
     const to = this.point(event); if (!to) return;
     const distance = Math.hypot(to.x - stroke.from.x, to.y - stroke.from.y);
-    if (distance >= .5 && performance.now() - this.sharedStrokeAt >= 100) this.command({ type: 'slash', from: stroke.from, to });
+    if (this.snapshot.shared && distance >= .5 && performance.now() - this.sharedStrokeAt >= 100) this.command({ type: 'slash', from: stroke.from, to });
     else if (!stroke.sliced && distance < .5) {
-      const map = this.snapshot.map!; const cell = Math.floor(to.y) * map.width + Math.floor(to.x);
-      if (map.buildCells.includes(cell)) this.command({ type: 'build', tower: this.element.dataset.tower || 'guillotine', cell });
+      const cell = this.buildCell(event);
+      if (cell !== null) {
+        if (this.select) this.select(cell);
+        else this.command({ type: 'build', tower: this.element.dataset.tower || 'guillotine', cell });
+      }
     }
   };
+  selectCell(cell: number | null): void {
+    this.selectedCell = cell; this.marker.visible = cell !== null;
+    if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
+  }
   private pointerCancel = () => { this.stroke = null; this.trail.reset(); };
   private wheel = (event: WheelEvent) => { event.preventDefault(); this.zoom = Math.max(.65, Math.min(2.5, this.zoom * (event.deltaY > 0 ? .92 : 1.08))); this.resize(); };
   private resize(): void {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     this.renderer.setSize(rect.width, rect.height, false);
-    const map = this.snapshot.map; const half = (map ? (map.height + 5) * TILE * (this.snapshot.shared ? .5 : 1) : 34) / this.zoom;
-    const aspect = rect.width / rect.height;
-    const centerZ = this.snapshot.shared && map ? -(map.height + 2) * TILE / 2 : 0;
+    const map = this.snapshot.map; const aspect = rect.width / rect.height;
+    const half = Math.max(map ? (map.height + 3.7) * TILE * (this.snapshot.shared || this.focusOwn ? .5 : .90) : 34, map ? (map.width + 2) * TILE_X / 2 / aspect : 0) / this.zoom;
+    const centerZ = (this.snapshot.shared || this.focusOwn) && map ? -(map.height + 2) * TILE / 2 : 0;
     this.camera.position.set(0, 75, centerZ - 48); this.camera.lookAt(0, 0, centerZ);
     this.camera.left = -half * aspect; this.camera.right = half * aspect; this.camera.top = half; this.camera.bottom = -half;
     this.camera.updateProjectionMatrix();
@@ -232,17 +307,17 @@ export class PvpBattlefield {
         entry.mesh.position.copy(pvpWorldPoint(map, entry.x, y, true)); entry.mesh.position.y = .65 + Math.sin(now / 140) * .07;
         entry.mesh.scale.setScalar(entry.boss ? 2.5 : 1); entry.mesh.rotation.y += dt; entry.mesh.visible = true; continue;
       }
-      const progress = Math.max(0, Math.min(map.pathCells.length - 1, entry.progress + Math.min(1, (now - this.receivedAt) / 1000) * (this.config.attacks[entry.type]?.speed || 0)));
-      entry.mesh.visible = entry.progress + Math.min(1, (now - this.receivedAt) / 1000) * (this.config.attacks[entry.type]?.speed || 0) >= 0;
+      const progress = Math.max(0, Math.min(map.pathCells.length - 1, entry.progress + Math.min(1, (now - this.receivedAt) / 1000) * (this.config.attacks[entry.type]?.speed || 0) * Math.max(1, (map.pathCells.length - 1) / 13)));
+      entry.mesh.visible = entry.progress + Math.min(1, (now - this.receivedAt) / 1000) * (this.config.attacks[entry.type]?.speed || 0) * Math.max(1, (map.pathCells.length - 1) / 13) >= 0;
       const index = Math.floor(progress); const a = this.cellPoint(map.pathCells[index]!, entry.own); const b = this.cellPoint(map.pathCells[Math.min(index + 1, map.pathCells.length - 1)]!, entry.own);
       entry.mesh.position.copy(a.lerp(b, progress - index)); entry.mesh.position.y = .65 + Math.sin(now / 140 + index) * .07; entry.mesh.rotation.y += dt;
     }
     for (const entry of this.towers.values()) {
-      const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.position.distanceTo(entry.rig.group.position) < (this.config.towers[entry.rig.kind]?.range || 0) * TILE);
+      const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.rig.kind] ? pvpTowerStats(this.config.towers[entry.rig.kind]!, entry.level).range : 0)) * TILE);
       if (target) entry.rig.group.rotation.y = Math.atan2(target.mesh.position.x - entry.rig.group.position.x, target.mesh.position.z - entry.rig.group.position.z);
       if (entry.rig.kind === 'vortex') entry.rig.group.rotation.y += dt * 2;
       if (entry.rig.kind === 'guillotine' && entry.rig.group.children[1]) entry.rig.group.children[1].rotation.z = -.7 + Math.sin(now / 220) * 1.1;
-      const cooldown = this.config.towers[entry.rig.kind]?.cooldownMs || 1000;
+      const cooldown = this.config.towers[entry.rig.kind] ? pvpTowerStats(this.config.towers[entry.rig.kind]!, entry.level).cooldownMs : 1000;
       const shotId = entry.rig.group.uuid;
       if (target && now - (this.shots.get(shotId) || 0) >= cooldown) {
         this.shots.set(shotId, now);

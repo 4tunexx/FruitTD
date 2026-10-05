@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_PVP_CONFIG as cfg, advancePvpMatch, applyPvpCommand, calculatePvpRating, createPvpPlayer, newPvpMatch, normalizePvpMaps, pvpTier, resetSeasonRating, vetoPvpMap } from './pvp';
+import { DEFAULT_PVP_CONFIG as cfg, advancePvpMatch, applyPvpCommand, calculatePvpRating, createPvpPlayer, newPvpMatch, normalizePvpMaps, pvpTier, resetSeasonRating, vetoPvpMap, pvpUpgradeCost, pvpSellRefund, pvpTowerStats } from './pvp';
 
 describe('Arena and Ranked PvP rules', () => {
   const match = () => newPvpMatch('test', 'ranked', [createPvpPlayer('a', 'A', 'blue', cfg), createPvpPlayer('b', 'B', 'red', cfg)], 1_000, cfg);
@@ -42,6 +42,46 @@ describe('Arena and Ranked PvP rules', () => {
     assert.throws(() => applyPvpCommand(game, user.userId, { type: 'build', tower: 'laser', cell: cfg.maps[0]!.pathCells[0]! }, 2, 2_002, cfg), /Invalid tower/);
   });
 
+  it('upgrades only owned towers, charges each level, caps upgrades and frees a sold hex', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000;
+    const owner = game.players[0]; owner.fruts = 1000;
+    const cell = cfg.map.buildCells[0]!; const base = cfg.towers.guillotine!;
+    applyPvpCommand(game, 'a', { type: 'build', tower: 'guillotine', cell }, 1, 2_000, cfg);
+    const tower = owner.towers[0]!;
+    assert.throws(() => applyPvpCommand(game, 'b', { type: 'upgrade', towerId: tower.id }, 1, 2_100, cfg), /your towers/);
+    applyPvpCommand(game, 'a', { type: 'upgrade', towerId: tower.id }, 2, 2_100, cfg);
+    assert.equal(tower.level, 2);
+    assert.equal(owner.fruts, 1000 - base.cost - pvpUpgradeCost(base.cost, 1));
+    assert.ok(pvpTowerStats(base, 2).damage > base.damage);
+    assert.ok(pvpTowerStats(base, 2).cooldownMs < base.cooldownMs);
+    applyPvpCommand(game, 'a', { type: 'upgrade', towerId: tower.id }, 3, 2_200, cfg);
+    const balance = owner.fruts;
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'upgrade', towerId: tower.id }, 4, 2_300, cfg), /fully upgraded/);
+    assert.equal(owner.fruts, balance);
+    applyPvpCommand(game, 'a', { type: 'sell', towerId: tower.id }, 4, 2_400, cfg);
+    assert.equal(owner.towers.length, 0);
+    assert.equal(owner.fruts, balance + pvpSellRefund(base.cost, 3));
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'sell', towerId: tower.id }, 5, 2_500, cfg), /your towers/);
+    applyPvpCommand(game, 'a', { type: 'build', tower: 'guillotine', cell }, 5, 2_600, cfg);
+    owner.fruts = 0;
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'upgrade', towerId: owner.towers[0]!.id }, 6, 2_700, cfg), /Not enough/);
+    assert.equal(owner.towers[0]!.level, 1);
+  });
+
+  it('uses upgraded damage in the authority simulation and ends a surrendered match', () => {
+    for (const queue of ['ranked', 'arena'] as const) {
+      const game = match(); game.queue = queue; game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000;
+      const defender = game.players[0]; const cell = cfg.map.pathCells[0]! + 1;
+      defender.towers.push({ id: 'upgraded', type: 'guillotine', cell, placedAt: 1_000, level: 3 });
+      defender.attackers.push({ id: 'brute', type: 'armored', hp: 260, progress: 0 });
+      advancePvpMatch(game, 0, 2_000, cfg);
+      assert.equal(defender.attackers[0]!.hp, 260 - Math.round(pvpTowerStats(cfg.towers.guillotine!, 3).damage * .55));
+      applyPvpCommand(game, 'a', { type: 'surrender' }, 1, 2_100, cfg);
+      assert.equal(game.status, 'complete'); assert.equal(game.winnerId, 'b');
+      assert.throws(() => applyPvpCommand(game, 'a', { type: 'send', enemy: 'normal' }, 2, 2_200, cfg), /not active/);
+    }
+  });
+
   it('charges attack costs, kills attackers with towers, and damages the wall when one gets through', () => {
     const singleConfig = structuredClone(cfg); singleConfig.attacks.normal!.packSize = 1;
     const defended = match(); defended.status = 'active'; defended.map = cfg.maps[0]!; defended.endsAt = 100_000;
@@ -75,26 +115,45 @@ describe('Arena and Ranked PvP rules', () => {
     const defender = game.players[0];
     defender.attackers.push({ id: 'at-base', type: 'armored', hp: 260, progress: 11 });
     advancePvpMatch(game, 0, 2_000, cfg);
-    assert.equal(defender.attackers[0]!.hp, 260 - cfg.mainTower.damage);
+    assert.equal(defender.attackers[0]!.hp, 260 - Math.round(cfg.mainTower.damage * .55));
     advancePvpMatch(game, 0, 2_050, cfg);
-    assert.equal(defender.attackers[0]!.hp, 260 - cfg.mainTower.damage);
+    assert.equal(defender.attackers[0]!.hp, 260 - Math.round(cfg.mainTower.damage * .55));
     advancePvpMatch(game, 0, 3_000, cfg);
-    assert.equal(defender.attackers[0]!.hp, 260 - cfg.mainTower.damage * 2);
+    assert.equal(defender.attackers[0]!.hp, 260 - Math.round(cfg.mainTower.damage * .55) * 2);
   });
 
-  it('only slices fruit crossed by a real battlefield stroke', () => {
-    const game = match(); game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
-    const defender = game.players[0]!;
-    defender.attackers.push({ id: 'incoming', type: 'normal', hp: 100, progress: 4 });
-    applyPvpCommand(game, 'a', { type: 'slash', from: { x: 0, y: 4.5 }, to: { x: 2, y: 4.5 } }, 1, 2_000, cfg);
-    assert.equal(defender.currentCombo, 0);
-    assert.equal(defender.lastStroke?.at, 2_000);
-    assert.equal(defender.attackers.length, 1);
-    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: -10, y: 4.5 }, to: { x: 6, y: 4.5 } }, 2, 2_001, cfg), /Invalid blade/);
-    applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 2, 2_202, cfg);
-    assert.equal(defender.attackers.length, 0);
-    assert.equal(defender.score, 10);
-    assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 3.2, y: 4.5 }, to: { x: 5.8, y: 4.5 } }, 2, 2_203, cfg), /replayed/);
+  it('rejects slicing in both queues without changing resources, sequence, or fruit', () => {
+    for (const queue of ['arena', 'ranked'] as const) {
+      const game = match(); game.queue = queue; game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
+      game.players[0].attackers.push({ id: 'incoming', type: 'normal', hp: 100, progress: 4 });
+      const before = JSON.stringify(game);
+      assert.throws(() => applyPvpCommand(game, 'a', { type: 'slash', from: { x: 0, y: 4 }, to: { x: 8, y: 4 } }, 1, 2_000, cfg), /Slicing is disabled/);
+      assert.equal(JSON.stringify(game), before);
+    }
+  });
+
+  it('gives every hero identical Rally timing and damage with server cooldown validation', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000;
+    game.players[0].hero = 'ki'; game.players[1].hero = 'jiju';
+    assert.throws(() => applyPvpCommand(game, 'a', { type: 'rally' }, 1, 2_000, cfg), /cooling down/);
+    for (const player of game.players) {
+      applyPvpCommand(game, player.userId, { type: 'rally' }, 1, 20_000, cfg);
+      assert.equal(player.rallyUntil, 28_000); assert.equal(player.rallyReadyAt, 55_000);
+      assert.throws(() => applyPvpCommand(game, player.userId, { type: 'rally' }, 2, 20_001, cfg), /cooling down/);
+      player.towers.push({ id: player.userId, type: 'guillotine', cell: cfg.map.pathCells[0]! + 1, placedAt: 1_000 });
+      player.attackers.push({ id: player.userId, type: 'normal', hp: 100, progress: 0 });
+    }
+    advancePvpMatch(game, 0, 20_100, cfg);
+    assert.equal(game.players[0].attackers[0]!.hp, 100 - Math.round(cfg.towers.guillotine!.damage * 1.25));
+    assert.equal(game.players[0].attackers[0]!.hp, game.players[1].attackers[0]!.hp);
+  });
+
+  it('spawns equal timed defence waves and preserves their stagger', () => {
+    const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000; game.nextWaveAt = 16_000;
+    advancePvpMatch(game, 0, 16_000, cfg);
+    assert.equal(game.players[0].attackers.length, 1); assert.equal(game.players[1].attackers.length, 1);
+    assert.equal(game.players[0].attackers[0]!.hp, game.players[1].attackers[0]!.hp);
+    assert.equal(game.nextWaveAt, 31_000);
   });
 
   it('awards correct FR deltas, caps performance, keeps a loss net negative, and uses configured tiers', () => {

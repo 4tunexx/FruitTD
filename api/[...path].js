@@ -58,8 +58,10 @@ async function getDb() {
     await db.collection("coop_lobbies").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection("coop_lobbies").createIndex({ visibility: 1, status: 1, createdAt: 1 });
     await db.collection("coop_lobbies").createIndex({ "members.userId": 1, status: 1 });
+    await db.collection("pvp_arena_records").createIndex({ userId: 1 }, { unique: true });
     await db.collection("pvp_ratings").createIndex({ userId: 1 }, { unique: true });
     await db.collection("pvp_matches").createIndex({ id: 1 }, { unique: true });
+    await db.collection("pvp_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
     await db.collection("pvp_matches").createIndex({ status: 1, updatedAt: 1 });
     await db.collection("pvp_queue").createIndex({ userId: 1 }, { unique: true });
     await db.collection("pvp_queue").createIndex({ queue: 1, expiresAt: 1 });
@@ -940,8 +942,8 @@ var DEFAULT_ACHIEVEMENTS = [
   { id: "horde_wave_50", title: "Horde Holdout", desc: "Reach wave 50 in Horde", icon: "UsersRound", enabled: true, requirement: req("wave_reach", 50, { mode: "horde" }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: "horde-veteran" },
   { id: "pvp_first_win", title: "First Siege", desc: "Win your first server-verified PvP siege", icon: "Swords", enabled: true, requirement: req("pvp_win", 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: "pvp-first-win" },
   { id: "pvp_ten_wins", title: "Wallbreaker", desc: "Win ten server-verified PvP sieges", icon: "ShieldCheck", enabled: true, requirement: req("pvp_win", 10), rewardCoins: 800, rewardSp: 0, rewardGems: 10, rewardBadge: "pvp-wallbreaker" },
-  { id: "pvp_combo_50", title: "Fruit Storm", desc: "Reach a 50-slice combo in a PvP siege", icon: "Zap", enabled: true, requirement: req("pvp_combo", 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
-  { id: "pvp_multislice_5", title: "Five-Fruit Cut", desc: "Slice five fruit-zombies with one server-verified cut", icon: "Sword", enabled: true, requirement: req("pvp_multislice", 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 }
+  { id: "pvp_combo_50", title: "Fruit Storm", desc: "Reach a 50-slice combo in a PvP siege", icon: "Zap", enabled: false, requirement: req("pvp_combo", 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
+  { id: "pvp_multislice_5", title: "Five-Fruit Cut", desc: "Slice five fruit-zombies with one server-verified cut", icon: "Sword", enabled: false, requirement: req("pvp_multislice", 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 }
 ];
 var DEFAULT_BADGES = [
   { id: "coop-team-slicer", title: "Team Slicer", desc: "Complete six waves in server-verified online Co-op", icon: "UsersRound", rarity: "rare", enabled: true, requirement: req("coop_team_run", 1), rewardCoins: 100, rewardGems: 2 },
@@ -1177,23 +1179,41 @@ function resetSeasonRating(points, config = DEFAULT_PVP_CONFIG) {
   const retain = 1 - config.rating.seasonResetPercent / 100;
   return Math.max(0, Math.round(config.rating.start + (points - config.rating.start) * retain));
 }
-function calculatePvpRating(points, outcome, comboMilestones, maxSingleSlashKills, config = DEFAULT_PVP_CONFIG) {
-  const base = config.rating[outcome];
-  const comboBonus = comboMilestones.reduce((sum, milestone) => sum + (config.rating.combo.find((tier) => tier.at === milestone)?.points ?? 0), 0);
-  const multiBonus = maxSingleSlashKills >= 5 ? config.rating.multiKill5 : maxSingleSlashKills >= 3 ? config.rating.multiKill3 : 0;
-  let performance = Math.min(config.rating.bonusCap, Math.max(0, comboBonus + multiBonus));
-  if (outcome === "loss") performance = Math.min(performance, Math.max(0, Math.abs(base) - 1));
-  const delta = base + performance;
-  const rating = Math.max(0, points + delta);
-  return { outcome, base, performance, delta: rating - points, rating, tier: pvpTier(rating, config) };
+var PVP_RALLY = { durationMs: 8e3, cooldownMs: 35e3, openingMs: 15e3, damageMultiplier: 1.25 };
+var PVP_MAX_TOWER_LEVEL = 3;
+function pvpTowerLevel(level) {
+  return Math.max(1, Math.min(PVP_MAX_TOWER_LEVEL, Math.floor(level || 1)));
 }
-function fruitOnSlash(pathCell, width, from, to) {
-  const x = pathCell % width + 0.5;
-  const y = Math.floor(pathCell / width) + 0.5;
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const t = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / (dx * dx + dy * dy)));
-  return Math.hypot(x - (from.x + dx * t), y - (from.y + dy * t)) <= 0.46;
+function pvpUpgradeCost(baseCost, level = 1) {
+  return Math.ceil(baseCost * (0.6 + 0.3 * pvpTowerLevel(level)));
+}
+function pvpTowerStats(base, level = 1) {
+  const upgrades = pvpTowerLevel(level) - 1;
+  return { ...base, damage: Math.round(base.damage * (1 + upgrades * 0.65)), range: base.range + upgrades * 0.5, cooldownMs: Math.round(base.cooldownMs / (1 + upgrades * 0.15)) };
+}
+function pvpSellRefund(baseCost, level = 1) {
+  let spent = baseCost;
+  for (let i = 1; i < pvpTowerLevel(level); i++) spent += pvpUpgradeCost(baseCost, i);
+  return Math.floor(spent * 0.6);
+}
+function pvpHexDistance(a, b, width) {
+  const axial = (cell) => {
+    const r = Math.floor(cell / width);
+    return { r, q: cell % width - (r - (r & 1)) / 2 };
+  };
+  const x = axial(a);
+  const y = axial(b);
+  const dq = x.q - y.q;
+  const dr = x.r - y.r;
+  return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
+}
+function calculateArenaRating(points, opponent, outcome, config = DEFAULT_PVP_CONFIG) {
+  const expected = 1 / (1 + 10 ** ((opponent - points) / 400));
+  const actual = outcome === "win" ? 1 : outcome === "tie" ? 0.5 : 0;
+  const change = actual - expected;
+  const delta = Math.round(change * (change >= 0 ? config.rating.win : Math.abs(config.rating.loss)) * 2);
+  const rating = Math.max(0, points + delta);
+  return { outcome, base: delta, performance: 0, delta: rating - points, rating, tier: pvpTier(rating, config) };
 }
 function createPvpPlayer(userId, name, side, config, now = Date.now()) {
   return { userId, name: name.slice(0, 32), side, connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
@@ -1221,10 +1241,13 @@ function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = D
   if (match.mapPool.length === 2) {
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
     match.status = "active";
+    match.nextWaveAt = now + 15e3;
+    match.neutralWave = 0;
     match.endsAt = now + config.durationSeconds * 1e3;
     match.players.forEach((item) => {
       item.wallHealth = config.wallHealth;
       item.fruts = config.startingFruts;
+      item.rallyReadyAt = now + PVP_RALLY.openingMs;
     });
   } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
   return match;
@@ -1236,7 +1259,11 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
   if (!player) throw new Error("Player is not in this match");
   if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
   if (!player.connected) throw new Error("Player is disconnected");
-  if (command.type === "build") {
+  if (command.type === "rally") {
+    if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error("Rally is cooling down");
+    player.rallyUntil = now + PVP_RALLY.durationMs;
+    player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
+  } else if (command.type === "build") {
     const tower = config.towers[command.tower];
     const map = match.map ?? config.map;
     const mapSize = map.width * map.height;
@@ -1244,7 +1271,26 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
     if (player.fruts < tower.cost) throw new Error("Not enough match Fruts");
     player.fruts -= tower.cost;
-    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now });
+    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now, level: 1 });
+  } else if (command.type === "upgrade" || command.type === "sell") {
+    const tower = player.towers.find((item) => item.id === command.towerId);
+    if (!tower || !config.towers[tower.type]) throw new Error("Select one of your towers");
+    const base = config.towers[tower.type];
+    const level = pvpTowerLevel(tower.level);
+    if (command.type === "upgrade") {
+      if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded");
+      const cost = pvpUpgradeCost(base.cost, level);
+      if (player.fruts < cost) throw new Error("Not enough match Fruts");
+      player.fruts -= cost;
+      tower.level = level + 1;
+    } else {
+      player.fruts += pvpSellRefund(base.cost, level);
+      player.towers = player.towers.filter((item) => item !== tower);
+    }
+  } else if (command.type === "surrender") {
+    match.status = "complete";
+    match.resultReason = "surrender";
+    match.winnerId = match.players.find((item) => item !== player).userId;
   } else if (command.type === "send") {
     const attack = config.attacks[command.enemy];
     if (!attack) throw new Error("Invalid fruit-zombie type");
@@ -1255,21 +1301,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     player.fruts -= attack.cost;
     for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, progress: -i * 0.8 });
   } else if (command.type === "slash") {
-    const map = match.map ?? config.map;
-    const validPoint = (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
-    if (!validPoint(command.from) || !validPoint(command.to) || Math.hypot(command.to.x - command.from.x, command.to.y - command.from.y) < 0.5) throw new Error("Invalid blade stroke");
-    if (player.lastStroke && now - player.lastStroke.at < 100) throw new Error("Blade is recovering");
-    player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
-    const killed = player.attackers.filter((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1 && fruitOnSlash(map.pathCells[Math.floor(item.progress)], map.width, command.from, command.to)).slice(0, 8);
-    const ids = new Set(killed.map((item) => item.id));
-    player.attackers = player.attackers.filter((item) => !ids.has(item.id));
-    player.score += killed.length * 10;
-    player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type].rewardFruts, 0);
-    player.currentCombo = !killed.length ? 0 : player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
-    player.lastSlashAt = killed.length ? now : null;
-    player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
-    player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
-    for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
+    throw new Error("Slicing is disabled in Arena. Build towers to defend.");
   } else throw new Error("Unknown match action");
   player.sequence = sequence;
   player.lastSeenAt = now;
@@ -1281,22 +1313,45 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;
   const path = map.pathCells;
+  if (match.nextWaveAt !== void 0 && now >= match.nextWaveAt) {
+    match.neutralWave = (match.neutralWave || 0) + 1;
+    const waveTypes = ["normal", "swift", "armored", "explosive"].filter((type2) => config.attacks[type2]);
+    const type = match.neutralWave >= 3 ? waveTypes[match.neutralWave % waveTypes.length] : "normal";
+    const health = config.attacks[type].health * (1 + match.neutralWave * 0.15);
+    for (const player of match.players) {
+      const count = Math.min(4, 1 + Math.floor(match.neutralWave / 3));
+      for (let i = 0; i < count && player.attackers.length < 128; i++) player.attackers.push({ id: `wave:${match.neutralWave}:${player.userId}:${i}`, type, hp: health, progress: -i * 0.8 });
+    }
+    match.nextWaveAt = now + 15e3;
+  }
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
-    for (const attacker of player.attackers) attacker.progress += config.attacks[attacker.type].speed * dt;
-    const shoot = (cell, stats, lastFiredAt) => {
+    for (const attacker of player.attackers) {
+      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
+      const slowed = player.towers.some((tower) => tower.type === "vortex" && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex, tower.level).range);
+      attacker.progress += config.attacks[attacker.type].speed * dt * Math.max(1, (path.length - 1) / 13) * (slowed ? 0.6 : 1);
+    }
+    const shoot = (cell, stats, lastFiredAt, type = "main") => {
       if (now - lastFiredAt < stats.cooldownMs) return false;
       const target = [...player.attackers].filter((attacker) => {
         const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
-        return attacker.progress >= 0 && attacker.hp > 0 && Math.abs(pathCell % map.width - cell % map.width) + Math.abs(Math.floor(pathCell / map.width) - Math.floor(cell / map.width)) <= stats.range;
+        return attacker.progress >= 0 && attacker.hp > 0 && pvpHexDistance(pathCell, cell, map.width) <= stats.range;
       }).sort((a, b) => b.progress - a.progress)[0];
       if (!target) return false;
-      target.hp -= stats.damage;
+      const hit = (attacker, mul = 1) => {
+        attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === "armored" && type !== "laser" && type !== "railgun" ? 0.55 : 1));
+      };
+      hit(target);
+      if (type === "sprinkler" || type === "blender") {
+        const targetCell = path[Math.floor(Math.max(0, Math.min(path.length - 1, target.progress)))];
+        const nearby = player.attackers.filter((item) => item !== target && item.hp > 0 && item.progress >= 0 && pvpHexDistance(path[Math.floor(Math.min(path.length - 1, item.progress))], targetCell, map.width) <= 1).slice(0, type === "blender" ? 3 : 2);
+        for (const item of nearby) hit(item, type === "blender" ? 1 : 0.65);
+      }
       return true;
     };
     for (const tower of player.towers) {
       const stats = config.towers[tower.type];
-      if (stats && shoot(tower.cell, stats, tower.lastFiredAt ?? tower.placedAt)) tower.lastFiredAt = now;
+      if (stats && shoot(tower.cell, pvpTowerStats(stats, tower.level), tower.lastFiredAt ?? tower.placedAt, tower.type)) tower.lastFiredAt = now;
     }
     if (shoot(path.at(-1), config.mainTower, player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
     for (const attacker of [...player.attackers]) {
@@ -1313,7 +1368,7 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   const dead = match.players.find((player) => player.wallHealth <= 0);
   if (dead) {
     match.status = "complete";
-    match.winnerId = match.players.find((player) => player !== dead).userId;
+    match.winnerId = match.players.every((player) => player.wallHealth <= 0) ? null : match.players.find((player) => player !== dead).userId;
     match.resultReason = "wall";
   } else if (match.players.some((player) => player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3)) {
     for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3) {
@@ -1332,7 +1387,7 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
     match.status = "complete";
     match.resultReason = "timeout";
     const [a, b] = match.players;
-    match.winnerId = a.wallHealth === b.wallHealth ? a.score === b.score ? null : a.score > b.score ? a.userId : b.userId : a.wallHealth > b.wallHealth ? a.userId : b.userId;
+    match.winnerId = a.wallHealth === b.wallHealth ? null : a.wallHealth > b.wallHealth ? a.userId : b.userId;
   }
   match.revision++;
   return match;
@@ -4264,21 +4319,26 @@ import { Router as Router14 } from "express";
 import { randomUUID as randomUUID4 } from "node:crypto";
 import { Rest as Rest2 } from "ably";
 
+// src/game/pvpMatchmaking.ts
+function pvpSearchRange(player, now) {
+  const waited = Math.max(0, now - player.createdAt);
+  return Math.min(player.queue === "ranked" ? 300 : 500, 100 + Math.floor(waited / 15e3) * 50);
+}
+function pvpCanMatch(a, b, now, config = DEFAULT_PVP_CONFIG) {
+  if (a.userId === b.userId || a.queue !== b.queue || !Number.isFinite(a.points) || !Number.isFinite(b.points)) return false;
+  if (Math.abs(a.points - b.points) > Math.min(pvpSearchRange(a, now), pvpSearchRange(b, now))) return false;
+  const tiers = [...config.rating.tiers].sort((x, y) => x.min - y.min);
+  const tier = (points) => tiers.findIndex((item) => item.name === pvpTier(points, config));
+  const gap = Math.abs(tier(a.points) - tier(b.points));
+  return gap === 0 || gap === 1 && Math.min(now - a.createdAt, now - b.createdAt) >= 3e4;
+}
+
 // src/game/pvpBot.ts
 function choosePvpBotCommand(match, botUserId, config) {
   if (match.status !== "active" || !match.map) return null;
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
   const map = match.map;
-  const fruit = bot.attackers.find((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1);
-  if (fruit) {
-    const cell = map.pathCells[Math.max(0, Math.floor(fruit.progress))];
-    const x = cell % map.width + 0.5;
-    const y = Math.floor(cell / map.width) + 0.5;
-    const from = { x: Math.max(0, x - 0.85), y };
-    const to = { x: Math.min(map.width, x + 0.85), y };
-    if (fruitOnSlash(cell, map.width, from, to)) return { type: "slash", from, to };
-  }
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)];
@@ -4290,6 +4350,8 @@ function choosePvpBotCommand(match, botUserId, config) {
     });
     if (cells.length) return { type: "build", tower: type, cell: cells[0] };
   }
+  const upgrade = bot.towers.find((tower) => pvpTowerLevel(tower.level) < 3 && bot.fruts >= pvpUpgradeCost(config.towers[tower.type].cost, pvpTowerLevel(tower.level)));
+  if (upgrade && bot.attackers.length >= 2) return { type: "upgrade", towerId: upgrade.id };
   const attacks = Object.entries(config.attacks).filter(([, stats]) => bot.fruts >= stats.cost);
   if (attacks.length) {
     const index = Math.min(Math.floor(bot.sequence / 3) % attacks.length, attacks.length - 1);
@@ -4326,7 +4388,8 @@ async function ratingFor(userId, config) {
   let row = await col.findOne({ userId });
   if (!row) {
     row = { userId, points: config.rating.start, season, matches: 0, wins: 0, ties: 0, losses: 0, updatedAt: /* @__PURE__ */ new Date() };
-    await col.insertOne(row);
+    await col.updateOne({ userId }, { $setOnInsert: row }, { upsert: true });
+    row = await col.findOne({ userId });
   } else if (row.season !== season) {
     if (row.matches > 0) {
       const finalTier = pvpTier(row.points, config);
@@ -4342,6 +4405,25 @@ async function ratingFor(userId, config) {
   }
   return row;
 }
+async function arenaRecordFor(userId) {
+  const row = await (await getCollection("pvp_arena_records")).findOne({ userId });
+  return { matches: row?.matches || 0, wins: row?.wins || 0, ties: row?.ties || 0, losses: row?.losses || 0 };
+}
+function publicRating(row, config) {
+  const tier = pvpTier(row.points, config);
+  const tiers = [...config.rating.tiers].sort((a, b) => a.min - b.min);
+  return { points: row.points, tier, season: row.season, matches: row.matches, wins: row.wins, ties: row.ties, losses: row.losses, tierMin: tiers.find((item) => item.name === tier)?.min ?? 0, nextTier: tiers.find((item) => item.min > row.points) ?? null };
+}
+pvpRouter.get("/rating", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in for Ranked Arena.");
+  try {
+    const config = await currentPvpConfig();
+    res.json({ success: true, rating: { ...publicRating(await ratingFor(user.userId, config), config), arena: await arenaRecordFor(user.userId) } });
+  } catch {
+    routerError(res, 503, "Ranked rating is unavailable.");
+  }
+});
 function ablyKey() {
   const value = process.env.ABLY_API_KEY || "";
   const match = /^([^.\s]+)\.([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)$/.exec(value);
@@ -4376,7 +4458,7 @@ function publicMatch(match, userId) {
     vetoTurnId: match.vetoTurn,
     yourVetoTurn: match.vetoTurn === userId,
     vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
+    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side,
@@ -4384,14 +4466,29 @@ function publicMatch(match, userId) {
     resultReason: match.resultReason
   };
 }
+async function equippedAppearance(userId) {
+  const cloud = await (await getCollection("cloud_saves")).findOne({ userId });
+  const save = cloud?.saveData;
+  const hero = HEROES.some((item) => item.id === save?.hero) && (save?.hero === "jiju" || save?.ownedHeroes?.includes(save.hero)) ? save.hero : "jiju";
+  const wallSkin = WALL_SKINS.some((item) => item.id === save?.wallSkin) && (save?.wallSkin === "wall-brick" || save?.ownedSkins?.includes(save.wallSkin)) ? save.wallSkin : "wall-brick";
+  return { hero, wallSkin };
+}
 async function makeMatch(queue, left, right, config) {
   const match = newPvpMatch(randomUUID4(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
   match.updatedAt = /* @__PURE__ */ new Date();
+  match.balance = structuredClone(config);
+  match.activePlayers = [left.userId, right.userId];
+  const ratings = await Promise.all(match.players.map(async (player) => {
+    Object.assign(player, await equippedAppearance(player.userId));
+    return (await ratingFor(player.userId, config)).points;
+  }));
+  match.startRatings = Object.fromEntries(match.players.map((player, index) => [player.userId, ratings[index]]));
   await (await getCollection("pvp_matches")).insertOne(match);
   void publishMatch(match);
   return match;
 }
 async function settleMatch(match, config) {
+  config = match.balance ?? config;
   if (match.status !== "complete" || match.settled) return;
   if (settlingMatches.has(match.id)) return;
   settlingMatches.add(match.id);
@@ -4412,14 +4509,17 @@ async function settleMatch(match, config) {
         await achievement("pvp_first_win");
         await badge("pvp-first-win");
       }
-      if (player.maxCombo >= 50) await achievement("pvp_combo_50");
-      if (player.maxSingleSlashKills >= 5) await achievement("pvp_multislice_5");
+      if (match.queue === "arena") {
+        const records = await getCollection("pvp_arena_records");
+        await records.updateOne({ userId: player.userId }, { $setOnInsert: { userId: player.userId, matches: 0, wins: 0, ties: 0, losses: 0, settledMatchIds: [] } }, { upsert: true });
+        await records.updateOne({ userId: player.userId, settledMatchIds: { $ne: match.id } }, { $inc: { matches: 1, [outcome === "win" ? "wins" : outcome === "tie" ? "ties" : "losses"]: 1 }, $addToSet: { settledMatchIds: match.id } });
+      }
       if (match.queue === "ranked") {
         const row = await ratingFor(player.userId, config);
         const ratings = await getCollection("pvp_ratings");
         if (row.settledMatchIds?.includes(match.id)) player.ratingDelta = row.lastMatchId === match.id ? row.lastDelta ?? 0 : 0;
         else {
-          const result = calculatePvpRating(row.points, outcome, player.comboMilestones, player.maxSingleSlashKills, config);
+          const result = calculateArenaRating(row.points, match.startRatings?.[match.players.find((item) => item !== player).userId] ?? row.points, outcome, config);
           const updated = await ratings.updateOne({ userId: player.userId, season: row.season, settledMatchIds: { $ne: match.id } }, {
             $set: { points: result.rating, updatedAt: /* @__PURE__ */ new Date(), lastMatchId: match.id, lastDelta: result.delta },
             $inc: { matches: 1, [outcome === "win" ? "wins" : outcome === "tie" ? "ties" : "losses"]: 1 },
@@ -4438,12 +4538,13 @@ async function settleMatch(match, config) {
       }
     }
     match.settled = true;
-    await matches.updateOne({ id: match.id }, { $set: { settled: true, players: match.players } });
+    await matches.updateOne({ id: match.id }, { $set: { settled: true, players: match.players }, $unset: { activePlayers: "" } });
   } finally {
     settlingMatches.delete(match.id);
   }
 }
 async function tickMatch(match, config, now) {
+  config = match.balance ?? config;
   if (match.status !== "active") return match;
   const col = await getCollection("pvp_matches");
   const priorRevision = match.revision;
@@ -4465,6 +4566,7 @@ async function tickMatch(match, config, now) {
     }
     match.botNextActionAt = now + 1300;
   }
+  if (match.status === "complete") delete match.activePlayers;
   match.updatedAt = new Date(now);
   const saved = await col.replaceOne({ id: match.id, revision: priorRevision, status: "active" }, match);
   if (!saved.modifiedCount) return null;
@@ -4479,6 +4581,16 @@ pvpRouter.get("/status", async (req2, res) => {
     const config = await currentPvpConfig();
     const matches = await getCollection("pvp_matches");
     let match = await matches.findOne({ "players.userId": user.userId, $or: [{ status: { $in: ["draft", "active"] } }, { status: "complete", resultsSeenBy: { $ne: user.userId } }] });
+    if (match?.status === "draft" && Date.now() - match.createdAt >= 12e4) {
+      const revision = match.revision;
+      match.status = "complete";
+      match.resultReason = "draft-cancelled";
+      match.settled = true;
+      delete match.activePlayers;
+      match.revision++;
+      await matches.replaceOne({ id: match.id, revision, status: "draft" }, match);
+      match = await matches.findOne({ id: match.id });
+    }
     if (match?.status === "complete" && !match.settled) {
       await settleMatch(match, config);
       match = await matches.findOne({ id: match.id });
@@ -4496,10 +4608,14 @@ pvpRouter.get("/status", async (req2, res) => {
         match = await matches.findOne({ id: match.id });
       }
     }
+    if (!match) {
+      const waiting = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+      if (waiting) match = await pairQueued(waiting, config);
+    }
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection("pvp_challenges")).findOne({ toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
-    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { points: rating.points, tier: pvpTier(rating.points, config), season: rating.season, matches: rating.matches, wins: rating.wins, ties: rating.ties, losses: rating.losses }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { wallHealth: config.wallHealth, durationSeconds: config.durationSeconds, reconnectGraceSeconds: config.reconnectGraceSeconds, towers: config.towers, attacks: config.attacks, maps: config.maps } });
+    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
   } catch (error2) {
     console.error(error2);
     routerError(res, 503, "PvP storage is unavailable.");
@@ -4525,6 +4641,14 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
     match.status = "active";
     match.map = structuredClone(selectedMap);
     match.endsAt = now + config.durationSeconds * 1e3;
+    match.balance = structuredClone(config);
+    match.activePlayers = [user.userId];
+    match.nextWaveAt = now + 15e3;
+    match.neutralWave = 0;
+    Object.assign(match.players[0], await equippedAppearance(user.userId));
+    match.players.forEach((player) => {
+      player.rallyReadyAt = now + 15e3;
+    });
     match.testMatch = true;
     match.botUserId = botUserId;
     match.botNextActionAt = now + 1200;
@@ -4538,6 +4662,30 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
     routerError(res, 503, "Could not create the bot test match.");
   }
 });
+async function pairQueued(entry, config) {
+  const queues = await getCollection("pvp_queue");
+  const matches = await getCollection("pvp_matches");
+  const now = Date.now();
+  const candidates = await queues.find({ queue: entry.queue, userId: { $ne: entry.userId }, season: seasonKey(), expiresAt: { $gt: new Date(now) } }).sort({ createdAt: 1 }).limit(100).toArray();
+  for (const candidate of candidates) {
+    if (!pvpCanMatch({ ...entry, createdAt: entry.createdAt.getTime() }, { ...candidate, createdAt: candidate.createdAt.getTime() }, now, config)) continue;
+    if (await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": { $in: [entry.userId, candidate.userId] } })) continue;
+    const other = await queues.findOneAndDelete({ userId: candidate.userId, queue: candidate.queue, createdAt: candidate.createdAt, expiresAt: { $gt: new Date(now) } });
+    if (!other) continue;
+    const own = await queues.findOneAndDelete({ userId: entry.userId, queue: entry.queue, createdAt: entry.createdAt, expiresAt: { $gt: new Date(now) } });
+    if (!own) {
+      await queues.updateOne({ userId: other.userId }, { $setOnInsert: other }, { upsert: true });
+      return null;
+    }
+    try {
+      return await makeMatch(entry.queue, other, own, config);
+    } catch (error2) {
+      for (const waiting of [other, own]) if (!await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": waiting.userId })) await queues.updateOne({ userId: waiting.userId }, { $setOnInsert: waiting }, { upsert: true });
+      throw error2;
+    }
+  }
+  return null;
+}
 pvpRouter.post("/queue", async (req2, res) => {
   const user = await resolveRequestUser(req2);
   if (!user) return routerError(res, 401, "Sign in to play PvP.");
@@ -4549,15 +4697,14 @@ pvpRouter.post("/queue", async (req2, res) => {
     if (active2) return res.json({ success: true, match: publicMatch(active2, user.userId) });
     const queues = await getCollection("pvp_queue");
     const config = await currentPvpConfig();
-    const other = await queues.findOneAndDelete({ queue, userId: { $ne: user.userId }, expiresAt: { $gt: /* @__PURE__ */ new Date() } }, { sort: { createdAt: 1 } });
-    const otherEntry = other;
-    if (otherEntry) {
-      const match = await makeMatch(queue, { userId: otherEntry.userId, name: otherEntry.name }, { userId: user.userId, name: user.username || user.nickname || "Slicer" }, config);
-      return res.json({ success: true, match: publicMatch(match, user.userId) });
-    }
     const now = /* @__PURE__ */ new Date();
-    await queues.updateOne({ userId: user.userId }, { $set: { userId: user.userId, name: user.username || user.nickname || "Slicer", queue, createdAt: now, expiresAt: new Date(Date.now() + 6e4) } }, { upsert: true });
-    return res.json({ success: true, queued: true, expiresInSeconds: 60 });
+    const rating = await ratingFor(user.userId, config);
+    const existing = await queues.findOne({ userId: user.userId, queue, expiresAt: { $gt: now } });
+    const entry = { userId: user.userId, name: user.username || user.nickname || "Slicer", queue, points: rating.points, season: seasonKey(), createdAt: existing?.createdAt ?? now, expiresAt: new Date(Date.now() + 12e4) };
+    await queues.updateOne({ userId: user.userId }, { $set: entry }, { upsert: true });
+    const match = await pairQueued(entry, config);
+    if (match) return res.json({ success: true, match: publicMatch(match, user.userId) });
+    return res.json({ success: true, queued: true, expiresInSeconds: 120 });
   } catch (error2) {
     console.error(error2);
     routerError(res, 503, "Matchmaking is unavailable.");
@@ -4616,6 +4763,27 @@ pvpRouter.post("/challenge/:id/accept", async (req2, res) => {
     routerError(res, 503, "Could not start the friend match.");
   }
 });
+pvpRouter.post("/match/:id/cancel-draft", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!user) return routerError(res, 401, "Sign in first.");
+  try {
+    const matches = await getCollection("pvp_matches");
+    const match = await matches.findOne({ id: req2.params.id, status: "draft", "players.userId": user.userId });
+    if (!match) return routerError(res, 409, "Draft already ended. Refresh the match.");
+    const revision = match.revision;
+    match.status = "complete";
+    match.resultReason = "draft-cancelled";
+    match.settled = true;
+    delete match.activePlayers;
+    match.revision++;
+    const saved = await matches.replaceOne({ id: match.id, revision, status: "draft" }, match);
+    if (!saved.modifiedCount) return routerError(res, 409, "Draft changed. Refresh the match.");
+    void publishMatch(match);
+    res.json({ success: true, match: publicMatch(match, user.userId) });
+  } catch {
+    routerError(res, 503, "Could not cancel the draft.");
+  }
+});
 pvpRouter.post("/match/:id/command", async (req2, res) => {
   const user = await resolveRequestUser(req2);
   if (!user) return routerError(res, 401, "Sign in first.");
@@ -4626,9 +4794,10 @@ pvpRouter.post("/match/:id/command", async (req2, res) => {
     const matches = await getCollection("pvp_matches");
     const match = await matches.findOne({ id: req2.params.id, status: "active", "players.userId": user.userId });
     if (!match) return routerError(res, 404, "Active match not found.");
-    const config = await currentPvpConfig();
+    const config = match.balance ?? await currentPvpConfig();
     const priorRevision = match.revision;
     applyPvpCommand(match, user.userId, command, sequence, Date.now(), config);
+    if (match.status === "complete") delete match.activePlayers;
     const result = await matches.replaceOne({ id: match.id, revision: priorRevision, status: "active" }, match);
     if (!result.modifiedCount) return routerError(res, 409, "Match changed. Refresh the board and retry.");
     if (match.status === "complete") await settleMatch(match, config);
@@ -4649,7 +4818,7 @@ pvpRouter.post("/match/:id/veto", async (req2, res) => {
     const match = await matches.findOne({ id: req2.params.id, status: "draft", "players.userId": user.userId });
     if (!match) return routerError(res, 404, "Path draft not found.");
     const priorRevision = match.revision;
-    vetoPvpMap(match, user.userId, mapId, sequence, Date.now(), await currentPvpConfig());
+    vetoPvpMap(match, user.userId, mapId, sequence, Date.now(), match.balance ?? await currentPvpConfig());
     const saved = await matches.replaceOne({ id: match.id, revision: priorRevision, status: "draft" }, match);
     if (!saved.modifiedCount) return routerError(res, 409, "The other player vetoed first. Refresh the path list.");
     void publishMatch(match);
@@ -4689,6 +4858,7 @@ pvpRouter.post("/match/:id/end-test", async (req2, res) => {
     if (!match) return routerError(res, 404, "Active bot test match not found.");
     const priorRevision = match.revision;
     match.status = "complete";
+    delete match.activePlayers;
     match.resultReason = "test-ended";
     match.winnerId = null;
     match.revision++;
@@ -4715,7 +4885,8 @@ pvpRouter.post("/match/:id/connection", async (req2, res) => {
     player.disconnectedAt = player.connected ? null : Date.now();
     player.lastSeenAt = Date.now();
     match.revision++;
-    await matches.replaceOne({ id: match.id }, match);
+    const saved = await matches.replaceOne({ id: match.id, revision: match.revision - 1, status: match.status }, match);
+    if (!saved.modifiedCount) return routerError(res, 409, "Match changed. Retry connection update.");
     void publishMatch(match);
     res.json({ success: true });
   } catch {

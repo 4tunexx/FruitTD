@@ -74,8 +74,8 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
     { id: 'ACHIEVEMENTS', label: 'Achievements', page: 'quests', subtab: 'achievements', icon: Medal },
   ];
   const pvp: HubTab[] = [
-    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpHub(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Arena', 'ARENA'), route('Community', 'SOCIAL')]) },
-    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpHub(root, 'arena'), renderSub: (root) => context(root, 'UNRANKED 1V1', 'Arena siege', 'Quick-match against a player or challenge an accepted friend. No FR loss.', [route('Ranked PvP', 'RANKED'), route('Community', 'SOCIAL')]) },
+    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpHub(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Community', 'SOCIAL')]) },
+    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpHub(root, 'arena'), renderSub: (root) => context(root, 'NORMAL OR RANKED', 'Arena siege', 'Build turrets, upgrade defences, and send attacks. Equal stats, equipped appearances, and the same Rally power. Normal keeps your rank; Ranked changes FR.', [route('Community', 'SOCIAL')]) },
   ];
   return [...simple, ...pvp, ...legacy.map(({ id, label, page, subtab, icon }): HubTab => ({
     id, label, icon,
@@ -95,10 +95,10 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
     renderSub: (root, save: SaveData) => {
       const show = (view: string) => {
         root.replaceChildren();
-        if (view === 'ranks') context(root, 'HISTORY', 'Solo records', 'These are your past solo Ranked scores. Current FR points and PvP results are in Ranked.', [route('Open Ranked PvP', 'RANKED'), route('Profile', 'PROFILE')]);
+        if (view === 'ranks') context(root, 'HISTORY', 'Solo records', 'These are your past solo Ranked scores. Current FR points and PvP results are in Ranked.', [route('Open Arena', 'ARENA'), route('Profile', 'PROFILE')]);
         else if (view === 'badges') context(root, 'CAREER', 'Badges', 'See the marks you have earned from matches and missions.', [route('Achievements', 'ACHIEVEMENTS'), route('Profile', 'PROFILE')]);
         else if (view === 'achievements') context(root, 'CAREER', 'Achievements', `Your ${save.games ?? 0} finished runs count toward combat milestones.`, [route('Missions', 'MISSIONS'), route('Profile', 'PROFILE')]);
-        else context(root, 'FIELD ORDERS', 'Missions', 'Complete the objectives shown on the left and claim available rewards.', [route('Achievements', 'ACHIEVEMENTS'), route('Ranked PvP', 'RANKED')]);
+        else context(root, 'FIELD ORDERS', 'Missions', 'Complete the objectives shown on the left and claim available rewards.', [route('Achievements', 'ACHIEVEMENTS'), route('Arena', 'ARENA')]);
       };
       const tabs = root.closest('.ftd-hub')?.querySelectorAll<HTMLButtonElement>('.quests-subtabs .subtab');
       show(root.closest('.ftd-hub')?.querySelector<HTMLButtonElement>('.quests-subtabs .subtab.is-active')?.dataset.sub || 'missions');

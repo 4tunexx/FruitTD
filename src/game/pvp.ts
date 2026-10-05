@@ -115,9 +115,40 @@ export function calculatePvpRating(points: number, outcome: 'win' | 'tie' | 'los
   return { outcome, base, performance, delta: rating - points, rating, tier: pvpTier(rating, config) };
 }
 
-export interface PvpPlayer { userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; progress: number }> }
-export interface PvpMatch { id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
-export type PvpCommand = { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
+export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_000, damageMultiplier: 1.25 };
+export interface PvpPlayer { hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; progress: number }> }
+export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
+export type PvpCommand = { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
+
+export const PVP_MAX_TOWER_LEVEL = 3;
+export function pvpTowerLevel(level?: number): number { return Math.max(1, Math.min(PVP_MAX_TOWER_LEVEL, Math.floor(level || 1))); }
+export function pvpUpgradeCost(baseCost: number, level = 1): number { return Math.ceil(baseCost * (.6 + .3 * pvpTowerLevel(level))); }
+export function pvpTowerStats(base: PvpConfig['towers'][string], level = 1) {
+  const upgrades = pvpTowerLevel(level) - 1;
+  return { ...base, damage: Math.round(base.damage * (1 + upgrades * .65)), range: base.range + upgrades * .5, cooldownMs: Math.round(base.cooldownMs / (1 + upgrades * .15)) };
+}
+export function pvpSellRefund(baseCost: number, level = 1): number {
+  let spent = baseCost;
+  for (let i = 1; i < pvpTowerLevel(level); i++) spent += pvpUpgradeCost(baseCost, i);
+  return Math.floor(spent * .6);
+}
+
+export function pvpTowerRole(type: string): string {
+  return ({ guillotine: 'Rapid', vortex: 'Slow', laser: 'Pierce', railgun: 'Heavy pierce', sprinkler: 'Splash', blender: 'Close splash' } as Record<string, string>)[type] || 'Defence';
+}
+export function pvpHexDistance(a: number, b: number, width: number): number {
+  const axial = (cell: number) => { const r = Math.floor(cell / width); return { r, q: cell % width - (r - (r & 1)) / 2 }; };
+  const x = axial(a); const y = axial(b); const dq = x.q - y.q; const dr = x.r - y.r;
+  return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
+}
+export function calculateArenaRating(points: number, opponent: number, outcome: 'win' | 'tie' | 'loss', config: PvpConfig = DEFAULT_PVP_CONFIG): PvpRatingResult {
+  const expected = 1 / (1 + 10 ** ((opponent - points) / 400));
+  const actual = outcome === 'win' ? 1 : outcome === 'tie' ? .5 : 0;
+  const change = actual - expected;
+  const delta = Math.round(change * (change >= 0 ? config.rating.win : Math.abs(config.rating.loss)) * 2);
+  const rating = Math.max(0, points + delta);
+  return { outcome, base: delta, performance: 0, delta: rating - points, rating, tier: pvpTier(rating, config) };
+}
 
 export function fruitOnSlash(pathCell: number, width: number, from: { x: number; y: number }, to: { x: number; y: number }): boolean {
   const x = pathCell % width + 0.5;
@@ -151,8 +182,8 @@ export function vetoPvpMap(match: PvpMatch, userId: string, mapId: string, seque
   match.revision++;
   if (match.mapPool.length === 2) {
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]!);
-    match.status = 'active'; match.endsAt = now + config.durationSeconds * 1000;
-    match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = config.startingFruts; });
+    match.status = 'active'; match.nextWaveAt = now + 15_000; match.neutralWave = 0; match.endsAt = now + config.durationSeconds * 1000;
+    match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = config.startingFruts; item.rallyReadyAt = now + PVP_RALLY.openingMs; });
   } else match.vetoTurn = match.players.find((item) => item.userId !== userId)!.userId;
   return match;
 }
@@ -164,7 +195,10 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
   if (!player) throw new Error('Player is not in this match');
   if (sequence !== player.sequence + 1) throw new Error('Invalid or replayed command sequence');
   if (!player.connected) throw new Error('Player is disconnected');
-  if (command.type === 'build') {
+  if (command.type === 'rally') {
+    if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error('Rally is cooling down');
+    player.rallyUntil = now + PVP_RALLY.durationMs; player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
+  } else if (command.type === 'build') {
     const tower = config.towers[command.tower];
     const map = match.map ?? config.map;
     const mapSize = map.width * map.height;
@@ -172,7 +206,24 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error('Build cell is occupied');
     if (player.fruts < tower.cost) throw new Error('Not enough match Fruts');
     player.fruts -= tower.cost;
-    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now });
+    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now, level: 1 });
+  } else if (command.type === 'upgrade' || command.type === 'sell') {
+    const tower = player.towers.find(item => item.id === command.towerId);
+    if (!tower || !config.towers[tower.type]) throw new Error('Select one of your towers');
+    const base = config.towers[tower.type]!;
+    const level = pvpTowerLevel(tower.level);
+    if (command.type === 'upgrade') {
+      if (level >= PVP_MAX_TOWER_LEVEL) throw new Error('Tower is fully upgraded');
+      const cost = pvpUpgradeCost(base.cost, level);
+      if (player.fruts < cost) throw new Error('Not enough match Fruts');
+      player.fruts -= cost; tower.level = level + 1;
+    } else {
+      player.fruts += pvpSellRefund(base.cost, level);
+      player.towers = player.towers.filter(item => item !== tower);
+    }
+  } else if (command.type === 'surrender') {
+    match.status = 'complete'; match.resultReason = 'surrender';
+    match.winnerId = match.players.find(item => item !== player)!.userId;
   } else if (command.type === 'send') {
     const attack = config.attacks[command.enemy];
     if (!attack) throw new Error('Invalid fruit-zombie type');
@@ -183,22 +234,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     player.fruts -= attack.cost;
     for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, progress: -i * .8 });
   } else if (command.type === 'slash') {
-    const map = match.map ?? config.map;
-    const validPoint = (point: { x: number; y: number } | undefined) => point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= map.width && point.y >= 0 && point.y <= map.height;
-    if (!validPoint(command.from) || !validPoint(command.to) || Math.hypot(command.to.x - command.from.x, command.to.y - command.from.y) < 0.5) throw new Error('Invalid blade stroke');
-    if (player.lastStroke && now - player.lastStroke.at < 100) throw new Error('Blade is recovering');
-    player.lastStroke = { from: { ...command.from }, to: { ...command.to }, at: now };
-    const killed = player.attackers.filter((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1 &&
-      fruitOnSlash(map.pathCells[Math.floor(item.progress)]!, map.width, command.from, command.to)).slice(0, 8);
-    const ids = new Set(killed.map((item) => item.id));
-    player.attackers = player.attackers.filter((item) => !ids.has(item.id));
-    player.score += killed.length * 10;
-    player.fruts += killed.reduce((sum, item) => sum + config.attacks[item.type]!.rewardFruts, 0);
-    player.currentCombo = !killed.length ? 0 : player.lastSlashAt !== null && now - player.lastSlashAt <= 1500 ? player.currentCombo + 1 : 1;
-    player.lastSlashAt = killed.length ? now : null;
-    player.maxCombo = Math.max(player.maxCombo, player.currentCombo);
-    player.maxSingleSlashKills = Math.max(player.maxSingleSlashKills, killed.length);
-    for (const step of config.rating.combo) if (player.currentCombo >= step.at && !player.comboMilestones.includes(step.at)) player.comboMilestones.push(step.at);
+    throw new Error('Slicing is disabled in Arena. Build towers to defend.');
   } else throw new Error('Unknown match action');
   player.sequence = sequence;
   player.lastSeenAt = now;
@@ -211,22 +247,43 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;
   const path = map.pathCells;
+  if (match.nextWaveAt !== undefined && now >= match.nextWaveAt) {
+    match.neutralWave = (match.neutralWave || 0) + 1;
+    const waveTypes = ['normal', 'swift', 'armored', 'explosive'].filter(type => config.attacks[type]);
+    const type = match.neutralWave >= 3 ? waveTypes[match.neutralWave % waveTypes.length]! : 'normal';
+    const health = config.attacks[type]!.health * (1 + match.neutralWave * .15);
+    for (const player of match.players) {
+      const count = Math.min(4, 1 + Math.floor(match.neutralWave / 3));
+      for (let i = 0; i < count && player.attackers.length < 128; i++) player.attackers.push({ id: `wave:${match.neutralWave}:${player.userId}:${i}`, type, hp: health, progress: -i * .8 });
+    }
+    match.nextWaveAt = now + 15_000;
+  }
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
-    for (const attacker of player.attackers) attacker.progress += config.attacks[attacker.type]!.speed * dt;
-    const shoot = (cell: number, stats: { damage: number; range: number; cooldownMs: number }, lastFiredAt: number) => {
+    for (const attacker of player.attackers) {
+      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))]!;
+      const slowed = player.towers.some(tower => tower.type === 'vortex' && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex!, tower.level).range);
+      attacker.progress += config.attacks[attacker.type]!.speed * dt * Math.max(1, (path.length - 1) / 13) * (slowed ? .6 : 1);
+    }
+    const shoot = (cell: number, stats: { damage: number; range: number; cooldownMs: number }, lastFiredAt: number, type = 'main') => {
       if (now - lastFiredAt < stats.cooldownMs) return false;
       const target = [...player.attackers].filter((attacker) => {
         const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))]!;
-        return attacker.progress >= 0 && attacker.hp > 0 && Math.abs(pathCell % map.width - cell % map.width) + Math.abs(Math.floor(pathCell / map.width) - Math.floor(cell / map.width)) <= stats.range;
+        return attacker.progress >= 0 && attacker.hp > 0 && pvpHexDistance(pathCell, cell, map.width) <= stats.range;
       }).sort((a, b) => b.progress - a.progress)[0];
       if (!target) return false;
-      target.hp -= stats.damage;
+      const hit = (attacker: typeof target, mul = 1) => { attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === 'armored' && type !== 'laser' && type !== 'railgun' ? .55 : 1)); };
+      hit(target);
+      if (type === 'sprinkler' || type === 'blender') {
+        const targetCell = path[Math.floor(Math.max(0, Math.min(path.length - 1, target.progress)))]!;
+        const nearby = player.attackers.filter(item => item !== target && item.hp > 0 && item.progress >= 0 && pvpHexDistance(path[Math.floor(Math.min(path.length - 1, item.progress))]!, targetCell, map.width) <= 1).slice(0, type === 'blender' ? 3 : 2);
+        for (const item of nearby) hit(item, type === 'blender' ? 1 : .65);
+      }
       return true;
     };
     for (const tower of player.towers) {
       const stats = config.towers[tower.type];
-      if (stats && shoot(tower.cell, stats, tower.lastFiredAt ?? tower.placedAt)) tower.lastFiredAt = now;
+      if (stats && shoot(tower.cell, pvpTowerStats(stats, tower.level), tower.lastFiredAt ?? tower.placedAt, tower.type)) tower.lastFiredAt = now;
     }
     if (shoot(path.at(-1)!, config.mainTower, player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
     for (const attacker of [...player.attackers]) {
@@ -243,7 +300,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
     }
   }
   const dead = match.players.find((player) => player.wallHealth <= 0);
-  if (dead) { match.status = 'complete'; match.winnerId = match.players.find((player) => player !== dead)!.userId; match.resultReason = 'wall'; }
+  if (dead) { match.status = 'complete'; match.winnerId = match.players.every(player => player.wallHealth <= 0) ? null : match.players.find((player) => player !== dead)!.userId; match.resultReason = 'wall'; }
   else if (match.players.some((player) => player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1000)) {
     for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1000) { player.connected = false; player.disconnectedAt = player.lastSeenAt; }
     const forfeiter = match.players.find((player) => !player.connected);
@@ -253,7 +310,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
   } else if (now >= match.endsAt) {
     match.status = 'complete'; match.resultReason = 'timeout';
     const [a, b] = match.players;
-    match.winnerId = a.wallHealth === b.wallHealth ? (a.score === b.score ? null : a.score > b.score ? a.userId : b.userId) : a.wallHealth > b.wallHealth ? a.userId : b.userId;
+    match.winnerId = a.wallHealth === b.wallHealth ? null : a.wallHealth > b.wallHealth ? a.userId : b.userId;
   }
   match.revision++;
   return match;

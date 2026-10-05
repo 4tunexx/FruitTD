@@ -24,13 +24,13 @@ describe('admin PvP bot', () => {
     assert.equal(game.players[1]!.sequence, 2);
   });
 
-  it('slices only incoming fruit on its own lane', () => {
+  it('defends its own incoming lane with a turret and never slices', () => {
     const game = match();
     game.players[1]!.attackers.push({ id: 'fruit', type: 'normal', hp: 100, progress: 3 });
-    assert.equal(choosePvpBotCommand(game, 'bot', config)?.type, 'slash');
+    assert.equal(choosePvpBotCommand(game, 'bot', config)?.type, 'build');
     playPvpBotTurn(game, 'bot', 2_000, config);
-    assert.equal(game.players[1]!.attackers.length, 0);
-    assert.equal(game.players[1]!.score, 10);
+    assert.equal(game.players[1]!.towers.length, 1);
+    assert.equal(game.players[1]!.attackers.length, 1);
   });
 
   it('stops when the match ends', () => {

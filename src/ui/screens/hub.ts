@@ -26,7 +26,7 @@ import { openScreen, back, home } from './registry';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
-import { rankFromScore } from '../../game/requirements';
+import { bindArenaRating } from '../../services/pvpRating';
 import type { SaveData } from '../../game/save';
 import { navigation, type NavState } from '../../game/navigation';
 import { getAuthToken } from '../../services/auth';
@@ -92,7 +92,6 @@ function updateCurrency(currency: HTMLElement, save: SaveData): void {
 function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
 
   const logo = el('button', {
     class: 'ftd-hub-logo',
@@ -115,12 +114,13 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('div', { class: 'ftd-hub-identity__text' }, [
       el('p', { class: 'ftd-hub-identity__name', text: save.nickname || 'Slicer' }),
       el('p', { class: 'ftd-hub-identity__meta' }, [
-        el('span', { class: 'ftd-hub-identity__rank', text: rank.title }),
+        el('span', { class: 'ftd-hub-identity__rank', text: 'Unranked' }),
         el('span', { class: 'ftd-hub-identity__sep', text: '·' }),
         el('span', { class: 'ftd-hub-identity__hero-level', text: `${hero.name} Lv ${xp.level}` }),
       ]),
     ]),
   ]);
+  bindArenaRating(identity.querySelector<HTMLElement>('.ftd-hub-identity__rank'));
   identity.addEventListener('click', () => openScreen('PROFILE'));
 
   const currency = buildCurrency(save);
@@ -160,7 +160,6 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
 function syncHeader(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
   const avatar = root.querySelector<HTMLImageElement>('.ftd-hub-identity__avatar');
   if (avatar) {
     avatar.src = save.avatar || '';
@@ -171,7 +170,7 @@ function syncHeader(root: HTMLElement, save: SaveData): void {
   const identity = root.querySelector<HTMLElement>('.ftd-hub-identity');
   identity?.setAttribute('aria-label', `Open ${save.nickname || 'Slicer'} profile`);
   const rankLabel = root.querySelector('.ftd-hub-identity__rank');
-  if (rankLabel) rankLabel.textContent = rank.title;
+  bindArenaRating(rankLabel as HTMLElement | null);
   const heroLevel = root.querySelector('.ftd-hub-identity__hero-level');
   if (heroLevel) heroLevel.textContent = `${hero.name} Lv ${xp.level}`;
   const currency = root.querySelector('.ftd-hub-currency');
@@ -210,6 +209,7 @@ function buildFooter(active: NavState): HTMLElement {
  * so moving between tabs feels directional rather than a flat crossfade.
  */
 function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'forward' | 'back' | 'none'): void {
+  root.classList.remove('is-pvp-battle');
   const mainHost = root.querySelector('.ftd-hub__main') as HTMLElement | null;
   const subHost = root.querySelector('.ftd-hub__sub') as HTMLElement | null;
   if (!mainHost) return;

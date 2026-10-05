@@ -70,6 +70,7 @@ export class StubElement {
     return this.text;
   }
   set textContent(v: string) {
+    this.children.forEach(node => { node.parentElement = null; });
     this.children = [];
     this.text = v;
   }
@@ -119,9 +120,19 @@ export class StubElement {
     delete this.attributes[name];
   }
   appendChild(node: StubElement) {
+    node.parentElement?.removeChild(node);
     node.parentElement = this;
     this.children.push(node);
     return node;
+  }
+  append(...nodes: StubElement[]) { nodes.forEach(node => this.appendChild(node)); }
+  get isConnected(): boolean {
+    let node: StubElement | null = this;
+    while (node) {
+      if (node === (globalThis as any).document?.body || node === (globalThis as any).document?.head) return true;
+      node = node.parentElement;
+    }
+    return false;
   }
   get firstChild(): StubElement | null {
     return this.children[0] ?? null;
@@ -142,6 +153,7 @@ export class StubElement {
     }
   }
   replaceChildren(...nodes: StubElement[]) {
+    this.children.forEach(node => { node.parentElement = null; });
     this.children = [];
     this.text = '';
     nodes.forEach((n) => this.appendChild(n));

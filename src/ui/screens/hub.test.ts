@@ -111,8 +111,8 @@ test('home offers local modes and one Co-op path while PvP uses its own destinat
   root.querySelector<HTMLButtonElement>('[data-testid="campaign-open"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="mode-coop"]')!.click();
   assert.deepEqual(selected, ['casual', 'horde', 'campaign-map']);
-  assert.equal(root.querySelectorAll('[data-testid="mode-ranked"], [data-testid="mode-arena"]').length, 2, 'Arena and Ranked are available as dedicated PvP destinations');
-  assert.match(root.textContent!, /Ranked PvP/);
+  assert.equal(root.querySelectorAll('[data-testid="mode-ranked"], [data-testid="mode-arena"]').length, 1, 'One Arena destination offers Normal and Ranked queues');
+  assert.match(root.textContent!, /Normal or Ranked/);
   assert.match(root.textContent!, /Arena PvP/);
   assert.equal(root.querySelectorAll('[data-testid="mode-coop"]').length, 1);
   const playCard = root.querySelector('.ftd-playcard');
@@ -531,7 +531,7 @@ test('Co-op, Arena and Ranked buttons open their own lobby destinations', () => 
   installScreenRouter();
   registerHubTab(homeHubTab(() => undefined));
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay() {} });
-  for (const [button, destination] of [['mode-coop', 'CO_OP'], ['mode-arena', 'ARENA'], ['mode-ranked', 'RANKED']] as const) {
+  for (const [button, destination] of [['mode-coop', 'CO_OP'], ['mode-arena', 'ARENA']] as const) {
     navigation.reset('MAIN_MENU');
     root.querySelector<HTMLButtonElement>(`[data-testid="${button}"]`)!.click();
     assert.equal(navigation.state, destination);

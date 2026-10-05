@@ -1,4 +1,4 @@
-import { applyPvpCommand, fruitOnSlash, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
+import { applyPvpCommand, pvpUpgradeCost, pvpTowerLevel, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
 
 /** Runs the test opponent through the same validated commands as a human player. */
 export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: PvpConfig): PvpCommand | null {
@@ -6,15 +6,6 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
   const map = match.map;
-  const fruit = bot.attackers.find((item) => item.progress >= 0.25 && item.progress < map.pathCells.length - 1);
-  if (fruit) {
-    const cell = map.pathCells[Math.max(0, Math.floor(fruit.progress))]!;
-    const x = cell % map.width + 0.5;
-    const y = Math.floor(cell / map.width) + 0.5;
-    const from = { x: Math.max(0, x - 0.85), y };
-    const to = { x: Math.min(map.width, x + 0.85), y };
-    if (fruitOnSlash(cell, map.width, from, to)) return { type: 'slash', from, to };
-  }
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)]!;
@@ -26,6 +17,8 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
     });
     if (cells.length) return { type: 'build', tower: type, cell: cells[0]! };
   }
+  const upgrade = bot.towers.find(tower => pvpTowerLevel(tower.level) < 3 && bot.fruts >= pvpUpgradeCost(config.towers[tower.type]!.cost, pvpTowerLevel(tower.level)));
+  if (upgrade && bot.attackers.length >= 2) return { type: 'upgrade', towerId: upgrade.id };
   const attacks = Object.entries(config.attacks).filter(([, stats]) => bot.fruts >= stats.cost);
   if (attacks.length) {
     const index = Math.min(Math.floor(bot.sequence / 3) % attacks.length, attacks.length - 1);

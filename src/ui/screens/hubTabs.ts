@@ -1,3 +1,4 @@
+import { bindArenaRating } from '../../services/pvpRating';
 /**
  * Hub tab adapters — one per destination in the footer tab bar.
  *
@@ -30,7 +31,7 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { getTowerXpState } from '../../game/towerProgression';
-import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/requirements';
+import { currentSeasonLabel } from '../../game/requirements';
 import { Backpack, Home, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
 import { getTowerXpState as getMainTowerXpState } from '../../game/towerProgression';
 import type { SaveData } from '../../game/save';
@@ -403,7 +404,7 @@ function profileMain(getStats: () => ProfileStats) {
     const grid = el('div', { class: 'ftd-stat-grid' }, [
       statCard('Highest wave', String(save.bestWave ?? 1)),
       statCard('Highest score', (save.highScore ?? 0).toLocaleString()),
-      statCard('Ranked score', (save.rankedScore ?? 0).toLocaleString()),
+      statCard('Ranked Arena', 'Loading rank…'),
       statCard('Games played', String(save.games ?? 0)),
       statCard('Best combo', stats.bestCombo ? `×${stats.bestCombo}` : '—'),
       statCard('Coins', (save.coins ?? 0).toLocaleString()),
@@ -411,6 +412,8 @@ function profileMain(getStats: () => ProfileStats) {
       statCard('Season', stats.season ?? currentSeasonLabel()),
     ]);
     root.appendChild(grid);
+    const rankCard = grid.children[2]?.querySelector<HTMLElement>('.ftd-stat__value');
+    bindArenaRating(rankCard);
     root.appendChild(
       el('div', { class: 'ftd-profile-actions' }, [
         GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
@@ -428,24 +431,22 @@ function profileSub(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const heroXp = getHeroXpState(save, save.hero);
   const tower = getTowerXpState();
-  const best = save.rankedScore || save.highScore || 0;
-  const rank = rankFromScore(best);
-  const nextRank = DEFAULT_RANK_TIERS.filter((t) => t.minScore > best).sort((a, b) => a.minScore - b.minScore)[0];
 
   const banner = el('div', { class: 'ftd-profile-banner' }, [
     el('img', { class: 'ftd-profile-banner__avatar', src: save.avatar || '', alt: `${save.nickname || 'Slicer'} avatar` }),
     el('div', { class: 'ftd-profile-banner__text' }, [
       el('h2', { class: 'ftd-profile-banner__name', text: save.nickname || 'Slicer' }),
       el('div', { class: 'ftd-profile-banner__badges' }, [
-        el('span', { class: 'ftd-profile-rank', text: rank.title }),
+        el('span', { class: 'ftd-profile-rank', text: 'Unranked' }),
         el('span', { class: 'ftd-profile-hero', text: `Main · ${hero.name}` }),
       ]),
-      ...(nextRank
-        ? [el('p', { class: 'ftd-profile-banner__next', text: `${(nextRank.minScore - best).toLocaleString()} score to ${nextRank.title}` })]
-        : [el('p', { class: 'ftd-profile-banner__next', text: 'Top rank reached' })]),
+      el('p', { class: 'ftd-profile-banner__next', text: 'Ranked Arena rating' }),
+      el('p', { class: 'ftd-profile-banner__record' }),
     ]),
   ]);
-  banner.style.setProperty('--rank-color', rank.color);
+  bindArenaRating(banner.querySelector<HTMLElement>('.ftd-profile-rank'));
+  bindArenaRating(banner.querySelector<HTMLElement>('.ftd-profile-banner__next'), 'progress');
+  bindArenaRating(banner.querySelector<HTMLElement>('.ftd-profile-banner__record'), 'record');
   root.appendChild(banner);
 
   root.appendChild(
@@ -536,10 +537,8 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
     const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op' }), el('small', { text: 'Online teammates · local play available' })]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
-    const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Real-time 1v1 · quick match' })]);
+    const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Tower siege · Normal or Ranked' })]);
     arena.addEventListener('click', () => openScreen('ARENA')); grid.appendChild(arena);
-    const ranked = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-ranked' }, [el('strong', { text: 'Ranked PvP' }), el('small', { text: 'Seasonal FR point ladder' })]);
-    ranked.addEventListener('click', () => openScreen('RANKED')); grid.appendChild(ranked);
     root.appendChild(el('div', { class: 'ftd-playcard' }, [playContent, modes]));
   };
 }
@@ -548,7 +547,6 @@ function homeSub(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
   const tower = getMainTowerXpState();
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
 
   root.appendChild(
     el('aside', { class: 'ftd-loadout' }, [
@@ -563,7 +561,7 @@ function homeSub(root: HTMLElement, save: SaveData): void {
       el('p', { class: 'ftd-loadout__tower', text: `Main Tower · Lv ${tower.level}` }),
       GameButton({ label: 'Change hero', variant: 'outline', size: 'sm', block: true, onClick: () => openScreen('HEROES') }),
       el('div', { class: 'ftd-loadout__career', 'aria-label': 'Career progression' }, [
-        el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'RANK' }), el('strong', { text: rank.title })]),
+        el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'RANKED ARENA' }), el('strong', { class: 'ftd-loadout__rank', text: 'Unranked' })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'BEST WAVE' }), el('strong', { text: String(save.bestWave) })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'HIGH SCORE' }), el('strong', { text: save.highScore.toLocaleString() })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'MATCHES' }), el('strong', { text: String(save.games) })]),
@@ -571,6 +569,7 @@ function homeSub(root: HTMLElement, save: SaveData): void {
       missionProgressPanel(),
     ]),
   );
+  bindArenaRating(root.querySelector<HTMLElement>('.ftd-loadout__rank'));
 }
 
 function missionProgressPanel(): HTMLElement {

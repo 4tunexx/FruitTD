@@ -427,8 +427,8 @@ export const DEFAULT_ACHIEVEMENTS: CatalogAchievement[] = [
   { id: 'horde_wave_50', title: 'Horde Holdout', desc: 'Reach wave 50 in Horde', icon: 'UsersRound', enabled: true, requirement: req('wave_reach', 50, { mode: 'horde' }), rewardCoins: 1500, rewardSp: 3, rewardGems: 15, rewardBadge: 'horde-veteran' },
   { id: 'pvp_first_win', title: 'First Siege', desc: 'Win your first server-verified PvP siege', icon: 'Swords', enabled: true, requirement: req('pvp_win', 1), rewardCoins: 200, rewardSp: 0, rewardGems: 2, rewardBadge: 'pvp-first-win' },
   { id: 'pvp_ten_wins', title: 'Wallbreaker', desc: 'Win ten server-verified PvP sieges', icon: 'ShieldCheck', enabled: true, requirement: req('pvp_win', 10), rewardCoins: 800, rewardSp: 0, rewardGems: 10, rewardBadge: 'pvp-wallbreaker' },
-  { id: 'pvp_combo_50', title: 'Fruit Storm', desc: 'Reach a 50-slice combo in a PvP siege', icon: 'Zap', enabled: true, requirement: req('pvp_combo', 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
-  { id: 'pvp_multislice_5', title: 'Five-Fruit Cut', desc: 'Slice five fruit-zombies with one server-verified cut', icon: 'Sword', enabled: true, requirement: req('pvp_multislice', 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 },
+  { id: 'pvp_combo_50', title: 'Fruit Storm', desc: 'Reach a 50-slice combo in a PvP siege', icon: 'Zap', enabled: false, requirement: req('pvp_combo', 50), rewardCoins: 500, rewardSp: 0, rewardGems: 5 },
+  { id: 'pvp_multislice_5', title: 'Five-Fruit Cut', desc: 'Slice five fruit-zombies with one server-verified cut', icon: 'Sword', enabled: false, requirement: req('pvp_multislice', 5), rewardCoins: 350, rewardSp: 0, rewardGems: 3 },
 ];
 
 export const DEFAULT_BADGES: CatalogBadge[] = [

@@ -9,11 +9,11 @@
 import { el, clear } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { openScreen } from './registry';
-import { createElement, Backpack, Coins, Gem, Medal, ScrollText, ShoppingCart, Swords, Trophy, UserRound, UsersRound } from 'lucide';
+import { createElement, Backpack, Coins, Gem, Medal, ScrollText, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef, MAX_HERO_LEVEL } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
-import { rankFromScore } from '../../game/requirements';
+import { bindArenaRating } from '../../services/pvpRating';
 import { getTowerXpState } from '../../game/towerProgression';
 import type { SaveData } from '../../game/save';
 import type { NavState } from '../../game/navigation';
@@ -39,7 +39,6 @@ const DESTINATIONS: MenuDestination[] = [
   { id: 'SHOP', label: 'Shop', icon: ShoppingCart, hint: 'Blades & walls' },
   { id: 'MISSIONS', label: 'Missions', icon: ScrollText, hint: 'Daily rewards' },
   { id: 'ACHIEVEMENTS', label: 'Achievements', icon: Medal, hint: 'Career marks' },
-  { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, hint: 'Climb the FR ladder' },
   { id: 'CO_OP', label: 'Co-op', icon: UsersRound, hint: 'Defend together' },
   { id: 'PROFILE', label: 'Profile', icon: UserRound, hint: 'Your record' },
 ];
@@ -54,7 +53,7 @@ function icon(node: typeof Swords, className: string): HTMLElement | SVGElement 
 export function playerIdentity(save: SaveData): HTMLElement {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
+  const rankBadge = el('span', { class: 'ftd-identity__rank' }); bindArenaRating(rankBadge);
 
   const avatar = el('img', {
     class: 'ftd-identity__avatar',
@@ -67,7 +66,7 @@ export function playerIdentity(save: SaveData): HTMLElement {
     el('div', { class: 'ftd-identity__text' }, [
       el('p', { class: 'ftd-identity__name', text: save.nickname || 'Slicer' }),
       el('p', { class: 'ftd-identity__meta' }, [
-        el('span', { class: 'ftd-identity__rank', text: rank.title }),
+        rankBadge,
         el('span', { class: 'ftd-identity__sep', text: '·' }),
         el('span', { text: `${hero.name} Lv ${xp.level}` }),
       ]),
@@ -90,7 +89,7 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
   const tower = getTowerXpState();
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
+  const rankBadge = el('span', { class: 'ftd-identity__rank' }); bindArenaRating(rankBadge);
 
   // ── Top bar: identity + small utilities ──
   root.appendChild(
@@ -175,7 +174,7 @@ export function renderMainMenu(root: HTMLElement, save: SaveData, cb: MainMenuCa
       el('div', { class: 'ftd-loadout__career', 'aria-label': 'Career progression' }, [
         el('div', { class: 'ftd-loadout__stat' }, [
           el('span', { text: 'RANK' }),
-          el('strong', { text: rank.title }),
+          rankBadge,
         ]),
         el('div', { class: 'ftd-loadout__stat' }, [
           el('span', { text: 'BEST WAVE' }),
