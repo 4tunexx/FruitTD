@@ -113,11 +113,13 @@ test('hub keeps launch beside the map after moving boss intel to its side panel'
   const sub = root.querySelector('.ftd-hub__sub')!;
   assert.ok(main.querySelector('[data-testid="campaign-start-stage"]'));
   assert.ok(sub.querySelector('.ftd-boss-reveal'));
+  assert.equal(root.querySelectorAll('[data-testid="campaign-start-stage"]').length, 1);
+  assert.equal(root.querySelector('.ftd-campaign__portal'), null);
   assert.equal(sub.querySelector('[data-testid="campaign-start-stage"]'), null);
   Array.from(main.querySelectorAll<HTMLButtonElement>('.ftd-stage')).find(stage => stage.getAttribute('aria-label') === 'Stage 1, cleared')!.click();
   const launch = main.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')!;
   assert.match(launch.textContent || '', /REPLAY STAGE/);
-  root.querySelector<HTMLButtonElement>('.ftd-hub-launch')!.click();
-  assert.deepEqual(starts, [1], 'pinned launch starts the selected stage without scrolling boss intel');
+  launch.click();
+  assert.deepEqual(starts, [1], 'the single stage launch starts the selected stage');
   resetHub();
 });

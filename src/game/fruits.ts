@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, Vector3 } from 'three';
+import { BackSide, BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
 import { ARENA_D, ARENA_W, LEAK_Z } from './world';
 import { modeRules } from './modes';
@@ -41,7 +41,7 @@ export const FRUIT_DEFS: Record<FruitKind, FruitDef> = {
 export function fruitFamily(kind: FruitKind): FruitFamily { return FRUIT_DEFS[kind].family; }
 
 export interface Fruit {
-  alive: boolean; kind: FruitKind; enemyKind: EnemyKind; radius: number; group: Group; body: Mesh; hpBar: Mesh; hpBack: Mesh;
+  alive: boolean; kind: FruitKind; enemyKind: EnemyKind; radius: number; group: Group; body: Mesh; outline: Mesh; hpBar: Mesh; hpBack: Mesh;
   hazardRing: Mesh; armorRing: Mesh;
   squash: number; vel: Vector3; spin: Vector3; bob: number; hp: number; maxHp: number; dodgeX: number; dodgeZ: number;
   brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
@@ -65,8 +65,8 @@ function layoutHp(fruit: Fruit, t: number): void {
   const barW = fruit.boss ? 2.3 / s : 1.05 / s;
   const barH = fruit.boss ? 0.17 / s : 0.11 / s;
   // Full ordinary bars fill the battlefield without conveying a decision.
-  // Reveal the bar on damage; bosses retain their own always-on meter.
-  fruit.hpBack.visible = fruit.hpBar.visible = fruit.boss || t < 0.999;
+  // Reveal ordinary bars on damage; bosses use the single HUD meter.
+  fruit.hpBack.visible = fruit.hpBar.visible = !fruit.boss && t < 0.999;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, 1);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);
@@ -85,6 +85,9 @@ function layoutHp(fruit: Fruit, t: number): void {
 
 function makeFruit(): Fruit {
   const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff }));
+  const outline = new Mesh(BODY_GEO, new MeshBasicMaterial({ color: 0x080b07, side: BackSide }));
+  outline.scale.setScalar(1.075);
+  outline.visible = false;
   const hpBackMat = new MeshBasicMaterial({ color: 0x140f0c, depthWrite: false, depthTest: false });
   const hpBack = new Mesh(BAR_GEO, hpBackMat);
   const hpBar = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x8eea4e, depthWrite: false, depthTest: false }));
@@ -103,10 +106,10 @@ function makeFruit(): Fruit {
   armorRing.visible = false;
 
   const group = new Group();
-  group.add(body, hpBack, hpBar, hazardRing, armorRing);
+  group.add(outline, body, hpBack, hpBar, hazardRing, armorRing);
   group.visible = false;
   return {
-    alive: false, kind: 'lemon', enemyKind: 'normal', radius: 0.5, group, body, hpBar, hpBack,
+    alive: false, kind: 'lemon', enemyKind: 'normal', radius: 0.5, group, body, outline, hpBar, hpBack,
     hazardRing, armorRing,
     vel: new Vector3(), spin: new Vector3(), bob: 0, hp: 1, maxHp: 1, dodgeX: 0, dodgeZ: 0,
     brittle: 0, impulseX: 0, impulseZ: 0, squash: 0, boss: false, volatileTriggered: false, bossEnraged: false, splitChild: false,
@@ -238,6 +241,7 @@ export class FruitField {
     else if (gate === 3) { x = -ARENA_W / 2 + 0.4; z = 1.5 + Math.random() * 4.5; }
     else { x = ARENA_W / 2 - 0.4; z = 1.5 + Math.random() * 4.5; }
 
+    idle.outline.visible = boss;
     idle.alive = true; idle.kind = kind; idle.enemyKind = enemyKind; idle.boss = boss;
     idle.radius = def.radius * (boss ? 1.05 : 0.62);
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
@@ -398,6 +402,8 @@ export class FruitField {
       }
 
       layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
+      fruit.outline.scale.copy(fruit.body.scale).multiplyScalar(1.075);
+      fruit.outline.rotation.copy(fruit.body.rotation);
       applyStudioTexture(fruit, dt, moveX, moveZ);
     }
   }

@@ -26,6 +26,7 @@ function createMockFruit(kind: FruitKind, x: number, y: number, z: number): Frui
     radius: def.radius * 0.62,
     group,
     body,
+    outline: new Mesh(new SphereGeometry(1), new MeshBasicMaterial()),
     hpBar,
     hpBack,
     hazardRing,

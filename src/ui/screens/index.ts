@@ -116,7 +116,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
   registerHubTab(heroesHubTab({ onEquip: cb.onEquipHero, onBuy: cb.onBuyHero }));
   registerHubTab(inventoryHubTab({ onEquip: cb.onEquipItem, onUnequip: cb.onUnequipItem, onSell: cb.onSellItem }));
   registerHubTab(shopHubTab({ onBuy: cb.onBuyItem }));
-  registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}, cb.onPlay));
+  registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}));
   registerHubTab(coopHubTab(() => { cb.onSelectMode?.('coop'); cb.onPlay(); }));
   for (const tab of menuHubTabs({
     onOpenDaily: cb.onOpenDaily,

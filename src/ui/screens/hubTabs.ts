@@ -393,7 +393,7 @@ function statCard(label: string, value: string, hint?: string): HTMLElement {
   ]);
 }
 
-function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
+function profileMain(getStats: () => ProfileStats) {
   return (root: HTMLElement, save: SaveData) => {
     const stats = getStats();
     root.appendChild(el('div', { class: 'ftd-hub-catalog-heading' }, [
@@ -413,7 +413,6 @@ function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
     root.appendChild(grid);
     root.appendChild(
       el('div', { class: 'ftd-profile-actions' }, [
-        ...(onPlay ? [GameButton({ label: 'Play now', tone: 'primary', size: 'lg', onClick: onPlay })] : []),
         GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
         GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
@@ -465,12 +464,12 @@ function profileSub(root: HTMLElement, save: SaveData): void {
   );
 }
 
-export function profileHubTab(getStats: () => ProfileStats, onPlay?: () => void): HubTab {
+export function profileHubTab(getStats: () => ProfileStats): HubTab {
   return {
     id: 'PROFILE',
     label: 'Profile',
     icon: UserRound,
-    renderMain: profileMain(getStats, onPlay),
+    renderMain: profileMain(getStats),
     renderSub: profileSub,
   };
 }

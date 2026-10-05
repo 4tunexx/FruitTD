@@ -1,3 +1,4 @@
+import { finishCampaignAttempt } from './game/campaignAttempt';
 import { Vector3 } from 'three';
 import './style.css';
 import { Sfx } from './audio/sfx';
@@ -30,7 +31,7 @@ import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './
 import { planWave, planBossWave, wavesPerLevel } from './game/waves';
 import { fruitLoot, frutsForEvent } from './game/matchEconomy';
 import { detonatePulpPopper } from './game/chainBurst';
-import { campaignBoss, campaignWaves, completeCampaignStage, sanitizeCampaignProgress } from './game/campaign';
+import { campaignBoss, campaignWaves, sanitizeCampaignProgress } from './game/campaign';
 import { BladeTrail } from './game/trail';
 import { StrokeContacts } from './game/strokeContacts';
 import { installCombatDiagnostics } from './game/combatDiagnostics';
@@ -697,6 +698,7 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
 }
 
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): void {
+  if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   debris.spawnPair(fruit, swipe, cutNormal);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
@@ -768,6 +770,10 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   }
   emit({ type: 'slash_damage', damage: Math.max(1, FRUIT_DEFS[fruit.kind].hp), score: scoreReward });
   emit({ type: 'juice', amount: juiceAmt });
+  if (fruit.boss && state.mode === 'campaign') {
+    finishCampaignStage();
+    return;
+  }
   if (fruit.enemyKind === 'chainburst' && chainDepth < 3) {
     const x = fruit.group.position.x;
     const z = fruit.group.position.z;
@@ -778,6 +784,30 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
     sfx.bombExplode();
     detonatePulpPopper(fruits, fruit, (other) => killFruit(other, swipe, 1.1, chainDepth + 1));
   }
+}
+
+function finishCampaignStage(): void {
+  const cleared = state.level;
+  if (campaignRunSettled) return;
+  const completion = finishCampaignAttempt(state, save.campaignProgress, true);
+  if (!completion) return;
+  save.campaignProgress = completion.progress;
+  campaignStartStage = completion.nextStage;
+  campaignRunSettled = true;
+  award({ type: 'wave_cleared', wave: state.wave });
+  writeSave(save);
+  void syncCloudSave(save);
+  // Snapshot rewards before menu cleanup; never start a new run here.
+  const settlement = submitCurrentRun(true);
+  quitToMenu(true);
+  fruits.reset();
+  document.getElementById('boss-health')?.classList.add('hidden');
+  navigation.open('CAMPAIGN');
+  if (completion.chapter) showCampaignChapter(cleared);
+  const session = campaignSession;
+  void settlement.finally(() => {
+    if (session === campaignSession && navigation.state === 'CAMPAIGN') refreshCurrentScreen();
+  });
 }
 
 function showGameOverOverlay(): void {
@@ -1358,7 +1388,7 @@ function showCampaignChapter(clearedStage: number): void {
   if (title) title.textContent = '';
   if (text) text.textContent = 'Uncovering the next chapter…';
   const continueButton = document.getElementById('campaign-story-continue');
-  if (continueButton) continueButton.textContent = campaignStoryFinal ? 'VIEW VICTORY' : `ENTER STAGE ${clearedStage + 1}`;
+  if (continueButton) continueButton.textContent = campaignStoryFinal ? 'VIEW VICTORY' : 'RETURN TO CAMPAIGN';
   document.getElementById('campaign-story')?.classList.remove('hidden');
   continueButton?.focus();
   void import('./ui/campaignStoryOverlay').then(({ renderCampaignChapter }) => {
@@ -1560,6 +1590,7 @@ function simulate(dt: number): void {
     sfx.swipe(false);
     resolveSlash(slash);
   }
+  if (!state.running) return;
   const finishedStroke = blade.consumeStrokeEnd();
   if (finishedStroke != null && playerContacts.missed(finishedStroke)) resetCombo('miss');
 
@@ -1613,6 +1644,12 @@ function simulate(dt: number): void {
     // pooled fruits can accidentally classify many later waves as boss waves.
     const wasBoss = consumeBossWaveCompletion(state);
 
+    if (wasBoss && state.mode === 'campaign') {
+      if (campaignBossDefeated(state, wasBoss)) finishCampaignStage();
+      else { state.lives = 0; maybeOver(); }
+      return;
+    }
+
     // Perfect wave: every fruit killed (no leaks that wave)
     const perfect = isPerfectWave(state);
     award({ type: 'wave_cleared', wave: state.wave });
@@ -1624,48 +1661,9 @@ function simulate(dt: number): void {
     const clearedWave = state.wave;
     state.wave += 1;
     
-    if (wasBoss && state.mode === 'campaign' && !campaignBossDefeated(state, wasBoss)) {
-      // A breached overlord ends the attempt; it never unlocks the next stage.
-      state.lives = 0;
-      maybeOver();
-      return;
-    }
     if (wasBoss) {
-      const cleared = state.level;
-      if (state.mode === 'campaign') {
-        const completion = completeCampaignStage(save.campaignProgress, cleared);
-        save.campaignProgress = completion.progress;
-        campaignStartStage = completion.nextStage;
-        writeSave(save);
-        void syncCloudSave(save);
-        campaignRunSettled = true;
-        campaignStageSaving = true;
-        const session = campaignSession;
-        const finalStage = completion.final;
-        void submitCurrentRun(true).finally(() => {
-          if (session !== campaignSession) return;
-          campaignStageSaving = false;
-          if (!finalStage && state.running && state.mode === 'campaign') {
-            matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
-            totalFruitsSliced = 0;
-            sessionMaxCombo = 0;
-            sessionLeaks = 0;
-            state.score = 0;
-            state.elapsed = 0;
-            resetCombo('match_end');
-            campaignRunSettled = false;
-            startLeaderboardRun('campaign');
-          }
-        });
-        if (completion.chapter) showCampaignChapter(cleared);
-        else if (finalStage) {
-          state.running = false;
-          document.getElementById('campaign-victory')?.classList.remove('hidden');
-        }
-        state.wave = 1;
-      }
       toast(state, `Level ${state.level} complete!`, 2);
-      state.level = state.mode === 'campaign' ? Math.min(100, state.level + 1) : state.level + 1;
+      state.level += 1;
       state.waveInLevel = 1;
       state.waveClearTimer = 2.2;
     } else {
@@ -1757,6 +1755,7 @@ function simulate(dt: number): void {
       killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
     }
   });
+  if (!state.running) return;
   if (didShoot) sfx.fire();
 
   juice.update(dt);

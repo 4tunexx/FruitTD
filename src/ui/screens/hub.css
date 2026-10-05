@@ -841,10 +841,3 @@
   .ftd-hub .ftd-campaign__launch { width: 100%; justify-content: center; min-height: 54px; margin: 0 auto 14px; position: sticky; top: 0; z-index: 6; }
   .ftd-hub .ftd-boss-reveal { clip-path: none; }
 }
-
-/* Phone launch controls live outside the scrolling body. */
-.ftd-hub-launch { display: none; }
-@media (max-width: 900px) {
-  .ftd-hub.is-home .ftd-hub-launch,
-  .ftd-hub.is-campaign .ftd-hub-launch { display: flex; grid-column: 1 / -1; width: 100%; min-height: 48px; justify-content: center; }
-}

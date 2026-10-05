@@ -11,6 +11,6 @@ export function renderCampaignChapter(clearedStage: number): void {
   if (chapter) chapter.textContent = `CHAPTER ${String(story.chapter).padStart(2, '0')} · STAGE ${clearedStage} CLEARED`;
   if (title) title.textContent = story.title;
   if (text) text.textContent = story.text;
-  if (button) button.textContent = clearedStage === 100 ? 'VIEW VICTORY' : `ENTER STAGE ${clearedStage + 1}`;
+  if (button) button.textContent = clearedStage === 100 ? 'VIEW VICTORY' : 'RETURN TO CAMPAIGN';
   button?.focus();
 }

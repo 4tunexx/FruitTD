@@ -49,8 +49,6 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
     const boss = campaignBoss(selected, roster);
     const launchLabel = progress.cleared.includes(selected) ? `REPLAY STAGE ${String(selected).padStart(2, '0')}` : `ENTER STAGE ${String(selected).padStart(2, '0')}`;
     launch.querySelector('span')!.textContent = launchLabel;
-    const pinnedLaunch = root.closest('.ftd-hub')?.querySelector<HTMLElement>('.ftd-hub-launch');
-    if (pinnedLaunch) pinnedLaunch.textContent = launchLabel;
     clear(detail);
     detail.dataset.stage = String(selected);
     const art = el('div', { class: 'ftd-boss-reveal__art' }, [
@@ -88,7 +86,6 @@ export function renderCampaign(root: HTMLElement, save: SaveData, onStart: (stag
       ]) as HTMLButtonElement;
       button.addEventListener('click', () => { selected = stage; renderDetails(); });
       map.appendChild(button); nodes.push(button);
-      if (stage === progress.unlocked && stage > 1 && progress.unlocked < 100) map.appendChild(el('div', { class: 'ftd-campaign__portal', 'aria-label': 'Portal to the next stage' }, [el('span', { text: 'PORTAL' }), el('i')]));
     }
     renderDetails();
   };

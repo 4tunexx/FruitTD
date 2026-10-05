@@ -179,14 +179,8 @@ function syncHeader(root: HTMLElement, save: SaveData): void {
 }
 
 /** Builds the persistent footer (Panel 4): five core game destinations. */
-function buildFooter(active: NavState, root: HTMLElement, opts: HubOptions): HTMLElement {
+function buildFooter(active: NavState): HTMLElement {
   const nav = el('nav', { class: 'ftd-hub__footer', 'aria-label': 'Game menu' });
-  const launch = GameButton({ label: 'PLAY', tone: 'primary', size: 'lg', class: 'ftd-hub-launch', onClick: () => {
-    if (root.classList.contains('is-campaign')) root.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')?.click();
-    else opts.onPlay();
-  } });
-  launch.dataset.testid = 'nav-play-pinned';
-  nav.appendChild(launch);
   const destinations: NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE'];
   for (const tab of tabs.values()) {
     if (!destinations.includes(tab.id)) continue;
@@ -219,8 +213,6 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
   const mainHost = root.querySelector('.ftd-hub__main') as HTMLElement | null;
   const subHost = root.querySelector('.ftd-hub__sub') as HTMLElement | null;
   if (!mainHost) return;
-  const pinnedLaunch = root.querySelector<HTMLElement>('.ftd-hub-launch');
-  if (pinnedLaunch && tab.id !== 'CAMPAIGN') pinnedLaunch.textContent = 'PLAY';
 
   // The older missions and leaderboard widgets retain their event handlers
   // when moved into the hub. Park them before replacing the previous panel.
@@ -299,7 +291,7 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   ]);
   root.appendChild(body);
 
-  root.appendChild(buildFooter(active, root, opts));
+  root.appendChild(buildFooter(active));
 
   const tab = tabs.get(active);
   if (tab) paintTab(root, tab, save, 'none');

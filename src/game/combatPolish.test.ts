@@ -36,7 +36,12 @@ describe('combat polish regressions', () => {
     assert.equal(fruit.hpBack.visible, true);
     assert.ok(fruit.hpBar.scale.x < initialWidth);
     const boss = field.spawn('watermelon', true)!;
-    assert.equal(boss.hpBack.visible, true);
+    assert.equal(boss.hpBack.visible, false);
+    assert.equal(boss.hpBar.visible, false);
+    field.hurt(boss, 1);
+    assert.equal(boss.hpBar.visible, false, 'damaging a boss must not add a second HP bar');
+    assert.equal(boss.outline.visible, true);
+    assert.equal(fruit.outline.visible, false);
   });
 
   it('trail geometry updates GPU-backed positions and resets cleanly', async () => {

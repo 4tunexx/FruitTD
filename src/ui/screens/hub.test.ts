@@ -261,18 +261,18 @@ test('the footer presents five core destinations and keeps the home state explic
   assert.equal(root.classList.contains('is-home'), false);
 });
 
-test('profile keeps the legacy destinations reachable and exposes its Play action', () => {
+test('profile keeps destinations reachable without a Play action', () => {
   let played = 0;
-  const profile = profileHubTab(() => ({}), () => { played++; });
+  const profile = profileHubTab(() => ({}));
   const main = host();
   profile.renderMain(main, defaultSave());
 
   const actions = main.querySelector('.ftd-profile-actions');
   const actionButtons = actions?.querySelectorAll('button') ?? [];
   const actionLabels = [...actionButtons].map((button) => button.textContent);
-  assert.deepEqual(actionLabels, ['Play now', 'Missions', 'Achievements', 'Ranked', 'Local Co-op', 'Settings']);
-  actionButtons[0]?.click();
-  assert.equal(played, 1);
+  assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Ranked', 'Local Co-op', 'Settings']);
+  assert.equal(played, 0);
+  assert.ok(!actionLabels.includes('Play now'));
 });
 
 test('every secondary menu destination supplies a contextual desktop panel', () => {
@@ -517,7 +517,7 @@ test('Casual and Horde selection launch their selected mode through Play', () =>
   const root = host(); renderHub(root, save, 'MAIN_MENU', { onPlay: () => starts.push(save.mode) });
   for (const mode of ['casual', 'horde']) {
     root.querySelector<HTMLButtonElement>(`[data-testid="mode-${mode}"]`)!.click();
-    root.querySelector<HTMLButtonElement>('.ftd-hub-launch')!.click();
+    root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
   }
   assert.deepEqual(starts, ['casual', 'horde']);
   resetHub();
@@ -538,4 +538,25 @@ test('Co-op, Arena and Ranked buttons open their own lobby destinations', () => 
     assert.equal(entered.at(-1), destination);
   }
   resetRegistry(); resetHub(); navigation.reset('MAIN_MENU'); root.remove();
+});
+
+test('Home owns one Play button and other menu adapters own none', () => {
+  resetHub();
+  const save = richSave();
+  registerHubTab(homeHubTab(() => undefined));
+  registerHubTab(heroesHubTab({ onEquip() {}, onBuy() {} }));
+  registerHubTab(inventoryHubTab({ onEquip() {}, onSell() {} }));
+  registerHubTab(shopHubTab({ onBuy() {} }));
+  registerHubTab(profileHubTab(() => ({})));
+  const root = host(); renderHub(root, save, 'MAIN_MENU', { onPlay() {} });
+  const playButtons = () => [...root.querySelectorAll('button')].filter(button => /^(PLAY|PLAY NOW)$/i.test(button.textContent));
+  assert.equal(playButtons().length, 1);
+  for (const menu of ['HEROES', 'INVENTORY', 'SHOP', 'PROFILE'] as const) {
+    switchHubTab(root, save, menu);
+    assert.equal(playButtons().length, 0, `${menu} must not inherit a footer Play button`);
+    assert.equal(root.querySelectorAll('.ftd-hub-tab').length, 5, 'navigation stays in one five-button row');
+  }
+  switchHubTab(root, save, 'MAIN_MENU');
+  assert.equal(playButtons().length, 1);
+  resetHub();
 });
