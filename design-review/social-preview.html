@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Fruit TD · Community palette preview</title></head>
+<body><div id="screen-hub" class="ftd-hub"><main id="social-preview"></main></div><script type="module">
+import '/src/style.css';
+import '/src/ui/screens/screens.css';
+import '/src/ui/screens/hub.css';
+import '/src/ui/apocalypse.css';
+import { themeStore } from '/src/ui/theme/themeStore.ts';
+import { renderSocial } from '/src/ui/screens/social.ts';
+if (!import.meta.env.DEV) throw new Error('Local design preview only');
+themeStore.boot();
+localStorage.setItem('fruit_td_token', 'community-preview-only');
+window.fetch = async (url) => {
+  const path = new URL(String(url), location.href).pathname;
+  const data = path.endsWith('/friends') ? { friends:[{userId:'local-1',username:'orangeguard',nickname:'Orange Guard',state:'accepted',direction:'incoming'}] }
+    : path.endsWith('/notifications') ? { unread:1, notifications:[{notificationId:'local-n1',actorName:'Orange Guard',type:'friend',title:'New friend signal',body:'Orange Guard joined your friend roster.',createdAt:new Date().toISOString()}] }
+    : path.endsWith('/forum') ? { posts:[{postId:'local-post',author:'orangeguard',title:'Best tower for the north lane?',body:'I am testing a splash tower behind the wall. What build do you use?',createdAt:new Date().toISOString(),replies:[{replyId:'local-reply',author:'outpostslicer',body:'Hold the choke, then upgrade splash.',createdAt:new Date().toISOString()}]}] }
+    : path.endsWith('/messages/orangeguard') ? { messages:[{messageId:'local-m1',senderId:'local-1',body:'Ready for another run?',createdAt:new Date().toISOString()}], friend:{username:'orangeguard'} }
+    : {success:true};
+  return new Response(JSON.stringify(data), {status:200,headers:{'Content-Type':'application/json'}});
+};
+renderSocial(document.querySelector('#social-preview'), 'community');
+</script></body></html>

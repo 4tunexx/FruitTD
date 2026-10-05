@@ -8,3 +8,23 @@
 @media(max-width:680px){.ftd-social{padding:12px}.ftd-social__layout{grid-template-columns:1fr}.ftd-social__panel--wide{grid-column:auto}.ftd-social__panel{padding:14px}.ftd-social__add{flex-wrap:wrap}.ftd-social__add input{flex-basis:100%}.ftd-social__friend{flex-wrap:wrap}.ftd-social__friend-actions{margin-left:auto}.ftd-social__compose{align-items:stretch}.ftd-social__header{gap:10px;padding:10px}.ftd-social__back span{display:none}}
 @media(max-width:680px){.ftd-social[data-social-view='messages'] .ftd-social__layout>.ftd-social__panel--wide{grid-column:auto}.ftd-social__nav-item{flex:1 1 30%;padding:8px;font-size:12px}}
 .ftd-social__forum{max-width:1150px;margin:14px auto}.ftd-social__forum-form{display:grid;gap:8px;margin-bottom:18px}.ftd-social__forum-form input,.ftd-social__forum-form textarea{box-sizing:border-box;width:100%;padding:11px 12px;border:1px solid #61794d;border-radius:7px;background:#07120c;color:#f4f6e9;font:inherit}.ftd-social__forum-form .ftd-social__button{justify-self:start}.ftd-social__posts{display:grid;gap:12px}.ftd-social__post{padding:14px;border:1px solid #547531;border-radius:8px;background:#0b1b12}.ftd-social__post h3{margin:0 0 5px;color:#ddf6a2}.ftd-social__post small{color:#a4b19a}.ftd-social__post p,.ftd-social__reply p{white-space:pre-wrap;overflow-wrap:anywhere}.ftd-social__reply{margin:10px 0 10px 14px;padding:8px 12px;border-left:3px solid #a9db49;background:#1b3823}.ftd-social__reply p{margin:4px 0}.ftd-social__post .ftd-social__add{margin:12px 0 0}
+
+/* The shared outpost palette replaces the former lime/forest Community skin. */
+.ftd-social{background:linear-gradient(145deg,#25272be8,#191a1df2 58%,#25201be8);color:#fff3d6;backdrop-filter:blur(14px) saturate(110%)}
+.ftd-social__header,.ftd-social__panel,.ftd-social__gate,.ftd-social__post{border-color:#9a6e39;background:linear-gradient(145deg,#303237e8,#202226f2);box-shadow:0 10px 28px #06070866,inset 0 1px #fff2d018;backdrop-filter:blur(14px) saturate(115%)}
+.ftd-social__header{border-color:#be792f;box-shadow:0 10px 28px #06070866,inset 0 1px #fff2d018;clip-path:none}
+.ftd-social__eyebrow,.ftd-social__panel-title{color:#ffca28}
+.ftd-social__panel-title h2,.ftd-social__header h1{color:#fff3d6}
+.ftd-social__nav-item,.ftd-social__back,.ftd-social__mark,.ftd-social__mini-button{border-color:#705b3e;background:#33353ae8;color:#f1e4cb}
+.ftd-social__nav-item:hover,.ftd-social__nav-item:focus-visible,.ftd-social__mini-button:hover{background:#4a3926;border-color:#ffca28;color:#ffe08a}
+.ftd-social__nav-item.is-active,.ftd-social__mini-button.is-accent,.ftd-social__button{border-color:#ffe492;background:linear-gradient(120deg,#ffda4a,#f48120);color:#1a1a1c}
+.ftd-social__notice{border-color:#f1aa32;background:#382b1c;color:#ffedc1}
+.ftd-social__add input,.ftd-social__compose textarea,.ftd-social__forum-form input,.ftd-social__forum-form textarea,.ftd-social__thread,.ftd-social__stats div{border-color:#625844;background:#181a1ded;color:#fff3d6}
+.ftd-social__add input:focus,.ftd-social__compose textarea:focus{outline-color:#ffca28}
+.ftd-social__avatar,.ftd-social__profile-avatar{border:1px solid #b57b35;background:#38302a;color:#ffcf56}
+.ftd-social__friend-name small,.ftd-social__pending,.ftd-social__handle,.ftd-social__empty,.ftd-social__stats span,.ftd-social__badges,.ftd-social__notification small,.ftd-social__post small{color:#c1b8a8}
+.ftd-social__stats strong,.ftd-social__post h3{color:#ffcf56}
+.ftd-social__notification.is-unread{border-left-color:#ff9a24;background:#f4812014}
+.ftd-social__bubble{border-color:#a26e35;background:#3b2d20;color:#fff0d1}
+.ftd-social__mini-button.is-muted{border-color:#5b554b;background:#282a2e;color:#d7d0c4}
+.ftd-social__reply{border-left-color:#ef8b24;background:#3a2d21}

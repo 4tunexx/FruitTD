@@ -211,6 +211,43 @@ body { background:var(--outpost-ink); }
 }
 [data-ftd-motion='reduced'] :is(.ftd-playcard__cta,.ftd-pvp__result,.ftd-score-chart i,.campaign-boss-victory section,.ftd-loading__spinner),[data-ftd-motion='reduced'] .ftd-playcard__cta::after { animation:none; }
 
+/* Warm artwork sits behind the command centre; every menu panel stays readable glass. */
+#screen-hub.ftd-hub { isolation:isolate; background:transparent; backdrop-filter:none; }
+#screen-hub.ftd-hub::before { content:''; position:absolute; inset:-24px; z-index:-1; pointer-events:none; background:linear-gradient(105deg,#17181bea 0%,#17181bb8 48%,#17181bd9 100%),url('../assets/orchard-siege-menu.webp') 62% center/cover no-repeat; filter:blur(14px) brightness(.48) saturate(.72); transform:scale(1.04); }
+.ftd-hub__header,.ftd-hub__body,.ftd-hub__footer { position:relative; z-index:1; }
+.ftd-hub .ftd-hub__main,.ftd-hub .ftd-hub__sub { background:linear-gradient(145deg,#292a2ddf,#1d1e21ed); border-color:#b47a35; box-shadow:0 14px 36px #07080988,inset 0 1px #fff2d018; backdrop-filter:blur(16px) saturate(115%); }
+.ftd-hub .ftd-hub__main { border-left-color:var(--outpost-orange); }
+.ftd-hub .ftd-hub__sub { border-left-color:var(--outpost-yellow); }
+.ftd-hub .ftd-hub__footer { background:#1b1c1fe8; border-color:#a36b32; backdrop-filter:blur(16px); }
+.ftd-hub .ftd-settings-card,.ftd-hub .ftd-briefing,.ftd-hub .ftd-stat,.ftd-hub .ftd-mode-stats,.ftd-hub .ftd-loadout,.ftd-hub .ftd-profile-mastery__block { background:linear-gradient(145deg,#34363bdc,#24262ae8); border-color:#756044; box-shadow:inset 0 1px #fff2d018,0 8px 22px #06070855; backdrop-filter:blur(12px); }
+.ftd-hub .ftd-profile-bar--tower > i,.ftd-hub .ftd-loadout__bar i,.ftd-hub .ftd-mission-progress__track i { background:linear-gradient(90deg,var(--outpost-orange),var(--outpost-yellow)); }
+
+/* Shared dialogs use the same charcoal glass and warm edge as the menus. */
+.hud-modal-backdrop { background:#090a0cb8; backdrop-filter:blur(16px) saturate(80%); }
+.hud-modal-backdrop .modal-card { border-color:#a87435 !important; background:linear-gradient(145deg,#2c2d31f2,#1c1d20f5) !important; box-shadow:0 24px 80px #000b,inset 0 1px #fff2d01a !important; backdrop-filter:blur(18px) saturate(115%); }
+.hud-modal-backdrop .modal-card :is(h1,h2,h3) { color:#fff0d1; }
+.hud-modal-backdrop .modal-card :is(.ftd-btn--solid.ftd-tone-primary,.daily-claim-btn,.btn-primary) { background:linear-gradient(120deg,#ffdc53,#f48120); border-color:#ffe99a; color:#1a1a1c; }
+
+/* Admin keeps a compact charcoal workbench; yellow marks actions and values. */
+#modal-admin.hud-modal-backdrop .modal-card--admin { background:linear-gradient(145deg,#282a2ee8,#1b1c1fed) !important; border-color:#b67731 !important; box-shadow:inset 0 1px #fff2d018 !important; backdrop-filter:blur(18px) saturate(115%); }
+#modal-admin .admin-header-row { border-color:#a87435; }
+#modal-admin .admin-live-stats { background:linear-gradient(110deg,#40301fe8,#27282ce8); border-color:#9c6b31; }
+#modal-admin .admin-live-stat { background:#191a1dcc; border-left-color:#e28a28; }
+#modal-admin .admin-live-stat span { color:#c7c0b5; }
+#modal-admin .admin-live-stat strong,#modal-admin .admin-config-form summary { color:var(--outpost-yellow); }
+#modal-admin .admin-tabs-nav { background:#222428f2; border-color:#8e6435; backdrop-filter:blur(14px); }
+#modal-admin .admin-tab-btn { color:#e9dfcd; background:#34363be8; border-color:#665a48; }
+#modal-admin .admin-tab-btn.is-active { color:#191a1c; background:linear-gradient(120deg,#ffdc53,#f48120); border-color:#ffe79a; }
+#modal-admin .admin-config-form details,#modal-admin .admin-section,#modal-admin .admin-card { background:linear-gradient(145deg,#303237e8,#222428f2); border-color:#625b50; }
+#modal-admin .admin-config-field input,#modal-admin .admin-config-field select,#modal-admin .admin-input { background:#191a1de8; border-color:#6b5b42; color:#fff0d1; }
+#modal-admin .admin-reward-row { background:#2b2d31bd; border-color:#675a46; backdrop-filter:blur(12px); }
+#modal-admin .admin-route-grid button { background:#292a2e; border-color:#755934; color:#eee0c5; }
+#modal-admin .admin-route-grid button.is-path { background:#f2b63f; color:#1c1b18; }
+#modal-admin .admin-route-grid button:hover { outline-color:#ffca28; }
+#modal-admin .ftd-loading { background:#24262aed; }
+#modal-admin .ftd-blade-preview__live.admin-slicer-live { background:radial-gradient(ellipse,#4a3823,#24262a); border-color:#9f7539; }
+body[data-ftd-motion='reduced'] #screen-hub.ftd-hub::before { filter:brightness(.48) saturate(.72); }
+
 /* Keep the publishing workspace in the same outpost palette as player menus. */
 #modal-admin .admin-tabs-nav { background:var(--outpost-panel); border-bottom:1px solid var(--outpost-line); }
 #modal-admin .admin-tab-btn { color:var(--outpost-text); border-color:var(--outpost-line); background:var(--outpost-steel); }
@@ -222,4 +259,6 @@ body { background:var(--outpost-ink); }
 @media(max-width:600px) {
   #modal-admin .modal-card--admin { padding:14px; }
   #modal-admin .admin-tabs-nav { top:-14px; flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding:8px 0; scrollbar-width:thin; }
+  #modal-admin .admin-live-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #modal-admin .admin-live-stat:first-child { grid-column:1/-1; }
 }

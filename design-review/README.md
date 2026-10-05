@@ -20,6 +20,6 @@ Final prompt brief: Create original premium comic/cel-shaded key art for a fruit
 
 ## Review
 
-The screenshots in this directory show the production components at desktop and 390 × 844 phone sizes. `preview-outpost.html` is a development-only local harness with a simulated practice opponent and sample wallet. It does not connect the simulated match to real players or grant real rewards.
+The screenshots in this directory show the production components at desktop and 390 × 844 phone sizes. `preview-outpost.html` is a development-only local harness with a simulated practice opponent and sample wallet. `design-review/social-preview.html` shows the production Community screen with local-only sample data so its panels can be reviewed without signing into an account. `design-review/admin-preview.html` keeps admin saves in preview memory. These previews do not connect simulated content to real players or grant real rewards.
 
-Production build and 406 regression tests are checked. Browser review covers menu layout, blue-tile building, send feedback, mobile defence/attack switching, leave confirmation and result acknowledgement. Physical gamepad hardware, deployed Ably connectivity and full networked multiplayer still require verification in the deployed environment. The files are local changes; no deployment was performed.
+Production build and 416 regression tests are checked. Browser review covers menu layout, blue-tile building, send feedback, mobile defence/attack switching, leave confirmation and result acknowledgement. Physical gamepad hardware, deployed Ably connectivity and full networked multiplayer still require verification in the deployed environment. The files are local changes; no deployment was performed.
