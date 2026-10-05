@@ -119,7 +119,7 @@ export function calculatePvpRating(points: number, outcome: 'win' | 'tie' | 'los
 export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_000, damageMultiplier: 1.25 };
 export const PVP_CAPTURE_CAPACITY = 3;
 export function pvpMainUpgradeCost(level = 1): number { return pvpTowerLevel(level) === 1 ? 220 : 340; }
-export function pvpReleaseCost(attackCost: number): number { return Math.ceil(attackCost * .5); }
+export function pvpReleaseCost(attackCost: number, packSize = 1): number { return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * .5)); }
 export interface PvpPlayer { mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; released?: boolean }> }
 export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
 export type PvpCommand = { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
@@ -211,7 +211,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     const captured = player.captured?.find(item => item.id === command.capturedId);
     const attack = captured ? config.attacks[captured.type] : null;
     if (!captured || !attack) throw new Error('Choose one of your captured fruit-zombies');
-    const cost = pvpReleaseCost(attack.cost); if (player.fruts < cost) throw new Error('Not enough match Fruts');
+    const cost = pvpReleaseCost(attack.cost, attack.packSize); if (player.fruts < cost) throw new Error('Not enough match Fruts');
     const target = match.players.find(item => item !== player)!;
     if (target.attackers.length >= 128) throw new Error('The opponent lane is full. Wait for the attack wave.');
     player.fruts -= cost; player.captured = player.captured!.filter(item => item !== captured);

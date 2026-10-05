@@ -7,7 +7,7 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   if (!bot || match.players.length !== 2) return null;
   const map = match.map;
   if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15000)) return { type: 'rally' };
-  const captured = bot.captured?.find(item => bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost));
+  const captured = bot.captured?.find(item => bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost, config.attacks[item.type]!.packSize));
   if (captured) return { type: 'release', capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < .75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: 'upgrade-main' };
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);

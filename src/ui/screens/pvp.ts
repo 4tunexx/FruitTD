@@ -131,7 +131,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       })));
       body.append(el('div', { class: 'ftd-pvp__queue' }, [
         label(status.queued === queue ? `Searching for an opponent · ${queue.toUpperCase()}` : 'Find an opponent', 'ftd-pvp__section-title'),
-        label(`Pick a turret, then tap a blue hex to build. Tap your turret to upgrade or sell. Rally boosts damage 25% for 8 seconds, with a 35-second cooldown. Earn ${status.config?.incomePerSecond ?? 6} Fruts per second plus kill bounties. Match Fruts are separate from shop coins. Upgrade your main tower for damage and +25% wall health. A Catcher stores up to three weakened zombies; release them individually at half cost. Released zombies cannot be captured again.`, 'ftd-pvp__intro'),
+        label(`Pick a turret, then tap a blue hex to build. Tap your turret to upgrade or sell. Rally boosts damage 25% for 8 seconds, with a 35-second cooldown. Earn ${status.config?.incomePerSecond ?? 6} Fruts per second plus kill bounties. Match Fruts are separate from shop coins. Upgrade your main tower for damage and +25% wall health. A Catcher stores up to three weakened zombies; release them individually at half per-unit cost. Released zombies cannot be captured again.`, 'ftd-pvp__intro'),
         label(queue === 'ranked' ? 'Win or lose FR based on opponent rating. Nearby ranks only. No slicing bonuses.' : 'Normal results do not change rank. Both queues use equal stats and nearby ratings. Your equipped hero and wall are cosmetic; every hero has the same Rally power.', 'ftd-pvp__intro'),
         status.queued === queue
           ? GameButton({ label: 'Cancel search', variant: 'outline', onClick: () => void send('/queue', undefined, 'DELETE') })
@@ -261,8 +261,8 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     if (dockTab === 'capture') {
       for (const captive of own.captured || []) {
         const attack = status.config?.attacks[captive.type]; if (!attack) continue;
-        const cost = pvpReleaseCost(attack.cost);
-        const button = el('button', { type: 'button', class: 'ftd-duel-card is-attack', disabled: busy || own.fruts < cost, 'data-testid': 'arena-release' }, [lucideIcon(attackIcons[captive.type] || 'Citrus', 'ftd-duel-card__art', 30), el('strong', { text: `Release ${captive.type}` }), el('small', { text: `${cost} F · half cost` })]);
+        const cost = pvpReleaseCost(attack.cost, attack.packSize);
+        const button = el('button', { type: 'button', class: 'ftd-duel-card is-attack', disabled: busy || own.fruts < cost, 'data-testid': 'arena-release' }, [lucideIcon(attackIcons[captive.type] || 'Citrus', 'ftd-duel-card__art', 30), el('strong', { text: `Release ${captive.type}` }), el('small', { text: `${cost} F · half unit cost` })]);
         button.addEventListener('click', () => issue({ type: 'release', capturedId: captive.id })); cards.append(button);
       }
       if (!own.captured?.length) cards.append(label('Build a Catcher near your damage turrets. It stores wounded zombies for counterattacks.', 'ftd-pvp__intro'));

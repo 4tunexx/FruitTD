@@ -1185,8 +1185,8 @@ var PVP_CAPTURE_CAPACITY = 3;
 function pvpMainUpgradeCost(level = 1) {
   return pvpTowerLevel(level) === 1 ? 220 : 340;
 }
-function pvpReleaseCost(attackCost) {
-  return Math.ceil(attackCost * 0.5);
+function pvpReleaseCost(attackCost, packSize = 1) {
+  return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * 0.5));
 }
 var PVP_MAX_TOWER_LEVEL = 3;
 function pvpTowerLevel(level) {
@@ -1281,7 +1281,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     const captured = player.captured?.find((item) => item.id === command.capturedId);
     const attack = captured ? config.attacks[captured.type] : null;
     if (!captured || !attack) throw new Error("Choose one of your captured fruit-zombies");
-    const cost = pvpReleaseCost(attack.cost);
+    const cost = pvpReleaseCost(attack.cost, attack.packSize);
     if (player.fruts < cost) throw new Error("Not enough match Fruts");
     const target = match.players.find((item) => item !== player);
     if (target.attackers.length >= 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
@@ -4379,7 +4379,7 @@ function choosePvpBotCommand(match, botUserId, config, now = match.createdAt) {
   if (!bot || match.players.length !== 2) return null;
   const map = match.map;
   if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15e3)) return { type: "rally" };
-  const captured = bot.captured?.find((item) => bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost));
+  const captured = bot.captured?.find((item) => bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost, config.attacks[item.type].packSize));
   if (captured) return { type: "release", capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < 0.75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: "upgrade-main" };
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);

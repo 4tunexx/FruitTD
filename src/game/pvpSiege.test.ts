@@ -29,7 +29,7 @@ it('Catcher stores weakened zombies without bounties; paid release sends one uni
   const before = player.fruts; advancePvpMatch(game, 0, 4000, config);
   assert.equal(player.attackers.length, 0); assert.equal(player.captured!.length, 1); assert.equal(player.fruts, before); assert.equal(player.score, 0);
   const captive = player.captured![0]!; act(game, 'a', { type: 'release', capturedId: captive.id }, 4100);
-  assert.equal(player.fruts, before - pvpReleaseCost(config.attacks.normal!.cost)); assert.equal(player.captured!.length, 0);
+  assert.equal(player.fruts, before - pvpReleaseCost(config.attacks.normal!.cost, config.attacks.normal!.packSize)); assert.equal(player.captured!.length, 0);
   assert.equal(game.players[1].attackers.length, 1); assert.equal(game.players[1].attackers[0]!.released, true);
   assert.throws(() => act(game, 'a', { type: 'release', capturedId: captive.id }, 4200), /captured/);
   assert.throws(() => act(game, 'b', { type: 'release', capturedId: captive.id }, 4200), /captured/);
@@ -70,4 +70,12 @@ it('mirrored strategies are symmetric on all maps; sending fruit can defeat an u
     assert.equal(game.winnerId, mirrored ? null : 'a', `${map.id}: copied actions must not favor either side`);
     assert.ok(game.players.every(player => player.fruts >= 0));
   }
+});
+
+it('captured release pricing accounts for pack size and always costs Fruts', () => {
+  assert.equal(pvpReleaseCost(35, 3), 6);
+  assert.equal(pvpReleaseCost(55, 2), 14);
+  assert.equal(pvpReleaseCost(90, 1), 45);
+  assert.equal(pvpReleaseCost(100, 1), 50);
+  assert.equal(pvpReleaseCost(1, 8), 1);
 });
