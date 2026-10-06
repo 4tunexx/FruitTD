@@ -238,9 +238,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
     const timer = Math.ceil(match.remainingMs / 1000);
     const maxHealth = status.config?.wallHealth || 1000;
-    const playerCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-duel-player ${rival ? 'is-rival' : 'is-own'}` }, [
+    const playerCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-duel-player ${rival ? 'is-rival' : 'is-own'} is-${player.side === 'red' ? 'red' : 'blue'}` }, [
       el('span', { class: 'ftd-duel-player__crest' }, [lucideIcon(rival ? 'Skull' : 'Shield', '', 22)]),
-      el('div', {}, [el('strong', { text: `${rival ? 'RED' : 'BLUE · YOU'} · ${player.name}` }), el('span', { text: `${player.wallHealth} / ${player.wallMaxHealth ?? maxHealth} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
+      el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:`${rival?'OPPONENT':'YOU'} · ${player.side.toUpperCase()} SIDE` }), el('span', { text: `${player.wallHealth} / ${player.wallMaxHealth ?? maxHealth} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
         el('div', { class: 'ftd-duel-hp', role: 'progressbar', 'aria-label': `${player.name} wall health`, 'aria-valuenow': player.wallHealth, 'aria-valuemax': player.wallMaxHealth ?? maxHealth }, [el('i', { style: `width:${Math.max(0, Math.min(100, player.wallHealth / (player.wallMaxHealth ?? maxHealth) * 100))}%` })]),
       ]),
     ]);
