@@ -15,7 +15,7 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
     (canvas as any).getBoundingClientRect = () => ({ width, height, left: 0, top: 0 });
     const field: any = Object.create(PvpBattlefield.prototype);
     const scene = new Scene(); const terrain = new Group(); scene.add(terrain);
-    Object.assign(field, { element: canvas, canvas, snapshot: { id: 'hex-test', map, yourSide: side, players }, config, terrain, health: new Map(), buildPads: [], renderer: { setSize: () => undefined }, camera: new OrthographicCamera(-20, 20, 30, -30, .1, 200), zoom: 1, focusOwn: false, ray: new Raycaster() });
+    Object.assign(field, { element: canvas, canvas, snapshot: { id: 'hex-test', map, yourSide: side, players }, config, terrain, health: new Map(), buildPads: [], renderer: { setSize: () => undefined }, camera: new OrthographicCamera(-20, 20, 30, -30, .1, 200), zoom: 1, focusOwn: false, ray: new Raycaster(), sideColors:{blue:0x38bdf8,red:0xef5350}, cameraX:0,cameraZ:0 });
     field.buildTerrain(map); scene.updateMatrixWorld(true);
     for (const focused of [false, true]) {
       field.focusOwn = focused; field.resize(); field.camera.updateMatrixWorld();
@@ -37,4 +37,10 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
     }
     terrain.traverse((object: any) => { object.geometry?.dispose(); if (object.material) for (const material of Array.isArray(object.material) ? object.material : [object.material]) material.dispose(); });
   }
+});
+
+test('PvP touch drag and pinch move the camera while a tap remains a build selection',()=>{
+ const canvas=document.createElement('div');(canvas as any).setPointerCapture=()=>undefined;(canvas as any).getBoundingClientRect=()=>({width:375,height:470,left:0,top:0});const field:any=Object.create(PvpBattlefield.prototype),selected:number[]=[];
+ Object.assign(field,{canvas,element:canvas,snapshot:{id:'gesture',map:config.maps[0],yourSide:'red',players:[],shared:false},pointers:new Map(),gesture:null,stroke:null,zoom:1,focusOwn:true,framingInitialised:true,cameraX:0,cameraZ:0,renderer:{setSize:()=>undefined},camera:new OrthographicCamera(-20,20,30,-30,.1,200),ray:new Raycaster(),ground:{normal:{x:0,y:1,z:0},constant:0},buildCell:()=>4,select:(cell:number)=>selected.push(cell),trail:{reset:()=>undefined}});
+ field.pointerDown({button:0,pointerId:1,clientX:100,clientY:200});field.pointerUp({pointerId:1,clientX:100,clientY:200});assert.deepEqual(selected,[4]);field.pointerDown({button:0,pointerId:2,clientX:100,clientY:200});field.pointerMove({pointerId:2,clientX:155,clientY:230});field.pointerUp({pointerId:2,clientX:155,clientY:230});assert.equal(selected.length,1);assert.notEqual(field.cameraX,0);field.pointerDown({button:0,pointerId:3,clientX:100,clientY:200});field.pointerDown({button:0,pointerId:4,clientX:200,clientY:200});field.pointerMove({pointerId:4,clientX:250,clientY:200});assert.ok(field.zoom>1);field.pointerCancel({pointerId:3});field.pointerCancel({pointerId:4});
 });
