@@ -76,6 +76,12 @@ export class PvpBattlefield {
       this.element.append(el('div', { class: `ftd-duel-team is-own is-${snapshot.yourSide}`, text: `YOU · ${snapshot.yourSide.toUpperCase()} SIDE` }), el('div', { class: `ftd-duel-team is-rival is-${opposingSide}`, text: `OPPONENT · ${opposingSide.toUpperCase()} SIDE` }));
       const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
       focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize(); }); this.element.appendChild(focus);
+      const cameraControls = el('div', { class:'ftd-duel-camera', 'aria-label':'Camera zoom controls' });
+      const zoomIn = el('button', { type:'button', text:'+', 'aria-label':'Zoom in' });
+      const zoomOut = el('button', { type:'button', text:'−', 'aria-label':'Zoom out' });
+      zoomIn.addEventListener('click', () => { this.zoom=Math.min(3.2,this.zoom*1.18);this.resize(); });
+      zoomOut.addEventListener('click', () => { this.zoom=Math.max(.7,this.zoom/1.18);this.resize(); });
+      cameraControls.append(zoomIn,zoomOut);this.element.appendChild(cameraControls);
     }
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
