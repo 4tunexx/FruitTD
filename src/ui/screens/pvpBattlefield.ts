@@ -314,6 +314,21 @@ export class PvpBattlefield {
     return null;
   }
 
+  private towerCell(event: PointerEvent): number | null {
+    const map = this.snapshot.map; const rect = this.canvas.getBoundingClientRect();
+    if (!map || !rect.width || !rect.height) return null;
+    const point = new Vector3();
+    this.camera.updateMatrixWorld(true);
+    let nearest: { cell: number; distance: number } | null = null;
+    for (const player of this.snapshot.players.filter(item => item.side === this.snapshot.yourSide)) for (const tower of player.towers) {
+      point.copy(this.cellPoint(tower.cell, true)); point.y = 1.1; point.project(this.camera);
+      const x = rect.left + (point.x + 1) * rect.width / 2; const y = rect.top + (1 - point.y) * rect.height / 2;
+      const distance = Math.hypot(event.clientX - x, event.clientY - y);
+      if (distance <= Math.max(20, Math.min(38, rect.width * .075)) && (!nearest || distance < nearest.distance)) nearest = { cell: tower.cell, distance };
+    }
+    return nearest?.cell ?? null;
+  }
+
   private pointerDown(event: PointerEvent): void {
     if (event.button !== 0) return;
     if (!this.snapshot.shared) { this.canvas.setPointerCapture(event.pointerId); this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false}); this.resetGesture(); this.stroke=null; return; }
@@ -345,7 +360,7 @@ export class PvpBattlefield {
     }
   }
   private pointerUp(event: PointerEvent): void {
-    if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}}return;}
+    if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const tower=this.towerCell(event);if(tower!==null){this.select?.(tower);return;}const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}}return;}
     const stroke = this.stroke; this.stroke = null;
     if (!stroke || stroke.id !== event.pointerId) return;
     const to = this.point(event); if (!to) return;
