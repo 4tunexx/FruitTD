@@ -122,6 +122,8 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
   resetDom(); setAuthToken('test-only');
   const priorFetch = globalThis.fetch;
   const game = newPvpMatch('ui-match', queue, [createPvpPlayer('a', 'You', 'blue', config), createPvpPlayer('b', 'Rival', 'red', config)], Date.now(), config);
+  game.players[0].avatar = 'https://steam.example/you.jpg';
+  game.players[1].avatar = 'https://steam.example/rival.jpg';
   game.status = 'active'; game.map = config.map; game.endsAt = Date.now() + 180000; game.players[0].fruts = 1000; game.players[0].rallyReadyAt = Date.now() - 1;
   let acknowledged = false;
   const commands: PvpCommand[] = [];
@@ -151,6 +153,8 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.equal(hub.classList.contains('is-pvp-battle'), true);
     assert.equal(root.querySelectorAll('.ftd-duel-hud').length, 1);
     assert.equal(root.querySelectorAll('[data-testid="arena-build-guillotine"]').length, 1);
+    assert.equal(root.querySelectorAll('.ftd-vs-clash').length, 1, 'a new match gets its animated player face-off');
+    assert.deepEqual([...root.querySelectorAll<HTMLImageElement>('img')].map(image => image.getAttribute('src')), ['https://steam.example/you.jpg', 'https://steam.example/rival.jpg', 'https://steam.example/you.jpg', 'https://steam.example/rival.jpg']);
     const cell = config.map.buildCells[0]!;
     select!(cell); await flush();
     assert.equal(game.players[0].towers.length, 1);
@@ -177,10 +181,10 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.equal(scenes, 1, 'snapshots must reuse the renderer');
     button('Exit').click(); assert.ok(root.querySelector('[role="dialog"]'));
     button('Leave match').click(); await flush();
-    assert.equal(game.status, 'complete'); assert.match(root.textContent!, /DEFEAT/); assert.equal(disposed, 0, 'battlefield remains visible behind the result');
+    assert.equal(game.status, 'complete'); assert.match(root.textContent!, /DEFEAT/); assert.equal(root.querySelectorAll('.ftd-result-faceoff').length, 1); assert.equal(disposed, 0, 'battlefield remains visible behind the result');
     if (queue === 'ranked') assert.match(root.textContent!, /−50 FR|-50 FR/);
     else assert.doesNotMatch(root.textContent!, /FR change/);
-    button('Back to queue').click(); await flush();
+    button('Return to Arena').click(); await flush();
     assert.equal(disposed, 1, 'acknowledging the result releases the renderer');
     assert.equal(hub.classList.contains('is-pvp-battle'), false);
     assert.match(root.textContent!, /Find an opponent/);
