@@ -85,9 +85,9 @@ export class PvpBattlefield {
     }
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    this.scene.background = new Color(snapshot.shared ? 0x102a23 : 0x202226);
-    this.scene.add(new AmbientLight(0xe8f4dc, 1.2));
-    const sun = new DirectionalLight(0xfff1cf, 1.6); sun.position.set(12, 30, -15); this.scene.add(sun);
+    this.scene.background = new Color(snapshot.shared ? 0x263626 : 0x17191c);
+    this.scene.add(new AmbientLight(0xfff0d0, 1.3));
+    const sun = new DirectionalLight(0xffd878, 1.75); sun.position.set(12, 30, -15); this.scene.add(sun);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
     this.scene.add(this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
     this.marker.visible = false;
@@ -218,7 +218,7 @@ export class PvpBattlefield {
   private buildTerrain(map: PvpMap): void {
     while (this.terrain.children.length) this.release(this.terrain.children[0] as Group);
     this.health.clear(); this.buildPads.length = 0;
-    const floor = new Mesh(new BoxGeometry(map.width * TILE_X + 5, .4, (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2)), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x4d7c39 : 0x33353a }));
+    const floor = new Mesh(new BoxGeometry(map.width * TILE_X + 5, .4, (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2)), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x4d7c39 : 0x27292c }));
     floor.position.y = -.3; if (this.snapshot.shared) floor.position.z = -(map.height + 2) * TILE / 2; this.terrain.add(floor);
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
@@ -226,16 +226,13 @@ export class PvpBattlefield {
       const route = new Set(map.pathCells); const builds = new Set(map.buildCells);
       for (let cell = 0; cell < map.width * map.height; cell++) {
         const isPath = route.has(cell); const build = builds.has(cell);
-        const rim = new Mesh(new CylinderGeometry(HEX_RADIUS * .985, HEX_RADIUS, .16, 6), new MeshLambertMaterial({ color: isPath ? 0x4c4230 : build ? own ? 0x337589 : 0x824843 : 0x2f4831 }));
+        const blueSide = player.side === 'blue';
+        const rim = new Mesh(new CylinderGeometry(HEX_RADIUS * .985, HEX_RADIUS, .16, 6), new MeshLambertMaterial({ color: isPath ? 0x514127 : own ? blueSide ? 0x39879a : 0xa34c37 : blueSide ? 0x315864 : 0x613632 }));
         rim.position.copy(this.cellPoint(cell, own)); rim.position.y = -.02;
         const tile = new Mesh(new CylinderGeometry(HEX_RADIUS * .90, HEX_RADIUS * .93, .08, 6), new MeshLambertMaterial({ color: isPath ? 0xcbb87b : own ? (cell % 3 ? 0x547a43 : 0x60864b) : (cell % 3 ? 0x6c773c : 0x7a8345) }));
-        if (!this.snapshot.shared) (tile.material as MeshLambertMaterial).color.set(isPath ? player.side === 'blue' ? 0x193b59 : 0x542129 : player.side === 'blue' ? (own ? 0x215473 : 0x183b50) : (own ? 0x703039 : 0x4a2025));
+        if (!this.snapshot.shared) (tile.material as MeshLambertMaterial).color.set(isPath ? 0xb09653 : blueSide ? (own ? 0x34788a : 0x284955) : (own ? 0x873f31 : 0x55302d));
         tile.position.y = .12; rim.add(tile); this.terrain.add(rim);
         if (own && build) { rim.userData.cell = cell; this.buildPads.push(rim); }
-        if (build && cell % 3 === 0) {
-          const cross = new Group(); const mat = new MeshBasicMaterial({ color: player.side === 'blue' ? 0x8edcff : 0xffaaa4, transparent: true, opacity: .4 });
-          cross.add(new Mesh(new BoxGeometry(.4, .02, .08), mat), new Mesh(new BoxGeometry(.08, .02, .4), mat)); cross.position.y = .18; rim.add(cross);
-        }
       }
       if (!this.snapshot.shared) {
         for (let index = 2; index < map.pathCells.length - 1; index += 5) {
@@ -402,7 +399,7 @@ export class PvpBattlefield {
     }
     this.element.classList.toggle('is-focused', this.focusOwn);
     const focus = this.element.querySelector<HTMLElement>('.ftd-duel-focus');
-    if (focus) { focus.textContent = this.focusOwn ? 'Whole arena' : 'My defence'; focus.setAttribute('aria-label', this.focusOwn ? 'Show both bases and attack routes' : 'Zoom to your build territory'); }
+    if (focus) { focus.textContent = this.focusOwn ? 'My defence' : 'Whole arena'; focus.title=focus.textContent; focus.setAttribute('aria-label', this.focusOwn ? 'Show my build territory' : 'Show both bases and attack routes'); }
     this.renderer.setSize(rect.width, rect.height, false);
     const map = this.snapshot.map; const aspect = rect.width / rect.height;
     const landscape = aspect > 1.25 && !this.snapshot.shared && !this.focusOwn;
