@@ -189,9 +189,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       body.append(el('div', { class: 'ftd-pvp__queue' }, [
         label(status.queued === queue ? `Searching for an opponent · ${queue.toUpperCase()}` : 'Find an opponent', 'ftd-pvp__section-title'),
         el('div', { class: 'ftd-pvp__howto' }, [
-          el('div', {}, [el('b', { text: '01 / BUILD' }), el('p', { text: 'Pick a tower. Tap a blue tile beside the route. Your towers shoot automatically.' })]),
-          el('div', {}, [el('b', { text: '02 / ATTACK' }), el('p', { text: 'Send BLUE squads into the RED enemy lane. Red squads in your lane are enemy attacks.' })]),
-          el('div', {}, [el('b', { text: '03 / BREAK THE BASE' }), el('p', { text: 'Rush a weak defence or save for wall breakers. Destroy the RED base to win.' })]),
+          el('div', {}, [el('b', { text: '01 / BUILD' }), el('p', { text: 'Pick a tower and tap an empty hex in your highlighted territory. Tap a placed tower to upgrade or sell.' })]),
+          el('div', {}, [el('b', { text: '02 / ATTACK' }), el('p', { text: 'Send fruit squads through the opponent lane. Incoming squads approach your wall.' })]),
+          el('div', {}, [el('b', { text: '03 / BREAK THE BASE' }), el('p', { text: 'Pressure a weak defence or save for a heavy push. Destroy the opponent wall or finish with more wall health at time.' })]),
         ]),
         el('details', { class: 'ftd-pvp__rules' }, [el('summary', { text: 'Strategy & advanced rules' }), label(`Earn ${status.config?.incomePerSecond ?? 6} Fruts per second plus kill bounties. Match Fruts are separate from shop coins. Rally: +25% damage for 8 seconds; 35-second cooldown. Upgrade your main tower for damage and +25% wall health. Catchers store three weakened enemies; release them as reinforcements at half per-unit cost. At timeout, the higher wall percentage wins.`, 'ftd-pvp__intro')]),
         label(queue === 'ranked' ? 'Win or lose FR based on opponent rating. Nearby ranks only. No slicing bonuses.' : 'Normal results do not change rank. Both queues use equal stats and nearby ratings. Your equipped hero and wall are cosmetic; every hero has the same Rally power.', 'ftd-pvp__intro'),
@@ -250,7 +250,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       ]), playerCard(opponent, true),
     ]));
     const objective = el('div', { class: 'ftd-duel-objective' });
-    objective.innerHTML = '<b>DEFEND BLUE</b> · Stop red fruit &nbsp; | &nbsp; <em>DESTROY RED</em> · Send blue fruit';
+    objective.innerHTML = `<b>DEFEND ${own.side.toUpperCase()}</b> · Stop incoming fruit &nbsp; | &nbsp; <em>ATTACK ${opponent.side.toUpperCase()}</em> · Send fruit squads`;
     body.append(objective);
     if (actionFeedback && Date.now() < feedbackUntil) body.append(el('div', { class: 'ftd-duel-feedback', role: 'status', text: actionFeedback }));
     const sceneConfig = { wallHealth: maxHealth, towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
@@ -311,7 +311,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         GameButton({ label: 'Close', size: 'sm', variant: 'ghost', onClick: () => { selectedCell = null; render(); } }),
       ]));
     }
-    tray.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? '1. Pick a tower below. 2. Tap a blue tile beside the route. Towers fire automatically. Tap a built tower to upgrade.' : dockTab === 'attack' ? 'Tap a squad to send BLUE fruit toward the RED base. Runners rush; brutes soak damage; exploders break walls.' : 'Catchers capture weakened RED fruit. Release them as BLUE reinforcements to attack the enemy.' }));
+    tray.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `1. Pick a tower. 2. Tap an empty hex in your ${own.side.toUpperCase()} territory. Towers auto-fire; tap a tower to upgrade or sell.` : dockTab === 'attack' ? `Send a squad toward the opponent's ${opponent.side.toUpperCase()} wall. Runners rush; brutes soak damage; exploders break walls.` : `Catchers capture weakened incoming fruit. Release a captive to send it toward the opponent's ${opponent.side.toUpperCase()} wall.` }));
     tray.append(el('div', { class: 'ftd-duel-tabs', role: 'tablist', 'aria-label': 'Battle commands' }, (['build', 'attack', 'capture'] as const).map(tab => {
       const button = el('button', { type: 'button', role: 'tab', 'data-testid':`arena-tab-${tab}`, 'aria-selected': tab === dockTab, class: tab === dockTab ? 'is-active' : '', text: tab === 'build' ? 'BUILD' : tab === 'attack' ? 'SEND ATTACK' : `CAPTURED ${own.captured?.length ?? 0}` });
       button.addEventListener('click', () => { dockTab = tab; battlefield?.setAttackView?.(tab === 'attack'); render(); }); return button;
