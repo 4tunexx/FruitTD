@@ -65,6 +65,71 @@
 .ftd-duel-camera button:focus-visible { outline:2px solid #eaff9f; outline-offset:2px; }
 .ftd-profile-banner__record { font-size:.85rem; color:#c2d4ac; }
 .ftd-profile-rank { color:var(--rank-color); border-color:var(--rank-color); }
+
+/* Match identity stays attached to each signed-in player, including Steam's current persona and avatar. */
+.ftd-vs-portrait { display:grid; place-items:center; flex:none; width:48px; aspect-ratio:1; overflow:hidden; color:#f7f4e8; background:#15191a; border:3px solid var(--side,#f7c843); box-shadow:0 0 0 2px #08090a,4px 4px 0 #050607; clip-path:polygon(9% 0,100% 0,100% 85%,86% 100%,0 100%,0 12%); }
+.ftd-vs-portrait.is-blue { --side:#48c8ff; }
+.ftd-vs-portrait.is-red { --side:#ff6059; }
+.ftd-vs-portrait img { display:block; width:100%; height:100%; object-fit:cover; }
+.ftd-vs-portrait strong { color:var(--side); font-size:24px; font-weight:1000; text-shadow:2px 2px #090b0a; }
+.ftd-pvp__draft { border:2px solid #f1c33f; background:linear-gradient(145deg,#242522,#111314 68%); box-shadow:7px 7px 0 #050607; clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px)); }
+.ftd-pvp__draft-head h2 { color:#f5f2e9; font-size:clamp(25px,5vw,40px); font-weight:1000; letter-spacing:.04em; text-transform:uppercase; text-shadow:3px 3px #050607; }
+.ftd-pvp__eyebrow,.ftd-result-kicker { margin:0; color:#ffc928; font-size:10px; font-weight:1000; letter-spacing:.2em; }
+.ftd-versus-lineup { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:10px; padding:12px; margin:8px 0 16px; border:1px solid #ffffff22; background:linear-gradient(90deg,#102b3b,#171819 50%,#351918); }
+.ftd-versus-card { min-width:0; display:flex; align-items:center; gap:10px; padding:8px; border:2px solid var(--side); background:linear-gradient(145deg,#242729,#111314); box-shadow:4px 4px 0 #050607; }
+.ftd-versus-card.is-blue { --side:#48c8ff; }
+.ftd-versus-card.is-red { --side:#ff6059; flex-direction:row-reverse; text-align:right; }
+.ftd-versus-card > div { min-width:0; }
+.ftd-versus-card small,.ftd-versus-card strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ftd-versus-card small { color:var(--side); font-size:9px; font-weight:1000; letter-spacing:.1em; }
+.ftd-versus-card strong { margin-top:3px; color:#f7f4e8; font-size:clamp(12px,2.5vw,19px); }
+.ftd-versus-mark,.ftd-result-vs { z-index:1; display:grid; place-items:center; width:52px; aspect-ratio:1; color:#ffe15b; background:#111314; border:3px solid #f7cd37; box-shadow:3px 3px 0 #050607,0 0 18px #ffca2855; font-size:20px; font-weight:1000; font-style:italic; transform:rotate(-8deg); text-shadow:2px 2px #070707; }
+.ftd-vs-clash { position:absolute; inset:0; z-index:9; display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); grid-template-rows:1fr auto; align-items:center; gap:10px; padding:14vh 12px 17vh; overflow:hidden; background:radial-gradient(ellipse at center,#39321aee 0%,#121416f2 42%,#050607f5 100%); pointer-events:none; animation:ftd-clash-backdrop .8s ease-out both; }
+.ftd-vs-clash:before { content:""; position:absolute; inset:-45%; background:repeating-conic-gradient(from 0deg at 50% 50%,#f8cf3c17 0deg 3deg,transparent 3deg 12deg); animation:ftd-clash-rays .8s ease-out both; }
+.ftd-clash-fighter { position:relative; z-index:1; display:grid; justify-items:center; gap:8px; min-width:0; padding:12px 5px; border:3px solid var(--side); background:linear-gradient(145deg,#252729f5,#0d0f10f5); box-shadow:7px 7px 0 #030405,0 0 30px color-mix(in srgb,var(--side) 35%,transparent); text-align:center; }
+.ftd-clash-fighter.is-blue { --side:#48c8ff; transform:translateX(-130vw) rotate(-9deg); animation:ftd-clash-left .48s cubic-bezier(.12,.86,.2,1.12) .02s forwards; }
+.ftd-clash-fighter.is-red { --side:#ff6059; transform:translateX(130vw) rotate(9deg); animation:ftd-clash-right .48s cubic-bezier(.12,.86,.2,1.12) .02s forwards; }
+.ftd-clash-fighter .ftd-vs-portrait { width:min(22vw,100px); }
+.ftd-clash-fighter strong { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fffceb; font-size:clamp(12px,3vw,19px); text-shadow:2px 2px #060708; }
+.ftd-clash-fighter small { color:var(--side); font-size:9px; font-weight:1000; letter-spacing:.14em; }
+.ftd-vs-clash__mark { position:relative; z-index:2; grid-column:2; grid-row:1; display:grid; place-items:center; width:clamp(52px,15vw,96px); aspect-ratio:1; color:#fff16b; -webkit-text-stroke:1px #15120a; text-shadow:3px 4px #090909,0 0 18px #ffbb26; font-size:clamp(31px,9vw,58px); font-style:italic; font-weight:1000; transform:scale(0) rotate(-20deg); animation:ftd-clash-vs .3s cubic-bezier(.16,1.5,.32,1) .32s forwards; }
+.ftd-vs-clash__caption { position:relative; z-index:1; grid-column:1/4; justify-self:center; padding:10px 16px; color:#ffc928; border:2px solid #ffc928; background:#101213; box-shadow:4px 4px #030405; font-size:clamp(10px,2.4vw,15px); font-weight:1000; letter-spacing:.1em; text-align:center; animation:ftd-caption-in .2s ease .48s both; }
+.ftd-duel-result-overlay { position:absolute; inset:0; z-index:12; display:grid; place-items:center; overflow:auto; padding:calc(env(safe-area-inset-top,0px) + 18px) 12px calc(env(safe-area-inset-bottom,0px) + 18px); background:radial-gradient(ellipse at center,#161719ed 0%,#060708f5 75%); }
+.ftd-pvp.is-battle .ftd-pvp__result { width:min(100%,520px); margin:auto; padding:clamp(14px,4vw,28px); border:3px solid #f4c83f; border-radius:0; background:linear-gradient(150deg,#252626,#101213 65%); box-shadow:8px 8px 0 #030405,0 0 50px #f3bf3030; clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px)); }
+.ftd-pvp.is-battle .ftd-pvp__result.is-defeat { border-color:#eb514b; box-shadow:8px 8px 0 #030405,0 0 42px #ee47442a; }
+.ftd-pvp.is-battle .ftd-pvp__result h2 { margin:3px 0 10px; color:#ffdb45; font-size:clamp(34px,10vw,58px); line-height:.95; font-weight:1000; letter-spacing:.04em; text-shadow:4px 4px #050607,-1px -1px #050607; }
+.ftd-pvp.is-battle .ftd-pvp__result.is-defeat h2 { color:#ff655d; }
+.ftd-pvp.is-battle .ftd-pvp__result.is-entering { animation:ftd-result-enter .82s cubic-bezier(.16,.9,.2,1) both; }
+.ftd-result-faceoff { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:5px; padding:10px 4px; margin:8px 0 12px; border-block:1px solid #ffffff25; background:linear-gradient(90deg,#0e2a39,#171819 50%,#361816); }
+.ftd-result-fighter { display:grid; justify-items:center; min-width:0; gap:4px; padding:6px 3px; border:2px solid var(--side); background:#151819; box-shadow:4px 4px 0 #040506; }
+.ftd-result-fighter.is-blue { --side:#48c8ff; transform:translateX(-34vw); }
+.ftd-result-fighter.is-red { --side:#ff6059; transform:translateX(34vw); }
+.ftd-result-fighter.is-winner { box-shadow:4px 4px 0 #040506,0 0 15px color-mix(in srgb,var(--side) 48%,transparent); }
+.is-entering .ftd-result-fighter.is-blue { animation:ftd-result-left .65s cubic-bezier(.14,.9,.2,1) both; }
+.is-entering .ftd-result-fighter.is-red { animation:ftd-result-right .65s cubic-bezier(.14,.9,.2,1) both; }
+.ftd-result-fighter .ftd-vs-portrait { width:clamp(40px,13vw,68px); }
+.ftd-result-fighter strong { max-width:100%; overflow:hidden; color:#fffceb; font-size:clamp(10px,2.8vw,14px); text-overflow:ellipsis; white-space:nowrap; }
+.ftd-result-fighter span,.ftd-result-fighter small { color:var(--side); font-size:8px; font-weight:900; letter-spacing:.08em; }
+.ftd-result-vs { width:clamp(34px,10vw,54px); font-size:clamp(13px,4vw,21px); }
+.ftd-result-summary { margin:0 0 9px; color:#e5e3d8; font-size:clamp(13px,3vw,16px); font-weight:800; text-align:center; }
+.ftd-result-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.ftd-result-stats span { display:grid; gap:2px; padding:7px; background:#0d1011; border-left:3px solid var(--side); text-align:center; }
+.ftd-result-stats span:first-child { --side:#48c8ff; }
+.ftd-result-stats span:last-child { --side:#ff6059; }
+.ftd-result-stats small { overflow:hidden; color:#b5b7b0; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.ftd-result-stats b { color:#f8f2da; font-size:20px; }
+.ftd-result-rating { margin:4px 0 12px; color:#ffdb45; font-size:12px; font-weight:1000; letter-spacing:.1em; text-align:center; }
+@keyframes ftd-clash-left { 0%{transform:translateX(-130vw) rotate(-9deg)} 70%{transform:translateX(10px) rotate(2deg)} 100%{transform:translateX(0) rotate(0)} }
+@keyframes ftd-clash-right { 0%{transform:translateX(130vw) rotate(9deg)} 70%{transform:translateX(-10px) rotate(-2deg)} 100%{transform:translateX(0) rotate(0)} }
+@keyframes ftd-clash-vs { to{transform:scale(1) rotate(-8deg)} }
+@keyframes ftd-clash-backdrop { 0%,45%{filter:brightness(1.65)} 100%{filter:none} }
+@keyframes ftd-clash-rays { to{transform:rotate(26deg);opacity:.5} }
+@keyframes ftd-caption-in { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+@keyframes ftd-result-left { 0%{transform:translateX(-34vw)} 72%{transform:translateX(4px)} 100%{transform:translateX(0)} }
+@keyframes ftd-result-right { 0%{transform:translateX(34vw)} 72%{transform:translateX(-4px)} 100%{transform:translateX(0)} }
+@keyframes ftd-result-enter { from{opacity:0;transform:scale(.82)} to{opacity:1;transform:scale(1)} }
+@media(max-width:520px){.ftd-pvp.is-battle .ftd-duel-result-overlay{padding-inline:9px}.ftd-duel-result-overlay .ftd-btn{width:100%;min-height:46px}.ftd-versus-lineup{gap:5px;padding:6px}.ftd-versus-card{gap:5px;padding:5px}.ftd-versus-card .ftd-vs-portrait{width:36px}.ftd-versus-card small{font-size:7px}.ftd-versus-mark{width:38px;font-size:15px}}
+@media(prefers-reduced-motion:reduce){.ftd-vs-clash,.ftd-vs-clash *,.ftd-pvp__result.is-entering,.ftd-result-fighter{animation:none!important;transform:none!important}}
 @media (min-width:700px) {
   .ftd-duel-hud { padding:12px 20px; gap:20px; }
   .ftd-duel-player strong { font-size:16px; }
