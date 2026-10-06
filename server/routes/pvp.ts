@@ -10,6 +10,7 @@ import { pvpCanMatch } from '../../src/game/pvpMatchmaking';
 import { HEROES } from '../../src/game/heroes';
 import { WALL_SKINS } from '../../src/game/save';
 import { playPvpBotTurn } from '../../src/game/pvpBot';
+import { pvpAccountIdentity } from '../../src/game/pvpIdentity';
 
 export const pvpRouter = Router();
 type QueueEntry = { userId: string; name: string; queue: PvpQueue; points: number; season: string; createdAt: Date; expiresAt: Date };
@@ -90,7 +91,7 @@ function publicMatch(match: StoredMatch, userId: string) {
   if (!match.players.some((player) => player.userId === userId)) return null;
   return { id: match.id, queue: match.queue, status: match.status, testMatch: Boolean(match.testMatch), remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision,
     map: match.map, mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })), vetoTurnId: match.vetoTurn, yourVetoTurn: match.vetoTurn === userId, vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side, winnerId: match.winnerId, resultReason: match.resultReason };
@@ -105,7 +106,15 @@ async function equippedAppearance(userId: string) {
 async function makeMatch(queue: PvpQueue, left: { userId: string; name: string }, right: { userId: string; name: string }, config: PvpConfig): Promise<StoredMatch> {
   const match = newPvpMatch(randomUUID(), queue, [createPvpPlayer(left.userId, left.name, 'blue', config), createPvpPlayer(right.userId, right.name, 'red', config)], Date.now(), config) as StoredMatch;
   match.updatedAt = new Date(); match.balance = structuredClone(config); match.activePlayers = [left.userId, right.userId];
-  const ratings = await Promise.all(match.players.map(async player => { Object.assign(player, await equippedAppearance(player.userId)); return (await ratingFor(player.userId, config)).points; }));
+  const [accounts, ratings] = await Promise.all([
+    (await getCollection<any>('users')).find({ userId: { $in: match.players.map(player => player.userId) } }).toArray(),
+    Promise.all(match.players.map(async player => (await ratingFor(player.userId, config)).points)),
+  ]);
+  for (const player of match.players) {
+    const account = accounts.find((row: any) => row.userId === player.userId);
+    Object.assign(player, pvpAccountIdentity(account, player.name));
+    Object.assign(player, await equippedAppearance(player.userId));
+  }
   match.startRatings = Object.fromEntries(match.players.map((player, index) => [player.userId, ratings[index]!]));
   await (await getCollection<StoredMatch>('pvp_matches')).insertOne(match);
   void publishMatch(match);
@@ -265,7 +274,7 @@ pvpRouter.post('/queue', async (req: Request, res: Response) => {
     const config = await currentPvpConfig();
     const now = new Date(); const rating = await ratingFor(user.userId, config);
     const existing = await queues.findOne({ userId: user.userId, queue, expiresAt: { $gt: now } });
-    const entry: QueueEntry = { userId: user.userId, name: user.username || user.nickname || 'Slicer', queue, points: rating.points, season: seasonKey(), createdAt: existing?.createdAt ?? now, expiresAt: new Date(Date.now() + 120_000) };
+    const entry: QueueEntry = { userId: user.userId, name: user.steamPersona || user.username || user.nickname || 'Player', queue, points: rating.points, season: seasonKey(), createdAt: existing?.createdAt ?? now, expiresAt: new Date(Date.now() + 120_000) };
     await queues.updateOne({ userId: user.userId }, { $set: entry }, { upsert: true });
     const match = await pairQueued(entry, config);
     if (match) return res.json({ success: true, match: publicMatch(match, user.userId) });
@@ -287,7 +296,7 @@ pvpRouter.post('/challenge', async (req: Request, res: Response) => {
     const relation = await friends.findOne({ userId: user.userId, friendId, state: 'accepted' }) || await friends.findOne({ userId: friendId, friendId: user.userId, state: 'accepted' });
     if (!relation) return routerError(res, 403, 'Private challenges are only available to accepted friends.');
     const users = await getCollection<any>('users'); const friend = await users.findOne({ userId: friendId }); if (!friend) return routerError(res, 404, 'Friend not found.');
-    const challenge: Challenge = { challengeId: randomUUID(), fromId: user.userId, fromName: user.username || user.nickname || 'Slicer', toId: friendId, createdAt: new Date(), expiresAt: new Date(Date.now() + 120_000) };
+    const challenge: Challenge = { challengeId: randomUUID(), fromId: user.userId, fromName: user.steamPersona || user.username || user.nickname || 'Player', toId: friendId, createdAt: new Date(), expiresAt: new Date(Date.now() + 120_000) };
     await (await getCollection<Challenge>('pvp_challenges')).insertOne(challenge);
     try { await (await getCollection<any>('notifications')).insertOne({ notificationId: randomUUID(), userId: friendId, actorId: user.userId, actorName: challenge.fromName, type: 'pvp_challenge', title: 'Arena challenge', body: `${challenge.fromName} challenged you to an Arena siege. Open Arena to accept within two minutes.`, createdAt: new Date() }); } catch (error) { console.error('Could not create the Arena challenge notification:', error); }
     res.json({ success: true, challengeId: challenge.challengeId });
