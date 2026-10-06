@@ -27,6 +27,8 @@
 .ftd-duel-clock small { display:block; font-size:8px; font-weight:900; color:#e7d5ae; letter-spacing:1px; }
 .ftd-duel-clock strong { display:block; color:#ffde6a; font-size:21px; line-height:1.1; }
 .ftd-duel-clock .ftd-btn { min-height:24px; padding:1px 5px; font-size:10px; }
+.ftd-duel-leave { width:30px; height:26px; display:inline-grid; place-items:center; margin-top:3px; padding:0; color:#ddd4c1; background:#1a1c1d; border:1px solid #5a5346; border-radius:5px; cursor:pointer; }
+.ftd-duel-leave:focus-visible { outline:2px solid #ffc52e; outline-offset:2px; }
 .ftd-duel-dock { flex-shrink:0; padding:7px 10px 9px; color:#eee1c4; background:linear-gradient(#183326,#0a1b15); border-top:2px solid #7b9c4a; box-shadow:0 -6px 25px #07120a80; }
 .ftd-duel-resource { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:5px; }
 .ftd-duel-resource span { display:flex; align-items:center; gap:6px; color:#ffca28; font-size:14px; }
@@ -173,4 +175,54 @@
   .ftd-duel-card { min-height:76px; }
   .ftd-duel-guide { font-size:11px; margin:3px 0; }
   .ftd-duel-objective { font-size:10px; padding:5px; }
+}
+
+/* Mobile siege controls stay on one thumb rail. The loadout is a compact
+   bottom sheet so the hex field remains the primary surface. */
+.ftd-duel-dock { flex:0 0 auto; padding:6px 10px calc(7px + env(safe-area-inset-bottom,0px)); border-color:#ffc52e; background:linear-gradient(#1d2021,#101213 80%); }
+.ftd-duel-resource { min-height:24px; margin:0 0 4px; }
+.ftd-duel-wallet { color:#ffc52e!important; font-size:13px!important; font-weight:1000; }
+.ftd-duel-wallet svg { width:16px; }
+.ftd-duel-statusline { overflow:hidden; max-width:64%; text-align:right; text-overflow:ellipsis; white-space:nowrap; }
+.ftd-duel-rail { display:flex; align-items:center; justify-content:center; gap:8px; }
+.ftd-duel-icon-button { width:42px; height:40px; display:grid; place-items:center; flex:0 0 auto; color:#e9e5d8; background:#222527; border:1px solid #66615a; border-radius:7px; box-shadow:0 3px 0 #060708; cursor:pointer; touch-action:manipulation; }
+.ftd-duel-icon-button svg { width:19px; height:19px; }
+.ftd-duel-icon-button.is-active { color:#15120a; background:#ffc52e; border-color:#ffe286; }
+.ftd-duel-icon-button:disabled { opacity:.38; cursor:default; }
+.ftd-duel-icon-button:focus-visible { outline:2px solid #fff0a8; outline-offset:2px; }
+.ftd-duel-panel { max-height:min(34dvh,290px); overflow:auto; padding-top:5px; border-top:1px solid #716239; }
+.ftd-duel-panel[hidden] { display:none; }
+.ftd-duel-panel .ftd-duel-guide { display:none; }
+.ftd-duel-tabs { display:none; }
+.ftd-duel-cards { padding-bottom:3px; }
+.ftd-duel-card { flex:1 0 76px; min-height:62px; border-radius:5px; border-color:#82703c; background:linear-gradient(145deg,#292b2b,#151718); box-shadow:0 2px 0 #050607; }
+.ftd-duel-card strong { font-size:10px; }
+.ftd-duel-card small { font-size:9px; }
+.ftd-duel-card.is-selected { border-color:#ffc52e; box-shadow:0 0 0 1px #ffc52e; }
+.ftd-duel-panel .ftd-duel-upgrade { margin:5px 0 0; padding:6px; border-color:#88713a; background:#1b1d1d; }
+.ftd-duel-panel .ftd-duel-upgrade .ftd-btn { min-height:34px; }
+.ftd-duel-arsenal { display:block; min-height:32px; margin:4px auto 0; padding:4px 10px; color:#ffc52e; border:1px solid #74623a; border-radius:5px; background:#17191a; font-size:11px; font-weight:900; }
+.ftd-duel-focus { top:8px; left:8px; width:36px; min-height:36px; overflow:hidden; padding:0; color:transparent; font-size:0; background:#111416de; border-color:#b89436; }
+.ftd-duel-focus::after { content:'◎'; display:grid; place-items:center; color:#ffc52e; font-size:20px; }
+.ftd-duel-camera { top:51px; left:8px; }
+.ftd-duel-camera button { color:#ffc52e; background:#111416e8; border-color:#9b803e; }
+.ftd-duel-objective { color:#d6d4cc; background:#17191a; border-bottom:1px solid #3b3c3a; }
+.ftd-duel-objective b { color:#ffc52e; }
+.ftd-duel-guide { display:none; }
+@media(max-width:600px) {
+  .ftd-pvp.is-battle .ftd-pvp__body { height:100%; }
+  .ftd-duel-hud { grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr); gap:4px; padding:5px 7px; border-color:#f5bd2d; background:linear-gradient(#1b1d1e,#101213); }
+  .ftd-duel-player { gap:4px; }
+  .ftd-duel-player__crest { width:29px; height:32px; border-radius:5px; }
+  .ftd-duel-player strong { font-size:11px; }
+  .ftd-duel-player span:not(.ftd-duel-player__crest) { margin:1px 0; font-size:8px; }
+  .ftd-duel-hp { height:5px; }
+  .ftd-duel-clock strong { font-size:19px; }
+  .ftd-duel-clock small { font-size:7px; }
+  .ftd-duel-objective { padding:4px; font-size:9px; }
+  .ftd-duel-dock { padding-inline:8px; }
+  .ftd-duel-panel { max-height:30dvh; }
+  .ftd-duel-cards { gap:5px; }
+  .ftd-duel-card { min-width:68px; min-height:58px; }
+  .ftd-duel-icon-button { width:40px; height:38px; }
 }
