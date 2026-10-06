@@ -158,7 +158,7 @@ export class PvpBattlefield {
           const kind = fruit.type === 'swift' ? 'strawberry' : fruit.type === 'armored' ? 'watermelon' : fruit.type === 'explosive' ? 'bomb' : 'orange';
           const def = FRUIT_DEFS[kind];
           const texture = snapshot.shared ? getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin) : null;
-          const teamColor = own ? COLORS.red : COLORS.blue;
+          const teamColor = player.side === 'blue' ? COLORS.red : COLORS.blue;
           const mesh = new Mesh(new SphereGeometry(fruit.type === 'armored' ? .68 : .48, 14, 10), new MeshLambertMaterial({ color: snapshot.shared ? texture ? 0xffffff : def.color : teamColor, map: texture, emissive: snapshot.shared ? def.emissive : teamColor, emissiveIntensity: .22 }));
           const shell = new Mesh(mesh.geometry, new MeshBasicMaterial({ color: 0x07110c, side: BackSide })); shell.scale.setScalar(1.09); mesh.add(shell);
           const stem = new Mesh(new CylinderGeometry(.07, .05, .3, 5), new MeshLambertMaterial({ color: 0x274925 })); stem.position.y = .5; mesh.add(stem);
