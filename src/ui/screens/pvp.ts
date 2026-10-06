@@ -56,6 +56,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let selectedTower = 'guillotine';
   let selectedCell: number | null = null;
   let dockTab: 'build' | 'attack' | 'capture' = 'build';
+  let dockExpanded = false;
   let surrenderConfirm = false;
   let actionError = '';
   let actionFeedback = '';
@@ -267,9 +268,10 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     ]);
     body.append(el('header', { class: 'ftd-duel-hud' }, [playerCard(own, false),
       el('div', { class: 'ftd-duel-clock' }, [el('small', { text: match.testMatch ? 'PRACTICE' : match.queue === 'ranked' ? 'RANKED' : 'ARENA' }), el('strong', { text: `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, '0')}` }),
-        GameButton({ label: 'Exit', size: 'sm', variant: 'ghost', onClick: () => { surrenderConfirm = true; render(); } }),
+        el('button', { type:'button', class:'ftd-duel-leave', title:'Leave match', 'aria-label':'Leave match', 'data-testid':'arena-leave' }, [lucideIcon('LogOut','',16)]),
       ]), playerCard(opponent, true),
     ]));
+    body.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')?.addEventListener('click', () => { surrenderConfirm=true;render(); });
     const objective = el('div', { class: 'ftd-duel-objective' });
     objective.innerHTML = `<b>DEFEND ${own.side.toUpperCase()}</b> · Stop incoming fruit &nbsp; | &nbsp; <em>ATTACK ${opponent.side.toUpperCase()}</em> · Send fruit squads`;
     body.append(objective);
@@ -317,31 +319,27 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const selectedBase = selected ? status.config?.towers[selected.type] : null;
     const tray = el('footer', { class: 'ftd-duel-dock' });
     const mainLevel = pvpTowerLevel(own.mainLevel); const mainCost = pvpMainUpgradeCost(mainLevel);
-    tray.append(el('div', { class: 'ftd-duel-resource' }, [
-      el('span', {}, [lucideIcon('Leaf', '', 18), el('strong', { text: `${Math.floor(own.fruts)} FRUTS` })]),
-      GameButton({ label: rallyActive ? 'RALLY ACTIVE' : rallyWait ? `Rally ${rallyWait}s` : 'RALLY +25%', size: 'sm', disabled: busy || rallyWait > 0, onClick: () => issue({ type: 'rally' }) }),
-      el('small', { text: !opponent.connected ? 'Opponent reconnecting…' : `${own.attackers.length} incoming · ${opponent.attackers.length} attacking` }),
-    ]));
-    tray.append(el('div', { class: 'ftd-duel-economy' }, [
-      GameButton({ label: mainLevel === PVP_MAX_TOWER_LEVEL ? 'MAIN LV 3 · MAX' : `MAIN LV ${mainLevel} → ${mainLevel + 1} · ${mainCost} F`, size: 'sm', disabled: busy || mainLevel >= PVP_MAX_TOWER_LEVEL || own.fruts < mainCost, onClick: () => issue({ type: 'upgrade-main' }) }),
-      el('small', { text: `+${status.config?.incomePerSecond ?? 6} F/s · Captured ${own.captured?.length ?? 0}/${PVP_CAPTURE_CAPACITY}` }),
-    ]));
-    if (selected && selectedBase) {
-      const level = pvpTowerLevel(selected.level); const stats = pvpTowerStats(selectedBase, level);
-      const cost = pvpUpgradeCost(selectedBase.cost, level);
-      tray.append(el('div', { class: 'ftd-duel-upgrade', 'data-testid': 'arena-tower-upgrade' }, [
-        lucideIcon(towerIcons[selected.type] || 'TowerControl', '', 28),
-        el('div', {}, [el('strong', { text: `${towerName(selected.type)} · LV ${level}` }), el('small', { text: selected.type === 'catcher' ? `Captures below ${30 + (level - 1) * 10}% HP · ${stats.range} range` : `${stats.damage} damage · ${stats.range} range` })]),
-        GameButton({ label: level >= PVP_MAX_TOWER_LEVEL ? 'MAX' : `Upgrade ${cost}`, size: 'sm', tone: 'primary', disabled: busy || level >= PVP_MAX_TOWER_LEVEL || own.fruts < cost, onClick: () => issue({ type: 'upgrade', towerId: selected.id }) }),
-        GameButton({ label: `Sell +${pvpSellRefund(selectedBase.cost, level)}`, size: 'sm', variant: 'outline', disabled: busy, onClick: () => { selectedCell = null; issue({ type: 'sell', towerId: selected.id }); } }),
-        GameButton({ label: 'Close', size: 'sm', variant: 'ghost', onClick: () => { selectedCell = null; render(); } }),
-      ]));
-    }
-    tray.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `1. Pick a tower. 2. Tap an empty hex in your ${own.side.toUpperCase()} territory. Towers auto-fire; tap a tower to upgrade or sell.` : dockTab === 'attack' ? `Send a squad toward the opponent's ${opponent.side.toUpperCase()} wall. Runners rush; brutes soak damage; exploders break walls.` : `Catchers capture weakened incoming fruit. Release a captive to send it toward the opponent's ${opponent.side.toUpperCase()} wall.` }));
-    tray.append(el('div', { class: 'ftd-duel-tabs', role: 'tablist', 'aria-label': 'Battle commands' }, (['build', 'attack', 'capture'] as const).map(tab => {
-      const button = el('button', { type: 'button', role: 'tab', 'data-testid':`arena-tab-${tab}`, 'aria-selected': tab === dockTab, class: tab === dockTab ? 'is-active' : '', text: tab === 'build' ? 'BUILD' : tab === 'attack' ? 'SEND ATTACK' : `CAPTURED ${own.captured?.length ?? 0}` });
-      button.addEventListener('click', () => { dockTab = tab; battlefield?.setAttackView?.(tab === 'attack'); render(); }); return button;
-    })));
+    tray.classList.toggle('is-expanded', dockExpanded);
+    const resource = el('div', { class: 'ftd-duel-resource' }, [
+      el('span', { class:'ftd-duel-wallet' }, [lucideIcon('Leaf', '', 18), el('strong', { text: `${Math.floor(own.fruts)} F` })]),
+      el('small', { class:'ftd-duel-statusline', text: !opponent.connected ? 'Opponent reconnecting…' : `${own.attackers.length} incoming · ${opponent.attackers.length} attacking · +${status.config?.incomePerSecond ?? 6} F/s` }),
+    ]);
+    const actionRail = el('div', { class:'ftd-duel-rail', 'aria-label':'Battle actions' });
+    const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;battlefield?.setAttackView?.(tab==='attack');render(); };
+    const railButton = (iconName:string, labelText:string, action:()=>void, disabled=false, testId?:string, selected=false) => {
+      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19)]);
+      button.addEventListener('click',action);return button;
+    };
+    actionRail.append(
+      railButton('Swords','Build towers',()=>openDock('build'),false,'arena-tab-build',dockTab==='build'),
+      railButton('Cherry','Send fruit attack',()=>openDock('attack'),false,'arena-tab-attack',dockTab==='attack'),
+      railButton('Fence',`Captured fruit · ${own.captured?.length ?? 0}/${PVP_CAPTURE_CAPACITY}`,()=>openDock('capture'),false,'arena-tab-capture',dockTab==='capture'),
+      railButton('Zap',rallyActive?'Rally active':rallyWait?`Rally ready in ${rallyWait}s`:'Rally · +25% damage',()=>issue({type:'rally'}),busy||rallyWait>0,'arena-rally'),
+      railButton('Castle',mainLevel===PVP_MAX_TOWER_LEVEL?'Main tower · max level':`Upgrade main tower · ${mainCost} Fruts`,()=>issue({type:'upgrade-main'}),busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,'arena-upgrade-main'),
+    );
+    tray.append(resource,actionRail);
+    const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
+    panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Choose a tower, then tap an open hex on your side. Towers fire automatically.` : dockTab === 'attack' ? `Choose a squad to send toward the ${opponent.side.toUpperCase()} wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));
     const cards = el('div', { class: 'ftd-duel-cards', 'aria-label': dockTab === 'build' ? 'Tower choices' : 'Fruit attack choices' });
     const coreTowers = ['guillotine', 'sprinkler', 'laser'];
     const allTowers = Object.entries(status.config?.towers || {});
@@ -367,12 +365,22 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       }
       if (!own.captured?.length) cards.append(label('Build a Catcher near your damage turrets. It stores wounded zombies for counterattacks.', 'ftd-pvp__intro'));
     }
-    tray.append(cards);
+    panel.append(cards);
     if (dockTab === 'build' && allTowers.length > coreTowers.length) {
-      const arsenal = el('button', { type: 'button', class: 'ftd-duel-arsenal', 'aria-expanded': expandedArsenal, text: expandedArsenal ? 'Simple loadout · show 3 core towers' : 'Advanced towers · slow, heavy fire & capture' });
+      const arsenal = el('button', { type: 'button', class: 'ftd-duel-arsenal', 'aria-expanded': expandedArsenal, text: expandedArsenal ? '− Core towers' : '+ More towers' });
       arsenal.addEventListener('click', () => { expandedArsenal = !expandedArsenal; if (!expandedArsenal && !coreTowers.includes(selectedTower)) selectedTower = visibleTowers[0]?.[0] || coreTowers[0]!; render(); });
-      tray.append(arsenal);
+      panel.append(arsenal);
     }
+    if (selected && selectedBase) {
+      const level = pvpTowerLevel(selected.level);const cost=pvpUpgradeCost(selectedBase.cost,level);
+      panel.append(el('div',{class:'ftd-duel-upgrade','data-testid':'arena-tower-upgrade'},[
+        lucideIcon(towerIcons[selected.type]||'TowerControl','',24),
+        el('div',{},[el('strong',{text:`${towerName(selected.type)} · LV ${level}`} ),el('small',{text:`${pvpTowerStats(selectedBase,level).damage} damage · ${pvpTowerStats(selectedBase,level).range} range`})]),
+        GameButton({label:level>=PVP_MAX_TOWER_LEVEL?'MAX':`Upgrade ${cost}`,size:'sm',tone:'primary',disabled:busy||level>=PVP_MAX_TOWER_LEVEL||own.fruts<cost,onClick:()=>issue({type:'upgrade',towerId:selected.id})}),
+        GameButton({label:`Sell +${pvpSellRefund(selectedBase.cost,level)}`,size:'sm',variant:'outline',disabled:busy,onClick:()=>{selectedCell=null;issue({type:'sell',towerId:selected.id});}}),
+      ]));
+    }
+    tray.append(panel);
     body.append(tray);
     if (surrenderConfirm) body.append(el('div', { class: 'ftd-duel-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Leave match' }, [
       el('section', {}, [el('h2', { text: 'Leave this match?' }), label(match.testMatch ? 'End this practice match.' : match.queue === 'ranked' ? 'Leaving counts as a Ranked loss.' : 'Your opponent wins if you leave.'),
