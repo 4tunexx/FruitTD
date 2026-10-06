@@ -704,7 +704,6 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
 }
 
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): void {
-  if (fruit.boss && (fruit.alive || fruit.hp > 0)) return;
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   debris.spawnPair(fruit, swipe, cutNormal);
@@ -799,9 +798,6 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   }
 }
 
-let bossCelebrationRemaining = 0;
-let bossVictoryContinue: (() => void) | null = null;
-
 function finishCampaignStage(): void {
   const cleared = state.level;
   if (campaignRunSettled) return;
@@ -815,22 +811,15 @@ function finishCampaignStage(): void {
   void syncCloudSave(save);
   // Snapshot rewards before menu cleanup; never start a new run here.
   const settlement = submitCurrentRun(true);
+  quitToMenu(true);
+  fruits.reset();
   document.getElementById('boss-health')?.classList.add('hidden');
+  navigation.open('CAMPAIGN');
+  if (completion.chapter) showCampaignChapter(cleared);
   const session = campaignSession;
-  bossCelebrationRemaining = 2.4;
-  renderer.impulseShake(2.2);
-  renderer.impulseBlast(1.8);
-  sfx.bombExplode();
-  bossVictoryContinue = () => {
-    if (session !== campaignSession) return;
-    quitToMenu(true);
-    fruits.reset();
-    navigation.open('CAMPAIGN');
-    if (completion.chapter) showCampaignChapter(cleared);
-  };
-  void settlement.then(() => {
+  void settlement.finally(() => {
     if (session === campaignSession && navigation.state === 'CAMPAIGN') refreshCurrentScreen();
-  }).catch(() => { /* submitCurrentRun owns settlement feedback. */ });
+  });
 }
 
 function showGameOverOverlay(): void {
@@ -838,10 +827,45 @@ function showGameOverOverlay(): void {
   if (!el) return;
   el.classList.remove('hidden');
   el.classList.add('flex');
+  const card = el.querySelector<HTMLElement>('.modal-card--over');
+  const title = el.querySelector<HTMLElement>('.modal-title--over');
+  const subtitle = el.querySelector<HTMLElement>('.modal-sub');
+  const overMenu = document.getElementById('btn-over-menu');
+  const campaignDefeat = state.mode === 'campaign';
+  card?.classList.toggle('is-campaign-defeat', campaignDefeat);
+  if (title) title.textContent = campaignDefeat ? 'WALL BREACHED' : 'Game Over';
+  if (subtitle) subtitle.textContent = campaignDefeat ? `STAGE ${String(state.level).padStart(2, '0')} · ${campaignBoss(state.level, getLiveConfig().campaignBosses).name}` : 'Final score';
+  if (overMenu) overMenu.textContent = campaignDefeat ? 'Campaign map' : 'Main menu';
+  const oldFaceoff = card?.querySelector('.campaign-defeat-faceoff');
+  if (oldFaceoff && !campaignDefeat) oldFaceoff.remove();
+  if (campaignDefeat && card && !oldFaceoff) {
+    const boss = campaignBoss(state.level, getLiveConfig().campaignBosses);
+    const steam = getCachedSteamState();
+    const faceoff = document.createElement('div');
+    faceoff.className = 'campaign-defeat-faceoff';
+    faceoff.setAttribute('aria-label', `Your defence versus ${boss.name}`);
+    const side = (name: string, image: string, fallback: string, rival: boolean) => {
+      const panel = document.createElement('div');
+      panel.className = `campaign-defeat-fighter${rival ? ' is-rival' : ' is-player'}`;
+      const portrait = document.createElement('span'); portrait.className = 'campaign-defeat-fighter__portrait';
+      if (image) { const img = document.createElement('img'); img.src = image; img.alt = `${name} portrait`; img.referrerPolicy = 'no-referrer'; portrait.appendChild(img); }
+      else { const initial = document.createElement('b'); initial.textContent = fallback; portrait.appendChild(initial); }
+      const label = document.createElement('strong'); label.textContent = name;
+      const kind = document.createElement('small'); kind.textContent = rival ? `STAGE ${String(state.level).padStart(2, '0')} OVERLORD` : 'YOUR DEFENCE';
+      panel.append(portrait, label, kind);
+      return panel;
+    };
+    const playerName = steam.personaName || save.nickname || 'Your hero';
+    faceoff.append(side(playerName, steam.avatar || save.avatar, playerName.slice(0, 1).toUpperCase(), false));
+    const clash = document.createElement('b'); clash.className = 'campaign-defeat-versus'; clash.textContent = 'VS'; faceoff.appendChild(clash);
+    faceoff.append(side(boss.name, boss.revealImage || '', '☠', true));
+    const score = document.getElementById('hud-final-score');
+    score?.before(faceoff);
+  }
   const finalScore = document.getElementById('hud-final-score');
   const finalWave = document.getElementById('hud-final-wave');
   if (finalScore) finalScore.textContent = `${state.score.toLocaleString()}`;
-  if (finalWave) finalWave.textContent = `Wave ${state.wave}`;
+  if (finalWave) finalWave.textContent = campaignDefeat ? `DEFENCE FAILED · WAVE ${state.wave}` : `Wave ${state.wave}`;
 }
 
 function submitCurrentRun(completed: boolean): Promise<void> {
@@ -919,7 +943,7 @@ function maybeOver(): void {
 
   showGameOverOverlay();
 
-  void submitCurrentRun(true);
+  void submitCurrentRun(state.mode !== 'campaign');
 
   emit({
     type: 'game_over',
@@ -1034,9 +1058,6 @@ function restart(): void {
   totalFruitsSliced = 0;
   statsRunId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   statsStrokes = statsHits = 0;
-  bossCelebrationRemaining = 0;
-  bossVictoryContinue = null;
-  document.querySelector('.campaign-boss-victory')?.remove();
   lootEligibleKills = 0;
   matchRewards = { coins: 0, gems: 0, heroXp: 0, towerXp: 0, skillPoints: 0 };
   sessionMaxCombo = 0;
@@ -1333,9 +1354,6 @@ function quitToMenu(explicitMenuAction = false): void {
     return;
   }
   leaveMatchApproved = false;
-  bossCelebrationRemaining = 0;
-  bossVictoryContinue = null;
-  document.querySelector('.campaign-boss-victory')?.remove();
   campaignSession += 1;
   campaignStageSaving = false;
   bossRevealRemaining = 0;
@@ -1357,6 +1375,8 @@ function quitToMenu(explicitMenuAction = false): void {
   blade.consumeSlash();
   document.getElementById('app')?.classList.remove('sidebar-open');
   document.getElementById('hud-gameover')?.classList.add('hidden');
+  document.querySelector('.campaign-defeat-faceoff')?.remove();
+  document.querySelector('.modal-card--over')?.classList.remove('is-campaign-defeat');
   hud.showPause(false);
   hud.showMenu(true);
   hud.mountMeta(save);
@@ -1560,24 +1580,6 @@ function kiPulse(x: number, z: number): void {
 }
 
 function simulate(dt: number): void {
-  if (bossCelebrationRemaining > 0) {
-    bossCelebrationRemaining = Math.max(0, bossCelebrationRemaining - dt);
-    blade.consumeClick(); blade.consumeSlash(); blade.consumeStrokeEnd();
-    juice.update(dt); debris.update(dt); slashFx.update(dt); floatingScore.update(dt); renderer.update(dt);
-    if (bossCelebrationRemaining === 0 && navigation.isInGame()) {
-      const victory = document.createElement('div');
-      victory.className = 'campaign-boss-victory';
-      victory.setAttribute('role', 'dialog');
-      victory.setAttribute('aria-modal', 'true');
-      victory.setAttribute('aria-label', 'Boss defeated');
-      victory.innerHTML = `<section><p>STAGE ${state.level} CLEARED</p><h1>BOSS DESTROYED</h1><p>${state.level === 100 ? 'The orchard is saved. Campaign complete!' : 'Your wall holds. Next stage unlocked.'}</p><button type="button">CONTINUE TO CAMPAIGN</button></section>`;
-      document.getElementById('app')?.appendChild(victory);
-      const button = victory.querySelector('button')!;
-      button.addEventListener('click', () => { victory.remove(); const proceed = bossVictoryContinue; bossVictoryContinue = null; proceed?.(); });
-      button.focus();
-    }
-    return;
-  }
   if (campaignStoryActive || campaignStageSaving) {
     blade.consumeClick();
     blade.consumeSlash();
@@ -1918,7 +1920,10 @@ document.getElementById('btn-pause-mute')?.addEventListener('click', () => {
 restartBtn.addEventListener('click', () => restartMatch());
 quitMenuBtn.addEventListener('click', () => quitToMenu(true));
 retryBtn.addEventListener('click', () => restartMatch());
-overMenuBtn.addEventListener('click', () => quitToMenu(true));
+overMenuBtn.addEventListener('click', () => {
+  if (state.mode === 'campaign') { quitToMenu(true); navigation.open('CAMPAIGN'); }
+  else quitToMenu(true);
+});
 if (muteBtn) {
   mountLucideIcon(muteBtn, 'Volume2', 20);
   muteBtn.dataset.muted = 'false';
