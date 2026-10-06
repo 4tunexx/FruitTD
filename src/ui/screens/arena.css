@@ -60,6 +60,9 @@
 .ftd-pvp.is-battle .ftd-pvp__result h2 { color:#bef442; font-size:36px; margin:0; }
 .ftd-pvp.is-battle .ftd-pvp-scene__hint { bottom:4px; font-size:9px; padding:4px 7px; max-width:98%; white-space:normal; text-align:center; border:0; background:#06110cbb; }
 .ftd-duel-focus { position:absolute; top:8px; left:8px; min-height:34px; padding:7px 10px; color:#d9f3b6; background:#092219d9; border:1px solid #88ab56; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; }
+.ftd-duel-camera { position:absolute; z-index:3; top:51px; left:8px; display:grid; gap:4px; }
+.ftd-duel-camera button { width:36px; height:36px; padding:0; color:#f1f4db; background:#092219e8; border:1px solid #88ab56; border-radius:7px; font-size:23px; font-weight:800; line-height:1; cursor:pointer; touch-action:manipulation; }
+.ftd-duel-camera button:focus-visible { outline:2px solid #eaff9f; outline-offset:2px; }
 .ftd-profile-banner__record { font-size:.85rem; color:#c2d4ac; }
 .ftd-profile-rank { color:var(--rank-color); border-color:var(--rank-color); }
 @media (min-width:700px) {
