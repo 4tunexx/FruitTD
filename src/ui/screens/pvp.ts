@@ -11,7 +11,7 @@ import { turretDef, type TurretKind } from '../../game/turrets';
 import { LoadingIndicator } from '../components/loading';
 
 type MapView = { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] };
-type MatchView = { id: string; queue: PvpQueue; status: string; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ userId: string; name: string; side: string; fruts: number; wallHealth: number; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; score: number; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
+type MatchView = { id: string; queue: PvpQueue; status: string; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ userId: string; name: string; avatar?: string; side: string; fruts: number; wallHealth: number; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; score: number; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
 type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: ArenaRating; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps' | 'incomePerSecond'> };
 const timers = new WeakMap<HTMLElement, number>();
 const realtimeClients = new WeakMap<HTMLElement, AblyRealtime>();
@@ -26,6 +26,12 @@ async function requestPvp(path: string, init: RequestInit = {}): Promise<any> {
   return data;
 }
 function label(text: string, cls = ''): HTMLElement { return el('p', { class: cls, text }); }
+function playerPortrait(player: Pick<NonNullable<PvpStatus['match']>['players'][number], 'name' | 'avatar' | 'side'>, className = ''): HTMLElement {
+  const portrait = el('span', { class: `ftd-vs-portrait is-${player.side === 'red' ? 'red' : 'blue'} ${className}`, 'aria-label': `${player.name} avatar` });
+  if (player.avatar) portrait.appendChild(el('img', { src: player.avatar, alt: `${player.name} avatar`, referrerpolicy: 'no-referrer' }));
+  else portrait.appendChild(el('strong', { text: player.name.trim().charAt(0).toUpperCase() || '?' }));
+  return portrait;
+}
 
 type BattlefieldView = Pick<PvpBattlefield, 'element' | 'interacting' | 'update' | 'selectCell' | 'dispose'> & { setAttackView?: (attacking: boolean) => void };
 export interface PvpHubOptions {
@@ -68,6 +74,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let attachingRealtime = false;
   let disposed = false;
   let realtimeMatchId = '';
+  let clashShownMatchId = '';
   const heading = el('header', { class: 'ftd-pvp__heading' }, [
     el('div', {}, [label('TOWER SIEGE · NORMAL OR RANKED', 'ftd-pvp__eyebrow'), el('h1', { text: 'ARENA' }), label('Three minutes. Build, upgrade, capture and counterattack. No slicing. Destroy the rival wall; at timeout, the higher wall percentage wins.', 'ftd-pvp__intro')]),
     el('div', { class: 'ftd-pvp__rating', 'data-pvp-rating': '' }, [label('RATING', 'ftd-pvp__eyebrow'), el('strong', { text: 'Loading…' })]),
@@ -223,7 +230,8 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         const veto = el('button', { class: 'ftd-pvp__map-card', type: 'button', disabled: !match.yourVetoTurn }, [thumbnail, el('strong', { text: map.name }), el('small', { text: `${map.pathCells.length} path tiles · veto this route` })]);
         veto.addEventListener('click', () => void send(`/match/${match.id}/veto`, { sequence: match.yourSequence + 1, mapId: map.id })); return veto;
       });
-      body.append(el('section', { class: 'ftd-pvp__draft' }, [el('div', { class: 'ftd-pvp__draft-head' }, [el('h2', { text: 'CHOOSE THE BATTLEFIELD' }), label(`${match.vetoesRemaining} vetoes left · then one of the final two paths is selected at random`), label(match.yourVetoTurn ? 'Your turn: veto one route' : 'Waiting for the other player to veto a route')]), el('div', { class: 'ftd-pvp__map-grid' }, drafts), GameButton({ label: 'Cancel draft · no rank change', variant: 'outline', onClick: () => void send(`/match/${match.id}/cancel-draft`) })]));
+      const identityCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-versus-card ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('div', {}, [el('small', { text: `${rival ? 'CHALLENGER' : 'YOUR FIGHTER'} · ${player.side.toUpperCase()}` }), el('strong', { text: player.name })])]);
+      body.append(el('section', { class: 'ftd-pvp__draft' }, [el('div', { class: 'ftd-pvp__draft-head' }, [el('p', { class: 'ftd-pvp__eyebrow', text: match.queue === 'ranked' ? 'RANKED SHOWDOWN' : 'ARENA SHOWDOWN' }), el('h2', { text: 'CHOOSE THE BATTLEFIELD' }), label(`${match.vetoesRemaining} route bans left · then the arena is chosen`), label(match.yourVetoTurn ? 'Your turn: ban one route' : 'Waiting for the other player to ban a route')]), el('div', { class: 'ftd-versus-lineup' }, [identityCard(own, false), el('strong', { class: 'ftd-versus-mark', text: 'VS' }), identityCard(opponent, true)]), el('div', { class: 'ftd-pvp__map-grid' }, drafts), GameButton({ label: 'Cancel draft · no rank change', variant: 'outline', onClick: () => void send(`/match/${match.id}/cancel-draft`) })]));
       return;
     }
     if (match.status === 'complete') {
@@ -232,14 +240,27 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         battlefield.update(match, { wallHealth:status.config?.wallHealth || 1000, towers:status.config?.towers || {}, attacks:status.config?.attacks || {} });
         body.append(battlefield.element);
       }
-      const wallResult = (player: typeof own) => `${Math.round(player.wallHealth / (player.wallMaxHealth ?? status.config?.wallHealth ?? 1000) * 100)}% (${player.wallHealth}/${player.wallMaxHealth ?? status.config?.wallHealth ?? 1000})`;
-      body.append(el('div', { class:'ftd-duel-result-overlay' }, [el('section', { class: 'ftd-pvp__result', role:'dialog', 'aria-modal':'true', 'aria-label':'Match result' }, [el('h2', { text: match.resultReason === 'draft-cancelled' ? 'DRAFT CANCELLED' : match.resultReason === 'test-ended' ? 'TEST ENDED' : won ? 'VICTORY' : match.winnerId ? 'DEFEAT' : 'DRAW' }), ...(match.testMatch ? [label('ADMIN TEST · No FR, rewards, achievements, or badges granted.', 'ftd-pvp__intro')] : []), label(`Final walls · You ${wallResult(own)} — ${wallResult(opponent)} opponent`),  ...(match.queue === 'ranked' && !match.testMatch && match.resultReason !== 'draft-cancelled' ? [label(own.ratingDelta === undefined ? 'Settling Ranked result…' : `FR change · ${own.ratingDelta > 0 ? '+' : ''}${own.ratingDelta} FR`)] : []), GameButton({ label: 'Back to queue', tone: 'primary', onClick: () => void send(`/match/${match.id}/ack`) })])]));
+      const wallResult = (player: typeof own) => Math.round(player.wallHealth / (player.wallMaxHealth ?? status.config?.wallHealth ?? 1000) * 100);
+      const title = match.resultReason === 'draft-cancelled' ? 'DRAFT CANCELLED' : match.resultReason === 'test-ended' ? 'TEST ENDED' : won ? 'VICTORY' : match.winnerId ? 'DEFEAT' : 'DRAW';
+      const faceoff = (player: typeof own, winner: boolean, rival: boolean) => el('div', { class: `ftd-result-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}${winner ? ' is-winner' : ''}` }, [playerPortrait(player), el('strong', { text: player.name }), el('span', { text: `${player.side.toUpperCase()} SIDE` }), el('small', { text: `${wallResult(player)}% WALL` })]);
+      const animateResult = clashShownMatchId !== `result:${match.id}`;
+      if (animateResult) clashShownMatchId = `result:${match.id}`;
+      body.append(el('div', { class:'ftd-duel-result-overlay' }, [el('section', { class: `ftd-pvp__result ${won ? 'is-victory' : match.winnerId ? 'is-defeat' : ''}${animateResult ? ' is-entering' : ''}`, role:'dialog', 'aria-modal':'true', 'aria-label':'Match result' }, [
+        label(match.queue === 'ranked' ? 'RANKED MATCH · FINAL REPORT' : 'ARENA MATCH · FINAL REPORT', 'ftd-result-kicker'),
+        el('h2', { text: title }),
+        el('div', { class:'ftd-result-faceoff' }, [faceoff(own, won, false), el('strong', { class:'ftd-result-vs', text:'VS' }), faceoff(opponent, match.winnerId === opponent.userId, true)]),
+        label(won ? `${own.name} held the orchard wall.` : match.winnerId ? `${opponent.name} broke through your defence.` : 'Both walls held. The match is a draw.', 'ftd-result-summary'),
+        el('div', { class:'ftd-result-stats' }, [el('span', {}, [el('small', { text:`${own.name} · ${own.side.toUpperCase()}` }), el('b', { text:`${wallResult(own)}%` })]), el('span', {}, [el('small', { text:`${opponent.name} · ${opponent.side.toUpperCase()}` }), el('b', { text:`${wallResult(opponent)}%` })])]),
+        ...(match.testMatch ? [label('PRACTICE · No FR, rewards, achievements, or badges granted.', 'ftd-pvp__intro')] : []),
+        ...(match.queue === 'ranked' && !match.testMatch && match.resultReason !== 'draft-cancelled' ? [label(own.ratingDelta === undefined ? 'Settling your Ranked rating…' : `RANK POINTS  ${own.ratingDelta > 0 ? '+' : ''}${own.ratingDelta} FR`, 'ftd-result-rating')] : []),
+        GameButton({ label: 'Return to Arena', tone: 'primary', onClick: () => void send(`/match/${match.id}/ack`) })
+      ])]));
       return;
     }
     const timer = Math.ceil(match.remainingMs / 1000);
     const maxHealth = status.config?.wallHealth || 1000;
     const playerCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-duel-player ${rival ? 'is-rival' : 'is-own'} is-${player.side === 'red' ? 'red' : 'blue'}` }, [
-      el('span', { class: 'ftd-duel-player__crest' }, [lucideIcon(rival ? 'Skull' : 'Shield', '', 22)]),
+      playerPortrait(player, 'ftd-duel-player__crest'),
       el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:`${rival?'OPPONENT':'YOU'} · ${player.side.toUpperCase()} SIDE` }), el('span', { text: `${player.wallHealth} / ${player.wallMaxHealth ?? maxHealth} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
         el('div', { class: 'ftd-duel-hp', role: 'progressbar', 'aria-label': `${player.name} wall health`, 'aria-valuenow': player.wallHealth, 'aria-valuemax': player.wallMaxHealth ?? maxHealth }, [el('i', { style: `width:${Math.max(0, Math.min(100, player.wallHealth / (player.wallMaxHealth ?? maxHealth) * 100))}%` })]),
       ]),
@@ -282,6 +303,11 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
     battlefield.update(match, sceneConfig); battlefield.selectCell(selectedCell);
     body.append(battlefield.element);
+    if (match.status === 'active' && clashShownMatchId !== match.id) {
+      clashShownMatchId = match.id;
+      const fighter = (player: typeof own, rival: boolean) => el('div', { class: `ftd-clash-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('strong', { text: player.name }), el('small', { text: `${player.side.toUpperCase()} SIDE` })]);
+      body.append(el('div', { class:'ftd-vs-clash', role:'status', 'aria-live':'polite' }, [fighter(own, false), el('strong', { class:'ftd-vs-clash__mark', text:'VS' }), fighter(opponent, true), el('span', { class:'ftd-vs-clash__caption', text:match.queue === 'ranked' ? 'RANKED BATTLE · BUILD YOUR DEFENCE' : 'ARENA BATTLE · BUILD YOUR DEFENCE' })]));
+    }
     const towerIcons: Record<string, string> = { guillotine: 'Swords', vortex: 'Tornado', laser: 'Zap', railgun: 'Target', sprinkler: 'Droplets', blender: 'Scissors', catcher: 'Fence' };
     const attackIcons: Record<string, string> = { normal: 'Citrus', swift: 'Cherry', armored: 'Shield', explosive: 'Bomb' };
     const towerName = (id: string) => id === 'catcher' ? 'Catcher' : turretDef(id as TurretKind)?.name || id;
