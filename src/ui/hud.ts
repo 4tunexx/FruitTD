@@ -1904,7 +1904,7 @@ export class Hud {
         const rewardIcon = res.reward.iconType === 'gem' ? 'Gem'
           : res.reward.iconType === 'blade' ? 'Swords'
             : res.reward.iconType === 'chest' ? 'Gift' : 'Coins';
-        showAchievementToast('Daily Login Reward!', res.reward.label, rewardIcon);
+        showAchievementToast('Daily Login Mission Complete!', res.reward.label, rewardIcon);
         void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'daily_claim', streak: res.streak }));
         this.setDailyClaimable(false);
         await this.openDailyModal(res.streak);

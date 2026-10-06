@@ -96,6 +96,10 @@ test('header separates notifications, messages, community, profile and wallet ro
     const button = root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`);
     assert.ok(button, `${testId} should be visible`);
     button.click();
+    if (testId === 'nav-notifications' || testId === 'nav-messages') {
+      assert.equal(button.getAttribute('aria-expanded'), 'true', 'social controls open their slide-down preview');
+      root.querySelector<HTMLButtonElement>(testId === 'nav-messages' ? '[data-testid="open-messages-inbox"]' : '[data-testid="open-notifications-center"]')!.click();
+    }
     assert.equal(navigation.state, destination);
   }
 });
@@ -115,6 +119,9 @@ test('home offers local modes and one Co-op path while PvP uses its own destinat
   assert.match(root.textContent!, /Normal or Ranked/);
   assert.match(root.textContent!, /Arena PvP/);
   assert.equal(root.querySelectorAll('[data-testid="mode-coop"]').length, 1);
+  assert.match(root.textContent!, /Campaign/);
+  assert.doesNotMatch(root.textContent!, /100 Stage Campaign/);
+  assert.ok(root.querySelector('[data-testid="daily-login-mission"]'));
   const playCard = root.querySelector('.ftd-playcard');
   assert.equal(playCard?.querySelector('.ftd-mode-select') !== null, true, 'mode chooser belongs inside Panel 1 play card');
   assert.equal(playCard?.querySelector('.ftd-playcard__content') !== null, true);

@@ -88,6 +88,48 @@ function updateCurrency(currency: HTMLElement, save: SaveData): void {
   }
 }
 
+function buildSocialControl(
+  button: HTMLButtonElement,
+  title: string,
+  actionLabel: string,
+  destination: NavState,
+  loadItems: (list: HTMLElement) => Promise<void>,
+): HTMLElement {
+  const list = el('div', { class: 'ftd-hub-popover__list' });
+  const action = el('button', { class: 'ftd-hub-popover__action', type: 'button', text: actionLabel, 'data-testid': destination === 'MESSAGES' ? 'open-messages-inbox' : 'open-notifications-center' });
+  action.addEventListener('click', () => openScreen(destination));
+  const popover = el('div', { class: 'ftd-hub-popover', role: 'region', 'aria-label': title }, [
+    el('strong', { class: 'ftd-hub-popover__title', text: title }),
+    list,
+    action,
+  ]);
+  const wrapper = el('div', { class: 'ftd-hub-social-control' }, [button, popover]);
+  let loaded = false;
+  const show = () => {
+    wrapper.parentElement?.querySelectorAll<HTMLElement>('.ftd-hub-popover').forEach((other) => {
+      if (other !== popover) other.classList.remove('is-open');
+    });
+    wrapper.parentElement?.querySelectorAll<HTMLButtonElement>('[aria-expanded="true"]').forEach((other) => {
+      if (other !== button) other.setAttribute('aria-expanded', 'false');
+    });
+    popover.classList.add('is-open');
+    button.setAttribute('aria-expanded', 'true');
+    if (loaded || !getAuthToken()) {
+      if (!getAuthToken() && !loaded) list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Sign in to view your updates.' }));
+      return;
+    }
+    loaded = true;
+    list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Loading…' }));
+    void loadItems(list).catch(() => list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Could not load updates.' })));
+  };
+  const hide = () => { popover.classList.remove('is-open'); button.setAttribute('aria-expanded', 'false'); };
+  button.addEventListener('click', () => popover.classList.contains('is-open') ? hide() : show());
+  wrapper.addEventListener('mouseenter', () => { if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) show(); });
+  wrapper.addEventListener('mouseleave', () => { if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) hide(); });
+  button.addEventListener('focus', () => { if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) show(); });
+  return wrapper;
+}
+
 /** Builds the persistent header (Panel 3). Rebuilt on each full render, but never mid-tab-switch. */
 function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   const hero = heroDef(save.hero);
@@ -137,9 +179,42 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('summary', { title:'More options', 'aria-label':'More options' }, [icon(Ellipsis,'ftd-hub-menu__icon')]),
     utilityLinks,
   ]);
+  const notificationButton = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-expanded': 'false', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]);
+  const messageButton = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'aria-expanded': 'false', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]);
+  const notificationControl = buildSocialControl(notificationButton, 'NOTIFICATIONS', 'Open notification center', 'NOTIFICATIONS', async (list) => {
+    const data = await socialApi.notifications();
+    list.replaceChildren(...(data.notifications.slice(0, 3).map((item) => {
+      const row = el('button', { class: 'ftd-hub-popover__item', type: 'button' }, [
+        el('strong', { text: item.title }),
+        el('small', { text: item.body }),
+      ]);
+      row.addEventListener('click', () => openScreen('NOTIFICATIONS'));
+      return row;
+    })));
+    if (!data.notifications.length) list.appendChild(el('p', { class: 'ftd-hub-popover__empty', text: 'You’re all caught up.' }));
+  });
+  const messageControl = buildSocialControl(messageButton, 'MESSAGES', 'Open inbox', 'MESSAGES', async (list) => {
+    const data = await socialApi.friends();
+    const friend = data.friends.find((item) => item.state === 'accepted');
+    if (!friend) {
+      list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Your inbox is ready when you add a friend.' }));
+      return;
+    }
+    const inbox = await socialApi.messages(friend.username);
+    const recent = inbox.messages.slice(-2).reverse();
+    list.replaceChildren(...(recent.map((item) => {
+      const row = el('button', { class: 'ftd-hub-popover__item', type: 'button' }, [
+        el('strong', { text: friend.nickname || friend.username }),
+        el('small', { text: item.body }),
+      ]);
+      row.addEventListener('click', () => openScreen('MESSAGES'));
+      return row;
+    })));
+    if (!recent.length) list.appendChild(el('p', { class: 'ftd-hub-popover__empty', text: 'No recent messages.' }));
+  });
   const utils = el('div', { class: 'ftd-hub-utils' }, [
-    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]),
-    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]),
+    notificationControl,
+    messageControl,
     el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]),
     utilityMenu,
   ]);
@@ -149,8 +224,6 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
   settings?.setAttribute('data-testid', 'nav-settings');
   const admin = utilityLinks.querySelector<HTMLButtonElement>('.ftd-hub-admin');
   admin?.setAttribute('data-testid', 'nav-admin');
-  utils.querySelector<HTMLButtonElement>('.ftd-hub-notifications')?.addEventListener('click', () => openScreen('NOTIFICATIONS'));
-  utils.querySelector<HTMLButtonElement>('[data-testid="nav-messages"]')?.addEventListener('click', () => openScreen('MESSAGES'));
   utils.querySelector<HTMLButtonElement>('[data-testid="nav-social"]')?.addEventListener('click', () => openScreen('SOCIAL'));
 
   return el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);

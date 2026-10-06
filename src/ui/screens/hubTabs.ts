@@ -33,7 +33,7 @@ import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { getTowerXpState } from '../../game/towerProgression';
 import { currentSeasonLabel } from '../../game/requirements';
-import { Backpack, Home, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
+import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves, createElement } from 'lucide';
 import { getTowerXpState as getMainTowerXpState } from '../../game/towerProgression';
 import type { SaveData } from '../../game/save';
 import type { HeroScreenCallbacks } from './heroes';
@@ -41,7 +41,7 @@ import type { ShopCallbacks } from './shop';
 import type { InventoryCallbacks } from './inventory';
 import type { ProfileStats } from './profile';
 import { HUB_HOME } from './hub';
-import { fetchMissions } from '../../services/api';
+import { fetchDailyBonusStatus, fetchMissions } from '../../services/api';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
@@ -510,6 +510,11 @@ export function coopHubTab(onStart?: () => void): HubTab {
  * Panel 1 is the PLAY call-to-action; Panel 2 is the active-hero loadout. This
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
+function modeGlyph(node: typeof Swords): HTMLElement | SVGElement {
+  if (typeof document.createElementNS !== 'function') return el('span', { class: 'ftd-mode-card__icon', text: '✦', 'aria-hidden': 'true' });
+  return createElement(node, { class: 'ftd-mode-card__icon', width: 23, height: 23, 'aria-hidden': 'true' });
+}
+
 function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').GameMode) => void, onCampaign?: () => void) {
   return (root: HTMLElement, save: SaveData) => {
     const playContent = el('div', { class: 'ftd-playcard__content' }, [
@@ -525,23 +530,23 @@ function homeMain(onPlay: () => void, onMode?: (mode: import('../../game/save').
     ]);
     playContent.querySelector('.ftd-playcard__cta')?.setAttribute('data-testid', 'nav-play');
     const modes = el('section', { class: 'ftd-mode-select', 'aria-label': 'Game modes' }, [
-      el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: `CAMPAIGN ${String(save.campaignProgress.unlocked).padStart(2, '0')}/100` })]),
+      el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: 'CAMPAIGN · STAGE ' + String(save.campaignProgress.unlocked).padStart(2, '0') })]),
       el('div', { class: 'ftd-mode-select__grid' }),
     ]);
     const grid = modes.querySelector('.ftd-mode-select__grid')!;
     const entries = [
-      { id: 'casual' as const, name: 'Casual', note: 'Learn the lanes' },
-      { id: 'horde' as const, name: 'Horde', note: 'Endless · highest wave wins' },
+      { id: 'casual' as const, name: 'Casual', note: 'Learn the lanes', icon: Shield },
+      { id: 'horde' as const, name: 'Horde', note: 'Endless · highest wave wins', icon: Waves },
     ];
     entries.forEach((mode) => {
-      const button = el('button', { type: 'button', class: `ftd-mode-card${save.mode === mode.id ? ' is-active' : ''}`, 'aria-pressed': String(save.mode === mode.id), 'data-testid': `mode-${mode.id}` }, [el('strong', { text: mode.name }), el('small', { text: mode.note })]);
+      const button = el('button', { type: 'button', class: `ftd-mode-card${save.mode === mode.id ? ' is-active' : ''}`, 'aria-pressed': String(save.mode === mode.id), 'data-testid': `mode-${mode.id}` }, [modeGlyph(mode.icon), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: mode.name }), el('small', { text: mode.note })])]);
       button.addEventListener('click', () => onMode?.(mode.id)); grid.appendChild(button);
     });
-    const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [el('strong', { text: '100 Stage Campaign' }), el('small', { text: 'Bosses · unlocks · rewards' })]);
+    const campaign = el('button', { type: 'button', class: 'ftd-mode-card ftd-mode-card--campaign', 'data-testid': 'campaign-open' }, [modeGlyph(MapIcon), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: 'Campaign' }), el('small', { text: '100 stages · bosses · rewards' })])]);
     campaign.addEventListener('click', () => onCampaign?.()); grid.appendChild(campaign);
-    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [el('strong', { text: 'Co-op' }), el('small', { text: 'Online teammates · local play available' })]);
+    const coop = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-coop' }, [modeGlyph(UsersRound), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: 'Co-op' }), el('small', { text: 'Squad up · play together' })])]);
     coop.addEventListener('click', () => openScreen('CO_OP')); grid.appendChild(coop);
-    const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Tower siege · Normal or Ranked' })]);
+    const arena = el('button', { type: 'button', class: 'ftd-mode-card', 'data-testid': 'mode-arena' }, [modeGlyph(Swords), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: 'Arena PvP' }), el('small', { text: 'Tower siege · Normal or Ranked' })])]);
     arena.addEventListener('click', () => openScreen('ARENA')); grid.appendChild(arena);
     const shortcuts = el('nav', { class: 'ftd-outpost-shortcuts', 'aria-label': 'Outpost shortcuts' }, [
       GameButton({ label: 'MISSIONS', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
@@ -586,24 +591,49 @@ function missionProgressPanel(): HTMLElement {
   const rows = new Map<'daily' | 'main', { fill: HTMLElement; value: HTMLElement }>();
   for (const type of ['daily', 'main'] as const) {
     const label = type === 'daily' ? 'DAILY MISSIONS' : 'MAIN MISSIONS';
-    const row = el('div', { class: `ftd-mission-progress__row ftd-mission-progress__row--${type}` }, [
+    const row = el('div', { class: 'ftd-mission-progress__row ftd-mission-progress__row--' + type }, [
       el('div', { class: 'ftd-mission-progress__heading' }, [el('span', { text: label }), el('strong', { text: '—' })]),
       el('div', { class: 'ftd-mission-progress__track', role: 'progressbar', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, [el('i')]),
     ]);
-    const fill = row.querySelector('i')!;
-    const value = row.querySelector('strong')!;
-    rows.set(type, { fill, value });
+    rows.set(type, { fill: row.querySelector('i')!, value: row.querySelector('strong')! });
     panel.appendChild(row);
   }
-  void fetchMissions().then((result) => {
-    if (!result || !panel.isConnected) return;
+
+  const loginMission = el('button', {
+    class: 'ftd-mission-login',
+    type: 'button',
+    'data-testid': 'daily-login-mission',
+    'aria-label': 'Open daily login reward',
+  }, [
+    el('span', { class: 'ftd-mission-login__mark', text: '✓', 'aria-hidden': 'true' }),
+    el('span', { class: 'ftd-mission-login__copy' }, [
+      el('strong', { text: 'DAILY LOGIN' }),
+      el('small', { text: 'Claim today’s supply to complete this mission.' }),
+    ]),
+    el('span', { class: 'ftd-mission-login__status', text: 'CHECKING' }),
+  ]);
+  loginMission.addEventListener('click', () => document.getElementById('btn-daily-chip')?.click());
+  panel.appendChild(loginMission);
+
+  void Promise.all([fetchMissions(), fetchDailyBonusStatus()]).then(([result, bonus]) => {
+    if (!panel.isConnected) return;
+    const loginDone = !!bonus && !bonus.canClaim;
+    const status = loginMission.querySelector<HTMLElement>('.ftd-mission-login__status');
+    const description = loginMission.querySelector<HTMLElement>('.ftd-mission-login__copy small');
+    loginMission.classList.toggle('is-complete', loginDone);
+    if (status) status.textContent = bonus ? (loginDone ? 'COMPLETE' : 'CLAIM REWARD') : 'SIGN IN';
+    if (description) description.textContent = bonus
+      ? (loginDone ? 'Today’s reward claimed. Come back tomorrow.' : 'Claim today’s supply to complete this mission.')
+      : 'Sign in to track and claim today’s login reward.';
+    if (!result) return;
     for (const type of ['daily', 'main'] as const) {
       const items = result.missions.filter((mission) => mission.type === type);
-      const completed = items.filter((mission) => mission.completed).length;
-      const percent = items.length ? Math.round((completed / items.length) * 100) : 0;
+      const completed = items.filter((mission) => mission.completed).length + (type === 'daily' && loginDone ? 1 : 0);
+      const total = items.length + (type === 'daily' && bonus ? 1 : 0);
+      const percent = total ? Math.round((completed / total) * 100) : 0;
       const row = rows.get(type)!;
-      row.value.textContent = `${completed}/${items.length}`;
-      row.fill.style.width = `${percent}%`;
+      row.value.textContent = completed + '/' + total;
+      row.fill.style.width = String(percent) + '%';
       row.fill.parentElement?.setAttribute('aria-valuenow', String(percent));
     }
   }).catch(() => undefined);
