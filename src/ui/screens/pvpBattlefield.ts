@@ -314,14 +314,14 @@ export class PvpBattlefield {
     return null;
   }
 
-  private pointerDown = (event: PointerEvent) => {
+  private pointerDown(event: PointerEvent): void {
     if (event.button !== 0) return;
     if (!this.snapshot.shared) { this.canvas.setPointerCapture(event.pointerId); this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false}); this.resetGesture(); this.stroke=null; return; }
     const point = this.point(event); if (!point) return;
     this.canvas.setPointerCapture(event.pointerId);
     this.stroke = { id: event.pointerId, from: point, points: [] }; this.trail.reset();
-  };
-  private pointerMove = (event: PointerEvent) => {
+  }
+  private pointerMove(event: PointerEvent): void {
     if (!this.snapshot.shared && this.pointers.has(event.pointerId)) {
       const p=this.pointers.get(event.pointerId)!;p.x=event.clientX;p.y=event.clientY;const active=[...this.pointers.values()];
       if(active.length===1){const a=active[0]!;if(Math.hypot(a.x-a.startX,a.y-a.startY)>7)a.moved=true;if(a.moved)this.panBy(a.x-(this.gesture?.x??a.x),a.y-(this.gesture?.y??a.y));this.gesture={x:a.x,y:a.y,distance:0};}
@@ -343,8 +343,8 @@ export class PvpBattlefield {
       this.sharedStrokeAt = performance.now(); this.command({ type: 'slash', from: this.stroke.from, to: point });
       this.stroke.from = point; this.stroke.sliced = true;
     }
-  };
-  private pointerUp = (event: PointerEvent) => {
+  }
+  private pointerUp(event: PointerEvent): void {
     if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}}return;}
     const stroke = this.stroke; this.stroke = null;
     if (!stroke || stroke.id !== event.pointerId) return;
@@ -358,7 +358,7 @@ export class PvpBattlefield {
         else this.command({ type: 'build', tower: this.element.dataset.tower || 'guillotine', cell });
       }
     }
-  };
+  }
   selectCell(cell: number | null): void {
     this.selectedCell = cell; this.marker.visible = cell !== null;
     if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
@@ -368,7 +368,7 @@ export class PvpBattlefield {
     this.focusOwn = !attacking && this.element.getBoundingClientRect().width < 600;
     this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize();
   }
-  private pointerCancel = (event: PointerEvent) => { this.stroke=null;this.pointers.delete(event.pointerId);this.resetGesture();this.trail.reset(); };
+  private pointerCancel(event: PointerEvent): void { this.stroke=null;this.pointers.delete(event.pointerId);this.resetGesture();this.trail.reset(); }
   private resetGesture(): void {const a=[...this.pointers.values()];if(a.length>=2){const [p,q]=a;this.gesture={x:(p!.x+q!.x)/2,y:(p!.y+q!.y)/2,distance:Math.hypot(p!.x-q!.x,p!.y-q!.y)};}else if(a.length===1)this.gesture={x:a[0]!.x,y:a[0]!.y,distance:0};else this.gesture=null;}
   private groundPoint(x:number,y:number):Vector3|null{const r=this.canvas.getBoundingClientRect();if(!r.width||!r.height)return null;this.ray.setFromCamera(new Vector2((x-r.left)/r.width*2-1,1-(y-r.top)/r.height*2),this.camera);return this.ray.ray.intersectPlane(this.ground,new Vector3());}
   private panBy(dx:number,dy:number):void{const r=this.canvas.getBoundingClientRect(),a=this.groundPoint(r.left+r.width/2-dx/2,r.top+r.height/2-dy/2),c=this.groundPoint(r.left+r.width/2+dx/2,r.top+r.height/2+dy/2);if(!a||!c)return;this.cameraX+=a.x-c.x;this.cameraZ+=a.z-c.z;this.resize();}
