@@ -21,7 +21,7 @@
 
 import { el, clear } from '../components/dom';
 import { GameButton, GameCurrency } from '../components/primitives';
-import { Bell, MessageCircle, UsersRound, createElement, type Swords } from 'lucide';
+import { Bell, Ellipsis, MessageCircle, UsersRound, createElement, type Swords } from 'lucide';
 import { openScreen, back, home } from './registry';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef } from '../../game/heroes';
@@ -125,30 +125,29 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
 
   const currency = buildCurrency(save);
 
-  const utils = el('div', { class: 'ftd-hub-utils' }, [
-    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]),
-    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]),
-    el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]),
+  const utilityLinks = el('div', { class:'ftd-hub-menu__items' }, [
     GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
     GameButton({ label: 'Leaderboard', variant: 'ghost', size: 'sm', onClick: () => openScreen('LEADERBOARD') }),
     ...(opts.onOpenDaily ? [GameButton({ label: 'Daily', variant: 'outline', size: 'sm', onClick: opts.onOpenDaily })] : []),
     GameButton({ label: 'Settings', variant: 'ghost', size: 'sm', onClick: () => openScreen('SETTINGS') }),
-    ...(opts.onAdmin
-      ? [GameButton({
-        label: isUserAdmin() ? 'Admin' : 'Admin access',
-        variant: 'ghost',
-        size: 'sm',
-        class: 'ftd-hub-admin',
-        onClick: opts.onAdmin,
-      })]
-      : []),
+    ...(opts.onAdmin ? [GameButton({ label: isUserAdmin() ? 'Admin' : 'Admin access', variant: 'ghost', size: 'sm', class: 'ftd-hub-admin', onClick: opts.onAdmin })] : []),
     GameButton({ label: 'Quit', variant: 'ghost', size: 'sm', tone: 'danger', onClick: () => opts.onQuit?.() }),
   ]);
+  const utilityMenu = el('details', { class:'ftd-hub-menu' }, [
+    el('summary', { title:'More options', 'aria-label':'More options' }, [icon(Ellipsis,'ftd-hub-menu__icon')]),
+    utilityLinks,
+  ]);
+  const utils = el('div', { class: 'ftd-hub-utils' }, [
+    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]),
+    el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]),
+    el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]),
+    utilityMenu,
+  ]);
 
-  const settings = [...utils.querySelectorAll<HTMLButtonElement>('.ftd-btn')]
+  const settings = [...utilityLinks.querySelectorAll<HTMLButtonElement>('.ftd-btn')]
     .find((button) => button.textContent?.trim() === 'Settings');
   settings?.setAttribute('data-testid', 'nav-settings');
-  const admin = utils.querySelector<HTMLButtonElement>('.ftd-hub-admin');
+  const admin = utilityLinks.querySelector<HTMLButtonElement>('.ftd-hub-admin');
   admin?.setAttribute('data-testid', 'nav-admin');
   utils.querySelector<HTMLButtonElement>('.ftd-hub-notifications')?.addEventListener('click', () => openScreen('NOTIFICATIONS'));
   utils.querySelector<HTMLButtonElement>('[data-testid="nav-messages"]')?.addEventListener('click', () => openScreen('MESSAGES'));
