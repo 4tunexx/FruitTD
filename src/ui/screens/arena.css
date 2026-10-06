@@ -83,6 +83,8 @@
 .ftd-duel-team { position:absolute; z-index:2; left:10px; padding:5px 8px; border:1px solid currentColor; border-radius:5px; background:#07111dcc; font-size:10px; font-weight:900; pointer-events:none; }
 .ftd-duel-team.is-own { bottom:32px; color:#38bdf8; }
 .ftd-duel-team.is-rival { top:50px; color:#ff6363; }
+.ftd-duel-team.is-own.is-blue,.ftd-duel-team.is-rival.is-blue { color:#38bdf8; }
+.ftd-duel-team.is-own.is-red,.ftd-duel-team.is-rival.is-red { color:#ef5350; }
 .ftd-pvp-scene.is-focused .ftd-duel-team.is-rival { display:none; }
 .ftd-pvp.is-battle .ftd-pvp-scene__hint { display:none; }
 .ftd-pvp-scene.is-landscape .ftd-duel-team.is-own { top:10px; bottom:auto; left:120px; }
