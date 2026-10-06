@@ -26,7 +26,7 @@ export function pvpWorldPoint(map: Pick<PvpMap, 'width'>, x: number, y: number, 
 
 export class PvpBattlefield {
   readonly element = el('div', { class: 'ftd-pvp-scene' });
-  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Hex arena. Choose a tower then tap a blue hex to build. Tap a placed tower to upgrade or sell.' });
+  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Hex arena. Tap a hex to build. Drag to move the camera and pinch to zoom.' });
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new OrthographicCamera(-20, 20, 30, -30, 0.1, 200);
@@ -58,17 +58,24 @@ export class PvpBattlefield {
   private zoom = 1;
   private focusOwn = false;
   private framingInitialised = false;
+  private cameraX = 0;
+  private cameraZ = 0;
+  private readonly pointers = new Map<number, { x:number; y:number; startX:number; startY:number; moved:boolean }>();
+  private gesture: { x:number; y:number; distance:number } | null = null;
+  private readonly sideColors: Record<string,number> = { blue: COLORS.blue, red: COLORS.red };
   private mapKey = '';
-  get interacting(): boolean { return this.stroke !== null; }
+  get interacting(): boolean { return this.stroke !== null || this.pointers.size > 0; }
 
   constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
     this.snapshot = snapshot; this.config = config;
     if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
-    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'YOU = BLUE · ENEMY = RED · Build on blue tiles to stop RED fruit. Send BLUE fruit to destroy the RED base.' }));
+    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Tap an empty hex to build · Tap a tower to manage · Drag to pan · Pinch to zoom' }));
     if (!snapshot.shared) {
-      this.element.append(el('div', { class: 'ftd-duel-team is-own', text: 'BLUE · YOUR BASE' }), el('div', { class: 'ftd-duel-team is-rival', text: 'RED · ENEMY BASE' }));
+      const opponent = snapshot.players.find(player => player.side !== snapshot.yourSide);
+      const opposingSide = opponent?.side || (snapshot.yourSide === 'blue' ? 'red' : 'blue');
+      this.element.append(el('div', { class: `ftd-duel-team is-own is-${snapshot.yourSide}`, text: `YOU · ${snapshot.yourSide.toUpperCase()} SIDE` }), el('div', { class: `ftd-duel-team is-rival is-${opposingSide}`, text: `OPPONENT · ${opposingSide.toUpperCase()} SIDE` }));
       const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
-      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.resize(); }); this.element.appendChild(focus);
+      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize(); }); this.element.appendChild(focus);
     }
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
@@ -82,10 +89,10 @@ export class PvpBattlefield {
     this.trail.applySlicer(skin?.slicer);
     this.remoteTrail.setColor(snapshot.shared ? COLORS.blue : COLORS.red);
     this.observer = new ResizeObserver(() => this.resize()); this.observer.observe(this.element);
-    this.canvas.addEventListener('pointerdown', this.pointerDown);
-    this.canvas.addEventListener('pointermove', this.pointerMove);
-    this.canvas.addEventListener('pointerup', this.pointerUp);
-    this.canvas.addEventListener('pointercancel', this.pointerCancel);
+    this.canvas.addEventListener('pointerdown', this.pointerDown.bind(this));
+    this.canvas.addEventListener('pointermove', this.pointerMove.bind(this));
+    this.canvas.addEventListener('pointerup', this.pointerUp.bind(this));
+    this.canvas.addEventListener('pointercancel', this.pointerCancel.bind(this));
     this.canvas.addEventListener('wheel', this.wheel, { passive: false });
     this.update(snapshot, config);
     this.frame = requestAnimationFrame(this.animate);
@@ -138,7 +145,7 @@ export class PvpBattlefield {
           const bodies: Mesh[] = []; rig.group.traverse((object) => { if (object instanceof Mesh) bodies.push(object); });
           for (const object of bodies) { const outline = new Mesh(object.geometry, new MeshBasicMaterial({ color: 0x07110b, side: BackSide })); outline.scale.setScalar(1.06); object.add(outline); }
           rig.group.position.copy(this.cellPoint(tower.cell, own)); rig.group.scale.setScalar(1.15);
-          const pad = new Mesh(new CylinderGeometry(.7, .8, .12, 12), new MeshLambertMaterial({ color: own ? COLORS.blue : COLORS.red }));
+          const pad = new Mesh(new CylinderGeometry(.7, .8, .12, 12), new MeshLambertMaterial({ color: this.sideColors[player.side] ?? 0xa3e635 }));
           rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, type: tower.type, own, cell: tower.cell, level: pvpTowerLevel(tower.level) });
         }
         const entry = this.towers.get(tower.id);
@@ -209,25 +216,25 @@ export class PvpBattlefield {
     floor.position.y = -.3; if (this.snapshot.shared) floor.position.z = -(map.height + 2) * TILE / 2; this.terrain.add(floor);
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
-      const color = own ? COLORS.blue : COLORS.red;
+      const color = this.sideColors[player.side] ?? 0xa3e635;
       const route = new Set(map.pathCells); const builds = new Set(map.buildCells);
       for (let cell = 0; cell < map.width * map.height; cell++) {
         const isPath = route.has(cell); const build = builds.has(cell);
         const rim = new Mesh(new CylinderGeometry(HEX_RADIUS * .985, HEX_RADIUS, .16, 6), new MeshLambertMaterial({ color: isPath ? 0x4c4230 : build ? own ? 0x337589 : 0x824843 : 0x2f4831 }));
         rim.position.copy(this.cellPoint(cell, own)); rim.position.y = -.02;
         const tile = new Mesh(new CylinderGeometry(HEX_RADIUS * .90, HEX_RADIUS * .93, .08, 6), new MeshLambertMaterial({ color: isPath ? 0xcbb87b : own ? (cell % 3 ? 0x547a43 : 0x60864b) : (cell % 3 ? 0x6c773c : 0x7a8345) }));
-        if (!this.snapshot.shared) (tile.material as MeshLambertMaterial).color.set(isPath ? own ? 0x193b59 : 0x542129 : own ? 0x215473 : 0x703039);
+        if (!this.snapshot.shared) (tile.material as MeshLambertMaterial).color.set(isPath ? player.side === 'blue' ? 0x193b59 : 0x542129 : player.side === 'blue' ? (own ? 0x215473 : 0x183b50) : (own ? 0x703039 : 0x4a2025));
         tile.position.y = .12; rim.add(tile); this.terrain.add(rim);
         if (own && build) { rim.userData.cell = cell; this.buildPads.push(rim); }
         if (build && cell % 3 === 0) {
-          const cross = new Group(); const mat = new MeshBasicMaterial({ color: own ? 0xa4e8e4 : 0xe2a89e, transparent: true, opacity: .4 });
+          const cross = new Group(); const mat = new MeshBasicMaterial({ color: player.side === 'blue' ? 0x8edcff : 0xffaaa4, transparent: true, opacity: .4 });
           cross.add(new Mesh(new BoxGeometry(.4, .02, .08), mat), new Mesh(new BoxGeometry(.08, .02, .4), mat)); cross.position.y = .18; rim.add(cross);
         }
       }
       if (!this.snapshot.shared) {
         for (let index = 2; index < map.pathCells.length - 1; index += 5) {
           const from = this.cellPoint(map.pathCells[index]!, own), to = this.cellPoint(map.pathCells[index + 1]!, own);
-          const arrow = new Mesh(new ConeGeometry(.32, .85, 3), new MeshBasicMaterial({ color: own ? COLORS.red : COLORS.blue, transparent: true, opacity: .8 }));
+          const arrow = new Mesh(new ConeGeometry(.32, .85, 3), new MeshBasicMaterial({ color: player.side === 'blue' ? COLORS.red : COLORS.blue, transparent: true, opacity: .8 }));
           arrow.position.copy(from); arrow.position.y = .23;
           arrow.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), to.sub(from).normalize()); this.terrain.add(arrow);
         }
@@ -257,7 +264,7 @@ export class PvpBattlefield {
         actor.add(body, head); base.add(actor);
       }
       for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
-        const turret = new Mesh(new CylinderGeometry(.8, 1, 2, 6), new MeshLambertMaterial({ color: own ? 0x5e8595 : 0xb06048 })); turret.position.set(x, 1, 0); base.add(turret);
+        const turret = new Mesh(new CylinderGeometry(.8, 1, 2, 6), new MeshLambertMaterial({ color: player.side === 'blue' ? 0x5e8595 : 0xb06048 })); turret.position.set(x, 1, 0); base.add(turret);
         for (let i = 0; i < 6; i++) { const crenel = new Mesh(new BoxGeometry(.3, .5, .3), new MeshLambertMaterial({ color: 0xc3c7a4 })); crenel.position.set(x + Math.sin(i * Math.PI / 3) * .75, 2.1, Math.cos(i * Math.PI / 3) * .75); base.add(crenel); }
       }
       const crown = new Mesh(new SphereGeometry(.48, 12, 8), new MeshLambertMaterial({ color: 0xf1e3bd })); crown.position.set(gateX, 2.7, 0);
@@ -309,11 +316,17 @@ export class PvpBattlefield {
 
   private pointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return;
+    if (!this.snapshot.shared) { this.canvas.setPointerCapture(event.pointerId); this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false}); this.resetGesture(); this.stroke=null; return; }
     const point = this.point(event); if (!point) return;
     this.canvas.setPointerCapture(event.pointerId);
     this.stroke = { id: event.pointerId, from: point, points: [] }; this.trail.reset();
   };
   private pointerMove = (event: PointerEvent) => {
+    if (!this.snapshot.shared && this.pointers.has(event.pointerId)) {
+      const p=this.pointers.get(event.pointerId)!;p.x=event.clientX;p.y=event.clientY;const active=[...this.pointers.values()];
+      if(active.length===1){const a=active[0]!;if(Math.hypot(a.x-a.startX,a.y-a.startY)>7)a.moved=true;if(a.moved)this.panBy(a.x-(this.gesture?.x??a.x),a.y-(this.gesture?.y??a.y));this.gesture={x:a.x,y:a.y,distance:0};}
+      else if(active.length>=2){const a=active[0]!,c=active[1]!,x=(a.x+c.x)/2,y=(a.y+c.y)/2,d=Math.hypot(a.x-c.x,a.y-c.y);if(this.gesture&&this.gesture.distance>0){this.panBy(x-this.gesture.x,y-this.gesture.y);this.zoom=Math.max(.7,Math.min(3.2,this.zoom*d/this.gesture.distance));this.resize();}a.moved=c.moved=true;this.gesture={x,y,distance:d};}return;
+    }
     const point = this.point(event); const map = this.snapshot.map!;
     if (point && this.selectedCell === null) {
       const cell = this.buildCell(event);
@@ -332,6 +345,7 @@ export class PvpBattlefield {
     }
   };
   private pointerUp = (event: PointerEvent) => {
+    if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}}return;}
     const stroke = this.stroke; this.stroke = null;
     if (!stroke || stroke.id !== event.pointerId) return;
     const to = this.point(event); if (!to) return;
@@ -352,10 +366,13 @@ export class PvpBattlefield {
   setAttackView(attacking: boolean): void {
     if (this.snapshot.shared) return;
     this.focusOwn = !attacking && this.element.getBoundingClientRect().width < 600;
-    this.zoom = 1; this.resize();
+    this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize();
   }
-  private pointerCancel = () => { this.stroke = null; this.trail.reset(); };
-  private wheel = (event: WheelEvent) => { event.preventDefault(); this.zoom = Math.max(.65, Math.min(2.5, this.zoom * (event.deltaY > 0 ? .92 : 1.08))); this.resize(); };
+  private pointerCancel = (event: PointerEvent) => { this.stroke=null;this.pointers.delete(event.pointerId);this.resetGesture();this.trail.reset(); };
+  private resetGesture(): void {const a=[...this.pointers.values()];if(a.length>=2){const [p,q]=a;this.gesture={x:(p!.x+q!.x)/2,y:(p!.y+q!.y)/2,distance:Math.hypot(p!.x-q!.x,p!.y-q!.y)};}else if(a.length===1)this.gesture={x:a[0]!.x,y:a[0]!.y,distance:0};else this.gesture=null;}
+  private groundPoint(x:number,y:number):Vector3|null{const r=this.canvas.getBoundingClientRect();if(!r.width||!r.height)return null;this.ray.setFromCamera(new Vector2((x-r.left)/r.width*2-1,1-(y-r.top)/r.height*2),this.camera);return this.ray.ray.intersectPlane(this.ground,new Vector3());}
+  private panBy(dx:number,dy:number):void{const r=this.canvas.getBoundingClientRect(),a=this.groundPoint(r.left+r.width/2-dx/2,r.top+r.height/2-dy/2),c=this.groundPoint(r.left+r.width/2+dx/2,r.top+r.height/2+dy/2);if(!a||!c)return;this.cameraX+=a.x-c.x;this.cameraZ+=a.z-c.z;this.resize();}
+  private wheel = (event: WheelEvent) => { event.preventDefault(); this.zoom = Math.max(.65, Math.min(3.2, this.zoom * (event.deltaY > 0 ? .92 : 1.08))); this.resize(); };
   private resize(): void {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     if (this.framingInitialised === false) {
@@ -373,7 +390,7 @@ export class PvpBattlefield {
     const breadth = map ? (map.width + 3) * TILE_X / 2 : 12;
     const half = (landscape ? Math.max(breadth, length / aspect) : Math.max(length, breadth / aspect)) / this.zoom;
     const centerZ = (this.snapshot.shared || this.focusOwn) && map ? -(map.height + 2) * TILE / 2 : 0;
-    this.camera.position.set(landscape ? -48 : 0, 75, landscape ? centerZ : centerZ - 48); this.camera.lookAt(0, 0, centerZ);
+    this.camera.position.set((landscape ? -48 : 0)+this.cameraX,75,(landscape ? centerZ:centerZ-48)+this.cameraZ);this.camera.lookAt(this.cameraX,0,centerZ+this.cameraZ);
     this.camera.left = -half * aspect; this.camera.right = half * aspect; this.camera.top = half; this.camera.bottom = -half;
     this.camera.updateProjectionMatrix();
   }
