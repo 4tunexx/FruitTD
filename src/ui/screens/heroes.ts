@@ -90,10 +90,11 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
   ]);
   for (const perk of HERO_PERKS) {
     const rank = heroPerkRank(heroId, perk.id);
+    const perkGlyph: Record<string, string> = { combo: '03', juice: '05', tower: '19', critical: '15', survival: '06' };
     const unlocked = xp.level >= perk.unlockLevel;
     perks.appendChild(
       el('div', { class: `ftd-hero-perk${unlocked ? '' : ' is-locked'}` }, [
-        el('span', { class: 'ftd-hero-perk__name', text: perk.name }),
+        el('span', { class: 'ftd-hero-perk__name' }, [el('img', { src: `/assets/icons/sigil-${perkGlyph[perk.id] ?? '01'}.svg`, alt: '', style: 'width:30px;height:30px;object-fit:contain;vertical-align:middle;margin-right:8px;' }), el('span', { text: perk.name })]),
         el('span', {
           class: 'ftd-hero-perk__rank',
           text: unlocked ? `${rank}/${perk.maxRank}` : `Lv ${perk.unlockLevel}`,
