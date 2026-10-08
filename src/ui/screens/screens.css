@@ -1416,3 +1416,175 @@ body:not([data-ftd-screen='PLAY']):not([data-ftd-screen='PAUSED']):not([data-ftd
   .ftd-item-card:hover,
   .ftd-hero-tile:hover { transform: none; }
 }
+
+
+/* FruitTD power progression: keep passive mastery and active powers in separate rows. */
+.ftd-hero-detail {
+  min-width: 0;
+  grid-template-areas: 'art body' 'perks perks' 'powers powers' 'actions actions';
+}
+.ftd-hero-detail > * { min-width: 0; }
+.ftd-hero-active-abilities,
+.ftd-hero-power-tree { grid-area: powers; min-width: 0; }
+.ftd-hero-perks {
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr));
+}
+.ftd-hero-perk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.ftd-hero-perk__name {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+.ftd-hero-perk__name > span { min-width: 0; overflow-wrap: anywhere; }
+.ftd-hero-perk__rank { white-space: nowrap; font-size: .78rem; }
+.ftd-hero-power-tree {
+  padding: clamp(.85rem, 3vw, 1.25rem);
+  border: 1px solid rgba(255, 190, 54, .42);
+  border-top: 3px solid #e9a92e;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(230, 155, 33, .13), transparent 42%),
+    linear-gradient(145deg, rgba(24, 26, 29, .98), rgba(12, 14, 17, .98));
+  box-shadow: inset 0 1px rgba(255,255,255,.06), 0 10px 26px rgba(0,0,0,.24);
+}
+.ftd-hero-power-tree__head { display:flex; align-items:baseline; justify-content:space-between; gap:.7rem; flex-wrap:wrap; margin-bottom:1rem; }
+.ftd-hero-power-tree__eyebrow { color:#ffd05a; font-size:.78rem; font-weight:950; letter-spacing:.2em; }
+.ftd-hero-power-tree__hint { margin:0; color:#aeb5bf; font-size:.78rem; }
+.ftd-hero-power-tree__nodes {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  gap:.62rem;
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+.ftd-hero-power-tree__nodes::before {
+  content:'';
+  position:absolute;
+  z-index:0;
+  left:25px;
+  top:27px;
+  bottom:27px;
+  width:3px;
+  background:linear-gradient(180deg,#ffd65b 0%,#d98920 45%,rgba(125,88,34,.35) 100%);
+  box-shadow:0 0 12px rgba(240,169,45,.22);
+}
+.ftd-power-node {
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr);
+  align-items:stretch;
+  gap:.7rem;
+  min-width:0;
+}
+.ftd-power-node__rail { display:flex; flex-direction:column; align-items:center; gap:.2rem; }
+.ftd-power-node__badge {
+  display:grid;
+  place-items:center;
+  width:50px;
+  height:50px;
+  padding:2px;
+  border:1px solid rgba(255,217,126,.8);
+  border-radius:10px 4px 10px 4px;
+  background:linear-gradient(145deg,#f8c94d,#8e5518);
+  box-shadow:0 3px 10px rgba(0,0,0,.38),0 0 15px rgba(246,181,51,.12);
+}
+.ftd-power-node__badge img {
+  width:100%;
+  height:100%;
+  padding:5px;
+  object-fit:contain;
+  border-radius:7px 3px 7px 3px;
+  background:linear-gradient(145deg,#24272b,#101215);
+}
+.ftd-power-node__number { color:#e5b94d; font-size:.59rem; font-weight:900; letter-spacing:.08em; }
+.ftd-power-node__card {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:.42rem;
+  min-width:0;
+  padding:.68rem .78rem;
+  border:1px solid rgba(255,255,255,.1);
+  border-left:3px solid #aa792b;
+  border-radius:2px 10px 10px 2px;
+  background:linear-gradient(110deg,rgba(44,46,50,.98),rgba(27,29,32,.98));
+  box-shadow:inset 0 1px rgba(255,255,255,.045);
+}
+.ftd-power-node.is-equipped .ftd-power-node__card { border-color:rgba(255,204,74,.48); border-left-color:#ffd050; }
+.ftd-power-node.is-locked .ftd-power-node__card { border-left-color:#555960; }
+.ftd-power-node__top { display:flex; align-items:center; justify-content:space-between; gap:.5rem; min-width:0; }
+.ftd-power-node__title { min-width:0; margin:0; color:#fff1cd; font-size:1rem; font-weight:900; line-height:1.15; overflow-wrap:anywhere; }
+.ftd-power-node__state {
+  flex:0 0 auto;
+  padding:.24rem .42rem;
+  border:1px solid rgba(255,196,62,.34);
+  border-radius:4px;
+  color:#f5c34b;
+  background:rgba(18,20,22,.65);
+  font-size:.58rem;
+  font-weight:900;
+  letter-spacing:.07em;
+  white-space:nowrap;
+}
+.ftd-power-node.is-equipped .ftd-power-node__state { color:#201807; border-color:#ffd15a; background:linear-gradient(120deg,#ffe26b,#e99d24); }
+.ftd-power-node.is-locked .ftd-power-node__state { color:#a0a3a8; border-color:rgba(255,255,255,.12); }
+.ftd-power-node__description { margin:0; color:#b8bdc5; font-size:.79rem; line-height:1.4; overflow-wrap:anywhere; }
+.ftd-power-node__footer { display:flex; align-items:center; justify-content:space-between; gap:.65rem; min-width:0; padding-top:.18rem; }
+.ftd-power-node__rank { display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+.ftd-power-node__rank-label { margin-right:3px; color:#a9afb8; font-size:.58rem; font-weight:900; letter-spacing:.08em; white-space:nowrap; }
+.ftd-power-node__rank i { width:9px; height:9px; border:1px solid #8d7544; transform:rotate(45deg); background:#181a1d; }
+.ftd-power-node__rank i.is-filled { border-color:#ffe077; background:#ffc83f; box-shadow:0 0 8px rgba(255,197,59,.5); }
+.ftd-power-node__actions { display:flex; align-items:center; justify-content:flex-end; gap:.4rem; min-width:0; }
+.ftd-power-node__action {
+  min-width:78px;
+  min-height:38px;
+  padding:.45rem .6rem;
+  border:1px solid rgba(245,190,70,.44);
+  border-radius:5px 2px 5px 2px;
+  color:#f3dfae;
+  background:linear-gradient(140deg,#24272b,#141619);
+  font-size:.65rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  line-height:1.1;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.ftd-power-node__action.is-upgrade { color:#211707; border-color:#ffe17a; background:linear-gradient(120deg,#ffdf63,#e9921f); box-shadow:0 2px 0 #835514; }
+.ftd-power-node__action:disabled { opacity:.4; filter:saturate(.45); cursor:not-allowed; box-shadow:none; }
+.ftd-power-node__action:not(:disabled):active { transform:translateY(1px); }
+@media (max-width:680px) {
+  .ftd-hero-detail { grid-template-areas:'art' 'body' 'perks' 'powers' 'actions'; }
+  .ftd-hero-power-tree__head { display:block; }
+  .ftd-hero-power-tree__hint { margin-top:.25rem; }
+  .ftd-power-node { grid-template-columns:48px minmax(0,1fr); gap:.55rem; }
+  .ftd-hero-power-tree__nodes::before { left:23px; }
+  .ftd-power-node__badge { width:46px; height:46px; }
+  .ftd-power-node__card { padding:.62rem .58rem; gap:.38rem; }
+  .ftd-power-node__top { align-items:flex-start; flex-wrap:wrap; }
+  .ftd-power-node__title { flex:1 1 100%; font-size:.95rem; }
+  .ftd-power-node__footer { align-items:flex-start; flex-direction:column; gap:.45rem; }
+  .ftd-power-node__actions { width:100%; }
+  .ftd-power-node__action { flex:1 1 0; min-width:0; min-height:42px; padding:.45rem .35rem; white-space:normal; }
+  .ftd-hero-perks { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ftd-hero-perk { padding:.48rem .45rem; gap:.35rem; }
+  .ftd-hero-perk__name { gap:.35rem; font-size:.72rem; }
+  .ftd-hero-perk__name img { width:24px !important; height:24px !important; flex:0 0 24px; }
+  .ftd-hero-perk__rank { font-size:.66rem; }
+}
+@media (max-width:360px) {
+  .ftd-hero-perks { grid-template-columns:minmax(0,1fr); }
+  .ftd-power-node__top { display:block; }
+  .ftd-power-node__state { display:inline-block; margin-top:.24rem; }
+}
