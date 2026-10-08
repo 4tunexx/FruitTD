@@ -140,6 +140,7 @@ export async function getDb(): Promise<Db> {
     await db.collection('friends').createIndex({ friendId: 1, state: 1, updatedAt: -1 });
     await db.collection('notifications').createIndex({ userId: 1, createdAt: -1 });
     await db.collection('notifications').createIndex({ notificationId: 1 }, { unique: true });
+    await db.collection('notifications').createIndex({ userId: 1, eventKey: 1 }, { unique: true, partialFilterExpression: { eventKey: { $exists: true } } });
     await db.collection('messages').createIndex({ conversationId: 1, createdAt: 1 });
     await db.collection('messages').createIndex({ messageId: 1 }, { unique: true });
     await db.collection('forum_posts').createIndex({ postId: 1 }, { unique: true });

@@ -4,6 +4,7 @@ import { getCollection, DailyBonusDoc, CloudSaveDoc } from '../db';
 import { AdminConfigDoc, DEFAULT_ADMIN_CONFIG } from './admin';
 import { resolveRequestUser } from '../auth';
 import { creditClaimReward } from '../claimWallet';
+import { saveNotification, type NotificationRecord } from '../notifications';
 import { loadQuestCatalog } from '../catalog';
 import { WALL_SKINS } from '../../src/game/save';
 
@@ -194,6 +195,18 @@ router.post('/claim', async (req: Request, res: Response) => {
     if (consumed.modifiedCount !== 1 && consumed.upsertedCount !== 1) {
       return res.status(409).json({ success: false, error: 'Daily claim receipt was recorded; reload your wallet' });
     }
+
+    const rewardParts = [
+      reward.coins ? `${reward.coins} coins` : '',
+      reward.gems ? `${reward.gems} gems` : '',
+      reward.skillPoints ? `${reward.skillPoints} skill points` : '',
+      reward.skinUnlock ? 'a new item' : '',
+    ].filter(Boolean).join(' · ');
+    await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
+      userId, type: 'daily_reward', title: 'Daily drop received',
+      body: `Day ${newStreak}: ${rewardParts || reward.label}`,
+      eventKey: `daily-reward:${userId}:${todayStr}`,
+    });
 
     res.json({
       success: true,

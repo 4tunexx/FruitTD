@@ -6,6 +6,7 @@ import { getMonthKey, loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
 import { validProgressUpdates } from '../validation';
 import { creditClaimReward } from '../claimWallet';
+import { saveNotification, type NotificationRecord } from '../notifications';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 
@@ -137,6 +138,21 @@ router.post('/progress', async (req: Request, res: Response) => {
       );
     }
 
+    for (const missionId of newlyCompleted) {
+      const def = catalog.missions.find((mission) => mission.id === missionId);
+      if (!def) continue;
+      const reward = [
+        def.rewardCoins ? `${def.rewardCoins} coins` : '',
+        def.rewardGems ? `${def.rewardGems} gems` : '',
+        def.rewardSp ? `${def.rewardSp} skill points` : '',
+      ].filter(Boolean).join(' · ');
+      await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
+        userId, type: 'mission_ready', title: 'Mission completed',
+        body: `${def.title}${reward ? ` · Claim ${reward}` : ' · Claim your reward'}`,
+        eventKey: `mission-ready:${userId}:${periodKey(def.type)}:${missionId}`,
+      });
+    }
+
     res.json({ success: true, newlyCompleted });
   } catch (err: any) {
     console.error('Error updating missions:', err);
@@ -177,6 +193,17 @@ router.post('/claim', async (req: Request, res: Response) => {
 
     const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: new Date() } });
     if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
+
+    const reward = [
+      def.rewardCoins ? `${def.rewardCoins} coins` : '',
+      def.rewardGems ? `${def.rewardGems} gems` : '',
+      def.rewardSp ? `${def.rewardSp} skill points` : '',
+    ].filter(Boolean).join(' · ');
+    await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
+      userId, type: 'mission_reward', title: 'Mission reward received',
+      body: `${def.title}${reward ? ` · ${reward}` : ''}`,
+      eventKey: `mission-reward:${userId}:${activeKey}:${missionId}`,
+    });
 
     res.json({
       success: true,

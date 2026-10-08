@@ -22,6 +22,7 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
       if ('$lt' in value) return candidates.some(v => v < value.$lt);
       if ('$lte' in value) return candidates.some(v => v <= value.$lte);
       if ('$in' in value) return candidates.some(v => value.$in.includes(v));
+      if ('$regex' in value) return candidates.some(v => new RegExp(value.$regex, value.$options).test(String(v ?? '')));
     }
     return candidates.some(v => v === value);
   });
@@ -57,9 +58,15 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
   const base = `http://127.0.0.1:${address.port}/api/coop`;
   const post = (path: string, user: string, body: object = {}) => fetch(base + path, { method: 'POST', headers: { Authorization: user, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const status = async (user: string) => (await fetch(base + '/status', { headers: { Authorization: user } })).json();
+  rows('users').push({ userId: 'two', username: 'two', nickname: 'two' });
+  rows('friends').push({ userId: 'one', friendId: 'two', state: 'accepted' });
   assert.equal((await fetch(base + '/status')).status, 401);
   const created = await (await post('/create', 'one', { public: false })).json();
   const id = created.room.id;
+  assert.equal((await post(`/${id}/invite`, 'one', { username: 'two' })).status, 200);
+  assert.equal(rows('notifications').length, 1);
+  assert.equal(rows('notifications')[0].type, 'coop_invite');
+  assert.match(rows('notifications')[0].body, new RegExp(id, 'i'));
   assert.equal((await post('/create', 'one')).status, 409);
   assert.equal((await post('/join', 'two', { code: 'invalid' })).status, 400);
   assert.equal((await post('/join', 'two', { code: id })).status, 200);

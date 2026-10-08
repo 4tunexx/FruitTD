@@ -78,12 +78,11 @@ test('the active tab is marked in the footer', () => {
   assert.equal(heroTab.classList.contains('is-active'), false);
 });
 
-test('header opens notifications and messages above the hub and keeps community, profile and wallet routes', () => {
+test('notifications and messages open above the hub while other header controls keep their routes', () => {
   resetHub();
   navigation.reset('MAIN_MENU');
   registerHubTab(homeHubTab(() => undefined));
   const root = host();
-  document.body.appendChild(root);
   renderHub(root, richSave(), 'MAIN_MENU', { onPlay: () => undefined });
   for (const [testId, title] of [
     ['nav-notifications', 'Notifications'],
@@ -91,12 +90,13 @@ test('header opens notifications and messages above the hub and keeps community,
   ] as const) {
     const button = root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!;
     button.click();
-    assert.equal(navigation.state, 'MAIN_MENU', 'social popovers do not route behind the hub panels');
-    const overlay = root.querySelector<HTMLElement>('[data-testid="hub-social-overlay"]');
+    assert.equal(navigation.state, 'MAIN_MENU', 'social panels must not route behind the hub');
+    assert.equal(button.getAttribute('aria-expanded'), 'true');
+    const overlay = document.body.querySelector<HTMLElement>('[data-testid="hub-social-overlay"]');
     assert.ok(overlay, `${title} should open in a top-layer panel`);
     assert.equal(overlay!.querySelector('[role="dialog"]')?.getAttribute('aria-label'), title);
     overlay!.click();
-    assert.equal(root.querySelector('[data-testid="hub-social-overlay"]'), null, `${title} should close cleanly`);
+    assert.equal(document.body.querySelector('[data-testid="hub-social-overlay"]'), null, `${title} should close cleanly`);
   }
   for (const [testId, destination] of [
     ['nav-social', 'SOCIAL'],
@@ -110,50 +110,52 @@ test('header opens notifications and messages above the hub and keeps community,
     button.click();
     assert.equal(navigation.state, destination);
   }
-  root.remove();
 });
 
-test('mode cards only select; Panel 2 explains each run and its action starts the chosen path', () => {
+test('mode cards only select and Panel 2 supplies the launch action', () => {
   resetHub();
-  resetRegistry();
   navigation.reset('MAIN_MENU');
   const selected: string[] = [];
   const launches: string[] = [];
   registerHubTab(homeHubTab(() => launches.push('match'), (mode) => selected.push(mode), () => launches.push('campaign-map')));
   const root = host();
-  document.body.appendChild(root);
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
   root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
-  assert.deepEqual(selected, [], 'choosing a card must not change the saved mode or start a match');
+  assert.deepEqual(selected, ['casual']);
+  assert.deepEqual(launches, [], 'selecting a mode must not launch gameplay');
   assert.ok(root.querySelector('[data-testid="home-mode-briefing"]'));
-  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /steady, guided run/i);
+  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /Casual/);
+  assert.ok(root.querySelector('[data-testid="nav-play"]'), 'Panel 2 exposes a Play action after selection');
   assert.equal(root.querySelector('[data-testid="mode-casual"]')?.getAttribute('aria-pressed'), 'true');
   root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
-  assert.deepEqual(selected, ['casual']);
   assert.deepEqual(launches, ['match']);
+
   root.querySelector<HTMLButtonElement>('[data-testid="mode-horde"]')!.click();
-  assert.deepEqual(launches, ['match'], 'choosing Horde also waits for its explicit action');
-  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /endless waves/i);
+  assert.deepEqual(launches, ['match'], 'selecting Horde waits for its Play button too');
+  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /Endless waves/i);
   root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
-  assert.deepEqual(selected, ['casual', 'horde']);
+  assert.deepEqual(launches, ['match', 'match']);
+
   root.querySelector<HTMLButtonElement>('[data-testid="campaign-open"]')!.click();
-  assert.deepEqual(launches, ['match', 'match'], 'selecting Campaign does not leave the hub');
-  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /100 linked stages/i);
+  assert.equal(navigation.state, 'MAIN_MENU');
+  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /Campaign/);
   root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
   assert.deepEqual(launches, ['match', 'match', 'campaign-map']);
+
   root.querySelector<HTMLButtonElement>('[data-testid="mode-coop"]')!.click();
   assert.equal(navigation.state, 'MAIN_MENU');
-  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /open the co-op lobby/i);
-  assert.equal(root.querySelectorAll('[data-testid="mode-ranked"], [data-testid="mode-arena"]').length, 2, 'Arena and Ranked are available as dedicated PvP destinations');
-  assert.match(root.textContent!, /Ranked PvP/);
+  assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /Co-op/);
+  assert.equal(root.querySelectorAll('[data-testid="mode-ranked"], [data-testid="mode-arena"]').length, 1, 'One Arena destination offers Normal and Ranked queues');
+  assert.match(root.textContent!, /Normal or Ranked/);
   assert.match(root.textContent!, /Arena PvP/);
   assert.equal(root.querySelectorAll('[data-testid="mode-coop"]').length, 1);
+  assert.match(root.textContent!, /Campaign/);
+  assert.doesNotMatch(root.textContent!, /100 Stage Campaign/);
   const playCard = root.querySelector('.ftd-playcard');
   assert.equal(playCard?.querySelector('.ftd-mode-select') !== null, true, 'mode chooser belongs inside Panel 1 play card');
   assert.equal(playCard?.querySelector('.ftd-playcard__content') !== null, true);
-  root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
-  assert.equal(navigation.state, 'CO_OP', 'Co-op only opens its lobby after confirming the Panel 2 action');
-  root.remove();
+  assert.doesNotMatch(root.textContent!, /Online Multiplayer/);
+  assert.doesNotMatch(root.textContent!, /multiplayer/i);
 });
 
 test('home shows separate daily and main mission progress meters', () => {
@@ -163,22 +165,9 @@ test('home shows separate daily and main mission progress meters', () => {
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
   const panel = root.querySelector('[data-testid="home-mission-progress"]');
   assert.ok(panel);
+  assert.ok(root.querySelector('[data-testid="daily-login-mission"]'));
   assert.ok(panel!.querySelector('.ftd-mission-progress__row--daily'));
   assert.ok(panel!.querySelector('.ftd-mission-progress__row--main'));
-});
-
-test('Home clears the mode highlight and restores the active hero panel', () => {
-  resetHub();
-  navigation.reset('MAIN_MENU');
-  registerHubTab(homeHubTab(() => undefined));
-  const root = host();
-  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
-  root.querySelector<HTMLButtonElement>('[data-testid="mode-horde"]')!.click();
-  assert.equal(root.querySelector('[data-testid="home-mode-briefing"]') !== null, true);
-  root.querySelector<HTMLButtonElement>('[data-testid="nav-home"]')!.click();
-  assert.equal(root.querySelector('[data-testid="home-mode-briefing"]'), null);
-  assert.equal(root.querySelector('[data-testid="mode-horde"]')?.getAttribute('aria-pressed'), 'false');
-  assert.ok(root.querySelector('.ftd-loadout'), 'Home returns Panel 2 to the active hero and progression view');
 });
 
 test('legacy Missions moves into the hub and returns to its original host while Ranked is now dedicated PvP', () => {
@@ -246,7 +235,7 @@ test('primary hub routes are reachable, Back returns one level, and Home clears 
   assert.equal(navigation.depth, 0, 'Home clears nested route history');
 });
 
-test('the hub exposes stable Home, mode Play, Settings, and Admin test ids through More', () => {
+test('More opens reachable Settings and Admin actions, and Play waits for a selected mode', () => {
   resetHub();
   navigation.reset('MAIN_MENU');
   let adminOpens = 0;
@@ -255,13 +244,19 @@ test('the hub exposes stable Home, mode Play, Settings, and Admin test ids throu
   const root = host();
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined, onAdmin: () => { adminOpens++; } });
 
-  for (const id of ['nav-home', 'nav-brand-home', 'nav-more', 'nav-settings', 'nav-admin']) {
+  for (const id of ['nav-home', 'nav-brand-home', 'nav-more']) {
     assert.ok(root.querySelector(`[data-testid="${id}"]`), `${id} should be stable and present`);
   }
-  assert.equal(root.querySelector('[data-testid="nav-play"]'), null, 'Play waits until a mode has been selected');
+  assert.equal(root.querySelector('[data-testid="nav-play"]'), null);
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
   assert.equal(root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')?.getAttribute('aria-expanded'), 'true');
-  assert.ok(root.querySelector<HTMLElement>('[data-testid="hub-more-menu"]'));
+  assert.ok(root.querySelector('[data-testid="hub-more-menu"]'));
+  for (const id of ['nav-settings', 'nav-admin']) assert.ok(root.querySelector(`[data-testid="${id}"]`), `${id} should be reachable from More`);
+  root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
+  assert.equal(playStarts, 1, 'the active Play action calls the existing launch callback');
+  root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="nav-settings"]')!.click();
   assert.equal(navigation.state, 'SETTINGS');
   assert.equal(navigation.back(), true);
@@ -269,9 +264,20 @@ test('the hub exposes stable Home, mode Play, Settings, and Admin test ids throu
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="nav-admin"]')!.click();
   assert.equal(adminOpens, 1);
-  root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
-  root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
-  assert.equal(playStarts, 1, 'the active Play action calls the existing launch callback');
+});
+
+test('Home clears mode selection and restores the active hero panel', () => {
+  resetHub();
+  navigation.reset('MAIN_MENU');
+  registerHubTab(homeHubTab(() => undefined));
+  const root = host();
+  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-horde"]')!.click();
+  assert.ok(root.querySelector('[data-testid="home-mode-briefing"]'));
+  root.querySelector<HTMLButtonElement>('[data-testid="nav-home"]')!.click();
+  assert.equal(root.querySelector('[data-testid="home-mode-briefing"]'), null);
+  assert.equal(root.querySelector('[data-testid="mode-horde"]')?.getAttribute('aria-pressed'), 'false');
+  assert.ok(root.querySelector('.ftd-loadout'), 'Home restores the hero and progression details');
 });
 
 test('legacy lobby navigation and Play markup are hidden, inert, and unwired', () => {
@@ -315,18 +321,18 @@ test('the footer presents five core destinations and keeps the home state explic
   assert.equal(root.classList.contains('is-home'), false);
 });
 
-test('profile keeps the legacy destinations reachable and exposes its Play action', () => {
+test('profile keeps destinations reachable without a Play action', () => {
   let played = 0;
-  const profile = profileHubTab(() => ({}), () => { played++; });
+  const profile = profileHubTab(() => ({}));
   const main = host();
   profile.renderMain(main, defaultSave());
 
   const actions = main.querySelector('.ftd-profile-actions');
   const actionButtons = actions?.querySelectorAll('button') ?? [];
   const actionLabels = [...actionButtons].map((button) => button.textContent);
-  assert.deepEqual(actionLabels, ['Play now', 'Missions', 'Achievements', 'Ranked', 'Local Co-op', 'Settings']);
-  actionButtons[0]?.click();
-  assert.equal(played, 1);
+  assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Ranked', 'Leaderboard', 'Local Co-op', 'Settings']);
+  assert.equal(played, 0);
+  assert.ok(!actionLabels.includes('Play now'));
 });
 
 test('every secondary menu destination supplies a contextual desktop panel', () => {
@@ -563,22 +569,21 @@ test('re-rendering the same active tab (e.g. after a purchase) refreshes data wi
   assert.equal(content.classList.contains('is-sliding-in-forward'), false, 'same-tab refresh must not slide');
 });
 
-test('Casual and Horde launch only after the selected mode action is pressed', () => {
+test('Casual and Horde selection launch their selected mode through Play', () => {
   resetHub();
   const save = defaultSave();
   const starts: string[] = [];
   registerHubTab(homeHubTab(() => starts.push(save.mode), mode => { save.mode = mode; }));
-  const root = host(); document.body.appendChild(root); renderHub(root, save, 'MAIN_MENU', { onPlay: () => starts.push(save.mode) });
+  const root = host(); renderHub(root, save, 'MAIN_MENU', { onPlay: () => starts.push(save.mode) });
   for (const mode of ['casual', 'horde']) {
     root.querySelector<HTMLButtonElement>(`[data-testid="mode-${mode}"]`)!.click();
-    assert.equal(starts.length, mode === 'casual' ? 0 : 1, 'selecting a mode must not start gameplay');
     root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
   }
   assert.deepEqual(starts, ['casual', 'horde']);
-  root.remove(); resetHub();
+  resetHub();
 });
 
-test('Co-op, Arena and Ranked buttons open their own lobby destinations', () => {
+test('Co-op and Arena open their destinations only after the Panel 2 launch action', () => {
   resetHub(); resetRegistry(); navigation.reset('MAIN_MENU');
   const root = host(); root.id = 'mode-routing-host'; document.body.appendChild(root);
   const entered: string[] = [];
@@ -586,13 +591,36 @@ test('Co-op, Arena and Ranked buttons open their own lobby destinations', () => 
   installScreenRouter();
   registerHubTab(homeHubTab(() => undefined));
   renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay() {} });
-  for (const [button, destination] of [['mode-coop', 'CO_OP'], ['mode-arena', 'ARENA'], ['mode-ranked', 'RANKED']] as const) {
+  for (const [button, destination] of [['mode-coop', 'CO_OP'], ['mode-arena', 'ARENA']] as const) {
     navigation.reset('MAIN_MENU');
     root.querySelector<HTMLButtonElement>(`[data-testid="${button}"]`)!.click();
-    assert.equal(navigation.state, 'MAIN_MENU', `${button} selection must stay on the Home screen`);
+    assert.equal(navigation.state, 'MAIN_MENU', `${button} should select without leaving Home`);
+    assert.ok(root.querySelector('[data-testid="home-mode-briefing"]'));
     root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
     assert.equal(navigation.state, destination);
     assert.equal(entered.at(-1), destination);
   }
   resetRegistry(); resetHub(); navigation.reset('MAIN_MENU'); root.remove();
+});
+
+test('Home owns one Play button and other menu adapters own none', () => {
+  resetHub();
+  const save = richSave();
+  registerHubTab(homeHubTab(() => undefined));
+  registerHubTab(heroesHubTab({ onEquip() {}, onBuy() {} }));
+  registerHubTab(inventoryHubTab({ onEquip() {}, onSell() {} }));
+  registerHubTab(shopHubTab({ onBuy() {} }));
+  registerHubTab(profileHubTab(() => ({})));
+  const root = host(); renderHub(root, save, 'MAIN_MENU', { onPlay() {} });
+  root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
+  const playButtons = () => [...root.querySelectorAll('button')].filter(button => button.getAttribute('data-testid') === 'nav-play');
+  assert.equal(playButtons().length, 1);
+  for (const menu of ['HEROES', 'INVENTORY', 'SHOP', 'PROFILE'] as const) {
+    switchHubTab(root, save, menu);
+    assert.equal(playButtons().length, 0, `${menu} must not inherit a footer Play button`);
+    assert.equal(root.querySelectorAll('.ftd-hub-tab').length, 5, 'navigation stays in one five-button row');
+  }
+  switchHubTab(root, save, 'MAIN_MENU');
+  assert.equal(playButtons().length, 1);
+  resetHub();
 });

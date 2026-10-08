@@ -5,6 +5,7 @@ import { loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
 import { validProgressUpdates } from '../validation';
 import { creditClaimReward } from '../claimWallet';
+import { saveNotification, type NotificationRecord } from '../notifications';
 
 export const badgesRouter = Router();
 
@@ -85,6 +86,11 @@ badgesRouter.post('/claim', async (req: Request, res: Response) => {
       gems: def.rewardGems ?? 0,
     });
     if (!wallet) return res.status(409).json({ success: false, error: 'Badge reward already claimed' });
+    await saveNotification(() => getCollection<NotificationRecord>('notifications'), {
+      userId: user.userId, type: 'badge_reward', title: 'Badge reward received',
+      body: `${def.title} · ${def.rewardCoins ?? 0} coins · ${def.rewardGems ?? 0} gems`,
+      eventKey: `badge-reward:${user.userId}:${badgeId}`,
+    });
     res.json({ success: true, badgeId, rewardCoins: def.rewardCoins ?? 0, rewardGems: def.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -137,6 +143,15 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
       );
     }
 
+    for (const badgeId of newlyUnlocked) {
+      const def = catalog.badges.find((badge) => badge.id === badgeId);
+      if (!def) continue;
+      await saveNotification(() => getCollection<NotificationRecord>('notifications'), {
+        userId, type: 'badge_unlocked', title: 'Badge unlocked',
+        body: `${def.title}${def.rewardCoins || def.rewardGems ? ` · ${def.rewardCoins ?? 0} coins · ${def.rewardGems ?? 0} gems` : ''}`,
+        eventKey: `badge-unlocked:${userId}:${badgeId}`,
+      });
+    }
     res.json({ success: true, newlyUnlocked });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

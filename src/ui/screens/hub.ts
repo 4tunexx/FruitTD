@@ -20,13 +20,13 @@
  */
 
 import { el, clear } from '../components/dom';
-import { GameButton, GameCurrency } from '../components/primitives';
-import { Bell, MessageCircle, MoreHorizontal, UsersRound, createElement, type Swords } from 'lucide';
+import { GameCurrency } from '../components/primitives';
+import { Bell, Ellipsis, MessageCircle, UsersRound, createElement, type Swords } from 'lucide';
 import { openScreen, back, home } from './registry';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
-import { rankFromScore } from '../../game/requirements';
+import { bindArenaRating } from '../../services/pvpRating';
 import type { SaveData } from '../../game/save';
 import { navigation, type NavState } from '../../game/navigation';
 import { getAuthToken } from '../../services/auth';
@@ -41,7 +41,7 @@ export interface HubTab {
   renderMain: (root: HTMLElement, save: SaveData) => void;
   /** Paints the contextual detail panel. */
   renderSub?: (root: HTMLElement, save: SaveData) => void;
-  /** Clears transient home selections before returning to the main hub. */
+  /** Clears temporary mode selection when Home is explicitly chosen. */
   onHome?: () => void;
 }
 
@@ -60,6 +60,8 @@ export const HUB_HOME: NavState = 'MAIN_MENU';
 const tabs = new Map<NavState, HubTab>();
 let lastActive: NavState | null = null;
 let lastHubSave: SaveData | null = null;
+let removeMenuDismiss: (() => void) | null = null;
+let notificationPollTimer: ReturnType<typeof setInterval> | null = null;
 
 export function registerHubTab(tab: HubTab): void {
   tabs.set(tab.id, tab);
@@ -81,14 +83,10 @@ function icon(node: typeof Swords, className: string): HTMLElement | SVGElement 
   return createElement(node, { class: className, width: 18, height: 18, 'aria-hidden': 'true' });
 }
 
-function openSocialOverlay(root: HTMLElement, view: 'messages' | 'notifications', trigger: HTMLElement): void {
-  root.querySelector('.ftd-hub-social-overlay')?.remove();
+function openSocialOverlay(view: 'messages' | 'notifications', trigger: HTMLElement, opts: HubOptions): void {
+  document.querySelector('.ftd-hub-social-overlay')?.remove();
 
-  const overlay = el('div', {
-    class: 'ftd-hub-social-overlay',
-    role: 'presentation',
-    'data-testid': 'hub-social-overlay',
-  });
+  const overlay = el('div', { class: 'ftd-hub-social-overlay', role: 'presentation', 'data-testid': 'hub-social-overlay' });
   const dialog = el('section', {
     class: 'ftd-hub-social-dialog',
     role: 'dialog',
@@ -106,7 +104,8 @@ function openSocialOverlay(root: HTMLElement, view: 'messages' | 'notifications'
     if (closed) return;
     closed = true;
     overlay.remove();
-    if (trigger.parentElement) trigger.focus();
+    trigger.setAttribute('aria-expanded', 'false');
+    if (trigger.isConnected) trigger.focus();
     const unsubscribe = stopNavigation;
     stopNavigation = undefined;
     if (unsubscribe) queueMicrotask(unsubscribe);
@@ -121,12 +120,20 @@ function openSocialOverlay(root: HTMLElement, view: 'messages' | 'notifications'
     close();
   });
   stopNavigation = navigation.onChange(close);
-  root.appendChild(overlay);
+  trigger.setAttribute('aria-expanded', 'true');
+  document.body.appendChild(overlay);
   dialog.focus();
 
   void import('./social').then(({ renderSocial }) => {
     if (!overlay.parentElement) return;
-    renderSocial(content, view, { onClose: close });
+    renderSocial(content, view, {
+      onClose: close,
+      onJoinCoopInvite: (code) => {
+        close();
+        void import('./onlineCoop').then(({ openOnlineCoopInvite }) => openOnlineCoopInvite(code));
+      },
+      onOpenDailyReward: () => { close(); opts.onOpenDaily?.(); },
+    });
     content.classList.add('ftd-hub-social-dialog__content');
     content.querySelector<HTMLElement>('.ftd-social__back')?.focus();
   }).catch(() => {
@@ -154,9 +161,10 @@ function updateCurrency(currency: HTMLElement, save: SaveData): void {
 
 /** Builds the persistent header (Panel 3). Rebuilt on each full render, but never mid-tab-switch. */
 function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLElement {
+  removeMenuDismiss?.();
+  removeMenuDismiss = null;
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
 
   const logo = el('button', {
     class: 'ftd-hub-logo',
@@ -179,18 +187,19 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     el('div', { class: 'ftd-hub-identity__text' }, [
       el('p', { class: 'ftd-hub-identity__name', text: save.nickname || 'Slicer' }),
       el('p', { class: 'ftd-hub-identity__meta' }, [
-        el('span', { class: 'ftd-hub-identity__rank', text: rank.title }),
+        el('span', { class: 'ftd-hub-identity__rank', text: 'Unranked' }),
         el('span', { class: 'ftd-hub-identity__sep', text: '·' }),
         el('span', { class: 'ftd-hub-identity__hero-level', text: `${hero.name} Lv ${xp.level}` }),
       ]),
     ]),
   ]);
+  bindArenaRating(identity.querySelector<HTMLElement>('.ftd-hub-identity__rank'));
   identity.addEventListener('click', () => openScreen('PROFILE'));
 
   const currency = buildCurrency(save);
 
-  const notifications = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]);
-  const messages = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]);
+  const notifications = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]);
+  const messages = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]);
   const community = el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]);
   const more = el('button', {
     class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-more',
@@ -201,10 +210,11 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     'aria-controls': 'hub-more-menu',
     'aria-expanded': 'false',
     'data-testid': 'nav-more',
-  }, [icon(MoreHorizontal, 'ftd-hub-social__icon')]);
+  }, [icon(Ellipsis, 'ftd-hub-social__icon')]);
   const menu = el('div', { id: 'hub-more-menu', class: 'ftd-hub-more-menu', role: 'menu', hidden: true, 'data-testid': 'hub-more-menu' });
   const actions: Array<{ label: string; testId: string; run: () => void; className?: string }> = [
     { label: 'News', testId: 'nav-news', run: () => openScreen('NEWS') },
+    { label: 'Leaderboard', testId: 'nav-leaderboard', run: () => openScreen('LEADERBOARD') },
     ...(opts.onOpenDaily ? [{ label: 'Daily rewards', testId: 'nav-daily', run: opts.onOpenDaily }] : []),
     { label: 'Settings', testId: 'nav-settings', run: () => openScreen('SETTINGS') },
     ...(opts.onAdmin ? [{ label: isUserAdmin() ? 'Admin' : 'Admin access', testId: 'nav-admin', run: opts.onAdmin }] : []),
@@ -216,9 +226,7 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     menu.hidden = !open;
     more.setAttribute('aria-expanded', String(open));
   };
-  const closeMenu = () => {
-    setMenuOpen(false);
-  };
+  const closeMenu = () => setMenuOpen(false);
   for (const action of actions) {
     const item = el('button', { class: `ftd-hub-more-menu__item${action.className ? ` ${action.className}` : ''}`, type: 'button', role: 'menuitem', text: action.label, 'data-testid': action.testId });
     item.addEventListener('click', () => { closeMenu(); action.run(); });
@@ -229,23 +237,34 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     if (menuOpen) menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
   });
   menu.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu();
+      more.focus();
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
-    closeMenu();
-    more.focus();
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    items[(index + delta + items.length) % items.length]?.focus();
   });
-  notifications.addEventListener('click', () => openSocialOverlay(root, 'notifications', notifications));
-  messages.addEventListener('click', () => openSocialOverlay(root, 'messages', messages));
+  notifications.addEventListener('click', () => openSocialOverlay('notifications', notifications, opts));
+  messages.addEventListener('click', () => openSocialOverlay('messages', messages, opts));
   community.addEventListener('click', () => openScreen('SOCIAL'));
   const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more, menu]);
   const header = el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
   header.addEventListener('click', (event) => {
-    if (menuOpen && !(event.target as HTMLElement).closest('.ftd-hub-utils')) closeMenu();
-  });
-  root.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (menuOpen && !target.closest('.ftd-hub-more') && !target.closest('.ftd-hub-more-menu')) closeMenu();
   });
+  const dismissMenu = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (menuOpen && target && !header.contains(target)) closeMenu();
+  };
+  document.addEventListener('pointerdown', dismissMenu);
+  removeMenuDismiss = () => document.removeEventListener('pointerdown', dismissMenu);
   return header;
 }
 
@@ -253,7 +272,6 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
 function syncHeader(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
   const avatar = root.querySelector<HTMLImageElement>('.ftd-hub-identity__avatar');
   if (avatar) {
     avatar.src = save.avatar || '';
@@ -264,7 +282,7 @@ function syncHeader(root: HTMLElement, save: SaveData): void {
   const identity = root.querySelector<HTMLElement>('.ftd-hub-identity');
   identity?.setAttribute('aria-label', `Open ${save.nickname || 'Slicer'} profile`);
   const rankLabel = root.querySelector('.ftd-hub-identity__rank');
-  if (rankLabel) rankLabel.textContent = rank.title;
+  bindArenaRating(rankLabel as HTMLElement | null);
   const heroLevel = root.querySelector('.ftd-hub-identity__hero-level');
   if (heroLevel) heroLevel.textContent = `${hero.name} Lv ${xp.level}`;
   const currency = root.querySelector('.ftd-hub-currency');
@@ -272,14 +290,8 @@ function syncHeader(root: HTMLElement, save: SaveData): void {
 }
 
 /** Builds the persistent footer (Panel 4): five core game destinations. */
-function buildFooter(active: NavState, root: HTMLElement, opts: HubOptions): HTMLElement {
+function buildFooter(active: NavState, root: HTMLElement): HTMLElement {
   const nav = el('nav', { class: 'ftd-hub__footer', 'aria-label': 'Game menu' });
-  const launch = GameButton({ label: 'PLAY', tone: 'primary', size: 'lg', class: 'ftd-hub-launch', onClick: () => {
-    if (root.classList.contains('is-campaign')) root.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')?.click();
-    else opts.onPlay();
-  } });
-  launch.dataset.testid = 'nav-play-pinned';
-  nav.appendChild(launch);
   const destinations: NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE'];
   for (const tab of tabs.values()) {
     if (!destinations.includes(tab.id)) continue;
@@ -309,11 +321,10 @@ function buildFooter(active: NavState, root: HTMLElement, opts: HubOptions): HTM
  * so moving between tabs feels directional rather than a flat crossfade.
  */
 function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'forward' | 'back' | 'none'): void {
+  root.classList.remove('is-pvp-battle');
   const mainHost = root.querySelector('.ftd-hub__main') as HTMLElement | null;
   const subHost = root.querySelector('.ftd-hub__sub') as HTMLElement | null;
   if (!mainHost) return;
-  const pinnedLaunch = root.querySelector<HTMLElement>('.ftd-hub-launch');
-  if (pinnedLaunch && tab.id !== 'CAMPAIGN') pinnedLaunch.textContent = 'PLAY';
 
   // The older missions and leaderboard widgets retain their event handlers
   // when moved into the hub. Park them before replacing the previous panel.
@@ -370,6 +381,8 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
  * so the header/footer are never torn down.
  */
 export function renderHub(root: HTMLElement, save: SaveData, active: NavState, opts: HubOptions): void {
+  if (notificationPollTimer) clearInterval(notificationPollTimer);
+  notificationPollTimer = null;
   lastHubSave = save;
   clear(root);
   root.classList.add('ftd-hub');
@@ -379,12 +392,15 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   root.appendChild(buildHeader(save, opts, root));
   if (getAuthToken()) {
     const bell = root.querySelector<HTMLButtonElement>('[data-testid="nav-notifications"]');
-    void socialApi.notifications().then(({ unread }) => {
+    const updateUnread = () => socialApi.notifications().then(({ unread }) => {
       if (!bell?.isConnected) return;
       const count = bell.querySelector<HTMLElement>('.ftd-hub-social__count');
       if (count) { count.textContent = unread > 99 ? '99+' : String(unread); count.hidden = unread === 0; }
       bell.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
     }).catch(() => {});
+    void updateUnread();
+    notificationPollTimer = setInterval(() => { void updateUnread(); }, 45_000);
+    (notificationPollTimer as unknown as { unref?: () => void }).unref?.();
   }
 
   const body = el('div', { class: 'ftd-hub__body' }, [
@@ -393,7 +409,7 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   ]);
   root.appendChild(body);
 
-  root.appendChild(buildFooter(active, root, opts));
+  root.appendChild(buildFooter(active, root));
 
   const tab = tabs.get(active);
   if (tab) paintTab(root, tab, save, 'none');
@@ -442,6 +458,10 @@ export function resetHub(): void {
   tabs.clear();
   lastActive = null;
   lastHubSave = null;
+  removeMenuDismiss?.();
+  removeMenuDismiss = null;
+  if (notificationPollTimer) clearInterval(notificationPollTimer);
+  notificationPollTimer = null;
 }
 
 export { back, home };

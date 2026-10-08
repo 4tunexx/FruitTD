@@ -6,6 +6,7 @@ import { loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
 import { validProgressUpdates } from '../validation';
 import { creditClaimReward } from '../claimWallet';
+import { saveNotification, type NotificationRecord } from '../notifications';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 
@@ -118,6 +119,21 @@ router.post('/progress', async (req: Request, res: Response) => {
       );
     }
 
+    for (const achievementId of newlyUnlocked) {
+      const def = catalog.achievements.find((achievement) => achievement.id === achievementId);
+      if (!def) continue;
+      const reward = [
+        def.rewardCoins ? `${def.rewardCoins} coins` : '',
+        def.rewardGems ? `${def.rewardGems} gems` : '',
+        def.rewardSp ? `${def.rewardSp} skill points` : '',
+      ].filter(Boolean).join(' · ');
+      await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
+        userId, type: 'achievement_unlocked', title: 'Achievement unlocked',
+        body: `${def.title}${reward ? ` · Claim ${reward}` : ''}`,
+        eventKey: `achievement-unlocked:${userId}:${achievementId}`,
+      });
+    }
+
     res.json({ success: true, newlyUnlocked });
   } catch (err: any) {
     console.error('Error updating achievement progress:', err);
@@ -157,6 +173,17 @@ router.post('/claim', async (req: Request, res: Response) => {
 
     const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
     if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Reward already claimed' });
+
+    const reward = [
+      def.rewardCoins ? `${def.rewardCoins} coins` : '',
+      def.rewardGems ? `${def.rewardGems} gems` : '',
+      def.rewardSp ? `${def.rewardSp} skill points` : '',
+    ].filter(Boolean).join(' · ');
+    await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
+      userId, type: 'achievement_reward', title: 'Achievement reward received',
+      body: `${def.title}${reward ? ` · ${reward}` : ''}`,
+      eventKey: `achievement-reward:${userId}:${achievementId}`,
+    });
 
     res.json({
       success: true,

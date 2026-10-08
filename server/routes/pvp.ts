@@ -10,6 +10,7 @@ import { pvpCanMatch } from '../../src/game/pvpMatchmaking';
 import { HEROES } from '../../src/game/heroes';
 import { WALL_SKINS } from '../../src/game/save';
 import { playPvpBotTurn } from '../../src/game/pvpBot';
+import { saveNotification, type NotificationRecord } from '../notifications';
 import { pvpAccountIdentity } from '../../src/game/pvpIdentity';
 
 export const pvpRouter = Router();
@@ -162,6 +163,11 @@ async function settleMatch(match: StoredMatch, config: PvpConfig): Promise<void>
           const reached = badgeByTier[topTier]; if (reached) await badge(reached);
         }
       }
+      await saveNotification(() => getCollection<NotificationRecord>('notifications'), {
+        userId: player.userId, type: 'pvp_result', title: 'Arena match finished',
+        body: `${outcome === 'win' ? 'Victory' : outcome === 'loss' ? 'Defeat' : 'Tie'} · ${match.queue === 'ranked' && player.ratingDelta !== undefined ? `${player.ratingDelta > 0 ? '+' : ''}${player.ratingDelta} rating` : 'Casual Arena'}`,
+        eventKey: `pvp-result:${player.userId}:${match.id}`,
+      });
     }
     match.settled = true;
     await matches.updateOne({ id: match.id }, { $set: { settled: true, players: match.players }, $unset: { activePlayers: '' } });

@@ -1,3 +1,5 @@
+import { bindArenaRating } from '../../services/pvpRating';
+import { renderModeStats } from './modeStats';
 /**
  * Hub tab adapters — one per destination in the footer tab bar.
  *
@@ -30,8 +32,8 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { getTowerXpState } from '../../game/towerProgression';
-import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/requirements';
-import { Backpack, Home, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
+import { currentSeasonLabel } from '../../game/requirements';
+import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves, createElement } from 'lucide';
 import { getTowerXpState as getMainTowerXpState } from '../../game/towerProgression';
 import type { GameMode, SaveData } from '../../game/save';
 import { modeRules } from '../../game/modes';
@@ -40,7 +42,7 @@ import type { ShopCallbacks } from './shop';
 import type { InventoryCallbacks } from './inventory';
 import type { ProfileStats } from './profile';
 import { HUB_HOME } from './hub';
-import { fetchMissions } from '../../services/api';
+import { fetchDailyBonusStatus, fetchMissions } from '../../services/api';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
@@ -394,7 +396,7 @@ function statCard(label: string, value: string, hint?: string): HTMLElement {
   ]);
 }
 
-function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
+function profileMain(getStats: () => ProfileStats) {
   return (root: HTMLElement, save: SaveData) => {
     const stats = getStats();
     root.appendChild(el('div', { class: 'ftd-hub-catalog-heading' }, [
@@ -404,7 +406,7 @@ function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
     const grid = el('div', { class: 'ftd-stat-grid' }, [
       statCard('Highest wave', String(save.bestWave ?? 1)),
       statCard('Highest score', (save.highScore ?? 0).toLocaleString()),
-      statCard('Ranked score', (save.rankedScore ?? 0).toLocaleString()),
+      statCard('Ranked Arena', 'Loading rank…'),
       statCard('Games played', String(save.games ?? 0)),
       statCard('Best combo', stats.bestCombo ? `×${stats.bestCombo}` : '—'),
       statCard('Coins', (save.coins ?? 0).toLocaleString()),
@@ -412,12 +414,15 @@ function profileMain(getStats: () => ProfileStats, onPlay?: () => void) {
       statCard('Season', stats.season ?? currentSeasonLabel()),
     ]);
     root.appendChild(grid);
+    renderModeStats(root);
+    const rankCard = grid.children[2]?.querySelector<HTMLElement>('.ftd-stat__value');
+    bindArenaRating(rankCard);
     root.appendChild(
       el('div', { class: 'ftd-profile-actions' }, [
-        ...(onPlay ? [GameButton({ label: 'Play now', tone: 'primary', size: 'lg', onClick: onPlay })] : []),
         GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
         GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
+        GameButton({ label: 'Leaderboard', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
         GameButton({ label: 'Local Co-op', variant: 'outline', onClick: () => openScreen('CO_OP') }),
         GameButton({ label: 'Settings', variant: 'outline', onClick: () => openScreen('SETTINGS') }),
       ]),
@@ -430,24 +435,22 @@ function profileSub(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const heroXp = getHeroXpState(save, save.hero);
   const tower = getTowerXpState();
-  const best = save.rankedScore || save.highScore || 0;
-  const rank = rankFromScore(best);
-  const nextRank = DEFAULT_RANK_TIERS.filter((t) => t.minScore > best).sort((a, b) => a.minScore - b.minScore)[0];
 
   const banner = el('div', { class: 'ftd-profile-banner' }, [
     el('img', { class: 'ftd-profile-banner__avatar', src: save.avatar || '', alt: `${save.nickname || 'Slicer'} avatar` }),
     el('div', { class: 'ftd-profile-banner__text' }, [
       el('h2', { class: 'ftd-profile-banner__name', text: save.nickname || 'Slicer' }),
       el('div', { class: 'ftd-profile-banner__badges' }, [
-        el('span', { class: 'ftd-profile-rank', text: rank.title }),
+        el('span', { class: 'ftd-profile-rank', text: 'Unranked' }),
         el('span', { class: 'ftd-profile-hero', text: `Main · ${hero.name}` }),
       ]),
-      ...(nextRank
-        ? [el('p', { class: 'ftd-profile-banner__next', text: `${(nextRank.minScore - best).toLocaleString()} score to ${nextRank.title}` })]
-        : [el('p', { class: 'ftd-profile-banner__next', text: 'Top rank reached' })]),
+      el('p', { class: 'ftd-profile-banner__next', text: 'Ranked Arena rating' }),
+      el('p', { class: 'ftd-profile-banner__record' }),
     ]),
   ]);
-  banner.style.setProperty('--rank-color', rank.color);
+  bindArenaRating(banner.querySelector<HTMLElement>('.ftd-profile-rank'));
+  bindArenaRating(banner.querySelector<HTMLElement>('.ftd-profile-banner__next'), 'progress');
+  bindArenaRating(banner.querySelector<HTMLElement>('.ftd-profile-banner__record'), 'record');
   root.appendChild(banner);
 
   root.appendChild(
@@ -466,12 +469,12 @@ function profileSub(root: HTMLElement, save: SaveData): void {
   );
 }
 
-export function profileHubTab(getStats: () => ProfileStats, onPlay?: () => void): HubTab {
+export function profileHubTab(getStats: () => ProfileStats): HubTab {
   return {
     id: 'PROFILE',
     label: 'Profile',
     icon: UserRound,
-    renderMain: profileMain(getStats, onPlay),
+    renderMain: profileMain(getStats),
     renderSub: profileSub,
   };
 }
@@ -508,63 +511,86 @@ export function coopHubTab(onStart?: () => void): HubTab {
  * Panel 1 is the PLAY call-to-action; Panel 2 is the active-hero loadout. This
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
-const HOME_MODES: Array<{ id: GameMode; name: string; note: string; testId: string }> = [
-  { id: 'casual', name: 'Casual', note: 'A guided run with room to learn.', testId: 'mode-casual' },
-  { id: 'horde', name: 'Horde', note: 'Endless waves. Hold out for a high score.', testId: 'mode-horde' },
-  { id: 'campaign', name: 'Campaign', note: '100 stages, bosses, unlocks, and rewards.', testId: 'campaign-open' },
-  { id: 'coop', name: 'Co-op', note: 'Open a lobby and defend with your team.', testId: 'mode-coop' },
-  { id: 'arena', name: 'Arena PvP', note: 'Unranked, real-time tower siege.', testId: 'mode-arena' },
-  { id: 'ranked', name: 'Ranked PvP', note: 'Seasonal 1v1 ladder and FR rating.', testId: 'mode-ranked' },
+function modeGlyph(node: typeof Swords): HTMLElement | SVGElement {
+  if (typeof document.createElementNS !== 'function') return el('span', { class: 'ftd-mode-card__icon', text: '✦', 'aria-hidden': 'true' });
+  return createElement(node, { class: 'ftd-mode-card__icon', width: 23, height: 23, 'aria-hidden': 'true' });
+}
+
+const HOME_MODES: Array<{ id: GameMode; name: string; note: string; icon: typeof Swords; testId: string }> = [
+  { id: 'casual', name: 'Casual', note: 'Learn the lanes', icon: Shield, testId: 'mode-casual' },
+  { id: 'horde', name: 'Horde', note: 'Endless · highest wave wins', icon: Waves, testId: 'mode-horde' },
+  { id: 'campaign', name: 'Campaign', note: '100 stages · bosses · rewards', icon: MapIcon, testId: 'campaign-open' },
+  { id: 'coop', name: 'Co-op', note: 'Squad up · play together', icon: UsersRound, testId: 'mode-coop' },
+  { id: 'arena', name: 'Arena PvP', note: 'Tower siege · Normal or Ranked', icon: Swords, testId: 'mode-arena' },
 ];
 
-const HOME_MODE_BLURBS: Record<GameMode, string> = {
-  casual: 'A steady, guided run with extra room to learn the lanes and build your defense.',
-  horde: 'Hold the wall through endless waves. There are no bosses; your best wave and score set the record.',
-  campaign: 'Push through 100 linked stages, unlock them in order, and face a new boss at every stage.',
-  coop: 'Open the co-op lobby to host a room, join a friend, or find a teammate before the match begins.',
-  arena: 'Fight a real-time 1v1 siege without changing your seasonal Ranked rating.',
-  ranked: 'Fight for seasonal FR points. Each result moves your place on the monthly ladder.',
-};
+function launchHomeMode(mode: GameMode, onPlay: () => void, onCampaign?: () => void): void {
+  if (mode === 'campaign') { onCampaign?.(); return; }
+  if (mode === 'coop') { openScreen('CO_OP'); return; }
+  if (mode === 'arena') { openScreen('ARENA'); return; }
+  onPlay();
+}
 
-function homeMain(
-  selected: () => GameMode | null,
-  onSelect: (mode: GameMode, mainRoot: HTMLElement, save: SaveData) => void,
-) {
+function homeMain(getSelected: () => GameMode | null, onSelect: (mode: GameMode, root: HTMLElement, save: SaveData) => void, onLaunch: (mode: GameMode) => void) {
   return (root: HTMLElement, save: SaveData) => {
     const playContent = el('div', { class: 'ftd-playcard__content' }, [
-      el('p', { class: 'ftd-playcard__eyebrow', text: 'HOLD THE WALL' }),
+      el('p', { class: 'ftd-playcard__eyebrow', text: 'ORCHARD OUTPOST / READY FOR ACTION' }),
       el('h1', { class: 'ftd-playcard__title' }, [
         el('span', { class: 'ftd-playcard__title-main', text: 'FRUIT' }),
         el('span', { class: 'ftd-playcard__title-accent', text: 'TD' }),
       ]),
-      el('p', { class: 'ftd-playcard__tagline', text: 'The orchard turned. Sharpen your blade and hold the line.' }),
-      el('p', { class: 'ftd-playcard__mode', 'data-testid': 'mode-selection-hint', text: 'Choose a run below to see its briefing.' }),
+      el('p', { class: 'ftd-playcard__tagline', text: 'SLICE. BUILD. SURVIVE.' }),
+      el('p', { class: 'ftd-playcard__brief', text: 'Swipe the fruit. Power your defences. Keep the wall standing.' }),
+      GameButton({ label: getSelected() ? 'BATTLE!' : 'CHOOSE A RUN', tone: 'primary', size: 'lg', class: 'ftd-playcard__cta', onClick: () => { const mode = getSelected(); if (mode) onLaunch(mode); } }),
+      el('p', { class: 'ftd-playcard__mode', 'data-testid': 'mode-selection-hint', text: getSelected() ? `${modeRules(getSelected()!).name.toUpperCase()} / REVIEW THE BRIEFING` : 'CHOOSE A RUN TO SEE ITS BRIEFING' }),
     ]);
     const modes = el('section', { class: 'ftd-mode-select', 'aria-label': 'Game modes' }, [
-      el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: `CAMPAIGN ${String(save.campaignProgress.unlocked).padStart(2, '0')}/100` })]),
+      el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: 'CAMPAIGN · STAGE ' + String(save.campaignProgress.unlocked).padStart(2, '0') })]),
       el('div', { class: 'ftd-mode-select__grid' }),
     ]);
     const grid = modes.querySelector('.ftd-mode-select__grid')!;
     for (const mode of HOME_MODES) {
+      const active = getSelected() === mode.id;
       const button = el('button', {
         type: 'button',
-        class: `ftd-mode-card${selected() === mode.id ? ' is-active' : ''}${mode.id === 'campaign' ? ' ftd-mode-card--campaign' : ''}`,
-        'aria-pressed': String(selected() === mode.id),
+        class: `ftd-mode-card${active ? ' is-active' : ''}${mode.id === 'campaign' ? ' ftd-mode-card--campaign' : ''}`,
+        'aria-pressed': String(active),
         'data-mode-id': mode.id,
         'data-testid': mode.testId,
-      }, [el('strong', { text: mode.name }), el('small', { text: mode.note })]);
+      }, [modeGlyph(mode.icon), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: mode.name }), el('small', { text: mode.note })])]);
       button.addEventListener('click', () => onSelect(mode.id, root, save));
       grid.appendChild(button);
     }
-    root.appendChild(el('div', { class: 'ftd-playcard' }, [playContent, modes]));
+    const shortcuts = el('nav', { class: 'ftd-outpost-shortcuts', 'aria-label': 'Outpost shortcuts' }, [
+      GameButton({ label: 'MISSIONS', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
+      GameButton({ label: 'RANKINGS', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
+      GameButton({ label: 'GEAR UP', variant: 'outline', onClick: () => openScreen('INVENTORY') }),
+    ]);
+    root.appendChild(el('div', { class: 'ftd-playcard' }, [el('div', { class: 'ftd-outpost-art', 'aria-hidden': 'true' }), shortcuts, playContent, modes]));
   };
+}
+
+function homeModeSub(root: HTMLElement, save: SaveData, mode: GameMode, onLaunch: (mode: GameMode) => void): void {
+  const rules = modeRules(mode);
+  const label = mode === 'campaign' ? 'OPEN CAMPAIGN' : mode === 'coop' ? 'OPEN CO-OP LOBBY' : mode === 'arena' ? 'OPEN ARENA' : `PLAY ${rules.name.toUpperCase()}`;
+  const stage = mode === 'campaign'
+    ? `NEXT STAGE ${String(save.campaignProgress.unlocked).padStart(2, '0')} / 100`
+    : mode === 'horde' ? 'ENDLESS WAVES' : mode === 'coop' ? 'TEAM LOBBY' : mode === 'arena' ? 'NORMAL OR RANKED' : `${rules.lives} STARTING LIVES`;
+  const card = el('aside', { class: 'ftd-home-mode-detail', 'data-testid': 'home-mode-briefing' }, [
+    el('p', { class: 'ftd-home-mode-detail__eyebrow', text: 'MODE BRIEFING' }),
+    el('h2', { class: 'ftd-home-mode-detail__title', text: rules.name }),
+    el('p', { class: 'ftd-home-mode-detail__copy', text: rules.blurb }),
+    el('p', { class: 'ftd-home-mode-detail__signal', text: stage }),
+    GameButton({ label, tone: 'primary', size: 'lg', block: true, class: 'ftd-home-mode-detail__launch', onClick: () => onLaunch(mode) }),
+  ]);
+  card.querySelector<HTMLButtonElement>('button')?.setAttribute('data-testid', 'nav-play');
+  root.appendChild(card);
 }
 
 function homeSub(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
   const tower = getMainTowerXpState();
-  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
 
   root.appendChild(
     el('aside', { class: 'ftd-loadout' }, [
@@ -579,7 +605,7 @@ function homeSub(root: HTMLElement, save: SaveData): void {
       el('p', { class: 'ftd-loadout__tower', text: `Main Tower · Lv ${tower.level}` }),
       GameButton({ label: 'Change hero', variant: 'outline', size: 'sm', block: true, onClick: () => openScreen('HEROES') }),
       el('div', { class: 'ftd-loadout__career', 'aria-label': 'Career progression' }, [
-        el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'RANK' }), el('strong', { text: rank.title })]),
+        el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'RANKED ARENA' }), el('strong', { class: 'ftd-loadout__rank', text: 'Unranked' })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'BEST WAVE' }), el('strong', { text: String(save.bestWave) })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'HIGH SCORE' }), el('strong', { text: save.highScore.toLocaleString() })]),
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'MATCHES' }), el('strong', { text: String(save.games) })]),
@@ -587,6 +613,7 @@ function homeSub(root: HTMLElement, save: SaveData): void {
       missionProgressPanel(),
     ]),
   );
+  bindArenaRating(root.querySelector<HTMLElement>('.ftd-loadout__rank'));
 }
 
 function missionProgressPanel(): HTMLElement {
@@ -594,49 +621,53 @@ function missionProgressPanel(): HTMLElement {
   const rows = new Map<'daily' | 'main', { fill: HTMLElement; value: HTMLElement }>();
   for (const type of ['daily', 'main'] as const) {
     const label = type === 'daily' ? 'DAILY MISSIONS' : 'MAIN MISSIONS';
-    const row = el('div', { class: `ftd-mission-progress__row ftd-mission-progress__row--${type}` }, [
+    const row = el('div', { class: 'ftd-mission-progress__row ftd-mission-progress__row--' + type }, [
       el('div', { class: 'ftd-mission-progress__heading' }, [el('span', { text: label }), el('strong', { text: '—' })]),
       el('div', { class: 'ftd-mission-progress__track', role: 'progressbar', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, [el('i')]),
     ]);
-    const fill = row.querySelector('i')!;
-    const value = row.querySelector('strong')!;
-    rows.set(type, { fill, value });
+    rows.set(type, { fill: row.querySelector('i')!, value: row.querySelector('strong')! });
     panel.appendChild(row);
   }
-  void fetchMissions().then((result) => {
-    if (!result || !panel.isConnected) return;
+
+  const loginMission = el('button', {
+    class: 'ftd-mission-login',
+    type: 'button',
+    'data-testid': 'daily-login-mission',
+    'aria-label': 'Open daily login reward',
+  }, [
+    el('span', { class: 'ftd-mission-login__mark', text: '✓', 'aria-hidden': 'true' }),
+    el('span', { class: 'ftd-mission-login__copy' }, [
+      el('strong', { text: 'DAILY LOGIN' }),
+      el('small', { text: 'Claim today’s supply to complete this mission.' }),
+    ]),
+    el('span', { class: 'ftd-mission-login__status', text: 'CHECKING' }),
+  ]);
+  loginMission.addEventListener('click', () => document.getElementById('btn-daily-chip')?.click());
+  panel.appendChild(loginMission);
+
+  void Promise.all([fetchMissions(), fetchDailyBonusStatus()]).then(([result, bonus]) => {
+    if (!panel.isConnected) return;
+    const loginDone = !!bonus && !bonus.canClaim;
+    const status = loginMission.querySelector<HTMLElement>('.ftd-mission-login__status');
+    const description = loginMission.querySelector<HTMLElement>('.ftd-mission-login__copy small');
+    loginMission.classList.toggle('is-complete', loginDone);
+    if (status) status.textContent = bonus ? (loginDone ? 'COMPLETE' : 'CLAIM REWARD') : 'SIGN IN';
+    if (description) description.textContent = bonus
+      ? (loginDone ? 'Today’s reward claimed. Come back tomorrow.' : 'Claim today’s supply to complete this mission.')
+      : 'Sign in to track and claim today’s login reward.';
+    if (!result) return;
     for (const type of ['daily', 'main'] as const) {
       const items = result.missions.filter((mission) => mission.type === type);
-      const completed = items.filter((mission) => mission.completed).length;
-      const percent = items.length ? Math.round((completed / items.length) * 100) : 0;
+      const completed = items.filter((mission) => mission.completed).length + (type === 'daily' && loginDone ? 1 : 0);
+      const total = items.length + (type === 'daily' && bonus ? 1 : 0);
+      const percent = total ? Math.round((completed / total) * 100) : 0;
       const row = rows.get(type)!;
-      row.value.textContent = `${completed}/${items.length}`;
-      row.fill.style.width = `${percent}%`;
+      row.value.textContent = completed + '/' + total;
+      row.fill.style.width = String(percent) + '%';
       row.fill.parentElement?.setAttribute('aria-valuenow', String(percent));
     }
   }).catch(() => undefined);
   return panel;
-}
-
-function homeModeSub(root: HTMLElement, save: SaveData, mode: GameMode, onLaunch: (mode: GameMode) => void): void {
-  const rules = modeRules(mode);
-  const stageLabel = mode === 'campaign'
-    ? `NEXT STAGE ${String(save.campaignProgress.unlocked).padStart(2, '0')} / 100`
-    : mode === 'horde' ? 'ENDLESS WAVES' : mode === 'ranked' ? 'SEASONAL LADDER' : mode === 'arena' ? 'UNRANKED 1V1' : mode === 'coop' ? 'TEAM LOBBY' : `${rules.lives} STARTING LIVES`;
-  const label = mode === 'campaign' ? 'OPEN CAMPAIGN' : mode === 'coop' ? 'OPEN CO-OP LOBBY' : mode === 'arena' ? 'OPEN ARENA' : mode === 'ranked' ? 'OPEN RANKED' : `PLAY ${rules.name.toUpperCase()}`;
-  const card = el('aside', { class: 'ftd-home-mode-detail', 'data-testid': 'home-mode-briefing' }, [
-    el('p', { class: 'ftd-home-mode-detail__eyebrow', text: 'MODE BRIEFING' }),
-    el('h2', { class: 'ftd-home-mode-detail__title', text: rules.name }),
-    el('p', { class: 'ftd-home-mode-detail__copy', text: HOME_MODE_BLURBS[mode] }),
-    el('div', { class: 'ftd-home-mode-detail__signal' }, [
-      el('span', { text: stageLabel }),
-      mode === 'campaign' ? el('span', { text: '100 UNIQUE BOSSES' }) : mode === 'casual' ? el('span', { text: 'GUIDED RUN' }) : mode === 'horde' ? el('span', { text: 'NO BOSSES' }) : null,
-    ]),
-  ]);
-  const play = GameButton({ label, tone: 'primary', size: 'lg', block: true, class: 'ftd-home-mode-detail__launch', onClick: () => onLaunch(mode) });
-  play.setAttribute('data-testid', 'nav-play');
-  card.appendChild(play);
-  root.appendChild(card);
 }
 
 export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void, onCampaign?: () => void): HubTab {
@@ -645,6 +676,7 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
   let currentSub: HTMLElement | null = null;
   let currentSave: SaveData | null = null;
 
+  const launchSelectedMode = (mode: GameMode) => launchHomeMode(mode, onPlay, onCampaign);
   const renderSub = (root: HTMLElement, save: SaveData) => {
     currentSub = root;
     currentSave = save;
@@ -654,49 +686,24 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
   };
   const selectMode = (mode: GameMode, mainRoot: HTMLElement, save: SaveData) => {
     selectedMode = mode;
-    currentMain = mainRoot;
-    currentSave = save;
-    for (const button of mainRoot.querySelectorAll<HTMLButtonElement>('.ftd-mode-card')) {
+    onMode?.(mode);
+    const activeMain = currentMain ?? mainRoot;
+    for (const button of activeMain.querySelectorAll<HTMLButtonElement>('.ftd-mode-card')) {
       const active = button.getAttribute('data-mode-id') === mode;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', String(active));
     }
-    const hint = mainRoot.querySelector<HTMLElement>('[data-testid="mode-selection-hint"]');
+    const hint = activeMain.querySelector<HTMLElement>('[data-testid="mode-selection-hint"]');
     if (hint) hint.textContent = `${modeRules(mode).name.toUpperCase()} SELECTED · REVIEW THE BRIEFING BELOW`;
-    const body = mainRoot.parentElement?.parentElement;
-    const subContent = body?.querySelector<HTMLElement>('.ftd-hub__sub')?.querySelector<HTMLElement>('.ftd-hub-panel-content');
-    if (subContent) renderSub(subContent, save);
-  };
-  const launchSelectedMode = (mode: GameMode) => {
-    if (mode === 'campaign') { onCampaign?.(); return; }
-    if (mode === 'coop') { openScreen('CO_OP'); return; }
-    if (mode === 'arena') { openScreen('ARENA'); return; }
-    if (mode === 'ranked') { openScreen('RANKED'); return; }
-    onMode?.(mode);
-    onPlay();
+    if (currentSub) renderSub(currentSub, currentSave ?? save);
   };
 
   return {
     id: HUB_HOME,
     label: 'Home',
     icon: Home,
-    onHome: () => {
-      selectedMode = null;
-      if (currentMain) {
-        for (const button of currentMain.querySelectorAll<HTMLButtonElement>('.ftd-mode-card')) {
-          button.classList.remove('is-active');
-          button.setAttribute('aria-pressed', 'false');
-        }
-        const hint = currentMain.querySelector<HTMLElement>('[data-testid="mode-selection-hint"]');
-        if (hint) hint.textContent = 'Choose a run below to see its briefing.';
-      }
-      if (currentSub && currentSave) renderSub(currentSub, currentSave);
-    },
-    renderMain: (root, save) => {
-      currentMain = root;
-      currentSave = save;
-      homeMain(() => selectedMode, selectMode)(root, save);
-    },
+    renderMain: (root, save) => { currentMain = root; homeMain(() => selectedMode, selectMode, launchSelectedMode)(root, save); },
     renderSub,
+    onHome: () => { selectedMode = null; },
   };
 }

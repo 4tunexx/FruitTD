@@ -35,7 +35,8 @@ function evaluate(value: any, doc: any): any {
 }
 
 function claimHarness(claimCollectionName: 'daily_bonus' | 'missions' | 'achievements', initialClaimDoc?: any, initialWallet?: any, vipTiers?: any[]) {
-  const state: { cloud: any; claim: any } = {
+  const state: { cloud: any; claim: any; notifications: any[] } = {
+    notifications: [],
     cloud: initialWallet ? { userId: user.userId, saveData: structuredClone(initialWallet), revision: 7, claimReceipts: [], updatedAt: new Date() } : null,
     claim: initialClaimDoc ? { ...initialClaimDoc } : null,
   };
@@ -71,18 +72,19 @@ function claimHarness(claimCollectionName: 'daily_bonus' | 'missions' | 'achieve
       return { matchedCount: 1, modifiedCount: 1 };
     },
   };
+  const notificationCollection = { insertOne: async (notice: any) => { state.notifications.push(notice); return {}; } };
   const missionDef = { id: 'daily-slice', type: 'daily' as const, title: 'Slice', desc: 'Slice fruit', icon: 'F', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 30, rewardSp: 2, rewardGems: 4 };
   const achievementDef = { id: 'first-slice', title: 'First Slice', desc: 'Slice once', icon: '1', enabled: true, requirement: { type: 'slice_any', goal: 1 }, rewardCoins: 40, rewardSp: 1, rewardGems: 6 };
   const catalog = async () => ({ missions: [missionDef], achievements: [achievementDef], badges: [], ranks: [], slicers: [] }) as Awaited<ReturnType<typeof import('./catalog').loadQuestCatalog>>;
   const resolveUser = async () => user;
-  const collection = async (name: string) => name === 'cloud_saves' ? walletCollection as any : markerCollection as any;
+  const collection = async (name: string) => name === 'cloud_saves' ? walletCollection as any : name === 'notifications' ? notificationCollection as any : markerCollection as any;
   const router = claimCollectionName === 'daily_bonus'
     ? createDailyRouter({ resolveUser, collection, rewards: async () => [{ day: 1, coins: 25, skillPoints: 1, gems: 3, skinUnlock: 'blade-gold', label: 'Daily', iconType: 'gem' }], allowedSkinIds: async () => new Set(['blade-default', 'blade-gold', 'wall-brick']), ...(vipTiers ? { vipTiers: async () => vipTiers } : {}) })
     : claimCollectionName === 'missions'
       ? createMissionsRouter({ resolveUser, collection, catalog })
       : createAchievementsRouter({ resolveUser, collection, catalog });
 
-  return { router, state, collection: async (name: string) => name === 'cloud_saves' ? walletCollection as any : markerCollection as any };
+  return { router, state, collection: async (name: string) => name === 'cloud_saves' ? walletCollection as any : name === 'notifications' ? notificationCollection as any : markerCollection as any };
 }
 
 async function listen(route: express.Router, path: string): Promise<{ server: Server; base: string }> {
@@ -118,6 +120,8 @@ for (const claimType of ['daily_bonus', 'missions', 'achievements'] as const) {
     const results = await Promise.all([request(), request()]);
     assert.equal(results.filter((response) => response.status === 200).length, 1);
     assert.equal(results.filter((response) => response.status !== 200).length, 1);
+    assert.equal(harness.state.notifications.length, 1);
+    assert.equal(harness.state.notifications[0].type, claimType === 'daily_bonus' ? 'daily_reward' : claimType === 'missions' ? 'mission_reward' : 'achievement_reward');
 
     const profile = await listen(createProfileRouter({
       resolveUser: async () => user,

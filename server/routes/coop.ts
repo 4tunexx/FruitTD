@@ -7,6 +7,7 @@ import { creditClaimReward as defaultCreditReward } from '../claimWallet';
 import { mergeAdminConfig } from '../../src/services/admin';
 import { newCoopMatch, joinCoopMatch, applyCoopCommand, advanceCoopMatch, coopRewards, normalizeCoopConfig, type CoopMatch, type CoopPlayer } from '../../src/game/onlineCoop';
 import { HEROES } from '../../src/game/heroes';
+import { saveNotification, type NotificationRecord } from '../notifications';
 export function createCoopService(deps: { collection?: typeof defaultCollection; resolveUser?: typeof defaultResolveUser; creditReward?: typeof defaultCreditReward; publish?: (channel: string, room: unknown) => Promise<void>; token?: (params: { clientId: string; ttl: number; capability: string }) => Promise<unknown> } = {}) {
 const getCollection = deps.collection ?? defaultCollection;
 const resolveRequestUser = deps.resolveUser ?? defaultResolveUser;
@@ -17,13 +18,28 @@ let publisher:Rest|null=null;let authority:ReturnType<typeof setInterval>|null=n
 const fail=(res:Response,code:number,error:string)=>res.status(code).json({success:false,error});
 async function config(){const row=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});const balance=mergeAdminConfig(row).pvpConfig;delete balance.towers.catcher;return {balance,coop:normalizeCoopConfig(row?.coopConfig)};}
 async function publish(room:Room){try{if(deps.publish){await deps.publish(`fruittd-coop-${room.id}`,room);return;}if(!process.env.ABLY_API_KEY)return;publisher??=new Rest({key:process.env.ABLY_API_KEY});await publisher.channels.get(`fruittd-coop-${room.id}`).publish('match.snapshot',room);}catch(error){console.error('Co-op publish failed',error);}}
-async function settle(room:Room){if(room.status!=='complete'||room.settled)return;const cfg=await config();const reward=coopRewards(room,cfg.coop);
- for(const player of room.players){if(room.completedWaves<1)continue;await creditClaimReward(player.userId,`coop:${room.id}`,{coins:reward.coins,gems:reward.gems,xp:{[player.hero]:reward.xp},towerXp:reward.towerXp,games:1,bestWave:room.completedWaves,highScore:room.score});
- const board=await getCollection<any>('leaderboards');
- const record={userId:player.userId,nickname:player.name,avatar:'',hero:player.hero,mode:'coop',score:room.score,wave:room.completedWaves,fruitsSliced:room.kills,maxCombo:0,createdAt:new Date()};
- await board.updateOne({userId:player.userId,mode:'coop'},{$setOnInsert:record},{upsert:true});
- await board.updateOne({userId:player.userId,mode:'coop',$or:[{score:{$lt:room.score}},{score:room.score,wave:{$lt:room.completedWaves}}]},{$set:record});
- if(room.completedWaves>=6){await(await getCollection<any>('achievements')).updateOne({userId:player.userId,achievementId:'coop_first_team_run'},{$set:{unlocked:true,unlockedAt:new Date(),progress:1,maxProgress:1},$setOnInsert:{claimed:false}},{upsert:true});await(await getCollection<any>('badges')).updateOne({userId:player.userId,badgeId:'coop-team-slicer'},{$set:{unlocked:true,unlockedAt:new Date(),progress:1,maxProgress:1}},{upsert:true});}}
+async function settle(room:Room){
+ if(room.status!=='complete'||room.settled)return;
+ const cfg=await config();const reward=coopRewards(room,cfg.coop);
+ for(const player of room.players){
+  if(room.completedWaves<1)continue;
+  await creditClaimReward(player.userId,'coop:'+room.id,{coins:reward.coins,gems:reward.gems,xp:{[player.hero]:reward.xp},towerXp:reward.towerXp,games:1,bestWave:room.completedWaves,highScore:room.score});
+  const board=await getCollection<any>('leaderboards');
+  const record={userId:player.userId,nickname:player.name,avatar:'',hero:player.hero,mode:'coop',score:room.score,wave:room.completedWaves,fruitsSliced:room.kills,maxCombo:0,createdAt:new Date()};
+  await board.updateOne({userId:player.userId,mode:'coop'},{$setOnInsert:record},{upsert:true});
+  await board.updateOne({userId:player.userId,mode:'coop',$or:[{score:{$lt:room.score}},{score:room.score,wave:{$lt:room.completedWaves}}]},{$set:record});
+  await saveNotification(()=>getCollection<NotificationRecord>('notifications'),{userId:player.userId,type:'coop_result',title:'Co-op run finished',body:room.completedWaves+' waves · '+reward.coins+' coins · '+reward.gems+' gems',eventKey:'coop-result:'+player.userId+':'+room.id});
+  if(room.completedWaves>=6){
+   const achievements=await getCollection<any>('achievements');
+   const achievement=await achievements.findOne({userId:player.userId,achievementId:'coop_first_team_run'});
+   await achievements.updateOne({userId:player.userId,achievementId:'coop_first_team_run'},{$set:{unlocked:true,unlockedAt:achievement?.unlockedAt||new Date(),progress:1,maxProgress:1},$setOnInsert:{claimed:false}},{upsert:true});
+   if(!achievement?.unlocked)await saveNotification(()=>getCollection<NotificationRecord>('notifications'),{userId:player.userId,type:'achievement_unlocked',title:'Achievement unlocked',body:'Co-op Team Slicer · Claim your achievement reward.',eventKey:'achievement-unlocked:'+player.userId+':coop_first_team_run'});
+   const badges=await getCollection<any>('badges');
+   const badge=await badges.findOne({userId:player.userId,badgeId:'coop-team-slicer'});
+   await badges.updateOne({userId:player.userId,badgeId:'coop-team-slicer'},{$set:{unlocked:true,unlockedAt:badge?.unlockedAt||new Date(),progress:1,maxProgress:1}},{upsert:true});
+   if(!badge?.unlocked)await saveNotification(()=>getCollection<NotificationRecord>('notifications'),{userId:player.userId,type:'badge_unlocked',title:'Badge unlocked',body:'Co-op Team Slicer badge added to your collection.',eventKey:'badge-unlocked:'+player.userId+':coop-team-slicer'});
+  }
+ }
  await(await getCollection<Room>('coop_matches')).updateOne({id:room.id},{$set:{settled:true}});room.settled=true;
 }
 async function tick(room:Room,now:number){if(room.status==='complete')return room;const cfg=await config();const revision=room.revision;
@@ -56,6 +72,14 @@ coopRouter.post('/join',async(req,res)=>{const user=await resolveRequestUser(req
  const rooms=await getCollection<Room>('coop_matches');if(await rooms.findOne({'players.userId':user.userId,status:{$ne:'complete'},expiresAt:{$gt:new Date()}}))return fail(res,409,'Leave your current room first.');
  const id=String(req.body?.code||'').trim().toLowerCase();if(!/^[a-f0-9]{10}$/.test(id))return fail(res,400,'Enter the 10-character room code.');const room=await rooms.findOne({id,status:'waiting',expiresAt:{$gt:new Date()}});if(!room)return fail(res,404,'Room is full or no longer available.');const revision=room.revision;joinCoopMatch(room,await player(user),Date.now());room.activePlayers=room.players.map(p=>p.userId);room.updatedAt=new Date();const saved=await rooms.replaceOne({id,revision,status:'waiting'},room);if(!saved.modifiedCount)return fail(res,409,'Another player joined this room.');void publish(room);res.json({success:true,room});
  }catch(error){if((error as {code?:number}).code===11000)return fail(res,409,'You already have an active Co-op room.');console.error('Co-op join failed',error);fail(res,503,'Could not join the room.');}});
+coopRouter.post('/:id/invite',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in first.');try{
+ const username=typeof req.body?.username==='string'?req.body.username.trim():'';if(!/^[a-z0-9_]{3,24}$/i.test(username))return fail(res,400,'Enter a valid friend username.');
+ const rooms=await getCollection<Room>('coop_matches');const room=await rooms.findOne({id:req.params.id,status:'waiting','players.userId':user.userId,expiresAt:{$gt:new Date()}});if(!room)return fail(res,404,'Your waiting room is no longer available.');
+ const friend=await(await getCollection<any>('users')).findOne({username:{$regex:'^'+username+'$',$options:'i'}});if(!friend||friend.userId===user.userId)return fail(res,404,'Friend not found.');
+ const relation=await(await getCollection<any>('friends')).findOne({$or:[{userId:user.userId,friendId:friend.userId,state:'accepted'},{userId:friend.userId,friendId:user.userId,state:'accepted'}]});if(!relation)return fail(res,403,'Co-op invites are available to accepted friends only.');
+ await saveNotification(()=>getCollection<NotificationRecord>('notifications'),{userId:friend.userId,actorId:user.userId,actorName:String(user.username||user.nickname||'Slicer').slice(0,32),type:'coop_invite',title:'Co-op room invitation',body:'Join '+String(user.username||user.nickname||'your friend')+' in Co-op with code '+room.id.toUpperCase()+'.'});
+ res.json({success:true,username:String(friend.username||username)});
+ }catch(error){console.error('Co-op invite failed',error);fail(res,503,'Could not send Co-op invite.');}});
 coopRouter.post('/:id/command',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in first.');try{
  const rooms=await getCollection<Room>('coop_matches');const room=await rooms.findOne({id:req.params.id,'players.userId':user.userId,expiresAt:{$gt:new Date()}});if(!room)return fail(res,404,'Room is unavailable.');if(room.status==='complete')return fail(res,409,'Match has finished.');
  const cfg=await config();const revision=room.revision;try{applyCoopCommand(room,user.userId,req.body.sequence,req.body.command,Date.now(),cfg.balance,cfg.coop);}catch(error){return fail(res,400,error instanceof Error?error.message:'Invalid action.');}

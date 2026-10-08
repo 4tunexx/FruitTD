@@ -3,7 +3,7 @@ import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, X, createEleme
 import { getAuthToken } from '../../services/auth';
 import { socialApi, type ForumPost, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
 import { el, clear } from '../components/dom';
-import { back } from './registry';
+import { back, openScreen } from './registry';
 
 const icon = (node: typeof Users) => typeof document.createElementNS === 'function'
   ? createElement(node, { width: 18, height: 18, 'aria-hidden': 'true' }) : el('span', { text: '◆' });
@@ -19,6 +19,8 @@ export type SocialView = 'community' | 'messages' | 'notifications';
 
 export interface SocialRenderOptions {
   onClose?: () => void;
+  onJoinCoopInvite?: (code: string) => void;
+  onOpenDailyReward?: () => void;
 }
 
 export function renderSocial(root: HTMLElement, initialView: SocialView = 'community', options: SocialRenderOptions = {}): void {
@@ -26,6 +28,7 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
   root.className = 'ftd-screen-host ftd-social';
   root.dataset.socialView = initialView;
   const friends = new Map<string, SocialFriend>();
+  let notifications: SocialNotification[] = [];
   let selectedFriend = '';
   let noticeHost: HTMLElement;
   const closeButton = el('button', {
@@ -58,6 +61,10 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
         item.setAttribute('aria-pressed', String(active));
       }
       root.scrollIntoView?.({ block: 'start' });
+      if (view === 'messages' && !selectedFriend) {
+        const firstFriend = [...friends.values()].find((friend) => friend.state === 'accepted');
+        if (firstFriend) { selectedFriend = firstFriend.username; void loadMessages(); }
+      }
     });
     viewNav.appendChild(button);
   }
@@ -185,18 +192,87 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
     ]);
     profilesPanel.appendChild(card);
   };
+  const markRead = async (ids: string[]) => {
+    if (!ids.length) return;
+    await socialApi.markRead(ids);
+    await loadNotifications();
+  };
   const renderNotifications = (items: SocialNotification[]) => {
-    const old = root.querySelector('.ftd-social__notifications'); old?.remove();
-    const panel = el('section', { class: 'ftd-social__panel ftd-social__notifications' }, [el('div', { class: 'ftd-social__panel-title' }, [icon(Bell), el('h2', { text: 'Notifications' })])]);
+    root.querySelector('.ftd-social__notifications')?.remove();
+    const panel = el('section', { class: 'ftd-social__panel ftd-social__notifications ftd-social__activity', 'data-testid': 'social-activity' }, [
+      el('div', { class: 'ftd-social__panel-title' }, [icon(Bell), el('h2', { text: 'Recent activity & invitations' })]),
+    ]);
     const unread = items.filter((item) => !item.readAt);
-    if (!items.length) panel.appendChild(el('p', { class: 'ftd-social__empty', text: 'No new signals. Friend activity will show here.' }));
+    if (!items.length) panel.appendChild(el('p', { class: 'ftd-social__empty', text: 'No new activity. Friend requests, messages, mission rewards and invitations will appear here.' }));
     for (const item of items) {
-      const row = el('article', { class: `ftd-social__notification${item.readAt ? '' : ' is-unread'}` }, [el('strong', { text: item.title }), el('p', { text: item.body }), el('small', { text: item.actorName })]);
+      const row = el('article', { class: `ftd-social__notification${item.readAt ? '' : ' is-unread'}`, 'data-notification-id': item.notificationId }, [
+        el('strong', { text: item.title }), el('p', { text: item.body }),
+        el('small', { text: `${item.actorName || 'Fruit TD'} · ${new Date(item.createdAt).toLocaleString()}` }),
+      ]);
+      const actions = el('div', { class: 'ftd-social__notification-actions' });
+      const button = (label: string, run: () => void | Promise<void>, accent = false) => {
+        const action = el('button', { class: `ftd-social__mini-button${accent ? ' is-accent' : ''}`, type: 'button', text: label });
+        action.addEventListener('click', () => {
+          void Promise.resolve(run()).catch((error) => message(noticeHost, error instanceof Error ? error.message : 'Could not complete this action.', true));
+        });
+        actions.appendChild(action);
+      };
+      if (item.type === 'friend_request' && item.actorId) {
+        button('Accept friend', async () => {
+          await socialApi.respondFriend(item.actorId!, true);
+          await markRead([item.notificationId]);
+          await loadFriends();
+          message(noticeHost, `${item.actorName} added to friends.`);
+        }, true);
+        button('Decline', async () => {
+          await socialApi.respondFriend(item.actorId!, false);
+          await markRead([item.notificationId]);
+          await loadFriends();
+        });
+      } else if ((item.type === 'friend_accepted' || item.type === 'message') && item.actorId) {
+        button(item.type === 'message' ? 'Open message' : 'Message friend', async () => {
+          if (friends.get(item.actorId!)?.state !== 'accepted') await loadFriends();
+          const friend = friends.get(item.actorId!);
+          if (!friend || friend.state !== 'accepted') return message(noticeHost, 'This player is no longer on your friends list.', true);
+          selectedFriend = friend.username;
+          root.querySelector<HTMLButtonElement>('[data-testid="social-view-messages"]')?.click();
+          await loadMessages();
+          await markRead([item.notificationId]);
+        }, true);
+      } else if (item.type === 'coop_invite') {
+        const code = item.body.match(/\bcode\s+([a-f0-9]{8,10})\b/i)?.[1];
+        if (code && code.length === 10 && options.onJoinCoopInvite) {
+          button('Join Co-op', async () => {
+            await markRead([item.notificationId]);
+            options.onJoinCoopInvite!(code.toLowerCase());
+          }, true);
+        } else if (code) {
+          button(`Copy code ${code.toUpperCase()}`, async () => {
+            await navigator.clipboard?.writeText(code.toUpperCase());
+            message(noticeHost, 'Invite code copied. Open Co-op to join.');
+            await markRead([item.notificationId]);
+          }, true);
+        }
+      } else if (item.type === 'pvp_challenge') {
+        button('Open Arena', async () => { await markRead([item.notificationId]); options.onClose?.(); openScreen('ARENA'); }, true);
+      } else if (item.type === 'daily_reward') {
+        button('View daily rewards', async () => { await markRead([item.notificationId]); options.onClose?.(); options.onOpenDailyReward?.(); }, true);
+      } else if (item.type.startsWith('mission_')) {
+        button('View missions', async () => { await markRead([item.notificationId]); options.onClose?.(); openScreen('MISSIONS'); }, true);
+      } else if (item.type.startsWith('achievement_')) {
+        button('View achievements', async () => { await markRead([item.notificationId]); options.onClose?.(); openScreen('ACHIEVEMENTS'); }, true);
+      } else if (item.type.startsWith('badge_')) {
+        button('View profile badges', async () => { await markRead([item.notificationId]); options.onClose?.(); openScreen('PROFILE'); }, true);
+      }
+      if (actions.childElementCount) row.appendChild(actions);
       panel.appendChild(row);
     }
     if (unread.length) {
       const mark = el('button', { class: 'ftd-social__mini-button', type: 'button', text: `Mark ${unread.length} read` });
-      mark.addEventListener('click', async () => { try { await socialApi.markRead(unread.map((item) => item.notificationId)); await loadNotifications(); } catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not mark read.', true); } });
+      mark.addEventListener('click', async () => {
+        try { await markRead(unread.map((item) => item.notificationId)); }
+        catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not mark read.', true); }
+      });
       panel.appendChild(mark);
     }
     const insertBefore = root.querySelector('.ftd-social__layout');
@@ -229,9 +305,13 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
     const data = await socialApi.friends(); friends.clear();
     for (const friend of data.friends) friends.set(friend.userId, friend);
     renderFriends();
+    if (root.dataset.socialView === 'messages' && !selectedFriend) {
+      const firstFriend = data.friends.find((friend) => friend.state === 'accepted');
+      if (firstFriend) { selectedFriend = firstFriend.username; await loadMessages(); }
+    }
   };
   const loadNotifications = async () => {
-    const data = await socialApi.notifications(); renderNotifications(data.notifications);
+    const data = await socialApi.notifications(); notifications = data.notifications; renderNotifications(notifications);
     const nav = document.querySelector<HTMLButtonElement>('[data-testid="nav-notifications"]');
     const count = nav?.querySelector<HTMLElement>('.ftd-hub-social__count');
     if (count) {

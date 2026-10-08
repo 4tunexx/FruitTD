@@ -6,7 +6,10 @@ import { createMissionsRouter } from './routes/missions';
 
 test('mission progress uses lifetime keys for main missions and reports first completion once', async (t) => {
   const rows = new Map<string, any>();
-  const collection = async () => ({
+  const notices: any[] = [];
+  const collection = async (name: string) => name === 'notifications' ? ({
+    insertOne: async (notice: any) => { notices.push(notice); return {}; },
+  }) as any : ({
     findOne: async ({ missionId, dayKey }: any) => rows.get(`${missionId}:${dayKey}`) ?? null,
     updateOne: async ({ missionId, dayKey }: any, update: any) => {
       rows.set(`${missionId}:${dayKey}`, { missionId, dayKey, ...update.$set, claimed: false });
@@ -36,8 +39,12 @@ test('mission progress uses lifetime keys for main missions and reports first co
   const first = await (await request()).json();
   assert.deepEqual(first.newlyCompleted, ['main_one']);
   assert.equal(rows.get('main_one:MAIN')?.completed, true);
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].type, 'mission_ready');
+  assert.match(notices[0].body, /Main/);
   const repeat = await (await request()).json();
   assert.deepEqual(repeat.newlyCompleted, []);
+  assert.equal(notices.length, 1, 'replayed progress must not repeat the completion notification');
   const forged = await (await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: [{ missionId: 'pvp_only', setProgress: 100 }, { missionId: 'coop_only', setProgress: 100 }] }) })).json();
   assert.deepEqual(forged.newlyCompleted, []);
   assert.equal(rows.has('pvp_only:MAIN'), false);

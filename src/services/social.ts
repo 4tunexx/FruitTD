@@ -11,6 +11,7 @@ export interface SocialFriend {
 
 export interface SocialNotification {
   notificationId: string;
+  actorId?: string;
   actorName: string;
   type: string;
   title: string;
