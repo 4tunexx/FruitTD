@@ -64,39 +64,6 @@ export function saveValidationError(value: unknown, allowedSkinIds: ReadonlySet<
   if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 3))) return 'Invalid hero ability ranks';
   if (save.heroAbilityLoadouts && Object.entries(save.heroAbilityLoadouts).some(([hero, ids]) => !HEROES.includes(hero) || !Array.isArray(ids) || ids.length > 3 || new Set(ids).size !== ids.length || ids.some((id) => typeof id !== 'string' || !new RegExp('^' + hero + '-[1-6]$').test(id)))) return 'Invalid hero ability loadout';
   if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== 'object' || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS.includes(id) || !boundedInteger(rank, 3)))) return 'Invalid hero perk ranks';
-  if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 3))) return 'Invalid hero ability ranks';
-  for (const key of ['ownedSkins', 'ownedHeroes']) {
-    const list = save[key];
-    if (list !== undefined && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
-  }
-  if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES.includes(id))) return 'Unknown hero';
-  if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return 'Unknown owned skin';
-  if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return 'Duplicate owned skin';
-  if (Array.isArray(save.ownedHeroes) && new Set(save.ownedHeroes).size !== save.ownedHeroes.length) return 'Duplicate owned hero';
-  if (save.hero !== undefined && (typeof save.hero !== 'string' || !HEROES.includes(save.hero))) return 'Invalid hero';
-  if (save.mode !== undefined && (typeof save.mode !== 'string' || !['casual', 'ranked', 'coop', 'arena', 'horde', 'campaign'].includes(save.mode))) return 'Invalid mode';
-  if (save.campaignProgress !== undefined) {
-    const progress = save.campaignProgress as any;
-    if (!progress || typeof progress !== 'object' || Array.isArray(progress) || Object.keys(progress).some((key) => !['unlocked', 'cleared'].includes(key)) || !boundedInteger(progress.unlocked, 100, 1) || !Array.isArray(progress.cleared) || progress.cleared.length > 100 || progress.cleared.some((level: unknown) => !boundedInteger(level, 100, 1))) return 'Invalid campaign progress';
-  }
-  if (save.vipStatus !== undefined && (typeof save.vipStatus !== 'string' || !['none', 'bronze', 'silver', 'gold'].includes(save.vipStatus))) return 'Invalid VIP status';
-  for (const [key, max] of [['nickname', 64], ['avatar', 900_000], ['bladeSkin', 120], ['wallSkin', 120]] as const) {
-    if (save[key] !== undefined && (typeof save[key] !== 'string' || (save[key] as string).length > max)) return `Invalid ${key}`;
-  }
-  for (const key of ['bladeSkin', 'wallSkin'] as const) {
-    const equipped = save[key];
-    if (typeof equipped === 'string' && equipped !== '' && equipped !== 'none' && !allowedSkinIds.has(equipped)) return `Unknown ${key}`;
-    if (typeof equipped === 'string' && equipped !== '' && equipped !== 'none' && Array.isArray(save.ownedSkins) && !save.ownedSkins.includes(equipped)) return `${key} is not owned`;
-  }
-  return null;
-}
-
-export function validProgressUpdates(value: unknown, idKey: string): value is Record<string, any>[] {
-  return Array.isArray(value) && value.length <= 100 && value.every((row) =>
-    row && typeof row === 'object' && validId(row[idKey]) &&
-    ((row.setProgress !== undefined && row.progressDelta === undefined && boundedInteger(row.setProgress, 100_000_000)) ||
-     (row.progressDelta !== undefined && row.setProgress === undefined && boundedInteger(row.progressDelta, 100_000_000))));
-}
   for (const key of ['ownedSkins', 'ownedHeroes']) {
     const list = save[key];
     if (list !== undefined && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
