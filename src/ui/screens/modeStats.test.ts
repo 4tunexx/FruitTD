@@ -31,5 +31,5 @@ test('several runs show separate score marks and a comparison', () => {
   assert.equal(chart?.children.length, 3);
   assert.match(chart?.getAttribute('style') ?? '', /--points:3/);
   assert.match(root.querySelector('.ftd-run-trend__caption')?.textContent ?? '', /25 points up/);
-  assert.equal(root.querySelector('.ftd-run-kpis')?.querySelectorAll('.ftd-stat').length, 6);
+  assert.equal(root.querySelector('.ftd-run-kpis')?.querySelectorAll('.ftd-stat').length, 4);
 });

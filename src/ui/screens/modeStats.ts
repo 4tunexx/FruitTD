@@ -35,7 +35,7 @@ export function renderModeStats(root: HTMLElement): void {
       el('div', { class:'ftd-accuracy-ring', role:'img', 'aria-label':`${accuracy}% of swipes hit a target`, style:`--accuracy:${accuracy}` }, [el('strong', { text:`${accuracy}%` })]),
       el('div', {}, [el('h3', { text:'SWIPE ACCURACY' }), el('p', { text:`${hits.toLocaleString()} hits / ${strokes.toLocaleString()} swipes` })]),
     ]));
-    const values = [['Runs', rows.length], ['High score', Math.max(...rows.map(row => row.score))], ['Best wave', Math.max(...rows.map(row => row.wave))], ['Best combo', Math.max(...rows.map(row => row.combo))], ['Fruit destroyed', rows.reduce((sum, row) => sum + row.kills, 0)], ['Swipe accuracy', strokes ? `${Math.round(hits / strokes * 100)}%` : 'No swipes yet']];
+    const values = [['Runs', rows.length], ['Best wave', Math.max(...rows.map(row => row.wave))], ['Best combo', Math.max(...rows.map(row => row.combo))], ['Fruit destroyed', rows.reduce((sum, row) => sum + row.kills, 0)]];
     body.appendChild(el('div', { class: 'ftd-stat-grid ftd-run-kpis' }, values.map(([label, value]) => el('div', { class: 'ftd-stat' }, [el('p', { class: 'ftd-stat__label', text: String(label) }), el('strong', { class: 'ftd-stat__value', text: typeof value === 'number' ? value.toLocaleString() : value })]))));
   };
   modes.forEach(mode => { const button = GameButton({ label: mode === 'coop' ? 'Co-op' : mode[0].toUpperCase() + mode.slice(1), onClick: () => show(mode) }); button.dataset.mode = mode; tabs.appendChild(button); }); show('casual');
