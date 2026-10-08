@@ -576,47 +576,65 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
   animation: ftd-selected-sweep 3.8s ease-in-out infinite;
 }
 
-/* The header (Panel 3) and navigation (Panel 4) tuck away until the pointer
-   reaches a screen edge. Settings can pin both panels open. */
-#screen-hub.ftd-hub { transition: padding 300ms cubic-bezier(.2,.8,.2,1), gap 300ms cubic-bezier(.2,.8,.2,1); }
-#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) { padding-block: 8px; gap: 0; }
-#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__header,
-#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__footer {
-  min-height: 0;
-  max-height: 0;
-  overflow: hidden;
-  padding-block: 0;
-  border-width: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: max-height 300ms ease, min-height 300ms ease, padding 300ms ease, border-width 300ms ease,
-    opacity 180ms ease, transform 300ms cubic-bezier(.2,.8,.2,1);
+/* Desktop chrome slides independently over a fixed three-row layout. The main
+   and context panels therefore never resize or jump when either edge opens. */
+@media (min-width: 901px) {
+  #screen-hub.is-chrome-auto-hidden .ftd-hub__header,
+  #screen-hub.is-chrome-auto-hidden .ftd-hub__footer {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 320ms cubic-bezier(.2,.8,.2,1);
+    will-change: transform;
+  }
+  #screen-hub.is-chrome-auto-hidden:not(.is-chrome-header-revealed) .ftd-hub__header {
+    transform: translateY(calc(-100% - var(--ftd-safe-top) - 18px));
+  }
+  #screen-hub.is-chrome-auto-hidden:not(.is-chrome-footer-revealed) .ftd-hub__footer {
+    transform: translateY(calc(100% + var(--ftd-safe-bottom) + 18px));
+  }
+  #screen-hub.is-chrome-auto-hidden.is-chrome-header-revealed .ftd-hub__header,
+  #screen-hub.is-chrome-auto-hidden.is-chrome-footer-revealed .ftd-hub__footer,
+  #screen-hub.is-chrome-always .ftd-hub__header,
+  #screen-hub.is-chrome-always .ftd-hub__footer {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition: opacity 180ms ease, transform 320ms cubic-bezier(.2,.8,.2,1);
+  }
+  #screen-hub .ftd-hub-chrome-edge {
+    position: absolute;
+    left: 50%;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid #b97820;
+    background: linear-gradient(100deg, #27211aef, #151619ed);
+    color: #ffb323;
+    font: 900 18px/1 sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+    transform: translateX(-50%);
+    transition: opacity 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+  #screen-hub .ftd-hub-chrome-edge:hover,
+  #screen-hub .ftd-hub-chrome-edge:focus-visible { border-color: #ffd35c; color: #ffe37a; outline: none; }
+  #screen-hub .ftd-hub-chrome-edge--top { top: 2px; }
+  #screen-hub .ftd-hub-chrome-edge--bottom { bottom: 2px; }
+  #screen-hub.is-chrome-auto-hidden:not(.is-chrome-header-revealed) .ftd-hub-chrome-edge--top,
+  #screen-hub.is-chrome-auto-hidden:not(.is-chrome-footer-revealed) .ftd-hub-chrome-edge--bottom {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #screen-hub.is-chrome-auto-hidden:not(.is-chrome-header-revealed) .ftd-hub-chrome-edge--top { animation: ftd-edge-arrow-down 1.4s ease-in-out infinite; }
+  #screen-hub.is-chrome-auto-hidden:not(.is-chrome-footer-revealed) .ftd-hub-chrome-edge--bottom { animation: ftd-edge-arrow-up 1.4s ease-in-out infinite; }
 }
-#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__header { transform: translateY(-30px); }
-#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__footer { transform: translateY(30px); }
-#screen-hub.is-chrome-auto-hidden.is-chrome-revealed { padding-block: calc(var(--ftd-safe-top) + .85rem) calc(var(--ftd-safe-bottom) + .85rem); gap: .65rem; }
-#screen-hub.is-chrome-auto-hidden.is-chrome-revealed .ftd-hub__header,
-#screen-hub.is-chrome-auto-hidden.is-chrome-revealed .ftd-hub__footer {
-  max-height: 160px;
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-  transition: max-height 300ms ease, min-height 300ms ease, padding 300ms ease, border-width 300ms ease,
-    opacity 180ms ease, transform 300ms cubic-bezier(.2,.8,.2,1);
-}
-#screen-hub.is-chrome-always .ftd-hub__header,
-#screen-hub.is-chrome-always .ftd-hub__footer {
-  max-height: 160px;
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-  transition: max-height 300ms ease, min-height 300ms ease, padding 300ms ease, border-width 300ms ease,
-    opacity 180ms ease, transform 300ms cubic-bezier(.2,.8,.2,1);
-}
-#screen-hub .ftd-hub-chrome-edge { position: absolute; inset-inline: 0; z-index: 40; height: 14px; pointer-events: none; }
-#screen-hub .ftd-hub-chrome-edge--top { top: 0; }
-#screen-hub .ftd-hub-chrome-edge--bottom { bottom: 0; }
-#screen-hub.is-chrome-auto-hidden .ftd-hub-chrome-edge { pointer-events: auto; cursor: default; }
+
+@keyframes ftd-edge-arrow-down { 0%,100% { margin-top: 0; } 50% { margin-top: 5px; } }
+@keyframes ftd-edge-arrow-up { 0%,100% { margin-bottom: 0; } 50% { margin-bottom: 5px; } }
 
 .ftd-hub-chrome-toggle {
   display: inline-flex;
@@ -650,12 +668,13 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
     min-height: initial; max-height: none; overflow: visible; padding-block: initial; border-width: initial;
     opacity: 1; pointer-events: auto; transform: none;
   }
-  #screen-hub .ftd-hub-chrome-edge { pointer-events: none !important; }
+  #screen-hub .ftd-hub-chrome-edge { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   #screen-hub.is-arriving :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer),
   #screen-hub .ftd-hub-panel-content.is-sliding-in-forward,
   #screen-hub .ftd-hub-panel-content.is-sliding-in-back { animation: none !important; }
+  #screen-hub .ftd-hub-chrome-edge { animation: none !important; }
 }
 html[data-ftd-motion='reduced'] #screen-hub :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer, .ftd-hub-panel-content) {
   animation: none !important;

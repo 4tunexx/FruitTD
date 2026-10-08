@@ -32,7 +32,7 @@ import { navigation, type NavState } from '../../game/navigation';
 import { getAuthToken } from '../../services/auth';
 import { socialApi } from '../../services/social';
 import { animateNumbersIn } from '../numberMotion';
-import { bindHubChromeReveal } from './hubChrome';
+import { applyHubChromeMode, bindHubChromeReveal } from './hubChrome';
 
 /** A tab's contextual UI: what goes in Panel 1 (main) and Panel 2 (sub). */
 export interface HubTab {
@@ -603,7 +603,7 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   bindHubChromeReveal(root);
   window.setTimeout(() => {
     root.classList.remove('is-arriving');
-    if (root.classList.contains('is-chrome-auto-hidden')) root.classList.remove('is-chrome-revealed');
+    applyHubChromeMode(root);
   }, 1000);
 
   const tab = tabs.get(active);

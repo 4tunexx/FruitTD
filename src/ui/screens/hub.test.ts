@@ -23,7 +23,7 @@ import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type Hub
 import { homeHubTab, profileHubTab, shopHubTab, inventoryHubTab, heroesHubTab } from './hubTabs';
 import { menuHubTabs } from './menuHubTabs';
 import { renderSettings } from './settings';
-import { getHubChromeMode } from './hubChrome';
+import { applyHubChromeMode, bindHubChromeReveal, getHubChromeMode } from './hubChrome';
 import { Swords } from 'lucide';
 
 function host(): HTMLElement {
@@ -439,6 +439,37 @@ test('Settings toggle pins the hub header and bottom navigation', () => {
   assert.equal(toggle.getAttribute('aria-checked'), 'true');
   assert.match(toggle.textContent || '', /Always visible/);
   localStorage.removeItem('fruit-td-hub-chrome-mode');
+});
+
+test('desktop edge arrows reveal only their own chrome panel and preserve mobile visibility', () => {
+  const root = host();
+  const header = document.createElement('header');
+  header.className = 'ftd-hub__header';
+  const footer = document.createElement('nav');
+  footer.className = 'ftd-hub__footer';
+  root.append(header, footer);
+  bindHubChromeReveal(root);
+
+  const top = root.querySelector<HTMLButtonElement>('.ftd-hub-chrome-edge--top')!;
+  const bottom = root.querySelector<HTMLButtonElement>('.ftd-hub-chrome-edge--bottom')!;
+  assert.equal(top.textContent, '⌄');
+  assert.equal(bottom.textContent, '⌃');
+  assert.equal(header.inert, true);
+  assert.equal(footer.inert, true);
+
+  top.click();
+  assert.equal(root.classList.contains('is-chrome-header-revealed'), true);
+  assert.equal(root.classList.contains('is-chrome-footer-revealed'), false);
+  bottom.click();
+  assert.equal(root.classList.contains('is-chrome-footer-revealed'), true);
+
+  const oldWidth = window.innerWidth;
+  window.innerWidth = 390;
+  applyHubChromeMode(root, 'auto');
+  assert.equal(root.classList.contains('is-chrome-auto-hidden'), false);
+  assert.equal(header.inert, false);
+  assert.equal(footer.inert, false);
+  window.innerWidth = oldWidth;
 });
 
 test('refreshHub repaints in place without the slide-in animation class', () => {

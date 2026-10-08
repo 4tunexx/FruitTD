@@ -281,6 +281,7 @@ export function installDomStub(): DomStub {
       fn();
       return 0;
     },
+    clearTimeout: () => {},
     localStorage: {
       getItem: (k: string) => storage.get(k) ?? null,
       setItem: (k: string, v: string) => void storage.set(k, v),

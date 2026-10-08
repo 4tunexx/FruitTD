@@ -13,40 +13,94 @@ export function setHubChromeMode(mode: HubChromeMode): void {
   if (hub) applyHubChromeMode(hub, mode);
 }
 
-export function applyHubChromeMode(root: HTMLElement, mode = getHubChromeMode()): void {
-  root.classList.toggle('is-chrome-auto-hidden', mode === 'auto');
-  root.classList.toggle('is-chrome-always', mode === 'always');
-  if (mode === 'always') root.classList.remove('is-chrome-revealed');
-  else if (root.classList.contains('is-arriving')) root.classList.add('is-chrome-revealed');
-  else root.classList.remove('is-chrome-revealed');
+function desktopChromeEnabled(): boolean {
+  return typeof window === 'undefined' || window.innerWidth >= 901;
 }
 
-/** Bind the top and bottom edge hot-zones that reveal the persistent chrome. */
+export function applyHubChromeMode(root: HTMLElement, mode = getHubChromeMode()): void {
+  const desktop = desktopChromeEnabled();
+  root.classList.toggle('is-chrome-auto-hidden', desktop && mode === 'auto');
+  root.classList.toggle('is-chrome-always', mode === 'always');
+  root.classList.remove('is-chrome-revealed');
+  const arriving = desktop && mode === 'auto' && root.classList.contains('is-arriving');
+  const syncPanel = (slot: 'header' | 'footer', panel: HTMLElement | null) => {
+    let hovered = false;
+    try { hovered = Boolean(panel?.matches(':hover')); } catch { /* older DOM implementations may not support :hover */ }
+    const focused = Boolean(panel && document.activeElement && panel.contains(document.activeElement));
+    const revealed = !desktop || mode === 'always' || arriving || hovered || focused;
+    root.classList.toggle(`is-chrome-${slot}-revealed`, revealed);
+    if (panel) {
+      panel.inert = !revealed;
+      panel.setAttribute('aria-hidden', String(!revealed));
+    }
+    root.querySelector<HTMLElement>(`.ftd-hub-chrome-edge--${slot === 'header' ? 'top' : 'bottom'}`)
+      ?.setAttribute('aria-expanded', String(revealed));
+  };
+  syncPanel('header', root.querySelector<HTMLElement>('.ftd-hub__header'));
+  syncPanel('footer', root.querySelector<HTMLElement>('.ftd-hub__footer'));
+}
+
+/** Bind independent desktop edge controls for the persistent header and footer. */
 export function bindHubChromeReveal(root: HTMLElement): void {
+  if (root.dataset.hubChromeBound === 'true') {
+    applyHubChromeMode(root);
+    return;
+  }
+  root.dataset.hubChromeBound = 'true';
   const header = root.querySelector<HTMLElement>('.ftd-hub__header');
   const footer = root.querySelector<HTMLElement>('.ftd-hub__footer');
-  const topEdge = document.createElement('div');
+  const topEdge = document.createElement('button');
+  topEdge.type = 'button';
   topEdge.className = 'ftd-hub-chrome-edge ftd-hub-chrome-edge--top';
-  topEdge.setAttribute('aria-hidden', 'true');
-  const bottomEdge = document.createElement('div');
+  topEdge.setAttribute('aria-label', 'Reveal top header');
+  topEdge.setAttribute('aria-expanded', 'false');
+  topEdge.textContent = '⌄';
+  const bottomEdge = document.createElement('button');
+  bottomEdge.type = 'button';
   bottomEdge.className = 'ftd-hub-chrome-edge ftd-hub-chrome-edge--bottom';
-  bottomEdge.setAttribute('aria-hidden', 'true');
+  bottomEdge.setAttribute('aria-label', 'Reveal bottom navigation');
+  bottomEdge.setAttribute('aria-expanded', 'false');
+  bottomEdge.textContent = '⌃';
   root.append(topEdge, bottomEdge);
 
-  let hideTimer = 0;
-  const reveal = () => {
-    window.clearTimeout(hideTimer);
-    root.classList.add('is-chrome-revealed');
+  const bindPanel = (panel: HTMLElement | null, edge: HTMLButtonElement, slot: 'header' | 'footer') => {
+    if (!panel) return;
+    const revealedClass = `is-chrome-${slot}-revealed`;
+    let hideTimer = 0;
+    const reveal = () => {
+      if (!desktopChromeEnabled()) return;
+      window.clearTimeout(hideTimer);
+      root.classList.add(revealedClass);
+      panel.inert = false;
+      panel.setAttribute('aria-hidden', 'false');
+      edge.setAttribute('aria-expanded', 'true');
+    };
+    const scheduleHide = () => {
+      if (!desktopChromeEnabled()) return;
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => {
+        if (root.classList.contains('is-chrome-always') || panel.contains(document.activeElement)) return;
+        root.classList.remove(revealedClass);
+        panel.inert = true;
+        panel.setAttribute('aria-hidden', 'true');
+        edge.setAttribute('aria-expanded', 'false');
+      }, 220);
+    };
+    const focusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget;
+      if (next instanceof Node && (panel.contains(next) || edge.contains(next))) return;
+      scheduleHide();
+    };
+    for (const target of [panel, edge]) {
+      target.addEventListener('pointerenter', reveal);
+      target.addEventListener('pointerleave', scheduleHide);
+      target.addEventListener('focusin', reveal);
+      target.addEventListener('focusout', focusOut);
+    }
+    edge.addEventListener('click', reveal);
   };
-  const scheduleHide = () => {
-    window.clearTimeout(hideTimer);
-    hideTimer = window.setTimeout(() => root.classList.remove('is-chrome-revealed'), 180);
-  };
-  for (const target of [header, footer, topEdge, bottomEdge]) {
-    target?.addEventListener('pointerenter', reveal);
-    target?.addEventListener('pointerleave', scheduleHide);
-    target?.addEventListener('focusin', reveal);
-    target?.addEventListener('focusout', scheduleHide);
-  }
+  bindPanel(header, topEdge, 'header');
+  bindPanel(footer, bottomEdge, 'footer');
+  window.addEventListener('resize', () => applyHubChromeMode(root));
   applyHubChromeMode(root);
 }
