@@ -64,3 +64,41 @@
 @keyframes ftd-social-shine { 0%,65% { left:-35%; } 95%,100% { left:130%; } }
 @media (prefers-reduced-motion:reduce) { .ftd-social__nav-item.is-active::after { animation:none; display:none; } }
 html[data-ftd-motion='reduced'] .ftd-social__nav-item.is-active::after { animation:none; display:none; }
+
+/* Keep Community visually attached to the PC hub instead of the legacy green theme. */
+.ftd-social {
+  color:#f4e8d0;
+  background:linear-gradient(145deg,#282a2dd0,#191a1de0 58%,#28231dd9);
+  backdrop-filter:blur(18px) saturate(115%);
+}
+.ftd-social :is(.ftd-social__header,.ftd-social__panel,.ftd-social__gate,.ftd-social__post) {
+  border-color:#a87539;
+  background:linear-gradient(145deg,#2b2d31d9,#1e2023e3);
+  box-shadow:inset 0 1px #fff2d018,0 12px 30px #0006;
+  backdrop-filter:blur(16px) saturate(115%);
+}
+.ftd-social :is(.ftd-social__back,.ftd-social__mark,.ftd-social__nav-item,.ftd-social__mini-button) {
+  border-color:#766344;
+  background:#303236e8;
+  color:#f1e4cb;
+}
+.ftd-social :is(.ftd-social__eyebrow,.ftd-social__panel-title,.ftd-social__stats strong,.ftd-social__post h3) { color:#ffca28; }
+.ftd-social :is(.ftd-social__add input,.ftd-social__compose textarea,.ftd-social__forum-form input,
+  .ftd-social__forum-form textarea,.ftd-social__thread,.ftd-social__stats div) {
+  border-color:#675943;
+  background:#191a1de8;
+  color:#fff0d1;
+}
+.ftd-social :is(.ftd-social__nav-item.is-active,.ftd-social__button,.ftd-social__mini-button.is-accent) {
+  border-color:#ffe792;
+  background:linear-gradient(105deg,#ffe653 0%,#ffc52e 56%,#ff9419 100%);
+  color:#21170b;
+  box-shadow:inset 0 1px #fff8ce,0 4px #101113;
+}
+.ftd-social :is(.ftd-social__notification.is-unread,.ftd-social__reply) { border-left-color:#f48120; background:#f4812018; }
+.ftd-social__bubble { border-color:#9a6e39; background:#332a20; color:#fff0d1; }
+.ftd-social__nav-item.is-active { background-size:220% 100%; animation:ftd-social-amber-sheen 4s ease-in-out infinite; }
+@keyframes ftd-social-amber-sheen { 0%,65% { background-position:100% 0; } 95%,100% { background-position:0 0; } }
+.ftd-social * { border-radius:0 !important; }
+@media (prefers-reduced-motion:reduce) { .ftd-social__nav-item.is-active { animation:none; } }
+html[data-ftd-motion='reduced'] .ftd-social__nav-item.is-active { animation:none; }

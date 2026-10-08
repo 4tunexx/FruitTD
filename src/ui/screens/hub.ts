@@ -466,6 +466,16 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
 
   const mainInner = el('div', { class: 'ftd-hub-panel-content' });
   tab.renderMain(mainInner, save);
+  const pageHeading = mainInner.querySelector<HTMLElement>(
+    '.ftd-hub-catalog-heading, .ftd-pvp__heading, .ftd-hub-legacy__header, .ftd-social__header',
+  );
+  if (pageHeading && !pageHeading.querySelector('button')) {
+    const pageBack = el('button', {
+      class: 'ftd-hub-page-back', type: 'button', 'aria-label': 'Back to hub', title: 'Back to hub',
+    }, [el('span', { 'aria-hidden': 'true', text: '←' }), el('span', { text: 'Hub' })]);
+    pageBack.addEventListener('click', () => openScreen(HUB_HOME));
+    pageHeading.appendChild(pageBack);
+  }
 
   clear(mainHost);
   mainHost.appendChild(mainInner);
@@ -539,6 +549,9 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   root.appendChild(body);
 
   root.appendChild(buildFooter(active, root));
+
+  root.classList.add('is-arriving');
+  window.setTimeout(() => root.classList.remove('is-arriving'), 1000);
 
   const tab = tabs.get(active);
   if (tab) paintTab(root, tab, save, 'none');

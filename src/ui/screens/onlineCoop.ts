@@ -18,7 +18,12 @@ const base=(import.meta.env?.VITE_PVP_API_URL || '/api/pvp').replace(/\/pvp\/?$/
 async function api(path:string,body?:object){const token=getAuthToken();const response=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(12000),method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok||data.success===false)throw new Error(data.error||'Co-op service unavailable.');return data;}
 export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  cleanup.get(host)?.();host.replaceChildren();
- host.append(el('h2',{text:'CO-OP · DEFEND TOGETHER'}),el('p',{text:'Two online players slice together, share one wall and Fruts, and receive equal match rewards.'}));
+ const heading=el('header',{class:'ftd-pvp__heading ftd-coop-online-heading'},[
+  el('button',{class:'ftd-hub-page-back',type:'button','aria-label':'Back to hub',title:'Back to hub'},[el('span',{'aria-hidden':'true',text:'←'}),el('span',{text:'Hub'})]),
+  el('div',{},[el('p',{class:'ftd-pvp__eyebrow',text:'MULTIPLAYER'}),el('h1',{text:'CO-OP · DEFEND TOGETHER'}),el('p',{class:'ftd-pvp__intro',text:'Two online players slice together, share one wall and Fruts, and receive equal match rewards.'})]),
+ ]);
+ heading.querySelector('button')?.addEventListener('click',()=>openScreen('MAIN_MENU'));
+ host.append(heading);
  const notice=el('p',{role:'status',class:'ftd-pvp__intro'});const body=el('div');host.append(notice,body);
  let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let selected='guillotine';let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
  const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();client?.close();client=null;connectedRoom='';};

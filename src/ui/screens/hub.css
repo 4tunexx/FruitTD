@@ -1354,3 +1354,153 @@
   }
   #screen-hub :is(.ftd-btn--solid, .ftd-tone-primary, .ftd-home-mode-detail__launch):active { transform: translateY(1px); }
 }
+
+/* Final desktop art direction: warm glass, compact chrome and hard corners. */
+@media (min-width: 901px) {
+  #screen-hub.ftd-hub {
+    gap: 10px;
+    padding: max(12px, var(--ftd-safe-top)) max(18px, var(--ftd-safe-right)) max(12px, var(--ftd-safe-bottom)) max(18px, var(--ftd-safe-left));
+    background: transparent;
+  }
+  .ftd-hub__header {
+    display: grid;
+    grid-template-columns: minmax(82px, auto) minmax(155px, 205px) minmax(112px, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(8px, 1vw, 16px);
+    flex-wrap: nowrap;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #b47a36;
+    background: linear-gradient(110deg, #17191bd9, #28292bd9);
+    box-shadow: inset 0 1px #fff2d019, 0 8px 22px #0005;
+    backdrop-filter: blur(16px) saturate(115%);
+  }
+  .ftd-hub-logo { white-space: nowrap; font-size: .95rem; }
+  .ftd-hub-identity { min-height: 42px; padding: 4px 8px; gap: 7px; }
+  .ftd-hub-identity__avatar { width: 30px; height: 30px; }
+  .ftd-hub-currency { gap: 5px; }
+  .ftd-hub-currency > * { min-height: 34px; padding: 5px 8px; white-space: nowrap; }
+  .ftd-hub-actions { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; flex-direction: row; justify-content: flex-end; gap: 7px; min-width: 0; }
+  .ftd-hub-actions .ftd-hub-utils { display: flex; width: auto; flex: 0 0 auto; align-items: center; gap: 5px; }
+  .ftd-hub-utils .ftd-hub-more { display: none !important; }
+  .ftd-hub-actions .ftd-hub-more-menu,
+  .ftd-hub-actions .ftd-hub-more-menu[hidden] {
+    position: static;
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    flex: 1 1 0;
+    width: 0 !important;
+    width: auto !important;
+    min-width: 0;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .ftd-hub-actions .ftd-hub-more-menu__item {
+    min-width: 0;
+    min-height: 32px;
+    padding: 5px 6px;
+    border: 1px solid #766344;
+    background: #292a2dd9;
+    color: #eee2cc;
+    font-size: clamp(.55rem, .58vw, .68rem);
+    font-weight: 800;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .ftd-hub-actions .ftd-hub-more-menu__item:hover,
+  .ftd-hub-actions .ftd-hub-more-menu__item:focus-visible { border-color: #ffca28; background: #3a3022ed; color: #ffe48a; }
+
+  .ftd-hub__body { gap: 10px; }
+  .ftd-hub:not(.is-pvp-battle) .ftd-hub__main > .ftd-hub-panel-content,
+  .ftd-hub__sub > .ftd-hub-panel-content { box-sizing: border-box; min-width: 0; padding: clamp(14px, 1.35vw, 22px); }
+  .ftd-hub__main, .ftd-hub__sub:not(.is-empty) {
+    border: 1px solid #a87539;
+    background: linear-gradient(145deg, #292b2ed0, #1d1e21d9);
+    box-shadow: inset 0 1px #fff2d01a, 0 14px 34px #0006;
+    backdrop-filter: blur(18px) saturate(115%);
+  }
+  .ftd-hub__main { border-left: 2px solid #f48120; }
+  .ftd-hub__sub:not(.is-empty) { border-left: 2px solid #ffca28; }
+  .ftd-hub__footer {
+    width: min(100%, 1040px);
+    gap: 8px;
+    padding: 7px;
+    border: 1px solid #a87539;
+    background: #191a1dd9;
+    box-shadow: inset 0 1px #fff2d018, 0 10px 28px #0006;
+    backdrop-filter: blur(18px) saturate(115%);
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab { min-height: 56px; border: 1px solid #665c4c; background: #292a2de8; }
+
+  .ftd-hub.is-arriving .ftd-hub__header { animation: ftd-hub-drop-in 680ms cubic-bezier(.18,.78,.24,1) both; }
+  .ftd-hub.is-arriving .ftd-hub__main { animation: ftd-hub-slide-left 720ms cubic-bezier(.18,.78,.24,1) 70ms both; }
+  .ftd-hub.is-arriving .ftd-hub__sub:not(.is-empty) { animation: ftd-hub-slide-right 720ms cubic-bezier(.18,.78,.24,1) 130ms both; }
+  .ftd-hub.is-arriving .ftd-hub__footer { animation: ftd-hub-rise-in 650ms cubic-bezier(.18,.78,.24,1) 100ms both; }
+}
+
+@keyframes ftd-hub-drop-in { from { opacity: 0; transform: translateY(-24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ftd-hub-slide-left { from { opacity: 0; transform: translateX(-42px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ftd-hub-slide-right { from { opacity: 0; transform: translateX(42px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ftd-hub-rise-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Keep retired green card treatments inside the hub on the same warm glass system. */
+#screen-hub :is(.ftd-stat, .ftd-item-card, .ftd-hero-tile, .ftd-mode-card, .ftd-settings-card,
+  .ftd-briefing, .ftd-mode-stats, .ftd-loadout, .ftd-home-mode-detail, .ftd-profile-banner,
+  .ftd-profile-mastery__block, .ftd-coop-lobby, .ftd-coop-lobby__area, .ftd-coop-lobby__local,
+  .ftd-pvp__heading, .ftd-hub-legacy__header, .ftd-run-trend, .ftd-accuracy-summary,
+  .ftd-leaderboards, .ftd-campaign__header, .ftd-campaign__map, .ftd-stage, .ftd-campaign-story__panel) {
+  border-color: #746247;
+  background: linear-gradient(145deg, #303237de, #202226eb) !important;
+  color: #f2e6cf;
+  backdrop-filter: blur(12px) saturate(112%);
+}
+#screen-hub :is(.ftd-stat__value, .ftd-stat__label, .ftd-mode-stats h2, .ftd-hub-catalog-heading h1,
+  .ftd-pvp__heading h1, .ftd-profile-mastery__block strong) { color: #ffcf4b; }
+#screen-hub .ftd-item-card.is-unaffordable { opacity: .94; }
+#screen-hub :is(.ftd-item-card__name,.ftd-item-card__desc,.ftd-item-card__description) { color: #eee4d2; }
+#screen-hub .ftd-item-card__stats li.is-positive { color: #ffca28; }
+#screen-hub :is(.ftd-catbar button.is-active, .ftd-duel-tabs button.is-active, .ftd-stage.is-selected) {
+  color: #21170b;
+  border-color: #ffe48a;
+  background: linear-gradient(115deg, #ffe653, #ff9419);
+}
+#screen-hub :is(.ftd-profile-bar > i, .ftd-profile-bar--tower > i, .ftd-loadout__bar i, .ftd-mission-progress__track i) {
+  background: linear-gradient(90deg, #f48120, #ffca28) !important;
+}
+#screen-hub .ftd-hub-catalog-heading { align-items: center; }
+#screen-hub .ftd-hub-page-back {
+  display: inline-flex; order: -1; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px;
+  min-height: 38px; padding: 0 12px; border: 1px solid #806a47; background: #2a2b2fdd;
+  color: #f6e8ca; font: inherit; font-size: .74rem; font-weight: 900; cursor: pointer;
+}
+#screen-hub .ftd-hub-page-back svg { width: 16px; height: 16px; }
+#screen-hub .ftd-hub-page-back span[aria-hidden='true'] { font-size: 1.1rem; line-height: 1; }
+#screen-hub .ftd-hub-page-back:hover, #screen-hub .ftd-hub-page-back:focus-visible { border-color: #ffca28; color: #ffe071; }
+
+/* The platform's rectangular surfaces stay rectangular, including community and admin chrome. */
+#title-screen *, #screen-hub *, .ftd-social *, .hud-modal-backdrop *, #modal-admin * { border-radius: 0 !important; }
+#modal-admin :is(.admin-tabs-nav, .admin-tab-btn, .admin-live-stats, .admin-live-stat, .admin-config-form details,
+  .admin-config-field, .admin-section, .admin-card, .admin-catalog-card, input, select, textarea) {
+  border-color: #806b4a;
+  background-color: #282a2de8;
+  color: #f1e4cb;
+}
+
+@media (min-width: 901px) and (max-width: 1250px) {
+  .ftd-hub__header { grid-template-columns: 74px minmax(140px, 175px) minmax(96px, auto) minmax(0, 1fr); gap: 7px; padding-inline: 6px; }
+  .ftd-hub-actions { gap: 4px; }
+  .ftd-hub-actions .ftd-hub-utils { gap: 3px; }
+  .ftd-hub-actions .ftd-hub-more-menu { gap: 3px; }
+  .ftd-hub-actions .ftd-hub-more-menu__item { min-height: 29px; padding-inline: 3px; font-size: .52rem; letter-spacing: -.02em; }
+  .ftd-hub-utility--community span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftd-hub.is-arriving :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer) { animation: none !important; }
+}
