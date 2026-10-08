@@ -1,4 +1,5 @@
 import { getAuthToken } from '../../services/auth';
+import { heroAbility } from '../../game/heroAbilities';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { LoadingIndicator } from '../components/loading';
@@ -68,6 +69,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   if(!scene||sceneId!==room.id){scene?.dispose();scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneId=room.id;}
   scene.update(snapshot,balance);scene.element.dataset.tower=selected;
   body.append(el('div',{class:'ftd-pvp__matchbar'},[el('strong',{text:`WAVE ${room.wave}`}),el('span',{text:`Wall ${room.wallHealth}/${balance.wallHealth} · ${Math.floor(room.fruts)} shared Fruts · ${room.score} score`}),el('span',{text:room.players.map(p=>`${p.name} · ${p.hero}`).join(' + ')}),GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})})]));
+  const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]); if(powers.length)body.append(el('div',{class:'hero-ability-bar'},powers.slice(0,3).map((id:string,index:number)=>{const ability=heroAbility(id);const wait=Math.max(0,((own.abilityReadyAt??{})[id]??0)-Date.now());return GameButton({label:ability?`${ability.icon} ${ability.name}${wait?` · ${Math.ceil(wait/1000)}s`:' · READY'}`:`POWER ${index+1}`,disabled:!ability||wait>0,onClick:()=>command({type:'ability',abilityId:id})});})));
   if(room.status==='boss-intro'||room.status==='countdown')body.append(el('div',{class:'ftd-coop-phase',role:'status'},[el('strong',{text:room.status==='boss-intro'?'OVERLORD APPROACHING':'NEXT WAVE'}),el('span',{text:`${Math.max(0,Math.ceil((room.phaseUntil-Date.now())/1000))}s`})]));
   body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls'},[el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. Both blades appear live.'}),...Object.entries(balance.towers).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;render();}}))])]));
  };

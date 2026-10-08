@@ -4,15 +4,14 @@ import { getCollection, type CloudSaveDoc } from '../db';
 import { resolveRequestUser } from '../auth';
 import { loadQuestCatalog } from '../catalog';
 import { defaultSave, WALL_SKINS, type SaveData } from '../../src/game/save';
-import { HEROES, type HeroId } from '../../src/game/heroes';
+import { HEROES, heroXpToLevel, type HeroId } from '../../src/game/heroes';
 import { canEquipHero, purchaseHeroAtomic } from '../../src/game/progression/heroStatus';
 import type { CatalogSlicer } from '../../src/game/slicers';
 import { SKILLS } from '../../src/game/skills';
 import { heroAbility } from '../../src/game/heroAbilities';
-import { heroXpToLevel } from '../../src/game/heroes';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
-type ItemAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill';
+type ItemAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill' | 'buy-ability' | 'equip-ability';
 const VIP_FALLBACK: Record<'bronze' | 'silver' | 'gold', { price: number; coins: number }> = {
   bronze: { price: 500, coins: 1000 }, silver: { price: 1500, coins: 2500 }, gold: { price: 5000, coins: 5000 },
 };

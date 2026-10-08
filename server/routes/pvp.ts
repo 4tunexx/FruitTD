@@ -8,6 +8,7 @@ import { DEFAULT_PVP_CONFIG, advancePvpMatch, applyPvpCommand, calculateArenaRat
 import { mergeAdminConfig } from '../../src/services/admin';
 import { pvpCanMatch } from '../../src/game/pvpMatchmaking';
 import { HEROES } from '../../src/game/heroes';
+import { heroAbility } from '../../src/game/heroAbilities';
 import { WALL_SKINS } from '../../src/game/save';
 import { playPvpBotTurn } from '../../src/game/pvpBot';
 import { saveNotification, type NotificationRecord } from '../notifications';
@@ -92,7 +93,7 @@ function publicMatch(match: StoredMatch, userId: string) {
   if (!match.players.some((player) => player.userId === userId)) return null;
   return { id: match.id, queue: match.queue, status: match.status, testMatch: Boolean(match.testMatch), remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision,
     map: match.map, mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })), vetoTurnId: match.vetoTurn, yourVetoTurn: match.vetoTurn === userId, vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, ...(id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}), ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side, winnerId: match.winnerId, resultReason: match.resultReason };
@@ -102,7 +103,8 @@ async function equippedAppearance(userId: string) {
   const save = cloud?.saveData;
   const hero = HEROES.some(item => item.id === save?.hero) && (save?.hero === 'jiju' || save?.ownedHeroes?.includes(save.hero)) ? save.hero : 'jiju';
   const wallSkin = WALL_SKINS.some(item => item.id === save?.wallSkin) && (save?.wallSkin === 'wall-brick' || save?.ownedSkins?.includes(save.wallSkin)) ? save.wallSkin : 'wall-brick';
-  return { hero, wallSkin };
+  const rawLoadout=save?.heroAbilityLoadouts?.[hero];const abilityLoadout=Array.isArray(rawLoadout)?rawLoadout.filter((id:string)=>heroAbility(id)?.hero===hero).slice(0,3):hero==='jiju'?['jiju-1']:[];
+  return { hero, wallSkin, abilityLoadout, abilityRanks:save?.heroAbilityRanks??{}, abilityReadyAt:{} };
 }
 async function makeMatch(queue: PvpQueue, left: { userId: string; name: string }, right: { userId: string; name: string }, config: PvpConfig): Promise<StoredMatch> {
   const match = newPvpMatch(randomUUID(), queue, [createPvpPlayer(left.userId, left.name, 'blue', config), createPvpPlayer(right.userId, right.name, 'red', config)], Date.now(), config) as StoredMatch;

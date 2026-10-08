@@ -198,3 +198,6 @@ describe('Arena and Ranked PvP rules', () => {
     assert.equal(game.status, 'complete'); assert.equal(game.winnerId, 'b'); assert.equal(game.resultReason, 'disconnect');
   });
 });
+
+
+describe('server-authoritative hero powers',()=>{it('validates equipped powers, applies their effect, and rejects cooldown replays',()=>{const game=newPvpMatch('abilities','arena',[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)],1000,cfg);game.status='active';game.endsAt=100000;const player=game.players[0]!;player.hero='jiju';player.abilityLoadout=['jiju-1'];player.abilityRanks={'jiju-1':1};player.attackers=[{id:'incoming',type:'normal',hp:100,maxHp:100,progress:2}];applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},1,2000,cfg);assert.equal(player.attackers[0]!.hp,82);assert.throws(()=>applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},2,2500,cfg),/cooling down/);});});

@@ -7,6 +7,7 @@ import { creditClaimReward as defaultCreditReward } from '../claimWallet';
 import { mergeAdminConfig } from '../../src/services/admin';
 import { newCoopMatch, joinCoopMatch, applyCoopCommand, advanceCoopMatch, coopRewards, normalizeCoopConfig, type CoopMatch, type CoopPlayer } from '../../src/game/onlineCoop';
 import { HEROES } from '../../src/game/heroes';
+import { heroAbility } from '../../src/game/heroAbilities';
 import { saveNotification, type NotificationRecord } from '../notifications';
 export function createCoopService(deps: { collection?: typeof defaultCollection; resolveUser?: typeof defaultResolveUser; creditReward?: typeof defaultCreditReward; publish?: (channel: string, room: unknown) => Promise<void>; token?: (params: { clientId: string; ttl: number; capability: string }) => Promise<unknown> } = {}) {
 const getCollection = deps.collection ?? defaultCollection;
@@ -52,8 +53,9 @@ async function tick(room:Room,now:number){if(room.status==='complete')return roo
  room.updatedAt=new Date(now);if((room as Room).status==='complete')delete room.activePlayers;const saved=await(await getCollection<Room>('coop_matches')).replaceOne({id:room.id,revision},room);if(!saved.modifiedCount)return null;void publish(room);if((room as Room).status==='complete')await settle(room);return room;
 }
 async function player(user:NonNullable<Awaited<ReturnType<typeof resolveRequestUser>>>):Promise<CoopPlayer>{
- const save=await(await getCollection<any>('cloud_saves')).findOne({userId:user.userId});const hero=save?.saveData?.hero;
- return {userId:user.userId,name:String(user.nickname||'Slicer').slice(0,64),hero:HEROES.some(h=>h.id===hero)?hero:'jiju',sequence:0,lastSeenAt:Date.now(),lastSlashAt:0,kills:0};
+ const save=await(await getCollection<any>('cloud_saves')).findOne({userId:user.userId});const data=save?.saveData??{};const hero=data.hero;
+ const validHero=HEROES.some(h=>h.id===hero)?hero:'jiju';const loadout=Array.isArray(data.heroAbilityLoadouts?.[validHero])?data.heroAbilityLoadouts[validHero].filter((id:string)=>heroAbility(id)?.hero===validHero).slice(0,3):validHero==='jiju'?['jiju-1']:[];
+ return {userId:user.userId,name:String(user.nickname||'Slicer').slice(0,64),hero:validHero,abilityLoadout:loadout,abilityRanks:data.heroAbilityRanks??{},abilityReadyAt:{},sequence:0,lastSeenAt:Date.now(),lastSlashAt:0,kills:0};
 }
 coopRouter.get('/status',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in to play online Co-op.');try{
  const rooms=await getCollection<Room>('coop_matches');let room=await rooms.findOne({'players.userId':user.userId,expiresAt:{$gt:new Date()},$or:[{status:{$ne:'complete'}},{status:'complete',seenBy:{$ne:user.userId}}]});

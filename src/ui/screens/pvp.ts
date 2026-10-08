@@ -3,6 +3,7 @@ import { lucideIcon } from '../lucideIcon';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { getAuthToken } from '../../services/auth';
+import { heroAbility } from '../../game/heroAbilities';
 import { PVP_MAX_TOWER_LEVEL, pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, pvpTowerStats, pvpTowerRole, pvpMainUpgradeCost, pvpReleaseCost, PVP_CAPTURE_CAPACITY, type PvpConfig, type PvpQueue } from '../../game/pvp';
 import type { Realtime as AblyRealtime } from 'ably';
 import { socialApi } from '../../services/social';
@@ -11,7 +12,7 @@ import { turretDef, type TurretKind } from '../../game/turrets';
 import { LoadingIndicator } from '../components/loading';
 
 type MapView = { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] };
-type MatchView = { id: string; queue: PvpQueue; status: string; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ userId: string; name: string; avatar?: string; side: string; fruts: number; wallHealth: number; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; score: number; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
+type MatchView = { id: string; queue: PvpQueue; status: string; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ userId: string; name: string; avatar?: string; side: string; fruts: number; wallHealth: number; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; abilityLoadout?: string[]; abilityRanks?: Record<string,number>; abilityReadyAt?: Record<string,number>; rallyUntil?: number; rallyReadyAt?: number; score: number; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
 type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: ArenaRating; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps' | 'incomePerSecond'> };
 const timers = new WeakMap<HTMLElement, number>();
 const realtimeClients = new WeakMap<HTMLElement, AblyRealtime>();
@@ -337,6 +338,11 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       railButton('Zap',rallyActive?'Rally active':rallyWait?`Rally ready in ${rallyWait}s`:'Rally · +25% damage',()=>issue({type:'rally'}),busy||rallyWait>0,'arena-rally'),
       railButton('Castle',mainLevel===PVP_MAX_TOWER_LEVEL?'Main tower · max level':`Upgrade main tower · ${mainCost} Fruts`,()=>issue({type:'upgrade-main'}),busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,'arena-upgrade-main'),
     );
+    for (const id of (own.abilityLoadout ?? []).slice(0,3)) {
+      const ability=heroAbility(id); if(!ability)continue;
+      const wait=Math.max(0,((own.abilityReadyAt??{})[id]??0)-Date.now());
+      actionRail.appendChild(railButton('Zap',wait?`${ability.name} · ${Math.ceil(wait/1000)}s`:ability.name,()=>issue({type:'ability',abilityId:id}),busy||wait>0,`arena-ability-${id}`));
+    }
     tray.append(resource,actionRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
     panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Choose a tower, then tap an open hex on your side. Towers fire automatically.` : dockTab === 'attack' ? `Choose a squad to send toward the ${opponent.side.toUpperCase()} wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));

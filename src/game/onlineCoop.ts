@@ -1,6 +1,7 @@
 import type { PvpConfig } from './pvp';
 import type { HeroId } from './heroes';
-export interface CoopPlayer { userId: string; name: string; hero: HeroId; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
+import { heroAbility } from './heroAbilities';
+export interface CoopPlayer { userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
 export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; boss: boolean }
 export interface CoopMatch { id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
@@ -22,7 +23,7 @@ export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number)
   if(match.status!=='waiting'||match.players.length!==1||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
   match.players.push(player); match.status='countdown'; match.phaseUntil=now+3000; match.revision++;
 }
-export type CoopCommand = { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'leave' };
+export type CoopCommand = { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' };
 const distance = (p:Point, a:Point, b:Point) => { const dx=b.x-a.x,dy=b.y-a.y; const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1))); return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy); };
 export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,command:CoopCommand,now:number,balance:PvpConfig,config:CoopConfig=DEFAULT_COOP_CONFIG):void {
   const player=match.players.find(p=>p.userId===userId); if(!player) throw new Error('Not a room member.');
@@ -34,6 +35,17 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       const stats=balance.towers[command.tower]; if(!stats||!Number.isInteger(command.cell)||command.cell<121||command.cell>128||match.towers.some(t=>t.cell===command.cell)) throw new Error('Choose an empty wall pad.');
       if(match.fruts<stats.cost) throw new Error('Not enough shared Fruts.');
       match.fruts-=stats.cost; match.towers.push({id:`${match.id}:${command.cell}`,type:command.tower,cell:command.cell,lastFiredAt:now});
+    } else if(command.type==='ability') {
+      const ability=heroAbility(command.abilityId); const rank=player.abilityRanks?.[command.abilityId]??0;
+      if(!ability||ability.hero!==player.hero||!player.abilityLoadout?.includes(ability.id)||rank<1&&ability.id!=='jiju-1') throw new Error('That power is not equipped.');
+      player.abilityReadyAt??={}; if(now<(player.abilityReadyAt[ability.id]??0)) throw new Error('That power is cooling down.');
+      player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+      let targets=match.fruits;
+      if(ability.effect==='pierce')targets=[...targets].sort((a,b)=>a.y-b.y).slice(0,Math.max(1,Math.ceil(targets.length*.4)));
+      else if(ability.effect==='burst')targets=targets.filter(f=>Math.abs(f.x-5)<3);
+      const damage=ability.damage+Math.max(0,rank-1)*8;
+      for(const fruit of targets)fruit.hp-=ability.effect==='frost'?damage*.65:damage;
+      const killed=match.fruits.filter(f=>f.hp<=0);player.kills+=killed.length;collectKills(match,balance);
     } else if(command.type==='slash') {
       for(const p of [command.from,command.to]) if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>10||p.y<0||p.y>14) throw new Error('Invalid blade stroke.');
       if(Math.hypot(command.from.x-command.to.x,command.from.y-command.to.y)<.15||now-player.lastSlashAt<config.bladeCooldownMs) throw new Error('Swipe across the fruit.');

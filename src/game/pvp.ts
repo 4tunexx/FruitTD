@@ -1,4 +1,5 @@
 /** Shared Arena/Ranked PvP contracts and deterministic server rules. */
+import { heroAbility } from './heroAbilities';
 export type PvpQueue = 'arena' | 'ranked';
 export type PvpTier = 'Amateur' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Emerald' | 'Sapphire';
 export interface PvpMap { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] }
@@ -120,9 +121,9 @@ export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_
 export const PVP_CAPTURE_CAPACITY = 3;
 export function pvpMainUpgradeCost(level = 1): number { return pvpTowerLevel(level) === 1 ? 220 : 340; }
 export function pvpReleaseCost(attackCost: number, packSize = 1): number { return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * .5)); }
-export interface PvpPlayer { mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; released?: boolean }> }
+export interface PvpPlayer { abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; released?: boolean }> }
 export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
-export type PvpCommand = { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
+export type PvpCommand = { type: 'ability'; abilityId: string } | { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
 
 export const PVP_MAX_TOWER_LEVEL = 3;
 export function pvpTowerLevel(level?: number): number { return Math.max(1, Math.min(PVP_MAX_TOWER_LEVEL, Math.floor(level || 1))); }
@@ -216,6 +217,23 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     if (target.attackers.length >= 128) throw new Error('The opponent lane is full. Wait for the attack wave.');
     player.fruts -= cost; player.captured = player.captured!.filter(item => item !== captured);
     target.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: 0, released: true });
+  } else if (command.type === 'ability') {
+    const ability=heroAbility(command.abilityId); const rank=player.abilityRanks?.[command.abilityId]??0;
+    if(!ability||ability.hero!==player.hero||!player.abilityLoadout?.includes(ability.id)||rank<1&&ability.id!=='jiju-1')throw new Error('That power is not equipped');
+    player.abilityReadyAt??={};if(now<(player.abilityReadyAt[ability.id]??0))throw new Error('That power is cooling down');
+    player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+    if(ability.effect==='guard'){player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+Math.round(config.wallHealth*.12));}
+    else {
+      let targets=[...player.attackers].sort((a,b)=>b.progress-a.progress);
+      if(ability.effect==='pierce')targets=targets.slice(0,Math.max(1,Math.ceil(targets.length*.35)));
+      else if(ability.effect==='burst')targets=targets.slice(0,Math.min(4,targets.length));
+      const damage=ability.damage+Math.max(0,rank-1)*8;
+      for(const attacker of targets)attacker.hp-=ability.effect==='frost'?damage*.65:damage;
+      const killed=player.attackers.filter(a=>a.hp<=0);
+      player.score+=killed.length*10;
+      player.fruts+=killed.reduce((sum,a)=>sum+(config.attacks[a.type]?.rewardFruts??0),0);
+      player.attackers=player.attackers.filter(a=>a.hp>0);
+    }
   } else if (command.type === 'rally') {
     if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error('Rally is cooling down');
     player.rallyUntil = now + PVP_RALLY.durationMs; player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
