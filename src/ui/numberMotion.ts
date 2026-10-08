@@ -5,6 +5,15 @@ type MotionEntry = { targets: number[]; rendered: string; frame: number; changed
 
 const NUMBER = /^(\s*(?:(?:Wave|Level|Lv|Stage|Score|×|x|\+|-|FR)\s*)?)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|XP|pts|coins|gems|COMBO)?)\s*$/i;
 const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel]';
+let scanInstalledNumbers: ((root: Node) => void) | null = null;
+
+/** Re-scan freshly rendered screen content so every page entry counts in visibly. */
+export function animateNumbersIn(root: Node): void {
+  if (!scanInstalledNumbers && typeof document !== 'undefined' && typeof document.createTreeWalker === 'function' && typeof MutationObserver !== 'undefined') {
+    installNumberMotion();
+  }
+  requestAnimationFrame(() => scanInstalledNumbers?.(root));
+}
 
 export function parseCountValue(text: string): CountValue | null {
   if (text.length > 48) return null;
@@ -67,7 +76,7 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
       el?.classList.add('ftd-number-bump');
     }
     const start = performance.now();
-    const duration = bump ? 470 : 670;
+    const duration = bump ? 520 : 1050;
     const step = (now: number) => {
       if (stopped || !node.isConnected || values.get(node) !== entry) return;
       const progress = Math.min(1, (now - start) / duration);
@@ -122,6 +131,8 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     while ((text = walker.nextNode())) visit(text as Text);
   }
 
+  scanInstalledNumbers = scan;
+
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'characterData') scan(mutation.target);
@@ -133,5 +144,9 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
   });
   observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden'] });
   requestAnimationFrame(() => { if (!stopped) scan(root); });
-  return () => { stopped = true; observer.disconnect(); };
+  return () => {
+    stopped = true;
+    observer.disconnect();
+    if (scanInstalledNumbers === scan) scanInstalledNumbers = null;
+  };
 }

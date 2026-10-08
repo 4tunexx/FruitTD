@@ -537,3 +537,126 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
   #screen-hub .ftd-hub-panel-content.is-sliding-in-forward,
   #screen-hub .ftd-hub-panel-content.is-sliding-in-back { animation: none !important; }
 }
+
+/* Keep the game shell's panel borders and selected states on one warm system. */
+#screen-hub.ftd-hub :is(.ftd-hub__main, .ftd-hub__sub:not(.is-empty), .ftd-hub-page-heading,
+  .ftd-hub-catalog-heading, .ftd-pvp__heading, .ftd-hub-legacy__header, .ftd-social__header,
+  .ftd-campaign__header, .ftd-screen__header, .ftd-stat, .ftd-item-card, .ftd-hero-tile,
+  .ftd-settings-card, .ftd-briefing, .ftd-mode-stats, .ftd-loadout, .ftd-profile-banner,
+  .ftd-profile-mastery__block, .ftd-coop-lobby, .ftd-coop-lobby__area, .ftd-coop-lobby__local,
+  .ftd-run-trend, .ftd-accuracy-summary, .ftd-leaderboards, .ftd-campaign__map, .ftd-stage,
+  .ftd-campaign-story__panel, .ftd-hub-sub-card) {
+  border-color: #705d43 !important;
+  border-width: 1px !important;
+}
+#screen-hub.ftd-hub :is(.ftd-hub__main, .ftd-hub__sub:not(.is-empty)) {
+  background: linear-gradient(145deg, #242529d9, #191a1de3) !important;
+}
+#screen-hub .ftd-hub__main :is(.ftd-hub-page-heading, .ftd-hub-catalog-heading, .ftd-pvp__heading,
+  .ftd-hub-legacy__header, .ftd-social__header, .ftd-campaign__header, .ftd-screen__header) {
+  border-left-width: 1px !important;
+  background: linear-gradient(110deg, #292a2de8, #202125e8) !important;
+}
+#screen-hub :is(.ftd-hub-tab.is-active, .ftd-mode-card.is-active, .ftd-catbar__tab.is-active,
+  .ftd-duel-tabs button.is-active, .ftd-duel-icon-button.is-active, .ftd-stage.is-selected,
+  .ftd-social__nav-item.is-active) {
+  position: relative;
+  overflow: hidden;
+  background-size: 220% 100%;
+  animation: ftd-amber-sheen 4s ease-in-out infinite;
+}
+#screen-hub :is(.ftd-duel-tabs button.is-active, .ftd-duel-icon-button.is-active)::after {
+  position: absolute;
+  inset: -45% auto -45% -40%;
+  width: 28%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #fff8d8b8, transparent);
+  transform: skewX(-18deg);
+  animation: ftd-selected-sweep 3.8s ease-in-out infinite;
+}
+
+/* The header (Panel 3) and navigation (Panel 4) tuck away until the pointer
+   reaches a screen edge. Settings can pin both panels open. */
+#screen-hub.ftd-hub { transition: padding 300ms cubic-bezier(.2,.8,.2,1), gap 300ms cubic-bezier(.2,.8,.2,1); }
+#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) { padding-block: 8px; gap: 0; }
+#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__header,
+#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__footer {
+  min-height: 0;
+  max-height: 0;
+  overflow: hidden;
+  padding-block: 0;
+  border-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 300ms ease, min-height 300ms ease, padding 300ms ease, border-width 300ms ease,
+    opacity 180ms ease, transform 300ms cubic-bezier(.2,.8,.2,1);
+}
+#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__header { transform: translateY(-30px); }
+#screen-hub.is-chrome-auto-hidden:not(.is-chrome-revealed) .ftd-hub__footer { transform: translateY(30px); }
+#screen-hub.is-chrome-auto-hidden.is-chrome-revealed { padding-block: calc(var(--ftd-safe-top) + .85rem) calc(var(--ftd-safe-bottom) + .85rem); gap: .65rem; }
+#screen-hub.is-chrome-auto-hidden.is-chrome-revealed .ftd-hub__header,
+#screen-hub.is-chrome-auto-hidden.is-chrome-revealed .ftd-hub__footer {
+  max-height: 160px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: max-height 300ms ease, min-height 300ms ease, padding 300ms ease, border-width 300ms ease,
+    opacity 180ms ease, transform 300ms cubic-bezier(.2,.8,.2,1);
+}
+#screen-hub.is-chrome-always .ftd-hub__header,
+#screen-hub.is-chrome-always .ftd-hub__footer {
+  max-height: 160px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: max-height 300ms ease, min-height 300ms ease, padding 300ms ease, border-width 300ms ease,
+    opacity 180ms ease, transform 300ms cubic-bezier(.2,.8,.2,1);
+}
+#screen-hub .ftd-hub-chrome-edge { position: absolute; inset-inline: 0; z-index: 40; height: 14px; pointer-events: none; }
+#screen-hub .ftd-hub-chrome-edge--top { top: 0; }
+#screen-hub .ftd-hub-chrome-edge--bottom { bottom: 0; }
+#screen-hub.is-chrome-auto-hidden .ftd-hub-chrome-edge { pointer-events: auto; cursor: default; }
+
+.ftd-hub-chrome-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 7px 11px;
+  border: 1px solid #705d43;
+  background: #202125e8;
+  color: #f3e7d1;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+.ftd-hub-chrome-toggle__track { position: relative; display: block; width: 46px; height: 24px; border: 1px solid #806b4b; background: #131416; transition: background 180ms ease,border-color 180ms ease; }
+.ftd-hub-chrome-toggle__track i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #9a8a6d; transition: transform 180ms cubic-bezier(.2,.8,.2,1),background 180ms ease; }
+.ftd-hub-chrome-toggle.is-on .ftd-hub-chrome-toggle__track { border-color: #d39a35; background: #523916; }
+.ftd-hub-chrome-toggle.is-on .ftd-hub-chrome-toggle__track i { transform: translateX(22px); background: #ffca28; }
+.ftd-hub-chrome-toggle__label { min-width: 12rem; text-align: left; }
+
+@media (min-width: 901px) {
+  #screen-hub.is-arriving .ftd-hub__header { animation: ftd-hub-drop-in 680ms cubic-bezier(.18,.78,.24,1) both !important; }
+  #screen-hub.is-arriving .ftd-hub__main { animation: ftd-hub-slide-left 720ms cubic-bezier(.18,.78,.24,1) 70ms both !important; }
+  #screen-hub.is-arriving .ftd-hub__sub:not(.is-empty) { animation: ftd-hub-slide-right 720ms cubic-bezier(.18,.78,.24,1) 130ms both !important; }
+  #screen-hub.is-arriving .ftd-hub__footer { animation: ftd-hub-rise-in 650ms cubic-bezier(.18,.78,.24,1) 100ms both !important; }
+}
+@media (max-width: 900px) {
+  #screen-hub.is-chrome-auto-hidden { padding-block: calc(var(--ftd-safe-top) + .85rem) calc(var(--ftd-safe-bottom) + .85rem); gap: .65rem; }
+  #screen-hub.is-chrome-auto-hidden .ftd-hub__header,
+  #screen-hub.is-chrome-auto-hidden .ftd-hub__footer {
+    min-height: initial; max-height: none; overflow: visible; padding-block: initial; border-width: initial;
+    opacity: 1; pointer-events: auto; transform: none;
+  }
+  #screen-hub .ftd-hub-chrome-edge { pointer-events: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-hub.is-arriving :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer),
+  #screen-hub .ftd-hub-panel-content.is-sliding-in-forward,
+  #screen-hub .ftd-hub-panel-content.is-sliding-in-back { animation: none !important; }
+}
+html[data-ftd-motion='reduced'] #screen-hub :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer, .ftd-hub-panel-content) {
+  animation: none !important;
+}

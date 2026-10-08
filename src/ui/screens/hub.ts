@@ -31,6 +31,8 @@ import type { SaveData } from '../../game/save';
 import { navigation, type NavState } from '../../game/navigation';
 import { getAuthToken } from '../../services/auth';
 import { socialApi } from '../../services/social';
+import { animateNumbersIn } from '../numberMotion';
+import { bindHubChromeReveal } from './hubChrome';
 
 /** A tab's contextual UI: what goes in Panel 1 (main) and Panel 2 (sub). */
 export interface HubTab {
@@ -524,6 +526,7 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
 
   clear(mainHost);
   mainHost.appendChild(mainInner);
+  animateNumbersIn(mainInner);
   if (direction !== 'none') {
     mainHost.scrollTop = 0;
     const body = root.querySelector('.ftd-hub__body');
@@ -536,6 +539,7 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
       const subInner = el('div', { class: 'ftd-hub-panel-content' });
       subHost.appendChild(subInner);
       tab.renderSub(subInner, save);
+      animateNumbersIn(subInner);
       subHost.classList.remove('is-empty');
       if (direction !== 'none') subHost.scrollTop = 0;
     } else {
@@ -595,9 +599,12 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   root.appendChild(body);
 
   root.appendChild(buildFooter(active, root));
-
   root.classList.add('is-arriving');
-  window.setTimeout(() => root.classList.remove('is-arriving'), 1000);
+  bindHubChromeReveal(root);
+  window.setTimeout(() => {
+    root.classList.remove('is-arriving');
+    if (root.classList.contains('is-chrome-auto-hidden')) root.classList.remove('is-chrome-revealed');
+  }, 1000);
 
   const tab = tabs.get(active);
   if (tab) paintTab(root, tab, save, 'none');

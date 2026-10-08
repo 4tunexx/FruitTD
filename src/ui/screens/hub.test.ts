@@ -22,6 +22,8 @@ import { resetRegistry, registerScreen, installScreenRouter, openScreen } from '
 import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubTab } from './hub';
 import { homeHubTab, profileHubTab, shopHubTab, inventoryHubTab, heroesHubTab } from './hubTabs';
 import { menuHubTabs } from './menuHubTabs';
+import { renderSettings } from './settings';
+import { getHubChromeMode } from './hubChrome';
 import { Swords } from 'lucide';
 
 function host(): HTMLElement {
@@ -423,6 +425,20 @@ test('a tab with no renderSub leaves the sub panel empty', () => {
   const sub = root.querySelector('.ftd-hub__sub')!;
   assert.equal(sub.classList.contains('is-empty'), true);
   assert.equal(sub.textContent, '');
+});
+
+test('Settings toggle pins the hub header and bottom navigation', () => {
+  resetDom();
+  localStorage.setItem('fruit-td-hub-chrome-mode', 'auto');
+  const root = host();
+  renderSettings(root, defaultSave(), { onToggleSound: () => undefined, onLogout: () => undefined });
+  const toggle = root.querySelector<HTMLButtonElement>('[data-testid="hub-chrome-toggle"]')!;
+  assert.equal(toggle.getAttribute('aria-checked'), 'false');
+  toggle.click();
+  assert.equal(getHubChromeMode(), 'always');
+  assert.equal(toggle.getAttribute('aria-checked'), 'true');
+  assert.match(toggle.textContent || '', /Always visible/);
+  localStorage.removeItem('fruit-td-hub-chrome-mode');
 });
 
 test('refreshHub repaints in place without the slide-in animation class', () => {
