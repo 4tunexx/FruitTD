@@ -226,3 +226,14 @@
   .ftd-duel-card { min-width:68px; min-height:58px; }
   .ftd-duel-icon-button { width:40px; height:38px; }
 }
+
+
+/* Top down lane presentation: the warm road is the visual anchor for both keeps. */
+.ftd-pvp.is-battle { background:radial-gradient(ellipse at 50% 48%,#234b35 0,#10271f 58%,#07150f 100%); }
+.ftd-pvp.is-battle .ftd-pvp-scene { background:linear-gradient(180deg,#345a3c,#172f25); }
+.ftd-pvp.is-battle .ftd-duel-hud { border-bottom-color:#d49b43; background:linear-gradient(100deg,#172d25,#08140f 52%,#2b1b1a); }
+.ftd-pvp.is-battle .ftd-duel-dock { border-top-color:#d49b43; background:linear-gradient(180deg,#1c3428,#091810); }
+.ftd-duel-icon-button img { display:block; width:23px; height:23px; filter:drop-shadow(0 1px 5px #ffcf5b66); }
+.ftd-pvp.is-battle .ftd-duel-icon-button { transition:transform .12s ease,filter .12s ease; }
+.ftd-pvp.is-battle .ftd-duel-icon-button:not(:disabled):active { transform:translateY(2px) scale(.96); }
+@media(prefers-reduced-motion:reduce) { .ftd-pvp.is-battle .ftd-duel-icon-button { transition:none; } }

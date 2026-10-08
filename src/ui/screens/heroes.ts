@@ -108,7 +108,7 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
     const unlocked = status.availability === 'owned' && xp.level >= ability.unlockLevel;
     const equipped = (save.heroAbilityLoadouts?.[heroId] ?? []).includes(ability.id);
     const row = el('div', { class: `ftd-hero-perk ftd-hero-ability${equipped ? ' is-equipped' : ''}` }, [
-      el('span', { class: 'ftd-hero-perk__name', text: `${ability.icon}  ${ability.name}` }),
+      el('span', { class: 'ftd-hero-perk__name ftd-hero-ability__title' }, [el('img', { class: 'ftd-hero-ability__icon', src: ability.iconUrl, alt: '' }), el('span', { text: ability.name })]),
       el('span', { class: 'ftd-hero-perk__rank', text: unlocked ? `Rank ${rank}/3 · ${Math.round(ability.cooldownMs / 1000)}s` : `Lv ${ability.unlockLevel}` }),
       el('span', { class: 'ftd-hero-ability__description', text: ability.description }),
     ]);

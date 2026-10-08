@@ -115,6 +115,18 @@ const renderer = new GameRenderer(canvas);
 const combatImpact = new CombatImpact(document.getElementById('combat-impact'));
 const profileChip = document.getElementById('player-chip');
 const profileToggle = document.getElementById('btn-profile-toggle') as HTMLButtonElement | null;
+const superWrap = document.getElementById('super-wrap');
+if (profileChip && superWrap) {
+  const alignSuperBar = () => {
+    const panel = profileChip.getBoundingClientRect();
+    superWrap.style.left = `${panel.left}px`;
+    superWrap.style.top = `${panel.bottom + 7}px`;
+    superWrap.style.width = `${panel.width}px`;
+  };
+  new ResizeObserver(alignSuperBar).observe(profileChip);
+  window.addEventListener('resize', alignSuperBar, { passive: true });
+  alignSuperBar();
+}
 if (profileChip && profileToggle) {
   const setCollapsed = (collapsed: boolean) => {
     profileChip.classList.toggle('is-collapsed', collapsed);

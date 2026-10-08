@@ -30,7 +30,7 @@ export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene: Scene;
   readonly camera: OrthographicCamera;
-  readonly cameraBase = new Vector3(0, 26, -14);
+  readonly cameraBase = new Vector3(0, 40, 0);
   panX = 0;
   panZ = 0;
   viewH = 20;
@@ -40,7 +40,7 @@ export class GameRenderer {
   private shakeAmp = 0;
   private blastKick = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  private lookZ = 0.4;
+  private lookZ = 0;
   private readonly composer: EffectComposer;
   private readonly ambientLight = new AmbientLight(0xe8f4dc, 0.92);
   private readonly keyLight = new DirectionalLight(0xfff4d8, 0.85);
@@ -70,6 +70,7 @@ export class GameRenderer {
     const aspect = window.innerWidth / window.innerHeight;
     const viewW = this.viewH * aspect;
     this.camera = new OrthographicCamera(-viewW / 2, viewW / 2, this.viewH / 2, -this.viewH / 2, 0.1, 90);
+    this.camera.up.set(0, 0, 1);
     this.camera.position.copy(this.cameraBase);
     this.camera.lookAt(0, 0.2, this.lookZ);
 

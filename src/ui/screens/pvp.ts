@@ -341,11 +341,12 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     for (const id of (own.abilityLoadout ?? []).slice(0,3)) {
       const ability=heroAbility(id); if(!ability)continue;
       const wait=Math.max(0,((own.abilityReadyAt??{})[id]??0)-Date.now());
-      actionRail.appendChild(railButton('Zap',wait?`${ability.name} · ${Math.ceil(wait/1000)}s`:ability.name,()=>issue({type:'ability',abilityId:id}),busy||wait>0,`arena-ability-${id}`));
+      const power = el('button',{type:'button',class:'ftd-duel-icon-button',title:wait?`${ability.name} · ${Math.ceil(wait/1000)}s`:ability.name,'aria-label':wait?`${ability.name} · ${Math.ceil(wait/1000)}s`:ability.name,disabled:busy||wait>0,'data-testid':`arena-ability-${id}`},[el('img',{src:ability.iconUrl,alt:''})]);
+      power.addEventListener('click',()=>issue({type:'ability',abilityId:id})); actionRail.appendChild(power);
     }
     tray.append(resource,actionRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
-    panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Choose a tower, then tap an open hex on your side. Towers fire automatically.` : dockTab === 'attack' ? `Choose a squad to send toward the ${opponent.side.toUpperCase()} wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));
+    panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Choose a tower, then tap a faint placement circle on your side. Towers fire automatically.` : dockTab === 'attack' ? `Choose a squad to send toward the ${opponent.side.toUpperCase()} wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));
     const cards = el('div', { class: 'ftd-duel-cards', 'aria-label': dockTab === 'build' ? 'Tower choices' : 'Fruit attack choices' });
     const coreTowers = ['guillotine', 'sprinkler', 'laser'];
     const allTowers = Object.entries(status.config?.towers || {});
