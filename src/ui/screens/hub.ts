@@ -465,16 +465,61 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
   }
 
   const mainInner = el('div', { class: 'ftd-hub-panel-content' });
+  const isSocialTab = tab.id === 'SOCIAL' || tab.id === 'MESSAGES' || tab.id === 'NOTIFICATIONS';
+  const fallbackHeading = tab.id !== HUB_HOME && !isSocialTab
+    ? el('header', { class: 'ftd-hub-page-heading' }, [
+      el('div', { class: 'ftd-hub-page-heading__title' }, [
+        el('p', { class: 'ftd-hub-page-heading__eyebrow', text: 'FRUIT TD · COMMAND' }),
+        el('h1', { text: tab.label }),
+      ]),
+    ])
+    : null;
   tab.renderMain(mainInner, save);
   const pageHeading = mainInner.querySelector<HTMLElement>(
-    '.ftd-hub-catalog-heading, .ftd-pvp__heading, .ftd-hub-legacy__header, .ftd-social__header',
+    '.ftd-hub-catalog-heading, .ftd-pvp__heading, .ftd-hub-legacy__header, .ftd-social__header, .ftd-campaign__header, .ftd-screen__header',
   );
-  if (pageHeading && !pageHeading.querySelector('button')) {
-    const pageBack = el('button', {
-      class: 'ftd-hub-page-back', type: 'button', 'aria-label': 'Back to hub', title: 'Back to hub',
-    }, [el('span', { 'aria-hidden': 'true', text: '←' }), el('span', { text: 'Hub' })]);
-    pageBack.addEventListener('click', () => openScreen(HUB_HOME));
-    pageHeading.appendChild(pageBack);
+  if (tab.id !== HUB_HOME && !isSocialTab) {
+    let heading = pageHeading || fallbackHeading;
+    if (heading && heading !== fallbackHeading) {
+      heading.classList.add('ftd-hub-page-heading');
+    }
+    if (!pageHeading && fallbackHeading) {
+      const title = mainInner.querySelector('h1');
+      if (title && title.parentElement?.className !== 'ftd-hub-page-heading__title') {
+        const text = title.textContent?.trim();
+        if (text) fallbackHeading.querySelector('h1')!.textContent = text;
+        title.remove();
+      }
+      mainInner.appendChild(fallbackHeading);
+    }
+    if (!heading) {
+      heading = el('header', { class: 'ftd-hub-page-heading' }, [
+        el('div', { class: 'ftd-hub-page-heading__title' }, [
+          el('p', { class: 'ftd-hub-page-heading__eyebrow', text: 'FRUIT TD · COMMAND' }),
+          el('h1', { text: tab.label }),
+        ]),
+      ]);
+      mainInner.appendChild(heading);
+    }
+
+    let pageBack = heading.querySelector<HTMLButtonElement>('button');
+    if (!pageBack) {
+      pageBack = el('button', {
+        class: 'ftd-hub-page-back', type: 'button', 'aria-label': 'Back to hub', title: 'Back to hub',
+      }, [el('span', { 'aria-hidden': 'true', text: '←' }), el('span', { text: 'Hub' })]);
+      heading.appendChild(pageBack);
+    } else {
+      pageBack.classList.add('ftd-hub-page-back');
+      pageBack.setAttribute('aria-label', 'Back to hub');
+      pageBack.title = 'Back to hub';
+    }
+    // Some embedded screens still bind their back control to the old screen
+    // stack. Inside the persistent hub, Back always returns to its Home tab.
+    pageBack.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openScreen(HUB_HOME);
+    }, true);
   }
 
   clear(mainHost);
@@ -501,7 +546,8 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
 
   if (direction !== 'none') {
     const animClass = direction === 'forward' ? 'is-sliding-in-forward' : 'is-sliding-in-back';
-    for (const host of [mainInner, ...(subHost?.firstElementChild ? [subHost.firstElementChild] : [])]) {
+    const subContent = subHost?.children[0] ?? null;
+    for (const host of [mainInner, ...(subContent ? [subContent] : [])]) {
       host.classList.add(animClass);
       // Force reflow so the animation restarts on every tab switch, then let
       // it clean up after itself rather than leaving a class behind that

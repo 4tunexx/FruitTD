@@ -42,6 +42,16 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
     el('div', {}, [el('p', { class: 'ftd-social__eyebrow', text: 'FRUIT TD NETWORK' }), el('h1', { text: initialView.toUpperCase() })]),
     el('span', { class: 'ftd-social__mark', 'aria-hidden': 'true' }, [icon(Users)]),
   ]);
+  if (root.closest('#screen-hub')) {
+    header.classList.add('ftd-hub-page-heading');
+    const hubBack = closeButton;
+    hubBack.classList.add('ftd-hub-page-back');
+    hubBack.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openScreen('MAIN_MENU');
+    }, true);
+  }
   closeButton.addEventListener('click', options.onClose ?? back);
   root.appendChild(header);
   const viewNav = el('nav', { class: 'ftd-social__nav', 'aria-label': 'Community sections' });

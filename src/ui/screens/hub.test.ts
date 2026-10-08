@@ -28,6 +28,12 @@ function host(): HTMLElement {
   return document.createElement('div');
 }
 
+function renderText(root: HTMLElement, value: string): void {
+  const node = document.createElement('p');
+  node.textContent = value;
+  root.appendChild(node);
+}
+
 function richSave(): SaveData {
   const save = defaultSave();
   save.nickname = 'Slicer';
@@ -43,7 +49,7 @@ function stubTab(id: HubTab['id'], label: string): HubTab {
     id,
     label,
     icon: Swords,
-    renderMain: (root) => { root.textContent = `${label} main`; },
+    renderMain: (root) => { renderText(root, `${label} main`); },
     renderSub: (root) => { root.textContent = `${label} sub`; },
   };
 }
@@ -389,10 +395,18 @@ test('switchHubTab replaces panel content without rebuilding header/footer', () 
   const root = host();
   renderHub(root, defaultSave(), 'HEROES', { onPlay: () => undefined });
   const headerBefore = root.querySelector('.ftd-hub__header');
+  const mainPanel = root.querySelector('.ftd-hub__main');
+  const subPanel = root.querySelector('.ftd-hub__sub');
 
   switchHubTab(root, defaultSave(), 'SHOP');
 
   assert.equal(root.querySelector('.ftd-hub__header'), headerBefore, 'header must not remount');
+  assert.equal(root.querySelector('.ftd-hub__main'), mainPanel, 'Panel 1 shell must stay mounted');
+  assert.equal(root.querySelector('.ftd-hub__sub'), subPanel, 'Panel 2 shell must stay mounted');
+  assert.ok(root.querySelector('.ftd-hub-page-heading'), 'every non-home page gets the shared heading frame');
+  assert.ok(root.querySelector('.ftd-hub-page-back'), 'every non-home page gets a hub back control');
+  assert.ok(root.querySelector('.ftd-hub__main')?.querySelector('.ftd-hub-panel-content')?.classList.contains('is-sliding-in-forward'), 'new page content slides into Panel 1');
+  assert.ok(root.querySelector('.ftd-hub__sub')?.querySelector('.ftd-hub-panel-content')?.classList.contains('is-sliding-in-forward'), 'new detail content slides into Panel 2');
   assert.match(root.querySelector('.ftd-hub__main')!.textContent!, /Shop main/);
   assert.match(root.querySelector('.ftd-hub__sub')!.textContent!, /Shop sub/);
   const shopTab = root.querySelector('[data-hub-tab="SHOP"]')!;
@@ -401,7 +415,7 @@ test('switchHubTab replaces panel content without rebuilding header/footer', () 
 
 test('a tab with no renderSub leaves the sub panel empty', () => {
   resetHub();
-  registerHubTab({ id: 'HEROES', label: 'Heroes', icon: Swords, renderMain: (r) => { r.textContent = 'main only'; } });
+  registerHubTab({ id: 'HEROES', label: 'Heroes', icon: Swords, renderMain: (r) => { renderText(r, 'main only'); } });
 
   const root = host();
   renderHub(root, defaultSave(), 'HEROES', { onPlay: () => undefined });
@@ -491,28 +505,28 @@ function bootHub(save: SaveData) {
     id: 'MAIN_MENU',
     label: 'Home',
     icon: Swords,
-    renderMain: (root) => { root.textContent = 'PLAY stage'; },
+    renderMain: (root) => { renderText(root, 'PLAY stage'); },
     renderSub: (root) => { root.textContent = 'loadout card'; },
   });
   registerHubTab({
     id: 'HEROES',
     label: 'Heroes',
     icon: Swords,
-    renderMain: (root) => { root.textContent = 'Heroes roster'; },
+    renderMain: (root) => { renderText(root, 'Heroes roster'); },
     renderSub: (root) => { root.textContent = 'Hero detail'; },
   });
   registerHubTab({
     id: 'INVENTORY',
     label: 'Inventory',
     icon: Swords,
-    renderMain: (root) => { root.textContent = 'Inventory grid'; },
+    renderMain: (root) => { renderText(root, 'Inventory grid'); },
     renderSub: (root) => { root.textContent = 'Equipped items'; },
   });
   registerHubTab({
     id: 'SHOP',
     label: 'Shop',
     icon: Swords,
-    renderMain: (root) => { root.textContent = `Shop grid · ${save.coins} coins`; },
+    renderMain: (root) => { renderText(root, `Shop grid · ${save.coins} coins`); },
     renderSub: (root) => { root.textContent = 'Balance card'; },
   });
 

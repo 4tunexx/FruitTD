@@ -4,7 +4,6 @@ html,body { width:100%; height:100%; overflow:hidden; overscroll-behavior:none; 
 #screen-hub.ftd-hub { position:fixed; inset:0; width:100%; height:100dvh; max-height:100dvh; box-sizing:border-box; overflow:hidden; }
 .ftd-hub__body,.ftd-hub__main,.ftd-hub__sub,.ftd-hub-panel-content { min-width:0; }
 .ftd-hub__main,.ftd-hub__sub { overscroll-behavior:contain; }
-.ftd-hub-panel-content { transform:none!important; animation:none!important; }
 .ftd-hub img { -webkit-user-drag:none; user-select:none; }
 .ftd-hub__body { overflow-x:hidden; }
 @media(max-width:900px) {
