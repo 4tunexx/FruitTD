@@ -75,11 +75,14 @@ import {
 import { fireCreatorSlicerVfx, setCreatorVfxCallbacks } from './game/creatorVfx';
 import { mountLucideIcon, mountLucidePlaceholders } from './ui/lucideIcon';
 import { installMenuInput } from './ui/menuInput';
+import { installNumberMotion } from './ui/numberMotion';
+import './ui/numberMotion.css';
 
 // Theme + layout must be applied before any UI renders.
 initThemeSystem();
 mountLucidePlaceholders();
 installMenuInput();
+installNumberMotion();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
