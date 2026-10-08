@@ -32,7 +32,7 @@ function menusVisible(): boolean {
 
 /** Only when title or dashboard is showing — never during PLAYING/PAUSED. */
 function shouldRun(): boolean {
-  if (reducedMotion()) return false;
+  if (reducedMotion() || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false;
   if (navigation.isInGame()) return false;
   return menusVisible();
 }
@@ -87,27 +87,13 @@ function onPointer(e: PointerEvent): void {
   setTargets((e.clientX / w) * 2 - 1, (e.clientY / h) * 2 - 1);
 }
 
-function onTouch(e: TouchEvent): void {
-  const t = e.touches[0];
-  if (!t) return;
-  const w = window.innerWidth || 1;
-  const h = window.innerHeight || 1;
-  setTargets((t.clientX / w) * 2 - 1, (t.clientY / h) * 2 - 1);
-}
-
-function onOrient(e: DeviceOrientationEvent): void {
-  const beta = typeof e.beta === 'number' ? e.beta : 0;
-  const gamma = typeof e.gamma === 'number' ? e.gamma : 0;
-  setTargets(gamma / 45, beta / 45);
-}
-
 function startActive(): void {
   if (active) return;
   active = true;
   refreshRoots();
   window.addEventListener('pointermove', onPointer, { passive: true });
-  window.addEventListener('touchmove', onTouch, { passive: true });
-  window.addEventListener('deviceorientation', onOrient, { passive: true });
+  // Touch scrolling must never move menu artwork or panels.
+
   raf = requestAnimationFrame(tick);
 }
 
@@ -117,8 +103,6 @@ function stopActive(): void {
   cancelAnimationFrame(raf);
   raf = 0;
   window.removeEventListener('pointermove', onPointer);
-  window.removeEventListener('touchmove', onTouch);
-  window.removeEventListener('deviceorientation', onOrient);
   targetX = 0;
   targetY = 0;
   curX = 0;

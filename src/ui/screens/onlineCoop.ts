@@ -1,4 +1,4 @@
-import { powerIconSource } from '../powerIcons';
+import { powerButton, updatePowerButton } from '../powerButton';
 import { getAuthToken } from '../../services/auth';
 import { heroAbility } from '../../game/heroAbilities';
 import { el } from '../components/dom';
@@ -53,6 +53,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  const render=()=>{
   if(disposed||scene?.interacting)return;
   body.replaceChildren();
+  body.classList.toggle('ftd-coop-battle', Boolean(room && !['waiting','complete'].includes(room.status)));
   if(!room){scene?.dispose();scene=null;client?.close();client=null;connectedRoom='';
    const code=el('input',{class:'admin-input',placeholder:'10-character friend room code','aria-label':'Friend room code',maxlength:10,value:inviteCode}) as HTMLInputElement;
    body.append(el('div',{class:'ftd-coop-online-actions'},[GameButton({label:'Find a teammate',tone:'primary',onClick:()=>void send('/create',{public:true})}),GameButton({label:'Create private room',variant:'outline',onClick:()=>void send('/create',{public:false})}),code,GameButton({label:'Join friend',variant:'outline',onClick:()=>void send('/join',{code:code.value})}),GameButton({label:'Play locally on this PC',variant:'ghost',onClick:()=>{dispose();startLocal();}})]));return;
@@ -70,7 +71,12 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   if(!scene||sceneId!==room.id){scene?.dispose();scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneId=room.id;}
   scene.update(snapshot,balance);scene.element.dataset.tower=selected;
   body.append(el('div',{class:'ftd-pvp__matchbar'},[el('strong',{text:`WAVE ${room.wave}`}),el('span',{text:`Wall ${room.wallHealth}/${balance.wallHealth} · ${Math.floor(room.fruts)} shared Fruts · ${room.score} score`}),el('span',{text:room.players.map(p=>`${p.name} · ${p.hero}`).join(' + ')}),GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})})]));
-  const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]); if(powers.length)body.append(el('div',{class:'hero-ability-bar'},powers.slice(0,3).map((id:string,index:number)=>{const ability=heroAbility(id);const wait=Math.max(0,((own.abilityReadyAt??{})[id]??0)-Date.now());const button=GameButton({label:ability?`${ability.name} · ${ability.juiceCost} F${wait?` · ${Math.ceil(wait/1000)}s`:' · READY'}`:`POWER ${index+1}`,disabled:working||!ability||wait>0||room!.fruts<ability.juiceCost,onClick:()=>command({type:'ability',abilityId:id})});if(ability){button.prepend(el('img',{src:powerIconSource(id,ability.iconUrl),alt:'','data-power-icon':id,'data-power-default':ability.iconUrl,class:'ftd-coop-power-icon'}));}return button;})));
+  const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]);
+  body.append(el('div',{class:'hero-ability-bar hero-ability-bar--coop'},powers.slice(0,3).filter(id=>heroAbility(id)).map(id=>{
+    const button=powerButton(id,()=>command({type:'ability',abilityId:id}));
+    updatePowerButton(button,id,(own.abilityReadyAt??{})[id]??0,room!.fruts);
+    return button;
+  })));
   if(room.status==='boss-intro'||room.status==='countdown')body.append(el('div',{class:'ftd-coop-phase',role:'status'},[el('strong',{text:room.status==='boss-intro'?'OVERLORD APPROACHING':'NEXT WAVE'}),el('span',{text:`${Math.max(0,Math.ceil((room.phaseUntil-Date.now())/1000))}s`})]));
   body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls'},[el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. Both blades appear live.'}),...Object.entries(balance.towers).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;render();}}))])]));
  };

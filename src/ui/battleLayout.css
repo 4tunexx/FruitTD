@@ -1,0 +1,85 @@
+/* Stable viewport shell; only individual controls and decorative art animate. */
+html,body { width:100%; height:100%; overflow:hidden; overscroll-behavior:none; }
+#app { width:100%; height:100dvh; max-height:100dvh; overflow:hidden; }
+#screen-hub.ftd-hub { position:fixed; inset:0; width:100%; height:100dvh; max-height:100dvh; box-sizing:border-box; overflow:hidden; }
+.ftd-hub__body,.ftd-hub__main,.ftd-hub__sub,.ftd-hub-panel-content { min-width:0; }
+.ftd-hub__main,.ftd-hub__sub { overscroll-behavior:contain; }
+.ftd-hub-panel-content { transform:none!important; animation:none!important; }
+.ftd-hub img { -webkit-user-drag:none; user-select:none; }
+.ftd-hub__body { overflow-x:hidden; }
+@media(max-width:900px) {
+  .ftd-hub:not(.is-pvp-battle) .ftd-hub__body { display:block; min-height:0; overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; }
+  .ftd-hub:not(.is-pvp-battle) :is(.ftd-hub__main,.ftd-hub__sub:not(.is-empty)) { width:100%; max-width:100%; margin-inline:0; overflow:visible; }
+  .ftd-power-row { grid-template-columns:42px minmax(0,1fr); }
+  .ftd-power-row__track { grid-column:1/-1; justify-content:space-between; width:100%; }
+  .ftd-power-row__hex { min-width:32px; min-height:36px; }
+}
+
+/* One power button in every mode: persistent portrait, timed sweep, readable cost. */
+@property --charge { syntax:'<percentage>'; inherits:false; initial-value:0%; }
+.hero-ability-slot { position:relative; isolation:isolate; display:grid; grid-template-columns:1fr; grid-template-rows:32px auto auto; justify-items:center; align-content:center; gap:2px; width:58px; min-height:72px; padding:5px 3px; border:1px solid #ab8747; border-radius:8px; color:#fff0c4; background:linear-gradient(145deg,#303c36,#101916); box-shadow:0 3px 0 #030807, inset 0 1px #ffffff22; overflow:hidden; touch-action:manipulation; pointer-events:auto; }
+.hero-ability-slot__icon { z-index:1; grid-row:auto; width:30px; height:30px; border:0; padding:0; background:none; object-fit:contain; }
+.hero-ability-slot__name { z-index:1; max-width:100%; font-size:8px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hero-ability-slot__cooldown { z-index:1; color:#ffda75; font-size:10px; font-weight:900; font-variant-numeric:tabular-nums; }
+.hero-ability-slot__sweep { position:absolute; inset:0; z-index:0; pointer-events:none; background:conic-gradient(from -90deg,transparent var(--charge),#02090cce 0); }
+.hero-ability-slot:not(.is-recharging) .hero-ability-slot__sweep { display:none; }
+.hero-ability-slot.is-recharging { opacity:1; animation:power-recharge var(--recharge-duration) linear var(--recharge-delay) both; }
+.hero-ability-slot.is-ready { border-color:#ffce50; box-shadow:0 3px 0 #030807,0 0 12px #ffca2826,inset 0 1px #ffe69555; }
+.hero-ability-slot:focus-visible { outline:2px solid #fff4c4; outline-offset:3px; }
+.hero-ability-slot:disabled:not(.is-recharging) { opacity:.5; }
+@keyframes power-recharge { from { --charge:0%; } to { --charge:100%; } }
+.hero-ability-bar--solo { display:none; position:absolute; z-index:40; left:calc(8px + env(safe-area-inset-left,0px)); top:148px; width:58px; margin:0; grid-template-columns:1fr; gap:8px; pointer-events:auto; }
+body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { display:grid; }
+body[data-ftd-screen='PLAY'] #btn-game-menu-quick { min-height:40px; padding:6px 10px; top:12px; right:12px; font-size:11px; }
+body[data-ftd-screen='PLAY'] #player-chip { top:12px; left:8px; max-width:calc(100% - 110px); padding:5px; }
+body[data-ftd-screen='PLAY'] #player-xp-ring { width:38px; height:38px; }
+body[data-ftd-screen='PLAY'] .chip-btn { width:32px; min-width:32px; height:32px; padding:5px; }
+body[data-ftd-screen='PLAY'] #super-wrap { top:72px; bottom:auto; left:8px; width:160px; max-width:calc(100% - 100px); }
+body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { display:flex!important; position:absolute; left:8px; right:auto; bottom:calc(12px + env(safe-area-inset-bottom,0px)); min-height:44px; padding:8px 12px; font-size:12px; }
+body[data-ftd-screen='PLAY'] #sidebar { left:76px; right:auto; top:110px; bottom:68px; width:min(300px,calc(100vw - 88px)); max-height:calc(100dvh - 178px); overflow-y:auto; overscroll-behavior:contain; visibility:hidden; transform:translateX(-12px)!important; opacity:0; pointer-events:none; transition:opacity .16s,transform .16s,visibility .16s; }
+body[data-ftd-screen='PLAY'] #app.sidebar-open #sidebar { visibility:visible; opacity:1; pointer-events:auto; transform:none!important; }
+body[data-ftd-screen='PLAY'] #btn-sidebar-hide { display:grid!important; }
+
+/* Online matches: actions left, battlefield uses remaining space, tray anchored beside rail. */
+.ftd-pvp.is-battle .ftd-pvp__body { display:flex; flex-direction:column; width:100%; height:100%; }
+.ftd-pvp.is-battle .ftd-duel-hud { flex:none; min-height:58px; padding:5px 8px; gap:6px; }
+.ftd-pvp.is-battle .ftd-vs-portrait { width:32px; }
+.ftd-pvp.is-battle .ftd-duel-player strong { font-size:12px; }
+.ftd-pvp.is-battle .ftd-duel-objective { font-size:9px; padding:4px 6px; }
+.ftd-pvp.is-battle .ftd-pvp-scene { margin-left:76px; width:calc(100% - 76px); min-height:0; flex:1; }
+.ftd-pvp.is-battle .ftd-duel-dock { position:absolute; z-index:4; left:0; top:94px; bottom:0; width:76px; padding:6px 8px; border:0; border-right:1px solid #9b803e66; background:linear-gradient(90deg,#0b1715f5,#182722e8); overflow:visible; }
+.ftd-duel-dock .ftd-duel-resource { display:block; margin:0 0 8px; }
+.ftd-duel-dock .ftd-duel-wallet { justify-content:center; gap:3px; font-size:11px!important; white-space:nowrap; }
+.ftd-duel-dock .ftd-duel-statusline { display:none; }
+.ftd-duel-dock .ftd-duel-rail { display:flex; flex-direction:column; justify-content:flex-start; gap:7px; max-height:calc(100% - 30px); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:2px 1px 8px; scrollbar-width:none; }
+.ftd-duel-dock .ftd-duel-icon-button { width:56px; height:44px; min-height:44px; position:relative; }
+.ftd-duel-dock .hero-ability-slot { flex-shrink:0; }
+.ftd-duel-dock .ftd-duel-panel { position:absolute; left:80px; bottom:12px; width:min(340px,calc(100vw - 92px)); max-height:65dvh; overflow:auto; padding:10px; border:1px solid #b6934b; border-radius:8px; background:#101c19f5; box-shadow:0 8px 30px #0009; overscroll-behavior:contain; }
+.ftd-duel-panel .ftd-duel-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; }
+.ftd-duel-panel .ftd-duel-card { width:100%; min-width:0; max-width:none; min-height:80px; }
+.ftd-pvp-scene .ftd-duel-focus { left:auto; right:8px; top:8px; }
+.ftd-pvp-scene .ftd-duel-camera { left:auto; right:8px; top:52px; }
+.ftd-pvp-scene .ftd-duel-team { left:8px; max-width:calc(100% - 60px); padding:3px 5px; font-size:8px; }
+.ftd-pvp-scene .ftd-duel-team.is-rival { top:8px; }
+.ftd-pvp-scene .ftd-duel-team.is-own { bottom:8px; }
+
+.ftd-coop-battle { position:fixed; z-index:150; inset:0; height:100dvh; overflow:hidden; background:#101c19; padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); }
+.ftd-coop-battle .ftd-pvp__matchbar { height:72px; margin:0; padding:6px 8px; font-size:10px; overflow:hidden; }
+.ftd-coop-battle .ftd-pvp__siege-layout { position:absolute; top:76px; bottom:0; left:76px; right:0; display:block; }
+.ftd-coop-battle .ftd-pvp-scene { width:100%; height:100%; min-height:0; }
+.ftd-coop-battle .hero-ability-bar--coop { position:absolute; left:8px; top:82px; margin:0; width:58px; display:grid; grid-template-columns:1fr; }
+.ftd-coop-battle .ftd-pvp__siege-controls { position:absolute; left:8px; bottom:8px; right:8px; display:flex; overflow-x:auto; gap:6px; padding:6px; max-height:84px; background:#0c1714e8; border:1px solid #87713d; }
+.ftd-coop-battle .ftd-pvp__siege-controls :is(h3,p) { display:none; }
+.ftd-coop-battle .ftd-pvp__siege-controls button { flex:0 0 110px; font-size:10px; min-height:44px; }
+@media(max-height:540px) {
+  .hero-ability-bar--solo { top:116px; gap:4px; }
+  .hero-ability-slot { min-height:58px; grid-template-rows:26px auto; }
+  .hero-ability-slot__icon { width:26px; height:26px; }
+  .hero-ability-slot__name { display:none; }
+  .ftd-duel-dock .ftd-duel-rail { gap:4px; }
+}
+@media(prefers-reduced-motion:reduce) { .hero-ability-slot.is-recharging { animation:none; } }
+
+.ftd-duel-action-label { display:block; font-size:7px; line-height:1; font-weight:900; letter-spacing:.06em; }
+.ftd-duel-dock .ftd-duel-icon-button { align-content:center; gap:3px; }
+.ftd-duel-dock .ftd-duel-panel .ftd-duel-guide { display:block; font-size:10px; margin:0 0 8px; }

@@ -8,7 +8,7 @@ import { WALL_SKINS, loadSave, writeSave, type GameMode, type SaveData } from '.
 import { findSlicer } from '../game/slicers';
 import { SKILLS, type SkillId } from '../game/skills';
 import { heroAbility } from '../game/heroAbilities';
-import { powerIconSource } from './powerIcons';
+import { powerButton, updatePowerButton } from './powerButton';
 import type { GameState } from '../game/state';
 import { TURRETS, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
@@ -96,6 +96,7 @@ export class Hud {
   private readonly superFill = document.getElementById('super-fill')!;
   private readonly superBtn = document.getElementById('btn-super') as HTMLButtonElement;
   private abilityBar: HTMLElement | null = null;
+  private abilityFunds = 0;
   private abilitySave: SaveData | null = null;
   private abilityUse: ((id: string) => void) | null = null;
   private abilityCooldowns: (() => Record<string, number>) | null = null;
@@ -196,7 +197,7 @@ export class Hud {
 
   mountAbilityBar(save: SaveData, onUse: (id: string) => void, cooldowns: () => Record<string, number>): void {
     this.abilitySave = save; this.abilityUse = onUse; this.abilityCooldowns = cooldowns;
-    if (!this.abilityBar) { this.abilityBar = document.createElement('div'); this.abilityBar.className = 'hero-ability-bar'; this.abilityBar.setAttribute('aria-label', 'Equipped hero powers'); document.getElementById('resource-row')?.appendChild(this.abilityBar); }
+    if (!this.abilityBar) { this.abilityBar = document.createElement('div'); this.abilityBar.className = 'hero-ability-bar hero-ability-bar--solo'; this.abilityBar.setAttribute('aria-label', 'Equipped hero powers'); document.getElementById('hud')?.appendChild(this.abilityBar); }
     this.refreshAbilityBar(save);
   }
 
@@ -205,23 +206,15 @@ export class Hud {
     this.abilitySave = save;
     const equipped = save.heroAbilityLoadouts?.[save.hero] ?? [];
     const cooldowns = this.abilityCooldowns?.() ?? {};
-    this.abilityBar.replaceChildren();
-    for (let i = 0; i < 3; i++) {
-      const id = equipped[i]; const ability = id ? heroAbility(id) : undefined;
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'hero-ability-slot';
-      if (!ability) { button.disabled = true; button.textContent = `POWER ${i + 1} · EMPTY`; }
-      else {
-        const wait = Math.max(0, (cooldowns[id] ?? 0) - Date.now());
-        const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
-        button.title = `${ability.name} · Rank ${Math.max(1, rank)} · ${ability.description}`;
-        button.setAttribute('aria-label', `${ability.name}, ${wait ? `ready in ${Math.ceil(wait / 1000)} seconds` : 'ready'}`);
-        button.innerHTML = `<img class="hero-ability-slot__icon" src="${powerIconSource(ability.id, ability.iconUrl)}" alt="" data-power-icon="${ability.id}" data-power-default="${ability.iconUrl}"><span class="hero-ability-slot__name"></span><span class="hero-ability-slot__cooldown"></span>`;
-        button.querySelector('.hero-ability-slot__name')!.textContent = ability.name;
-        button.querySelector('.hero-ability-slot__cooldown')!.textContent = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} juice` : 'READY';
-        button.disabled = wait > 0;
-        button.addEventListener('click', () => this.abilityUse?.(id));
-      }
-      this.abilityBar.appendChild(button);
+    const ids = equipped.filter(id => heroAbility(id)).slice(0, 3);
+    const key = ids.join(',');
+    if (this.abilityBar.dataset.loadout !== key) {
+      this.abilityBar.dataset.loadout = key;
+      this.abilityBar.replaceChildren(...ids.map(id => powerButton(id, () => this.abilityUse?.(id))));
+    }
+    for (const button of this.abilityBar.querySelectorAll<HTMLButtonElement>('[data-power]')) {
+      const id = button.dataset.power!;
+      updatePowerButton(button, id, cooldowns[id] ?? 0, this.abilityFunds);
     }
   }
 
@@ -1111,6 +1104,7 @@ export class Hud {
       this.combo.textContent = '';
       this.combo.style.display = 'none';
     }
+    this.abilityFunds = state.superJuice;
     const juicePct = Math.min(100, state.superJuice);
     this.superFill.style.setProperty('--juice', String(juicePct));
     this.superFill.classList.toggle('is-full', juicePct >= 100);

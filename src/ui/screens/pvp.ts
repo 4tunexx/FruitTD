@@ -1,4 +1,4 @@
-import { powerIconSource } from '../powerIcons';
+import { powerButton, updatePowerButton } from '../powerButton';
 import type { PowerCast } from '../../game/powerCombat';
 import { acceptArenaRating, ARENA_RANK_COLORS, type ArenaRating } from '../../services/pvpRating';
 import { lucideIcon } from '../lucideIcon';
@@ -160,7 +160,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const active = document.activeElement as HTMLElement | null;
     const focused = active?.tagName === 'BUTTON' && active.closest('.ftd-pvp') === main
       ? { key:active.getAttribute('data-testid'), label:active.textContent } : null;
+    const scroll = ['.ftd-duel-rail','.ftd-duel-panel','.ftd-duel-cards'].map(selector => ({selector,top:body.querySelector(selector)?.scrollTop ?? 0,left:body.querySelector(selector)?.scrollLeft ?? 0}));
     renderContent();
+    for (const position of scroll) { const node=body.querySelector(position.selector); if(node){node.scrollTop=position.top;node.scrollLeft=position.left;} }
     const dialog = body.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog && !active?.closest('[role="dialog"]')) {
       dialog.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll:true });
@@ -292,7 +294,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
           const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
           if (!current || !player) return;
           const tower = player.towers.find(item => item.cell === cell);
-          if (tower) { selectedCell = cell; render(); }
+          if (tower) { selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
           else {
             selectedCell = cell;
             const cost = status.config?.towers[selectedTower]?.cost;
@@ -330,7 +332,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const actionRail = el('div', { class:'ftd-duel-rail', 'aria-label':'Battle actions' });
     const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;battlefield?.setAttackView?.(tab==='attack');render(); };
     const railButton = (iconName:string, labelText:string, action:()=>void, disabled=false, testId?:string, selected=false) => {
-      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19)]);
+      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':'CAPTURE','arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??''})]);
       button.addEventListener('click',action);return button;
     };
     actionRail.append(
@@ -342,9 +344,10 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     );
     for (const id of (own.abilityLoadout ?? []).slice(0,3)) {
       const ability=heroAbility(id); if(!ability)continue;
-      const wait=Math.max(0,((own.abilityReadyAt??{})[id]??0)-Date.now());
-      const power = el('button',{type:'button',class:'ftd-duel-icon-button',title:wait?`${ability.name} · ${Math.ceil(wait/1000)}s`:`${ability.name} · ${ability.juiceCost} Fruts`,'aria-label':wait?`${ability.name} · ${Math.ceil(wait/1000)}s`:ability.name,disabled:busy||wait>0||own.fruts<ability.juiceCost,'data-testid':`arena-ability-${id}`},[el('img',{src:powerIconSource(id,ability.iconUrl),alt:'','data-power-icon':id,'data-power-default':ability.iconUrl})]);
-      power.addEventListener('click',()=>issue({type:'ability',abilityId:id})); actionRail.appendChild(power);
+      const power = powerButton(id, () => issue({type:'ability',abilityId:id}));
+      power.dataset.testid = `arena-ability-${id}`;
+      updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy);
+      actionRail.appendChild(power);
     }
     tray.append(resource,actionRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
@@ -358,7 +361,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         lucideIcon(towerIcons[id] || 'TowerControl', 'ftd-duel-card__art', 30), el('strong', { text: towerName(id) }), el('small', { text: `${info.cost} F · ${pvpTowerRole(id)}` }),
       ]);
       button.classList.toggle('is-unaffordable', own.fruts < info.cost);
-      button.addEventListener('click', () => { selectedTower = id; selectedCell = null; render(); }); cards.append(button);
+      button.addEventListener('click', () => { selectedTower = id; selectedCell = null; dockExpanded = false; render(); }); cards.append(button);
     } else if (dockTab === 'attack') for (const [id, info] of Object.entries(status.config?.attacks || {})) {
       const button = el('button', { type: 'button', class: 'ftd-duel-card is-attack', disabled: busy || own.fruts < info.cost, 'data-testid': `arena-send-${id}` }, [
         lucideIcon(attackIcons[id] || 'Apple', 'ftd-duel-card__art', 30), el('strong', { text: id === 'normal' ? 'Fruit pack' : id === 'swift' ? 'Runners' : id === 'armored' ? 'Brutes' : 'Exploders' }), el('small', { text: `${info.cost} F · ×${info.packSize || 1}` }), el('small', { text: `${info.health} HP · ${Math.round(info.wallDamage*.45)} DPS · ${info.wallDamage} breach` }), el('small', { text: id === 'swift' ? 'Fast rush' : id === 'armored' ? 'Armor · use pierce' : id === 'explosive' ? 'Wall breaker' : 'Swarm · use splash' }),

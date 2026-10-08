@@ -1,7 +1,8 @@
+import { battleScenery, battleTexture } from '../../game/battleArt';
 import { PowerVfx } from '../../game/powerVfx';
 import { heroAbility } from '../../game/heroAbilities';
 import type { PowerCast } from '../../game/powerCombat';
-import { AmbientLight, BackSide, BoxGeometry, BufferGeometry, Color, CylinderGeometry, DirectionalLight, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, Raycaster, Scene, SphereGeometry, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer } from 'three';
+import { AmbientLight, BackSide, BoxGeometry, CircleGeometry, BufferGeometry, Color, CylinderGeometry, DirectionalLight, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, Raycaster, RingGeometry, Scene, SphereGeometry, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer } from 'three';
 import { TurretRig, TURRETS, type TurretKind } from '../../game/turrets';
 import { BladeTrail } from '../../game/trail';
 import { FRUIT_DEFS } from '../../game/fruits';
@@ -37,7 +38,7 @@ export function pvpArmyPoint(map:PvpMap,progress:number,own:boolean):Vector3 {
 
 export class PvpBattlefield {
   readonly element = el('div', { class: 'ftd-pvp-scene' });
-  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Top down arena. Your keep is at the bottom; drag to slice and tap a faint marker to build.' });
+  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Angled siege arena. Your keep is at the bottom; drag to pan and tap a build marker.' });
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly powerVfx = new PowerVfx(this.scene);
@@ -54,6 +55,7 @@ export class PvpBattlefield {
   private readonly towers = new Map<string, { rig: TurretRig; type: string; own: boolean; cell: number; level?: number }>();
   private readonly fruits = new Map<string, { mesh: Mesh; player: PlayerView; progress: number; x?: number; y?: number; boss?: boolean; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; type: string; own: boolean }>();
   private readonly buildPads: Mesh[] = [];
+  private readonly rangeMarker = new Mesh(new RingGeometry(.97,1,64),new MeshBasicMaterial({color:0xffda6b,transparent:true,opacity:.7,depthWrite:false}));
   private selectedCell: number | null = null;
   private readonly health = new Map<string, Mesh>();
   private snapshot: BattlefieldSnapshot;
@@ -99,11 +101,13 @@ export class PvpBattlefield {
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.scene.background = new Color(snapshot.shared ? 0x263626 : 0x17191c);
-    this.scene.add(new AmbientLight(0xfff0d0, 1.3));
-    const sun = new DirectionalLight(0xffd878, 1.75); sun.position.set(12, 30, -15); this.scene.add(sun);
+    this.scene.add(new AmbientLight(0xc7deee, .85));
+    const sun = new DirectionalLight(0xffd878, 1.75); sun.position.set(-18, 30, 12); this.scene.add(sun);
+    const rim = new DirectionalLight(0x96d5ff, .55); rim.position.set(14, 12, -24); this.scene.add(rim);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
     this.scene.add(this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
     this.marker.visible = false;
+    this.rangeMarker.rotation.x = -Math.PI/2; this.rangeMarker.visible = false; this.scene.add(this.rangeMarker);
     const skin = findCatalogItem(loadSave().bladeSkin || 'blade-default');
     this.trail.applySlicer(skin?.slicer);
     this.remoteTrail.setColor(snapshot.shared ? COLORS.blue : COLORS.red);
@@ -183,13 +187,29 @@ export class PvpBattlefield {
         if (!entry) {
           const kind = fruit.type === 'swift' ? 'strawberry' : fruit.type === 'armored' ? 'watermelon' : fruit.type === 'explosive' ? 'bomb' : 'orange';
           const def = FRUIT_DEFS[kind];
-          const texture = snapshot.shared ? getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin) : null;
+          const texture = getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin);
           const teamColor = player.side === 'blue' ? COLORS.red : COLORS.blue;
-          const mesh = new Mesh(new SphereGeometry(fruit.type === 'armored' ? .68 : .48, 14, 10), new MeshLambertMaterial({ color: snapshot.shared ? texture ? 0xffffff : def.color : teamColor, map: texture, emissive: snapshot.shared ? def.emissive : teamColor, emissiveIntensity: .22 }));
+          const mesh = new Mesh(new SphereGeometry(fruit.type === 'armored' ? .68 : .48, 14, 10), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, emissive: def.emissive, emissiveIntensity: .12 }));
           const shell = new Mesh(mesh.geometry, new MeshBasicMaterial({ color: 0x07110c, side: BackSide })); shell.scale.setScalar(1.09); mesh.add(shell);
+          const shadow = new Mesh(new CircleGeometry(fruit.type === 'armored' ? .78 : .58, 16), new MeshBasicMaterial({color:0x06130d,transparent:true,opacity:.28,depthWrite:false}));
+          shadow.rotation.x = -Math.PI / 2; shadow.position.y = -.56; mesh.add(shadow);
+          if (fruit.type === 'armored') {
+            const armor = new Mesh(new CylinderGeometry(.71,.71,.28,8),new MeshLambertMaterial({color:0x596774,flatShading:true}));
+            armor.position.y = .12; mesh.add(armor);
+          } else if (fruit.type === 'swift') {
+            for (const side of [-1,1]) {
+              const fin = new Mesh(new BoxGeometry(.12,.35,.6),new MeshLambertMaterial({color:0xffe4a0,flatShading:true}));
+              fin.position.set(side*.43,.2,.1); fin.rotation.z=side*.6;mesh.add(fin);
+            }
+          } else if (fruit.type === 'explosive') {
+            const fuse = new Mesh(new SphereGeometry(.17,6,5),new MeshBasicMaterial({color:0xffd54c}));
+            fuse.position.y=.7;mesh.add(fuse);
+          }
           const stem = new Mesh(new CylinderGeometry(.07, .05, .3, 5), new MeshLambertMaterial({ color: 0x274925 })); stem.position.y = .5; mesh.add(stem);
           for (const x of [-.16, .16]) { const eye = new Mesh(new SphereGeometry(.09, 7, 5), new MeshBasicMaterial({ color: 0xf5edb5 })); eye.position.set(x, .12, -.43); mesh.add(eye); }
           if (!snapshot.shared) {
+            const allegiance = new Mesh(new RingGeometry(.48,.59,16),new MeshBasicMaterial({color:teamColor,transparent:true,opacity:.9,depthWrite:false}));
+            allegiance.rotation.x=-Math.PI/2;allegiance.position.y=-.54;mesh.add(allegiance);
             const bar = new Group(); bar.position.y = .85;
             const back = new Mesh(new BoxGeometry(.85, .08, .15), new MeshBasicMaterial({ color: 0x07120b }));
             const fill = new Mesh(new BoxGeometry(.75, .045, .17), new MeshBasicMaterial({ color: teamColor }));
@@ -200,7 +220,9 @@ export class PvpBattlefield {
         const hpBar = entry.mesh.userData.hpBar as Group | undefined;
         if (hpBar) {
           const fraction = Math.max(0, Math.min(1, (fruit.hp ?? 1) / (fruit.maxHp ?? this.config.attacks[fruit.type]?.health ?? 1)));
-          hpBar.visible = fraction < .99;
+          hpBar.visible = fraction < .99 || Boolean(fruit.fighting || fruit.attackingTower);
+          if (typeof entry.mesh.userData.hp === 'number' && (fruit.hp ?? 0) < entry.mesh.userData.hp) entry.mesh.userData.hitAt = performance.now();
+          entry.mesh.userData.hp = fruit.hp;
           const fill = entry.mesh.userData.hpFill as Mesh; fill.scale.x = Math.max(.01, fraction); fill.position.x = -(1 - fraction) * .375;
         }
         entry.player = player; entry.progress = fruit.progress; entry.x = fruit.x; entry.y = fruit.y; entry.boss = fruit.boss;entry.attackingTower=fruit.attackingTower;entry.lastTowerHitAt=fruit.lastTowerHitAt;entry.fighting=fruit.fighting;entry.fightTargetId=fruit.fightTargetId;entry.lastClashAt=fruit.lastClashAt;entry.slowUntil=fruit.slowUntil;entry.slowMultiplier=fruit.slowMultiplier;
@@ -226,7 +248,7 @@ export class PvpBattlefield {
           this.effects.push({ object: piece, life: .35, velocity: new Vector3(Math.cos(i) * 3, 2, Math.sin(i) * 3) });
         }
       }
-      this.release(entry.mesh); this.fruits.delete(id);
+      this.release(entry.mesh); this.fruits.delete(id); this.shots.delete(id);
     }
   }
 
@@ -240,13 +262,13 @@ export class PvpBattlefield {
     this.health.clear(); this.buildPads.length = 0;
     const fullLength = (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2);
     const fullWidth = map.width * TILE_X + 5;
-    const floor = new Mesh(new BoxGeometry(fullWidth, .42, fullLength), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x497b42 : 0x46794a }));
-    floor.position.y = -.26;
+    const floor = new Mesh(new BoxGeometry(fullWidth, 1.4, fullLength, 8, 1, 32), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x497b42 : 0x46794a, map:battleTexture('ground') }));
+    floor.position.y = -.75;
     if (this.snapshot.shared) floor.position.z = (map.height + 2) * TILE / 2;
-    this.terrain.add(floor);
+    this.terrain.add(floor,battleScenery(fullWidth,fullLength,floor.position.z));
 
     const shoulderMat = new MeshLambertMaterial({ color: 0x73583b });
-    const roadMat = new MeshLambertMaterial({ color: 0xb18a55 });
+    const roadMat = new MeshLambertMaterial({ color: 0xb18a55, map:battleTexture('stone') });
     const laneMat = new MeshLambertMaterial({ color: 0xe9d09a });
     const padMat = new MeshBasicMaterial({ color: 0xf0dcaa, transparent: true, opacity: .16, depthWrite: false });
 
@@ -301,7 +323,7 @@ export class PvpBattlefield {
       endpoint.z += own ? TILE * 1.5 : -TILE * 1.5;
       const gateX = endpoint.x;
       const base = new Group(); base.position.copy(endpoint); base.position.x = 0;
-      const wall = new Mesh(new BoxGeometry(map.width * TILE_X, 1.05, 1.3), new MeshLambertMaterial({ color: this.snapshot.shared ? WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? COLORS.blue : teamColor }));
+      const wall = new Mesh(new BoxGeometry(map.width * TILE_X, 1.05, 1.3), new MeshLambertMaterial({ color: this.snapshot.shared ? WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? COLORS.blue : teamColor, map:battleTexture('stone') }));
       wall.position.y = .5;
       const keep = new Mesh(new CylinderGeometry(1.05, 1.3, 2.4, 12), new MeshLambertMaterial({ color: teamColor }));
       keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
@@ -424,6 +446,13 @@ export class PvpBattlefield {
   }
   selectCell(cell: number | null): void {
     this.selectedCell = cell; this.marker.visible = cell !== null;
+    this.rangeMarker.visible = false;
+    const tower = this.snapshot.players.find(player=>player.side===this.snapshot.yourSide)?.towers.find(tower=>tower.cell===cell);
+    const base = tower ? this.config.towers[tower.type] : undefined;
+    if (cell !== null && tower && base) {
+      this.rangeMarker.position.copy(this.cellPoint(cell,true));this.rangeMarker.position.y=.18;
+      this.rangeMarker.scale.setScalar(pvpTowerStats(base,tower.level).range*TILE);this.rangeMarker.visible=true;
+    }
     if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
   }
   setAttackView(attacking: boolean): void {
@@ -448,13 +477,25 @@ export class PvpBattlefield {
     this.renderer.setSize(rect.width, rect.height, false);
     const map = this.snapshot.map; const aspect = rect.width / rect.height;
     this.element.classList.remove('is-landscape');
-    const length = map ? (map.height + 3.8) * TILE * (this.snapshot.shared || this.focusOwn ? .55 : 1.05) : 34;
-    const breadth = map ? (map.width + 3) * TILE_X / 2 : 12;
-    const half = Math.max(length, breadth / aspect) / this.zoom;
-    const centerZ = (this.snapshot.shared || this.focusOwn) && map ? (map.height + 2) * TILE / 2 : 0;
-    this.camera.up.set(0, 0, -1);
-    this.camera.position.set(this.cameraX, 90, centerZ + this.cameraZ); this.camera.lookAt(this.cameraX, 0, centerZ + this.cameraZ);
-    this.camera.left = -half * aspect; this.camera.right = half * aspect; this.camera.top = half; this.camera.bottom = -half;
+    const focused = this.snapshot.shared || this.focusOwn;
+    const centerZ = focused && map ? (map.height + 2) * TILE / 2 : 0;
+    // Fit the actual projected world bounds, including keep height and scenery.
+    // Desktop gets a slight three-quarter turn; phones preserve lane width.
+    this.camera.up.set(0,1,0);
+    this.camera.position.set(aspect > 1 ? 14 : 4,54,centerZ+72);
+    this.camera.lookAt(0,0,centerZ);this.camera.updateMatrixWorld(true);
+    const extentZ = map ? (map.height+4)*TILE : 30;
+    const extentX = map ? map.width*TILE_X/2+4 : 14;
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for(const x of [-extentX,extentX])for(const y of [0,3.5])for(const z of [focused ? -TILE : -extentZ,extentZ]){
+      const point=new Vector3(x,y,z).applyMatrix4(this.camera.matrixWorldInverse);
+      minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minY=Math.min(minY,point.y);maxY=Math.max(maxY,point.y);
+    }
+    const half=Math.max((maxY-minY)/2,(maxX-minX)/(2*aspect))*1.025/this.zoom;
+    const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+    this.camera.left=cx-half*aspect;this.camera.right=cx+half*aspect;this.camera.top=cy+half;this.camera.bottom=cy-half;
+    this.camera.position.x+=this.cameraX;this.camera.position.z+=this.cameraZ;
+    this.camera.lookAt(this.cameraX,0,centerZ+this.cameraZ);
     this.camera.updateProjectionMatrix();
   }
   private animate = (now: number) => {
@@ -470,7 +511,18 @@ export class PvpBattlefield {
       }
       const progress=Math.min(map.pathCells.length-1,entry.progress+(entry.fighting?0:Math.min(.5,(now-this.receivedAt)/1000)*(this.config.attacks[entry.type]?.speed||0)*Math.max(1,(map.pathCells.length-1)/13)*slow));
       entry.mesh.visible=entry.progress>=-map.pathCells.length;
-      entry.mesh.position.copy(pvpArmyPoint(map,progress,entry.own));entry.mesh.position.y=.65+Math.sin(now/(entry.fighting?65:140))*(entry.fighting?.14:.07);entry.mesh.rotation.y+=dt*(entry.fighting?4:1);
+      const position = pvpArmyPoint(map,progress,entry.own);
+      const facing = entry.fightTargetId ? this.fruits.get(entry.fightTargetId)?.mesh.position : undefined;
+      const ahead = facing ?? pvpArmyPoint(map,Math.min(map.pathCells.length-.99,progress+.12),entry.own);
+      const direction = ahead.clone().sub(position);
+      if (direction.lengthSq() > .001) entry.mesh.rotation.y = Math.atan2(-direction.x,-direction.z);
+      // A short forward strike reads as melee, not a fruit spinning in place.
+      if (entry.fighting || entry.attackingTower) position.addScaledVector(direction.normalize(),Math.max(0,Math.sin(now/75))*.16);
+      entry.mesh.position.copy(position);entry.mesh.position.y=.65+Math.sin(now/(entry.fighting?65:140))*(entry.fighting?.09:.05);
+      const material = entry.mesh.material as MeshLambertMaterial;
+      const hit = Math.max(0,1-(now-(entry.mesh.userData.hitAt??-1000))/180);
+      material.emissive.set(hit > 0 ? 0xffffff : entry.player.side === 'blue' ? COLORS.red : COLORS.blue);
+      material.emissiveIntensity = .12 + hit*.8;
       if (entry.mesh.userData.hpBar) entry.mesh.userData.hpBar.rotation.y = -entry.mesh.rotation.y;
     }
     for(const [id,entry] of this.fruits){
@@ -483,7 +535,7 @@ export class PvpBattlefield {
       for(let i=0;i<4;i++){const spark=new Mesh(new BoxGeometry(.12,.12,.12),new MeshBasicMaterial({color:i%2?0xff7e32:0xffe097}));spark.position.copy(entry.mesh.position).lerp(impact,.5);this.scene.add(spark);this.effects.push({object:spark,life:.35,velocity:new Vector3(Math.sin(i*3)*3,2,Math.cos(i*3)*3)});}
     }
     for (const entry of this.towers.values()) {
-      const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).range : 0)) * TILE);
+      const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.visible && (this.snapshot.shared || fruit.progress >= 0) && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).range : 0)) * TILE);
       if (target) entry.rig.group.rotation.y = Math.atan2(target.mesh.position.x - entry.rig.group.position.x, target.mesh.position.z - entry.rig.group.position.z);
       if (entry.type === 'vortex') entry.rig.group.rotation.y += dt * 2;
       if (entry.type === 'guillotine' && entry.rig.group.children[1]) entry.rig.group.children[1].rotation.z = -.7 + Math.sin(now / 220) * 1.1;
@@ -515,7 +567,7 @@ export class PvpBattlefield {
     if (this.disposed) return; this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect();
     this.release(this.terrain); this.release(this.pieces);
     for (const trail of [this.trail, this.remoteTrail]) { this.release(trail.line); this.release(trail.glowLine); trail.sparks.geometry.dispose(); (trail.sparks.material as MeshBasicMaterial).dispose(); }
-    this.powerVfx.clear();this.release(this.marker); this.renderer.dispose(); this.renderer.forceContextLoss();
+    this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
     this.effects.forEach((effect) => this.release(effect.object));
   }
 }

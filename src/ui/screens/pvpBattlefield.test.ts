@@ -10,7 +10,7 @@ import { DEFAULT_PVP_CONFIG as config, createPvpPlayer } from '../../game/pvp';
 test('Co-op screen strokes invert the rendered own-lane coordinates without row jumps',()=>{
   const width=390,height=844,map=config.map;
   const canvas=document.createElement('div');(canvas as any).getBoundingClientRect=()=>({width,height,left:0,top:0});
-  const camera=new OrthographicCamera(-20,20,30,-30,.1,200);camera.up.set(0,0,-1);camera.position.set(0,90,14);camera.lookAt(0,0,14);camera.updateMatrixWorld(true);
+  const camera=new OrthographicCamera(-20,20,30,-30,.1,200);camera.up.set(0,1,0);camera.position.set(0,54,86);camera.lookAt(0,0,14);camera.updateMatrixWorld(true);
   const field:any=Object.create(PvpBattlefield.prototype);Object.assign(field,{canvas,snapshot:{map,shared:true},camera,ray:new Raycaster(),ground:new Plane(new Vector3(0,1,0),0)});
   for(const y of [0,1,1.99,2,2.01,5,12]){const world=pvpWorldPoint(map,4.2,y,true);const screen=world.clone().project(camera);const point=field.point({clientX:(screen.x+1)*width/2,clientY:(1-screen.y)*height/2});assert.ok(point);assert.ok(Math.abs(point.x-4.2)<.0001);assert.ok(Math.abs(point.y-y)<.0001);}
   assert.ok(pvpWorldPoint(map,4.2,1.999,true).distanceTo(pvpWorldPoint(map,4.2,2.001,true))<.01);
@@ -28,6 +28,8 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
     field.buildTerrain(map); scene.updateMatrixWorld(true);
     for (const focused of [false, true]) {
       field.focusOwn = focused; field.resize(); field.camera.updateMatrixWorld();
+      const view = field.camera.getWorldDirection(new Vector3());
+      assert.ok(Math.abs(view.y) > .5 && Math.abs(view.y) < .7, 'camera keeps its 2.5D angle at every aspect ratio');
       if (!focused) for (const own of [true,false]) {
         const base = pvpWorldPoint(map, map.width / 2, map.height - .5, own);
         base.z += own ? -1.7 * 1.5 : 1.7 * 1.5;

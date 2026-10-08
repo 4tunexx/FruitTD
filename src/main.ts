@@ -80,11 +80,14 @@ import { mountLucideIcon, mountLucidePlaceholders } from './ui/lucideIcon';
 import { installMenuInput } from './ui/menuInput';
 import { installNumberMotion } from './ui/numberMotion';
 import './ui/numberMotion.css';
+import './ui/battleLayout.css';
+import { installPowerHotkeys } from './ui/powerButton';
 
 // Theme + layout must be applied before any UI renders.
 initThemeSystem();
 mountLucidePlaceholders();
 installMenuInput();
+installPowerHotkeys();
 installNumberMotion();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;

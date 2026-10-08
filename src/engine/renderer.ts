@@ -30,7 +30,7 @@ export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene: Scene;
   readonly camera: OrthographicCamera;
-  readonly cameraBase = new Vector3(0, 40, 0);
+  readonly cameraBase = new Vector3(0, 26, -32);
   panX = 0;
   panZ = 0;
   viewH = 20;
@@ -65,12 +65,12 @@ export class GameRenderer {
 
     this.scene = new Scene();
     this.scene.background = CLEAR.clone();
-    this.scene.fog = new Fog(0x3a4d32, 28, 58);
+    this.scene.fog = new Fog(0x3a4d32, 55, 110);
 
     const aspect = window.innerWidth / window.innerHeight;
     const viewW = this.viewH * aspect;
     this.camera = new OrthographicCamera(-viewW / 2, viewW / 2, this.viewH / 2, -this.viewH / 2, 0.1, 90);
-    this.camera.up.set(0, 0, 1);
+    this.camera.up.set(0, 1, 0);
     this.camera.position.copy(this.cameraBase);
     this.camera.lookAt(0, 0.2, this.lookZ);
 
@@ -223,20 +223,17 @@ export class GameRenderer {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     Object.assign(this.camera, arenaFrustum(w, h, this.viewH));
-    // Frame the wall foot at the lower safe edge regardless of aspect ratio.
-    // Solve against the actual projection because a fixed look target drifts
-    // substantially between short landscape and tall portrait viewports.
-    let bestZ = this.lookZ;
-    let bestError = Infinity;
-    for (let z = -8; z <= 18; z += 0.25) {
-      this.camera.lookAt(this.panX, 0.2, z + this.panZ);
-      this.camera.updateMatrixWorld();
-      const screenY = (1 - new Vector3(0, 0.2, -9.2).project(this.camera).y) / 2;
-      const error = Math.abs(screenY - 0.93);
-      if (error < bestError) { bestError = error; bestZ = z; }
-    }
-    this.lookZ = bestZ;
-    this.camera.lookAt(this.panX, 0.2, this.lookZ + this.panZ);
+    // Keep a fixed cinematic pitch. Re-aiming the camera to fit the wall was
+    // flattening the world and changing the input projection on every resize.
+    this.lookZ = 1.5;
+    this.camera.position.set(this.panX, this.cameraBase.y, this.cameraBase.z + this.lookZ + this.panZ);
+    this.camera.lookAt(this.panX, .2, this.lookZ + this.panZ);
+    this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld(true);
+    // Shift the lens, not its pitch, so the keep remains at the bottom on phones.
+    const wall = new Vector3(0, .15, -10.6).project(this.camera);
+    const shift = (wall.y - (1 - 2 * .88)) * (this.camera.top - this.camera.bottom) / 2;
+    this.camera.top += shift; this.camera.bottom += shift;
     this.camera.updateProjectionMatrix();
   }
 
@@ -281,7 +278,7 @@ export class GameRenderer {
     this.camera.position.set(
       this.cameraBase.x + this.panX + this.shake.x,
       this.cameraBase.y,
-      this.cameraBase.z + this.panZ + this.shake.z,
+      this.cameraBase.z + this.lookZ + this.panZ + this.shake.z,
     );
     this.camera.lookAt(this.panX + this.shake.x * 0.1, 0.2, this.lookZ + this.panZ);
   }
