@@ -109,7 +109,7 @@
         </div>
 
         <!-- Super juice bar (left side) -->
-        <div id="super-wrap">
+        <div id="super-wrap" role="group" aria-label="Juice charge">
           <button id="btn-super" disabled>SUPER</button>
           <div id="super-bar-track">
             <div id="super-fill" class="super-liquid" aria-hidden="true">
@@ -122,7 +122,7 @@
               <canvas id="super-liquid-canvas" class="super-liquid__canvas" width="48" height="240" aria-hidden="true"></canvas>
             </div>
           </div>
-          <p id="super-label">JUICE</p>
+          <p id="super-label" class="sr-only">Juice charge</p>
         </div>
 
         <div id="boss-health" class="hidden" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">

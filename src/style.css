@@ -7006,3 +7006,31 @@ body.is-playing .match-parallax,
 
 @keyframes bossBarTopIn { from { transform: translateY(-100%); } to { transform: translateY(0); } }
 @keyframes bossBarBottomIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* Match the charge bar to the compact profile plate. */
+#super-label {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+#super-bar-track {
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+#super-fill.super-liquid {
+  border-radius: 0 !important;
+}
+#player-chip.is-collapsed + #super-wrap {
+  top: calc(3.05rem + env(safe-area-inset-top, 0px));
+}
+@media (max-width: 600px) {
+  #player-chip.is-collapsed + #super-wrap {
+    top: calc(3rem + env(safe-area-inset-top, 0px));
+  }
+}

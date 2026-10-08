@@ -128,6 +128,12 @@ if (profileChip && profileToggle) {
     setCollapsed(collapsed);
     try { localStorage.setItem('fruit-td-profile-collapsed', String(collapsed)); } catch { /* private browsing */ }
   });
+  document.addEventListener('pointerdown', (event: PointerEvent) => {
+    if (profileChip.classList.contains('is-collapsed')) return;
+    if (event.target instanceof Node && profileChip.contains(event.target)) return;
+    setCollapsed(true);
+    try { localStorage.setItem('fruit-td-profile-collapsed', 'true'); } catch { /* private browsing */ }
+  }, true);
 }
 const state = createState();
 state.running = false;
