@@ -25,6 +25,7 @@ function formatCount(parsed: CountValue, value: number): string {
 
 export function installNumberMotion(root: HTMLElement = document.body): () => void {
   const values = new WeakMap<Text, { target: number; rendered: string; frame: number }>();
+  const displays = new WeakMap<Element, { target: number; changedAt: number; bumpedAt: number }>();
   let stopped = false;
   const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.ftdMotion === 'reduced';
 
@@ -65,7 +66,27 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     if (previous?.rendered === text) return;
     const parsed = parseCountValue(text);
     if (!parsed) { if (previous?.frame) cancelAnimationFrame(previous.frame); values.delete(node); return; }
-    animate(node, parsed, previous?.target ?? 0, !!previous && parsed.value > previous.target);
+    const now = performance.now();
+    const display = displays.get(parent);
+    if (display?.target === parsed.value) {
+      values.set(node, { target: parsed.value, rendered: text, frame: 0 });
+      return;
+    }
+    const increase = !!display && parsed.value > display.target;
+    const bump = increase && (!display?.bumpedAt || now - display.bumpedAt > 300);
+    displays.set(parent, { target: parsed.value, changedAt: now, bumpedAt: bump ? now : display?.bumpedAt ?? 0 });
+    // The game HUD replaces its text on every frame. Keep those fast updates
+    // live instead of restarting a count-up that can never finish.
+    if (display && now - display.changedAt < 120) {
+      values.set(node, { target: parsed.value, rendered: text, frame: 0 });
+      if (bump && !reduced()) {
+        parent.classList.remove('ftd-number-bump');
+        void parent.offsetWidth;
+        parent.classList.add('ftd-number-bump');
+      }
+      return;
+    }
+    animate(node, parsed, display?.target ?? 0, bump);
   }
 
   function scan(node: Node): void {
