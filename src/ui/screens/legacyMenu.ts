@@ -3,6 +3,7 @@ import type { NavState } from '../../game/navigation';
 export const LEGACY_MENU_PAGES: Array<{ id: NavState; page: string; subtab?: string }> = [
   { id: 'MISSIONS', page: 'quests', subtab: 'missions' },
   { id: 'ACHIEVEMENTS', page: 'quests', subtab: 'achievements' },
+  { id: 'BADGES', page: 'quests', subtab: 'badges' },
   { id: 'RANKED', page: 'leaderboard' },
 ];
 

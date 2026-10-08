@@ -25,6 +25,7 @@ export type NavState =
   | 'SHOP'
   | 'MISSIONS'
   | 'ACHIEVEMENTS'
+  | 'BADGES'
   | 'RANKED'
   | 'ARENA'
   | 'CO_OP'
@@ -46,6 +47,7 @@ export const OVERLAY_STATES: readonly NavState[] = [
   'SHOP',
   'MISSIONS',
   'ACHIEVEMENTS',
+  'BADGES',
   'RANKED',
   'ARENA',
   'CO_OP',

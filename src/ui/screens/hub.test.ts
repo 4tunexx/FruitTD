@@ -372,7 +372,7 @@ test('profile keeps destinations reachable without a Play action', () => {
   const actions = main.querySelector('.ftd-profile-actions');
   const actionButtons = actions?.querySelectorAll('button') ?? [];
   const actionLabels = [...actionButtons].map((button) => button.textContent);
-  assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Ranked', 'Leaderboard', 'Local Co-op', 'Settings']);
+  assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Badges', 'Rankings', 'Settings']);
   assert.equal(played, 0);
   assert.ok(!actionLabels.includes('Play now'));
   assert.match(main.querySelector('.ftd-stat-grid')?.textContent ?? '', /AchievementsSign inUnlocked milestones/);

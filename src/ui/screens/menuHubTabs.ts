@@ -74,6 +74,7 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
   const legacy: Array<{ id: NavState; label: string; page: string; subtab?: string; icon: typeof ListChecks }> = [
     { id: 'MISSIONS', label: 'Missions', page: 'quests', subtab: 'missions', icon: ListChecks },
     { id: 'ACHIEVEMENTS', label: 'Achievements', page: 'quests', subtab: 'achievements', icon: Medal },
+    { id: 'BADGES', label: 'Badges', page: 'quests', subtab: 'badges', icon: Medal },
   ];
   const pvp: HubTab[] = [
     { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpHub(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Community', 'SOCIAL')]) },
@@ -95,16 +96,25 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
       if (subtab) content.querySelector<HTMLButtonElement>(`.quests-subtabs .subtab[data-sub="${subtab}"]`)?.click();
     },
     renderSub: (root, save: SaveData) => {
+      const hub = root.closest('.ftd-hub');
       const show = (view: string) => {
-        root.replaceChildren();
-        if (view === 'ranks') context(root, 'HISTORY', 'Solo records', 'These are your past solo Ranked scores. Current FR points and PvP results are in Ranked.', [route('Open Arena', 'ARENA'), route('Profile', 'PROFILE')]);
-        else if (view === 'badges') context(root, 'CAREER', 'Badges', 'See the marks you have earned from matches and missions.', [route('Achievements', 'ACHIEVEMENTS'), route('Profile', 'PROFILE')]);
-        else if (view === 'achievements') context(root, 'CAREER', 'Achievements', `Your ${save.games ?? 0} finished runs count toward combat milestones.`, [route('Missions', 'MISSIONS'), route('Profile', 'PROFILE')]);
-        else context(root, 'FIELD ORDERS', 'Missions', 'Complete the objectives shown on the left and claim available rewards.', [route('Achievements', 'ACHIEVEMENTS'), route('Arena', 'ARENA')]);
+        const title = view === 'badges' ? 'Badges' : view === 'achievements' ? 'Achievements' : view === 'ranks' ? 'Ranked History' : 'Missions';
+        const pageTitle = hub?.querySelector<HTMLElement>('.ftd-hub__main .ftd-hub-page-heading h1');
+        if (pageTitle) pageTitle.textContent = title;
+        const panel = hub?.querySelector<HTMLElement>('.ftd-hub__sub .ftd-hub-panel-content') ?? root;
+        panel.replaceChildren();
+        if (view === 'ranks') context(panel, 'HISTORY', 'Ranked history', 'These are your past solo Ranked scores. For live world-wide standings, choose Global or Friends rankings.', [route('Global rankings', 'LEADERBOARD'), route('Profile', 'PROFILE')]);
+        else if (view === 'badges') context(panel, 'CAREER', 'Badges', 'See the marks you have earned from matches and missions.', [route('Achievements', 'ACHIEVEMENTS'), route('Profile', 'PROFILE')]);
+        else if (view === 'achievements') context(panel, 'CAREER', 'Achievements', `Your ${save.games ?? 0} finished runs count toward combat milestones.`, [route('Missions', 'MISSIONS'), route('Profile', 'PROFILE')]);
+        else context(panel, 'FIELD ORDERS', 'Missions', 'Complete the objectives shown on the left and claim available rewards.', [route('Achievements', 'ACHIEVEMENTS'), route('Arena', 'ARENA')]);
       };
-      const tabs = root.closest('.ftd-hub')?.querySelectorAll<HTMLButtonElement>('.quests-subtabs .subtab');
+      const tabs = hub?.querySelectorAll<HTMLButtonElement>('.quests-subtabs .subtab');
       show(root.closest('.ftd-hub')?.querySelector<HTMLButtonElement>('.quests-subtabs .subtab.is-active')?.dataset.sub || 'missions');
-      tabs?.forEach((button) => button.addEventListener('click', () => show(button.dataset.sub || 'missions')));
+      tabs?.forEach((button) => {
+        if (button.dataset.hubContextBound === 'true') return;
+        button.dataset.hubContextBound = 'true';
+        button.addEventListener('click', () => show(button.dataset.sub || 'missions'));
+      });
     },
   }))];
 }

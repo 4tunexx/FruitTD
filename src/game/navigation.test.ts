@@ -13,7 +13,7 @@ function nav(): NavigationController {
 test('every required screen state is navigable', () => {
   const required: NavState[] = [
     'TITLE', 'MAIN_MENU', 'PLAY', 'PAUSED', 'GAME_OVER', 'PROFILE', 'HEROES',
-    'INVENTORY', 'SHOP', 'MISSIONS', 'ACHIEVEMENTS', 'RANKED', 'CO_OP',
+    'INVENTORY', 'SHOP', 'MISSIONS', 'ACHIEVEMENTS', 'BADGES', 'RANKED', 'CO_OP',
     'CREATOR', 'SETTINGS', 'ADMIN',
   ];
   for (const state of required) {

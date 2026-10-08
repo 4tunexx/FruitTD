@@ -1465,6 +1465,29 @@
 #screen-hub .ftd-item-card.is-unaffordable { opacity: .94; }
 #screen-hub :is(.ftd-item-card__name,.ftd-item-card__desc,.ftd-item-card__description) { color: #eee4d2; }
 #screen-hub .ftd-item-card__stats li.is-positive { color: #ffca28; }
+
+/* Desktop menu cards respond with a restrained lift and amber edge light. */
+@media (min-width: 861px) and (hover: hover) {
+  #screen-hub .ftd-hub__main :is(.ftd-item-card, .ftd-hero-tile, .ftd-stat, .profile-stat-card, .ftd-profile-banner, .ftd-profile-mastery__block, .ftd-mission-progress, .ftd-run-trend) {
+    transition: transform 180ms cubic-bezier(.2,.8,.2,1), border-color 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+    transform-origin: center bottom;
+  }
+  #screen-hub .ftd-hub__main :is(.ftd-item-card, .ftd-hero-tile, .ftd-stat, .profile-stat-card, .ftd-profile-banner, .ftd-profile-mastery__block, .ftd-mission-progress, .ftd-run-trend):hover {
+    transform: translateY(-3px) scale(1.008);
+    border-color: color-mix(in srgb, var(--ftd-color-primary) 68%, #6a5d4b);
+    box-shadow: 0 8px 20px #0008, 0 0 16px color-mix(in srgb, var(--ftd-color-primary) 14%, transparent);
+    filter: brightness(1.07);
+  }
+  #screen-hub .ftd-profile-actions .ftd-btn:hover {
+    transform: translateY(-3px) scale(1.015);
+    box-shadow: 0 7px 0 #080909, 0 0 18px color-mix(in srgb, var(--ftd-color-primary) 28%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #screen-hub .ftd-hub__main :is(.ftd-item-card, .ftd-hero-tile, .ftd-stat, .profile-stat-card, .ftd-profile-banner, .ftd-profile-mastery__block, .ftd-mission-progress, .ftd-run-trend),
+  #screen-hub .ftd-profile-actions .ftd-btn { transition: none !important; }
+}
 #screen-hub :is(.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected) {
   position: relative;
   overflow: hidden;

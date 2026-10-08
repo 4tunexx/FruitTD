@@ -432,9 +432,8 @@ function profileMain(getStats: () => ProfileStats) {
       el('div', { class: 'ftd-profile-actions' }, [
         GameButton({ label: 'Missions', variant: 'outline', onClick: () => openScreen('MISSIONS') }),
         GameButton({ label: 'Achievements', variant: 'outline', onClick: () => openScreen('ACHIEVEMENTS') }),
-        GameButton({ label: 'Ranked', variant: 'outline', onClick: () => openScreen('RANKED') }),
-        GameButton({ label: 'Leaderboard', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
-        GameButton({ label: 'Local Co-op', variant: 'outline', onClick: () => openScreen('CO_OP') }),
+        GameButton({ label: 'Badges', variant: 'outline', onClick: () => openScreen('BADGES') }),
+        GameButton({ label: 'Rankings', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
         GameButton({ label: 'Settings', variant: 'outline', onClick: () => openScreen('SETTINGS') }),
       ]),
     );
