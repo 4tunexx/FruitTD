@@ -48,3 +48,19 @@
   box-shadow: inset 0 1px 0 #fff9cf, 0 3px 0 #090a0c;
 }
 .ftd-social__button:hover,.ftd-social__mini-button.is-accent:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* Community details keep the same legible amber and charcoal as the hub. */
+.ftd-social__mark,.ftd-social__back { border-radius:3px; box-shadow:2px 3px 0 #101113; }
+.ftd-social__nav-item,.ftd-social__button,.ftd-social__mini-button { border-radius:3px; }
+.ftd-social__panel,.ftd-social__gate,.ftd-social__post { border-radius:4px; }
+.ftd-social__notification p,.ftd-social__bubble small,.ftd-social__gate p { color:#cec3b1; }
+.ftd-social__stats div,.ftd-social__thread { background:#1a1c1f; border-color:#6b5940; }
+.ftd-social__stats strong { color:#ffe071; }
+.ftd-social__forum-form :is(input,textarea):focus-visible,.ftd-social__compose textarea:focus-visible { border-color:#ffe071; outline:2px solid #ffe071; outline-offset:2px; }
+.ftd-social__post h3 { color:#ffda65; }
+.ftd-social__reply { border-left-color:#f48120; background:#34291e; }
+.ftd-social__nav-item.is-active { position:relative; overflow:hidden; }
+.ftd-social__nav-item.is-active::after { content:''; position:absolute; inset:-40% auto -40% -35%; width:24%; background:#fff7c044; transform:skewX(-18deg); animation:ftd-social-shine 3.8s ease-in-out infinite; pointer-events:none; }
+@keyframes ftd-social-shine { 0%,65% { left:-35%; } 95%,100% { left:130%; } }
+@media (prefers-reduced-motion:reduce) { .ftd-social__nav-item.is-active::after { animation:none; display:none; } }
+html[data-ftd-motion='reduced'] .ftd-social__nav-item.is-active::after { animation:none; display:none; }
