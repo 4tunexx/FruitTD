@@ -334,5 +334,10 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
   renderFriends();
   const endLoading = beginLoading(noticeHost, 'Loading friends, notifications and conversations…');
   void Promise.all([loadFriends(), loadNotifications(), loadForum()]).catch((error) => message(noticeHost, error instanceof Error ? error.message : 'Social services are temporarily unavailable.', true)).finally(endLoading);
+  const activityPollTimer = setInterval(() => {
+    if (!root.isConnected) { clearInterval(activityPollTimer); return; }
+    void loadNotifications().catch(() => {});
+  }, 15_000);
+  (activityPollTimer as unknown as { unref?: () => void }).unref?.();
 }
 import './social.css';
