@@ -2,6 +2,7 @@ import { HEROES, heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } fr
 import { SKILLS, emptySkills, type SkillId, type SkillMap } from './skills';
 import { getTowerProgression, syncTowerProgression } from './towerProgression';
 import { HERO_PERKS, type HeroPerkId } from './heroProgression';
+import { emptyHeroAbilityLoadouts, emptyHeroAbilityRanks, normaliseHeroAbilityLoadouts } from './heroAbilities';
 import { heroesUnlockedByJijuLevel } from './progression/heroMilestones';
 import { purchaseHeroAtomic } from './progression/heroStatus';
 import { sanitizeCampaignProgress, type CampaignProgress } from './campaign';
@@ -35,6 +36,8 @@ export interface SaveData {
   mode: GameMode;
   campaignProgress: CampaignProgress;
   heroPerkRanks?: HeroPerkRanks;
+  heroAbilityRanks?: Record<string, number>;
+  heroAbilityLoadouts?: Record<HeroId, string[]>;
   vipStatus?: 'none' | 'bronze' | 'silver' | 'gold'; // P1-2: VIP tier
   /**
    * Monotonic write counter. Spendable balances (coins, gems, skill points)
@@ -72,7 +75,7 @@ export function defaultSave(): SaveData {
     hero:'jiju', xp:emptyXp(), ownedHeroes:['jiju'], towerXp:0, towerLifetimeXp:0,
     highScore:0, rankedScore:0, bestWave:1, bestCombo:0, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
     skillPoints:0, skills:emptySkills(), ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
-    heroPerkRanks:emptyPerkRanks(), vipStatus:'none',
+    heroPerkRanks:emptyPerkRanks(), heroAbilityRanks:emptyHeroAbilityRanks(), heroAbilityLoadouts:emptyHeroAbilityLoadouts(), vipStatus:'none',
     saveRevision:0, savedAt:0, campaignProgress: { unlocked: 1, cleared: [] },
   };
 }
@@ -120,6 +123,10 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.saveRevision = safeInt(data.saveRevision ?? 0, 0, 0, Number.MAX_SAFE_INTEGER);
   data.savedAt = safeInt(data.savedAt ?? 0, 0, 0, Number.MAX_SAFE_INTEGER);
   
+  if (!data.heroAbilityRanks || typeof data.heroAbilityRanks !== 'object') data.heroAbilityRanks = emptyHeroAbilityRanks();
+  const abilityRanks = emptyHeroAbilityRanks(); data.heroAbilityRanks = Object.fromEntries(Object.keys(abilityRanks).map((id) => [id, safeInt(data.heroAbilityRanks?.[id], 0, 0, 3)]));
+  data.heroAbilityLoadouts = normaliseHeroAbilityLoadouts(data.heroAbilityLoadouts);
+  for (const hero of HEROES) data.heroAbilityLoadouts[hero.id] = data.heroAbilityLoadouts[hero.id].filter((id) => (data.heroAbilityRanks?.[id] ?? 0) > 0 || (hero.id === 'jiju' && id === 'jiju-1'));
   if (!data.heroPerkRanks || typeof data.heroPerkRanks !== 'object') data.heroPerkRanks = emptyPerkRanks();
   for (const hero of HEROES) {
     if (!data.heroPerkRanks[hero.id]) data.heroPerkRanks[hero.id] = {};

@@ -7,6 +7,7 @@ import { MODE_INFO, modeRules } from '../game/modes';
 import { WALL_SKINS, loadSave, writeSave, type GameMode, type SaveData } from '../game/save';
 import { findSlicer } from '../game/slicers';
 import { SKILLS, type SkillId } from '../game/skills';
+import { heroAbility } from '../game/heroAbilities';
 import type { GameState } from '../game/state';
 import { TURRETS, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
@@ -93,6 +94,10 @@ export class Hud {
   private readonly saveLine = document.getElementById('save-line')!;
   private readonly superFill = document.getElementById('super-fill')!;
   private readonly superBtn = document.getElementById('btn-super') as HTMLButtonElement;
+  private abilityBar: HTMLElement | null = null;
+  private abilitySave: SaveData | null = null;
+  private abilityUse: ((id: string) => void) | null = null;
+  private abilityCooldowns: (() => Record<string, number>) | null = null;
   private readonly points = document.getElementById('hud-points')!;
   private readonly modeLabel = document.getElementById('player-mode')!;
   private readonly startGate = document.getElementById('hud-start')!;
@@ -154,6 +159,7 @@ export class Hud {
     }
 
     this.superBtn.addEventListener('click', () => this.onSuper?.());
+    window.setInterval(() => { if (this.abilitySave) this.refreshAbilityBar(this.abilitySave); }, 250);
 
     const nameInput = document.getElementById('name-input') as HTMLInputElement | null;
     nameInput?.addEventListener('change', () => this.onRename?.(nameInput.value.trim() || 'Slicer'));
@@ -185,6 +191,37 @@ export class Hud {
     app?.classList.toggle('sidebar-open', open);
     toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
     backdrop?.classList.toggle('hidden', !open);
+  }
+
+  mountAbilityBar(save: SaveData, onUse: (id: string) => void, cooldowns: () => Record<string, number>): void {
+    this.abilitySave = save; this.abilityUse = onUse; this.abilityCooldowns = cooldowns;
+    if (!this.abilityBar) { this.abilityBar = document.createElement('div'); this.abilityBar.className = 'hero-ability-bar'; this.abilityBar.setAttribute('aria-label', 'Equipped hero powers'); document.getElementById('resource-row')?.appendChild(this.abilityBar); }
+    this.refreshAbilityBar(save);
+  }
+
+  refreshAbilityBar(save: SaveData): void {
+    if (!this.abilityBar || !this.abilityUse) return;
+    this.abilitySave = save;
+    const equipped = save.heroAbilityLoadouts?.[save.hero] ?? [];
+    const cooldowns = this.abilityCooldowns?.() ?? {};
+    this.abilityBar.replaceChildren();
+    for (let i = 0; i < 3; i++) {
+      const id = equipped[i]; const ability = id ? heroAbility(id) : undefined;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'hero-ability-slot';
+      if (!ability) { button.disabled = true; button.textContent = `POWER ${i + 1} · EMPTY`; }
+      else {
+        const wait = Math.max(0, (cooldowns[id] ?? 0) - Date.now());
+        const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
+        button.title = `${ability.name} · Rank ${Math.max(1, rank)} · ${ability.description}`;
+        button.setAttribute('aria-label', `${ability.name}, ${wait ? `ready in ${Math.ceil(wait / 1000)} seconds` : 'ready'}`);
+        button.innerHTML = `<span class="hero-ability-slot__icon" aria-hidden="true">${ability.icon}</span><span class="hero-ability-slot__name"></span><span class="hero-ability-slot__cooldown"></span>`;
+        button.querySelector('.hero-ability-slot__name')!.textContent = ability.name;
+        button.querySelector('.hero-ability-slot__cooldown')!.textContent = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} juice` : 'READY';
+        button.disabled = wait > 0;
+        button.addEventListener('click', () => this.abilityUse?.(id));
+      }
+      this.abilityBar.appendChild(button);
+    }
   }
 
   private initSidebarMobile(): void {

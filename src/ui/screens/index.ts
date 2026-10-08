@@ -40,6 +40,8 @@ export interface ScreenHostCallbacks {
   onSellItem: (id: string) => void;
   onEquipHero: (id: HeroId) => void;
   onBuyHero: (id: HeroId) => void;
+  onToggleAbility?: (id: string) => void;
+  onUpgradeAbility?: (id: string) => void;
   getProfileStats?: () => ProfileStats;
   /** Optional lobby row for the main menu. */
   lobbyStrip?: () => HTMLElement | null;
@@ -114,7 +116,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
   resetHub();
 
   registerHubTab(homeHubTab(() => cb.onPlay(), cb.onSelectMode, () => navigation.open('CAMPAIGN')));
-  registerHubTab(heroesHubTab({ onEquip: cb.onEquipHero, onBuy: cb.onBuyHero }));
+  registerHubTab(heroesHubTab({ onEquip: cb.onEquipHero, onBuy: cb.onBuyHero, onToggleAbility: cb.onToggleAbility, onUpgradeAbility: cb.onUpgradeAbility }));
   registerHubTab(inventoryHubTab({ onEquip: cb.onEquipItem, onUnequip: cb.onUnequipItem, onSell: cb.onSellItem }));
   registerHubTab(shopHubTab({ onBuy: cb.onBuyItem }));
   registerHubTab(profileHubTab(() => cb.getProfileStats?.() ?? {}));

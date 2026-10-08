@@ -14,6 +14,7 @@ import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
 import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
 import { findSlicer, hexToNumber } from './game/slicers';
 import { SKILLS, type SkillId } from './game/skills';
+import { heroAbility } from './game/heroAbilities';
 import { SlashFx } from './game/slashfx';
 import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
@@ -328,6 +329,7 @@ hud.onRename = (name) => {
   persist();
 };
 hud.onSuper = () => trySuper();
+hud.mountAbilityBar(save, (id) => tryHeroAbility(id), () => heroAbilityReadyAt);
 
 let cloudHydrationToken: string | null = getAuthToken();
 
@@ -357,6 +359,8 @@ function applyCloudSave(remote: Record<string, any> | null): void {
     bladeSkin: cloud.bladeSkin ?? merged.bladeSkin,
     wallSkin: cloud.wallSkin ?? merged.wallSkin,
     heroPerkRanks: cloud.heroPerkRanks ?? merged.heroPerkRanks,
+    heroAbilityRanks: cloud.heroAbilityRanks ?? merged.heroAbilityRanks,
+    heroAbilityLoadouts: cloud.heroAbilityLoadouts ?? merged.heroAbilityLoadouts,
     vipStatus: cloud.vipStatus ?? merged.vipStatus,
   } : merged);
   syncTowerProgression(save.towerXp, save.towerLifetimeXp);
@@ -382,6 +386,7 @@ function applyEquippedBlade(): void {
 function persist(): void {
   rewardSavePending = false;
   save.hero = state.hero;
+  hud.refreshAbilityBar(save);
   // Hero XP is owned by the reward pipeline (applyRewards writes save.xp).
   // persist() must never copy match state back over it, or a stale
   // state.heroXp could silently roll saved progression backwards.
@@ -1315,6 +1320,36 @@ function resolveSlash(slash: Slash): void {
   }
 }
 
+const heroAbilityReadyAt: Record<string, number> = {};
+function tryHeroAbility(id: string): void {
+  const ability = heroAbility(id);
+  const loadout = save.heroAbilityLoadouts?.[state.hero] ?? [];
+  if (!ability || !loadout.includes(id) || !navigation.canInteract() || !state.running) return;
+  if ((heroAbilityReadyAt[id] ?? 0) > Date.now()) { sfx.denied(); return; }
+  if (state.superJuice < ability.juiceCost) { toast(state, 'Need more juice', 1.4); sfx.denied(); return; }
+  state.superJuice -= ability.juiceCost;
+  heroAbilityReadyAt[id] = Date.now() + ability.cooldownMs;
+  const swipe = new Vector3(0, 0.4, 1);
+  const living = fruits.fruits.filter((fruit) => fruit.alive);
+  const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
+  const damage = ability.damage + Math.max(0, rank - 1) * 8 + state.heroLevel * 1.5;
+  let targets = living;
+  if (ability.effect === 'pierce') targets = [...living].sort((a, b) => a.group.position.z - b.group.position.z).slice(0, Math.max(1, Math.ceil(living.length * 0.4)));
+  else if (ability.effect === 'burst') targets = living.filter((fruit) => Math.abs(fruit.group.position.x) < 3.2);
+  else if (ability.effect === 'bloom') targets = living.filter((fruit) => Math.abs(fruit.group.position.x) < 2.4 || Math.abs(fruit.group.position.z) < 3);
+  renderer.impulseShake(ability.effect === 'shock' ? 1.4 : 0.8);
+  toast(state, ability.name.toUpperCase(), 1.3);
+  sfx.blitzStart();
+  emit({ type: 'super' });
+  for (const fruit of targets) {
+    const tint = ability.effect === 'frost' ? 0x7dd3fc : ability.hero === 'tripos' ? 0xf472b6 : heroDef(state.hero).color;
+    slashFx.spawn(fruit.group.position.x, fruit.group.position.z, tint);
+    if (ability.effect === 'frost') fruit.brittle = Math.max(fruit.brittle, 2);
+    if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2);
+  }
+  hud.refreshAbilityBar(save);
+}
+
 function trySuper(): void {
   if (!navigation.canInteract() || !state.running || state.superJuice < 100) return;
   state.superJuice = 0;
@@ -2017,6 +2052,24 @@ installGameScreens({
   onEquipHero: (id) => {
     selectHero(id);
     refreshCurrentScreen();
+  },
+  onToggleAbility: (id) => {
+    if (getAuthToken()) { void performSignedInCatalogueAction('equip-ability', id); return; }
+    const ability = heroAbility(id); if (!ability || !save.ownedHeroes.includes(ability.hero) || heroXpToLevel(save.xp[ability.hero] ?? 0) < ability.unlockLevel) return;
+    const equipped = save.heroAbilityLoadouts?.[ability.hero] ?? [];
+    if (!equipped.includes(id) && equipped.length >= 3) { toast(state, 'Choose up to three powers', 1.8); sfx.denied(); return; }
+    save.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] };
+    if ((save.heroAbilityRanks?.[id] ?? 0) < 1 && id !== 'jiju-1') { sfx.denied(); return; }
+    save.heroAbilityLoadouts[ability.hero] = equipped.includes(id) ? equipped.filter((item) => item !== id) : [...equipped, id];
+    persist(); refreshCurrentScreen();
+  },
+  onUpgradeAbility: (id) => {
+    if (getAuthToken()) { void performSignedInCatalogueAction('buy-ability', id); return; }
+    const ability = heroAbility(id); if (!ability || !save.ownedHeroes.includes(ability.hero) || heroXpToLevel(save.xp[ability.hero] ?? 0) < ability.unlockLevel || save.skillPoints < 1 || (save.heroAbilityRanks?.[id] ?? 0) >= 3) { sfx.denied(); return; }
+    const level = heroXpToLevel(save.xp[ability.hero] ?? 0); if (level < ability.unlockLevel) { sfx.denied(); return; }
+    save.skillPoints -= 1; save.heroAbilityRanks ??= {}; save.heroAbilityRanks[id] = (save.heroAbilityRanks[id] ?? 0) + 1;
+    if (save.heroAbilityRanks[id] === 1 && (save.heroAbilityLoadouts?.[ability.hero] ?? []).length < 3) { save.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] }; save.heroAbilityLoadouts[ability.hero] = [...(save.heroAbilityLoadouts[ability.hero] ?? []), id]; }
+    persist(); refreshCurrentScreen(); sfx.unlockItem();
   },
   onBuyHero: (id) => {
     hud.onHeroPurchase?.(id);

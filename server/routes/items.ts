@@ -8,6 +8,8 @@ import { HEROES, type HeroId } from '../../src/game/heroes';
 import { canEquipHero, purchaseHeroAtomic } from '../../src/game/progression/heroStatus';
 import type { CatalogSlicer } from '../../src/game/slicers';
 import { SKILLS } from '../../src/game/skills';
+import { heroAbility } from '../../src/game/heroAbilities';
+import { heroXpToLevel } from '../../src/game/heroes';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 type ItemAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill';
@@ -45,7 +47,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
 
       const action = req.body?.action as ItemAction;
       const id = req.body?.id;
-      if (!['buy', 'equip', 'unequip', 'sell', 'buy-vip', 'buy-skill'].includes(action) || typeof id !== 'string' || id.length > 120) {
+      if (!['buy', 'equip', 'unequip', 'sell', 'buy-vip', 'buy-skill', 'buy-ability', 'equip-ability'].includes(action) || typeof id !== 'string' || id.length > 120) {
         return res.status(400).json({ success: false, error: 'Invalid gear action' });
       }
 
@@ -54,7 +56,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith('hero:') ? id.slice(5) as HeroId : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
-      if (!['buy-vip', 'buy-skill'].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: 'Gear not found' });
+      if (!['buy-vip', 'buy-skill', 'buy-ability', 'equip-ability'].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: 'Gear not found' });
 
       const col = await deps.collection<CloudSaveDoc>('cloud_saves');
       const current = await col.findOne({ userId: user.userId });
@@ -82,7 +84,25 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
         saveData.gems -= price;
         saveData.vipStatus = tier;
         saveData.coins = Math.min(1_000_000, (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + VIP_FALLBACK[tier].coins);
-      } else if (action === 'buy-skill') {
+      } else if (action === 'buy-ability' || action === 'equip-ability') {
+        const ability = heroAbility(id);
+        if (!ability) return res.status(404).json({ success: false, error: 'Ability not found' });
+        if (!ownedHeroes.includes(ability.hero)) return res.status(403).json({ success: false, error: 'Unlock this hero first' });
+        if (heroXpToLevel(Number(saveData.xp?.[ability.hero] || 0)) < ability.unlockLevel) return res.status(403).json({ success: false, error: `Unlocks at hero level ${ability.unlockLevel}` });
+        saveData.heroAbilityRanks ??= {};
+        saveData.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] };
+        const rank = Number(saveData.heroAbilityRanks[id] || 0);
+        if (action === 'buy-ability') {
+          if (rank >= 3) return res.status(409).json({ success: false, error: 'Ability is fully upgraded' });
+          if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: 'Not enough skill points' });
+          saveData.skillPoints -= 1; saveData.heroAbilityRanks[id] = rank + 1;
+          if (rank === 0 && (saveData.heroAbilityLoadouts[ability.hero] || []).length < 3) saveData.heroAbilityLoadouts[ability.hero] = [...(saveData.heroAbilityLoadouts[ability.hero] || []), id];
+        } else {
+          if (rank < 1 && !(ability.id === 'jiju-1' && ability.hero === 'jiju')) return res.status(403).json({ success: false, error: 'Unlock the ability first' });
+          const loadout = saveData.heroAbilityLoadouts[ability.hero] || [];
+          if (!loadout.includes(id) && loadout.length >= 3) return res.status(409).json({ success: false, error: 'Choose at most three abilities' });
+          saveData.heroAbilityLoadouts[ability.hero] = loadout.includes(id) ? loadout.filter((item: string) => item !== id) : [...loadout, id];
+        }      } else if (action === 'buy-skill') {
         const skill = SKILLS.find((entry) => entry.id === id);
         if (!skill) return res.status(404).json({ success: false, error: 'Skill not found' });
         if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: 'Not enough skill points' });

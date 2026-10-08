@@ -7034,3 +7034,19 @@ body.is-playing .match-parallax,
     top: calc(3rem + env(safe-area-inset-top, 0px));
   }
 }
+
+
+/* Equipped hero active powers */
+.hero-ability-bar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; width:100%; margin:8px 0; }
+.hero-ability-slot { min-width:0; min-height:48px; display:grid; grid-template-columns:auto 1fr; grid-template-rows:1fr auto; align-items:center; gap:0 7px; padding:6px 8px; border:1px solid rgba(147,197,253,.35); border-radius:12px; color:#eaf3ff; background:rgba(12,24,45,.9); text-align:left; }
+.hero-ability-slot:not(:disabled) { cursor:pointer; }
+.hero-ability-slot:disabled { opacity:.58; }
+.hero-ability-slot__icon { grid-row:1/3; font-size:20px; color:#93c5fd; }
+.hero-ability-slot__name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:800; }
+.hero-ability-slot__cooldown { font-size:9px; color:#a8bad1; }
+.ftd-hero-ability { display:grid; grid-template-columns:1fr auto; gap:5px 10px; }
+.ftd-hero-ability__description { grid-column:1; font-size:12px; color:#94a3b8; }
+.ftd-hero-ability__action { grid-column:2; grid-row:1/3; align-self:center; border:1px solid rgba(147,197,253,.35); border-radius:9px; padding:7px 10px; color:#eaf3ff; background:#173253; font-weight:700; }
+.ftd-hero-ability__action:disabled { opacity:.45; }
+.ftd-hero-ability.is-equipped { border-color:#60a5fa; }
+@media(max-width:520px){.hero-ability-bar{gap:4px}.hero-ability-slot{padding:5px;grid-template-columns:1fr;grid-template-rows:auto auto auto;text-align:center}.hero-ability-slot__icon{grid-row:auto}.hero-ability-slot__name{font-size:9px}.hero-ability-slot__cooldown{font-size:8px}}

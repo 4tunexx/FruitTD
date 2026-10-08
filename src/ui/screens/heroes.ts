@@ -14,11 +14,14 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import type { SaveData } from '../../game/save';
+import { HERO_ABILITIES } from '../../game/heroAbilities';
 
 export interface HeroScreenCallbacks {
   onEquip: (id: HeroId) => void;
   onBuy: (id: HeroId) => void;
   onLockedInfo?: (message: string) => void;
+  onToggleAbility?: (id: string) => void;
+  onUpgradeAbility?: (id: string) => void;
 }
 
 let selected: HeroId | null = null;
@@ -99,6 +102,23 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
     );
   }
   detail.appendChild(perks);
+  const powers = el('div', { class: 'ftd-hero-perks ftd-hero-active-abilities' }, [el('p', { class: 'ftd-hero-perks__label', text: 'ACTIVE POWERS · UP TO 3 EQUIPPED' })]);
+  for (const ability of HERO_ABILITIES.filter((item) => item.hero === heroId)) {
+    const rank = save.heroAbilityRanks?.[ability.id] ?? 0;
+    const unlocked = status.availability === 'owned' && xp.level >= ability.unlockLevel;
+    const equipped = (save.heroAbilityLoadouts?.[heroId] ?? []).includes(ability.id);
+    const row = el('div', { class: `ftd-hero-perk ftd-hero-ability${equipped ? ' is-equipped' : ''}` }, [
+      el('span', { class: 'ftd-hero-perk__name', text: `${ability.icon}  ${ability.name}` }),
+      el('span', { class: 'ftd-hero-perk__rank', text: unlocked ? `Rank ${rank}/3 · ${Math.round(ability.cooldownMs / 1000)}s` : `Lv ${ability.unlockLevel}` }),
+      el('span', { class: 'ftd-hero-ability__description', text: ability.description }),
+    ]);
+    const button = el('button', { type: 'button', class: 'ftd-hero-ability__action', text: rank < 3 ? 'Upgrade · 1 SP' : equipped ? 'Unequip' : 'Equip' });
+    button.disabled = !unlocked || (rank < 3 && save.skillPoints < 1) || (rank === 0 && ability.id !== 'jiju-1') || (rank === 3 && !equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3);
+    button.addEventListener('click', () => rank < 3 ? cb.onUpgradeAbility?.(ability.id) : cb.onToggleAbility?.(ability.id));
+    if (rank >= 3 || ability.id === 'jiju-1') { button.textContent = equipped ? 'Unequip' : 'Equip'; button.disabled = !unlocked || (!equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3); button.onclick = () => cb.onToggleAbility?.(ability.id); }
+    row.appendChild(button); powers.appendChild(row);
+  }
+  detail.appendChild(powers);
 
   // Primary action
   const actions = el('div', { class: 'ftd-hero-detail__actions' });

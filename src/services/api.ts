@@ -426,7 +426,7 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
   return syncInFlight;
 }
 
-export type CatalogueAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill';
+export type CatalogueAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill' | 'buy-ability' | 'equip-ability';
 
 /** Server-authoritative shop/loadout mutation. The returned wallet replaces local state. */
 export async function performCatalogueAction(
