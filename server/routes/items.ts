@@ -8,7 +8,7 @@ import { HEROES, heroXpToLevel, type HeroId } from '../../src/game/heroes';
 import { canEquipHero, purchaseHeroAtomic } from '../../src/game/progression/heroStatus';
 import type { CatalogSlicer } from '../../src/game/slicers';
 import { SKILLS } from '../../src/game/skills';
-import { heroAbility } from '../../src/game/heroAbilities';
+import { heroAbility, MAX_HERO_ABILITY_RANK } from '../../src/game/heroAbilities';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 type ItemAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill' | 'buy-ability' | 'equip-ability';
@@ -92,7 +92,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
         saveData.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] };
         const rank = Number(saveData.heroAbilityRanks[id] || 0);
         if (action === 'buy-ability') {
-          if (rank >= 3) return res.status(409).json({ success: false, error: 'Ability is fully upgraded' });
+          if (rank >= MAX_HERO_ABILITY_RANK) return res.status(409).json({ success: false, error: 'Ability is fully upgraded' });
           if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: 'Not enough skill points' });
           saveData.skillPoints -= 1; saveData.heroAbilityRanks[id] = rank + 1;
           if (rank === 0 && (saveData.heroAbilityLoadouts[ability.hero] || []).length < 3) saveData.heroAbilityLoadouts[ability.hero] = [...(saveData.heroAbilityLoadouts[ability.hero] || []), id];

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { HERO_ABILITIES, emptyHeroAbilityLoadouts, normaliseHeroAbilityLoadouts, MAX_HERO_ABILITIES_EQUIPPED } from './heroAbilities';
+import { HERO_ABILITIES, emptyHeroAbilityLoadouts, normaliseHeroAbilityLoadouts, MAX_HERO_ABILITIES_EQUIPPED, MAX_HERO_ABILITY_RANK } from './heroAbilities';
 import { HEROES } from './heroes';
 
 test('each hero has six unique active powers with bounded three-slot loadouts', () => {
   assert.equal(HERO_ABILITIES.length, HEROES.length * 6);
+  assert.equal(MAX_HERO_ABILITY_RANK, 5);
   assert.equal(new Set(HERO_ABILITIES.map((ability) => ability.id)).size, HERO_ABILITIES.length);
   for (const hero of HEROES) assert.equal(HERO_ABILITIES.filter((ability) => ability.hero === hero.id).length, 6);
   assert.equal(emptyHeroAbilityLoadouts().jiju[0], 'jiju-1');

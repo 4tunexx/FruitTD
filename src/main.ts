@@ -14,7 +14,7 @@ import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
 import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
 import { findSlicer, hexToNumber } from './game/slicers';
 import { SKILLS, type SkillId } from './game/skills';
-import { heroAbility } from './game/heroAbilities';
+import { heroAbility, MAX_HERO_ABILITY_RANK } from './game/heroAbilities';
 import { SlashFx } from './game/slashfx';
 import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
@@ -2080,7 +2080,7 @@ installGameScreens({
   },
   onUpgradeAbility: (id) => {
     if (getAuthToken()) { void performSignedInCatalogueAction('buy-ability', id); return; }
-    const ability = heroAbility(id); if (!ability || !save.ownedHeroes.includes(ability.hero) || heroXpToLevel(save.xp[ability.hero] ?? 0) < ability.unlockLevel || save.skillPoints < 1 || (save.heroAbilityRanks?.[id] ?? 0) >= 3) { sfx.denied(); return; }
+    const ability = heroAbility(id); if (!ability || !save.ownedHeroes.includes(ability.hero) || heroXpToLevel(save.xp[ability.hero] ?? 0) < ability.unlockLevel || save.skillPoints < 1 || (save.heroAbilityRanks?.[id] ?? 0) >= MAX_HERO_ABILITY_RANK) { sfx.denied(); return; }
     const level = heroXpToLevel(save.xp[ability.hero] ?? 0); if (level < ability.unlockLevel) { sfx.denied(); return; }
     save.skillPoints -= 1; save.heroAbilityRanks ??= {}; save.heroAbilityRanks[id] = (save.heroAbilityRanks[id] ?? 0) + 1;
     if (save.heroAbilityRanks[id] === 1 && (save.heroAbilityLoadouts?.[ability.hero] ?? []).length < 3) { save.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] }; save.heroAbilityLoadouts[ability.hero] = [...(save.heroAbilityLoadouts[ability.hero] ?? []), id]; }

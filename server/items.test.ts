@@ -78,3 +78,53 @@ test('shop purchase, equip and unequip survive a cloud profile reload', async (t
   assert.equal(afterSale.coins, 380);
   assert.equal(afterSale.ownedSkins.includes('blade-gold'), false);
 });
+
+
+test('power upgrades spend skill points through rank five and stop at the cap', async (t) => {
+  const cloud: any = {
+    userId: user.userId,
+    saveData: { ...defaultSave(), xp: { jiju: 50000, topfu: 0, lagen: 0, tripos: 0, ki: 0 }, skillPoints: 5 },
+    revision: 1,
+    updatedAt: new Date(),
+  };
+  const cloudCollection = {
+    findOne: async ({ userId }: any) => userId === cloud.userId ? structuredClone(cloud) : null,
+    insertOne: async (doc: any) => Object.assign(cloud, structuredClone(doc)),
+    updateOne: async (filter: any, update: any) => {
+      if (filter.userId !== cloud.userId || filter.revision !== cloud.revision) return { matchedCount: 0 };
+      Object.assign(cloud, structuredClone(update.$set));
+      return { matchedCount: 1 };
+    },
+  };
+  const app = express();
+  app.use(express.json());
+  app.use('/api/items', createItemsRouter({
+    resolveUser: async () => user,
+    collection: async () => cloudCollection,
+    slicers: async () => DEFAULT_SLICERS,
+  } as any));
+  const server: Server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve())));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Failed to bind test server');
+  const base = `http://127.0.0.1:${address.port}`;
+
+  for (let rank = 1; rank <= 5; rank += 1) {
+    const response = await fetch(`${base}/api/items/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'buy-ability', id: 'jiju-1' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as any;
+    assert.equal(body.saveData.heroAbilityRanks['jiju-1'], rank);
+    assert.equal(body.saveData.skillPoints, 5 - rank);
+  }
+  const capped = await fetch(`${base}/api/items/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'buy-ability', id: 'jiju-1' }),
+  });
+  assert.equal(capped.status, 409);
+});

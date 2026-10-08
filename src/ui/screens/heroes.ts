@@ -14,7 +14,7 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import type { SaveData } from '../../game/save';
-import { HERO_ABILITIES } from '../../game/heroAbilities';
+import { renderHeroPowerTree } from './heroPowerTree';
 
 export interface HeroScreenCallbacks {
   onEquip: (id: HeroId) => void;
@@ -103,52 +103,10 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
     );
   }
   detail.appendChild(perks);
-  const powers = el('section', { class: 'ftd-hero-power-tree' }, [
-    el('div', { class: 'ftd-hero-power-tree__head' }, [
-      el('span', { class: 'ftd-hero-power-tree__eyebrow', text: 'POWER TREE' }),
-      el('p', { class: 'ftd-hero-power-tree__hint', text: 'Six unlocks · spend skill points · equip up to three' }),
-    ]),
-  ]);
-  const nodes = el('ol', { class: 'ftd-hero-power-tree__nodes' });
-  const heroAbilities = HERO_ABILITIES.filter((item) => item.hero === heroId);
-  heroAbilities.forEach((ability, index) => {
-    const rank = save.heroAbilityRanks?.[ability.id] ?? 0;
-    const unlocked = status.availability === 'owned' && xp.level >= ability.unlockLevel;
-    const equipped = (save.heroAbilityLoadouts?.[heroId] ?? []).includes(ability.id);
-    const state = !unlocked ? `LOCKED · LV ${ability.unlockLevel}` : equipped ? 'EQUIPPED' : 'READY';
-    const actions = el('div', { class: 'ftd-power-node__actions' });
-    if (rank < 3) {
-      const upgrade = el('button', { type: 'button', class: 'ftd-power-node__action is-upgrade', text: 'UPGRADE · 1 SP' });
-      upgrade.disabled = !unlocked || save.skillPoints < 1;
-      upgrade.addEventListener('click', () => cb.onUpgradeAbility?.(ability.id));
-      actions.appendChild(upgrade);
-    }
-    const canEquip = rank > 0 || ability.id === 'jiju-1';
-    const toggle = el('button', { type: 'button', class: 'ftd-power-node__action', text: equipped ? 'UNEQUIP' : 'EQUIP' });
-    toggle.disabled = !unlocked || !canEquip || (!equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3);
-    toggle.addEventListener('click', () => cb.onToggleAbility?.(ability.id));
-    actions.appendChild(toggle);
-    const pips = el('div', { class: 'ftd-power-node__rank' }, [
-      el('span', { class: 'ftd-power-node__rank-label', text: `RANK ${rank}/3` }),
-      ...Array.from({ length: 3 }, (_, pip) => el('i', { class: pip < rank ? 'is-filled' : '' })),
-    ]);
-    nodes.appendChild(el('li', { class: `ftd-power-node${unlocked ? ' is-unlocked' : ' is-locked'}${equipped ? ' is-equipped' : ''}` }, [
-      el('div', { class: 'ftd-power-node__rail' }, [
-        el('div', { class: 'ftd-power-node__badge' }, [el('img', { src: ability.iconUrl, alt: '', loading: 'lazy' })]),
-        el('span', { class: 'ftd-power-node__number', text: String(index + 1).padStart(2, '0') }),
-      ]),
-      el('div', { class: 'ftd-power-node__card' }, [
-        el('div', { class: 'ftd-power-node__top' }, [
-          el('h3', { class: 'ftd-power-node__title', text: ability.name }),
-          el('span', { class: 'ftd-power-node__state', text: state }),
-        ]),
-        el('p', { class: 'ftd-power-node__description', text: ability.description }),
-        el('div', { class: 'ftd-power-node__footer' }, [pips, actions]),
-      ]),
-    ]));
-  });
-  powers.appendChild(nodes);
-  detail.appendChild(powers);
+  detail.appendChild(renderHeroPowerTree(save, heroId, xp.level, status.availability === 'owned', {
+    onToggleAbility: cb.onToggleAbility,
+    onUpgradeAbility: cb.onUpgradeAbility,
+  }));
 
   // Primary action
   const actions = el('div', { class: 'ftd-hero-detail__actions' });

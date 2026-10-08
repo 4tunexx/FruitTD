@@ -10,6 +10,7 @@ const names:Record<HeroId,Array<[string,string,string,AbilityEffect]>>={
 };
 export const HERO_ABILITIES:HeroAbility[]=(Object.keys(names) as HeroId[]).flatMap(hero=>names[hero].map(([name,description,icon,effect],i)=>({id:hero+'-'+(i+1),hero,name,description,icon,unlockLevel:[1,5,10,15,20,25][i]!,cooldownMs:[9000,13000,16000,19000,23000,28000][i]!,juiceCost:[0,15,20,25,30,40][i]!,damage:[18,24,30,36,44,60][i]!,effect,iconUrl:`/assets/icons/sigil-${String((['jiju','topfu','lagen','tripos','ki'] as HeroId[]).indexOf(hero)*6+i+1).padStart(2,'0')}.svg`})));
 export const MAX_HERO_ABILITIES_EQUIPPED=3;
+export const MAX_HERO_ABILITY_RANK=5;
 export function heroAbility(id:string):HeroAbility|undefined{return HERO_ABILITIES.find(a=>a.id===id);}
 export function emptyHeroAbilityRanks():Record<string,number>{return Object.fromEntries(HERO_ABILITIES.map(a=>[a.id,0]));}
 export function emptyHeroAbilityLoadouts():Record<HeroId,string[]>{return {jiju:['jiju-1'],topfu:[],lagen:[],tripos:[],ki:[]};}

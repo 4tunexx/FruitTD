@@ -1,5 +1,5 @@
 import { bindArenaRating } from '../../services/pvpRating';
-import { HERO_ABILITIES } from '../../game/heroAbilities';
+import { renderHeroPowerTree } from './heroPowerTree';
 import { renderModeStats } from './modeStats';
 /**
  * Hub tab adapters — one per destination in the footer tab bar.
@@ -349,32 +349,10 @@ function heroesSub(cb: HeroScreenCallbacks) {
     }
     detail.appendChild(perks);
 
-    const activeAbilities = el('div', { class: 'ftd-hero-perks ftd-hero-active-abilities' }, [
-      el('p', { class: 'ftd-hero-perks__label', text: 'ACTIVE POWERS · UP TO 3 EQUIPPED' }),
-    ]);
-    for (const ability of HERO_ABILITIES.filter((item) => item.hero === heroId)) {
-      const rank = save.heroAbilityRanks?.[ability.id] ?? 0;
-      const unlocked = status.availability === 'owned' && xp.level >= ability.unlockLevel;
-      const equipped = (save.heroAbilityLoadouts?.[heroId] ?? []).includes(ability.id);
-      const row = el('div', { class: `ftd-hero-perk ftd-hero-ability${equipped ? ' is-equipped' : ''}` }, [
-        el('span', { class: 'ftd-hero-perk__name', text: `${ability.icon}  ${ability.name}` }),
-        el('span', { class: 'ftd-hero-perk__rank', text: unlocked ? `Rank ${rank}/3 · ${Math.round(ability.cooldownMs / 1000)}s` : `Lv ${ability.unlockLevel}` }),
-        el('span', { class: 'ftd-hero-ability__description', text: ability.description }),
-      ]);
-      const actions = el('div', { class: 'ftd-hero-ability__actions' });
-      if (rank < 3) {
-        const upgrade = el('button', { type: 'button', class: 'ftd-hero-ability__action', text: 'Upgrade · 1 SP' });
-        upgrade.disabled = !unlocked || save.skillPoints < 1;
-        upgrade.addEventListener('click', () => cb.onUpgradeAbility?.(ability.id));
-        actions.appendChild(upgrade);
-      }
-      const canEquip = rank > 0 || ability.id === 'jiju-1';
-      const toggle = el('button', { type: 'button', class: 'ftd-hero-ability__action', text: equipped ? 'Unequip' : 'Equip' });
-      toggle.disabled = !unlocked || !canEquip || (!equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3);
-      toggle.addEventListener('click', () => cb.onToggleAbility?.(ability.id));
-      actions.appendChild(toggle); row.appendChild(actions); activeAbilities.appendChild(row);
-    }
-    detail.appendChild(activeAbilities);
+    detail.appendChild(renderHeroPowerTree(save, heroId, xp.level, status.availability === 'owned', {
+      onToggleAbility: cb.onToggleAbility,
+      onUpgradeAbility: cb.onUpgradeAbility,
+    }));
 
     const actions = el('div', { class: 'ftd-hero-detail__actions' });
     if (status.availability === 'owned') {

@@ -8,6 +8,7 @@ import { WALL_SKINS, loadSave, writeSave, type GameMode, type SaveData } from '.
 import { findSlicer } from '../game/slicers';
 import { SKILLS, type SkillId } from '../game/skills';
 import { heroAbility } from '../game/heroAbilities';
+import { powerIconSource } from './powerIcons';
 import type { GameState } from '../game/state';
 import { TURRETS, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
@@ -214,7 +215,7 @@ export class Hud {
         const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
         button.title = `${ability.name} · Rank ${Math.max(1, rank)} · ${ability.description}`;
         button.setAttribute('aria-label', `${ability.name}, ${wait ? `ready in ${Math.ceil(wait / 1000)} seconds` : 'ready'}`);
-        button.innerHTML = `<span class="hero-ability-slot__icon" aria-hidden="true">${ability.icon}</span><span class="hero-ability-slot__name"></span><span class="hero-ability-slot__cooldown"></span>`;
+        button.innerHTML = `<img class="hero-ability-slot__icon" src="${powerIconSource(ability.id, ability.iconUrl)}" alt="" data-power-icon="${ability.id}" data-power-default="${ability.iconUrl}"><span class="hero-ability-slot__name"></span><span class="hero-ability-slot__cooldown"></span>`;
         button.querySelector('.hero-ability-slot__name')!.textContent = ability.name;
         button.querySelector('.hero-ability-slot__cooldown')!.textContent = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} juice` : 'READY';
         button.disabled = wait > 0;

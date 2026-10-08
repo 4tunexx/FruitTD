@@ -144,3 +144,12 @@ test('sanitiseSave does not re-equip default when user unequipped starter blade'
   assert.equal(clean.bladeSkin, '');
   assert.equal(clean.wallSkin, '');
 });
+
+
+test('ability ranks preserve five upgrade nodes and cap malformed saves', () => {
+  const save = defaultSave();
+  save.heroAbilityRanks = { 'jiju-1': 5, 'jiju-2': 99 };
+  const clean = sanitiseSave(save);
+  assert.equal(clean.heroAbilityRanks?.['jiju-1'], 5);
+  assert.equal(clean.heroAbilityRanks?.['jiju-2'], 5);
+});

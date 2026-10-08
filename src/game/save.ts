@@ -124,7 +124,7 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.savedAt = safeInt(data.savedAt ?? 0, 0, 0, Number.MAX_SAFE_INTEGER);
   
   if (!data.heroAbilityRanks || typeof data.heroAbilityRanks !== 'object') data.heroAbilityRanks = emptyHeroAbilityRanks();
-  const abilityRanks = emptyHeroAbilityRanks(); data.heroAbilityRanks = Object.fromEntries(Object.keys(abilityRanks).map((id) => [id, safeInt(data.heroAbilityRanks?.[id], 0, 0, 3)]));
+  const abilityRanks = emptyHeroAbilityRanks(); data.heroAbilityRanks = Object.fromEntries(Object.keys(abilityRanks).map((id) => [id, safeInt(data.heroAbilityRanks?.[id], 0, 0, 5)]));
   data.heroAbilityLoadouts = normaliseHeroAbilityLoadouts(data.heroAbilityLoadouts);
   for (const hero of HEROES) data.heroAbilityLoadouts[hero.id] = data.heroAbilityLoadouts[hero.id].filter((id) => (data.heroAbilityRanks?.[id] ?? 0) > 0 || (hero.id === 'jiju' && id === 'jiju-1'));
   if (!data.heroPerkRanks || typeof data.heroPerkRanks !== 'object') data.heroPerkRanks = emptyPerkRanks();
