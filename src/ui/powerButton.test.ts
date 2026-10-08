@@ -19,3 +19,16 @@ test('powers preserve their icon and node as cooldown and affordability change',
  updatePowerButton(button,'jiju-2',0,100);
  assert.equal(button.disabled,false);assert.ok(button.classList.contains('is-ready'));assert.equal(button.querySelector('img'),icon);
 });
+
+test('persistent power refresh does not accelerate the recharge animation',()=>{
+ const original=Date.now;
+ try {
+  Date.now=()=>1000;
+  const button=powerButton('jiju-1',()=>{});
+  updatePowerButton(button,'jiju-1',10000,100);
+  const delay=(button.style as any)['--recharge-delay'];
+  Date.now=()=>2000;updatePowerButton(button,'jiju-1',10000,100);
+  assert.equal((button.style as any)['--recharge-delay'],delay);
+  assert.notEqual((button.style as any)['--charge'],'0%');
+ } finally { Date.now=original; }
+});

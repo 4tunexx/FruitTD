@@ -16,7 +16,7 @@ html,body { width:100%; height:100%; overflow:hidden; overscroll-behavior:none; 
 }
 
 /* One power button in every mode: persistent portrait, timed sweep, readable cost. */
-@property --charge { syntax:'<percentage>'; inherits:false; initial-value:0%; }
+@property --charge { syntax:'<percentage>'; inherits:true; initial-value:0%; }
 .hero-ability-slot { position:relative; isolation:isolate; display:grid; grid-template-columns:1fr; grid-template-rows:32px auto auto; justify-items:center; align-content:center; gap:2px; width:58px; min-height:72px; padding:5px 3px; border:1px solid #ab8747; border-radius:8px; color:#fff0c4; background:linear-gradient(145deg,#303c36,#101916); box-shadow:0 3px 0 #030807, inset 0 1px #ffffff22; overflow:hidden; touch-action:manipulation; pointer-events:auto; }
 .hero-ability-slot__icon { z-index:1; grid-row:auto; width:30px; height:30px; border:0; padding:0; background:none; object-fit:contain; }
 .hero-ability-slot__name { z-index:1; max-width:100%; font-size:8px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

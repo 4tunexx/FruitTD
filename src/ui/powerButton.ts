@@ -17,8 +17,11 @@ export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt
   button.classList.toggle('is-ready', !button.disabled);
   button.style.setProperty('--charge', `${progress * 100}%`);
   // Negative delay resumes the same animation when an online snapshot replaces DOM.
-  button.style.setProperty('--recharge-duration', `${ability.cooldownMs}ms`);
-  button.style.setProperty('--recharge-delay', `${-progress * ability.cooldownMs}ms`);
+  if (button.dataset.readyAt !== String(readyAt)) {
+    button.dataset.readyAt = String(readyAt);
+    button.style.setProperty('--recharge-duration', `${ability.cooldownMs}ms`);
+    button.style.setProperty('--recharge-delay', `${-progress * ability.cooldownMs}ms`);
+  }
   const status = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} F` : 'READY';
   button.querySelector('.hero-ability-slot__cooldown')!.textContent = status;
   button.title = `${ability.name} · ${status} · ${ability.description}`;
