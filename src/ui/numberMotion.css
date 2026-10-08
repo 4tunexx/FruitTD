@@ -1,5 +1,6 @@
 .ftd-number-bump { transform-origin:center; animation:ftd-number-bump 470ms ease-out both; }
 :is(span,small,strong,b,em,i).ftd-number-bump { display:inline-block; }
+.ftd-number-counting { text-shadow:0 0 9px #ffb52b88,0 0 20px #f4812044; font-variant-numeric:tabular-nums; animation:ftd-number-glow 520ms ease-in-out infinite alternate; }
 @keyframes ftd-number-bump {
   0% { transform:scale(1); }
   30% { transform:translateX(-2px) scale(1.12); }
@@ -7,5 +8,10 @@
   65% { transform:translateX(-1px) scale(1.045); }
   100% { transform:translateX(0) scale(1); }
 }
+@keyframes ftd-number-glow { from { filter:brightness(1); text-shadow:0 0 5px #ffb52b66; } to { filter:brightness(1.24); text-shadow:0 0 13px #ffb52bcc,0 0 25px #f4812066; } }
 @media (prefers-reduced-motion:reduce) { .ftd-number-bump { animation:none; } }
+@media (prefers-reduced-motion:reduce) { .ftd-number-counting { animation:none; } }
 html[data-ftd-motion='reduced'] .ftd-number-bump { animation:none; }
+html[data-ftd-motion='full'] .ftd-number-bump { animation:ftd-number-bump 470ms ease-out both !important; }
+html[data-ftd-motion='reduced'] .ftd-number-counting { animation:none; text-shadow:none; filter:none; }
+html[data-ftd-motion='full'] .ftd-number-counting { animation:ftd-number-glow 520ms ease-in-out infinite alternate !important; }

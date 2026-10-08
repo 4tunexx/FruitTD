@@ -13,7 +13,7 @@ import { renderLeaderboards } from './leaderboards';
 
 function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>): void {
   const actions = el('div', { class: 'ftd-hub-context__actions' }, links.map(({ label, open }) => GameButton({ label, variant: 'outline', block: true, onClick: open })));
-  root.appendChild(el('aside', { class: 'ftd-hub-context' }, [
+  root.appendChild(el('aside', { class: 'ftd-hub-context ftd-hub-context--entering' }, [
     el('p', { class: 'ftd-hub-context__eyebrow', text: eyebrow }),
     el('h2', { text: title }),
     el('p', { text: body }),
@@ -99,7 +99,8 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
       const hub = root.closest('.ftd-hub');
       const show = (view: string) => {
         const title = view === 'badges' ? 'Badges' : view === 'achievements' ? 'Achievements' : view === 'ranks' ? 'Ranked History' : 'Missions';
-        const pageTitle = hub?.querySelector<HTMLElement>('.ftd-hub__main .ftd-hub-page-heading h1');
+        const pageTitle = hub?.querySelector<HTMLElement>('.ftd-hub-legacy__header')?.querySelector<HTMLElement>('h1')
+          ?? hub?.querySelector<HTMLElement>('.ftd-hub-page-heading')?.querySelector<HTMLElement>('h1');
         if (pageTitle) pageTitle.textContent = title;
         const panel = hub?.querySelector<HTMLElement>('.ftd-hub__sub .ftd-hub-panel-content') ?? root;
         panel.replaceChildren();
@@ -108,8 +109,9 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
         else if (view === 'achievements') context(panel, 'CAREER', 'Achievements', `Your ${save.games ?? 0} finished runs count toward combat milestones.`, [route('Missions', 'MISSIONS'), route('Profile', 'PROFILE')]);
         else context(panel, 'FIELD ORDERS', 'Missions', 'Complete the objectives shown on the left and claim available rewards.', [route('Achievements', 'ACHIEVEMENTS'), route('Arena', 'ARENA')]);
       };
-      const tabs = hub?.querySelectorAll<HTMLButtonElement>('.quests-subtabs .subtab');
-      show(root.closest('.ftd-hub')?.querySelector<HTMLButtonElement>('.quests-subtabs .subtab.is-active')?.dataset.sub || 'missions');
+      const tabs = hub?.querySelector('.quests-subtabs')?.querySelectorAll<HTMLButtonElement>('.subtab');
+      const activeSubtab = Array.from(tabs ?? []).find((button) => button.classList.contains('is-active'));
+      show(activeSubtab?.dataset.sub || 'missions');
       tabs?.forEach((button) => {
         if (button.dataset.hubContextBound === 'true') return;
         button.dataset.hubContextBound = 'true';

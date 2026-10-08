@@ -1292,14 +1292,41 @@ export class Hud {
   // QUESTS (MISSIONS & ACHIEVEMENTS)
   // ══════════════════════════════════════════════════════════════════════════
   private initQuestsSubtabs(): void {
+    document.querySelectorAll<HTMLElement>('.quests-subtabs').forEach((tabBar) => {
+      tabBar.setAttribute('role', 'tablist');
+      tabBar.setAttribute('aria-label', 'Career pages');
+    });
     document.querySelectorAll<HTMLButtonElement>('.quests-subtabs .subtab').forEach((btn) => {
+      const target = btn.dataset.sub;
+      if (target) {
+        btn.id ||= `quests-tab-${target}`;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-controls', `subpage-${target}`);
+        btn.setAttribute('aria-selected', String(btn.classList.contains('is-active')));
+      }
       btn.addEventListener('click', () => {
         const target = btn.dataset.sub;
+        if (!target) return;
+        const tabs = [...document.querySelectorAll<HTMLButtonElement>('.quests-subtabs .subtab')];
+        const previousIndex = tabs.findIndex((tab) => tab.classList.contains('is-active'));
+        const targetIndex = tabs.indexOf(btn);
+        const direction = targetIndex >= previousIndex ? 'forward' : 'back';
         document.querySelectorAll('.quests-subtabs .subtab').forEach((other) => {
           other.classList.toggle('is-active', other === btn);
+          other.setAttribute('aria-selected', String(other === btn));
         });
         document.querySelectorAll('.quests-subcontent').forEach((el) => {
-          el.classList.toggle('hidden', el.id !== `subpage-${target}`);
+          const active = el.id === `subpage-${target}`;
+          el.classList.toggle('hidden', !active);
+          el.setAttribute('aria-hidden', String(!active));
+          if (active) {
+            const entering = el as HTMLElement;
+            entering.classList.remove('is-entering-forward', 'is-entering-back');
+            void entering.offsetWidth;
+            const animation = `is-entering-${direction}`;
+            entering.classList.add(animation);
+            entering.addEventListener('animationend', () => entering.classList.remove(animation), { once: true });
+          }
         });
       });
     });

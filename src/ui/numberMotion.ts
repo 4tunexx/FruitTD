@@ -4,7 +4,7 @@ type CountToken = { value: number; decimals: number; grouped: boolean };
 type MotionEntry = { targets: number[]; rendered: string; frame: number; changedAt: number; bumpedAt: number };
 
 const NUMBER = /^(\s*(?:(?:Wave|Level|Lv|Stage|Score|×|x|\+|-|FR)\s*)?)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|XP|pts|coins|gems|COMBO)?)\s*$/i;
-const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel]';
+const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel]';
 let scanInstalledNumbers: ((root: Node) => void) | null = null;
 
 /** Re-scan freshly rendered screen content so every page entry counts in visibly. */
@@ -58,11 +58,17 @@ function formatCountTokens(text: string, tokens: CountToken[], values: number[])
 export function installNumberMotion(root: HTMLElement = document.body): () => void {
   const values = new WeakMap<Text, MotionEntry>();
   let stopped = false;
-  const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.ftdMotion === 'reduced';
+  // The in-game motion preference is authoritative. This lets players who
+  // explicitly chose full game motion see the count-up even when their OS has
+  // its global reduced-motion preference enabled.
+  const reduced = () => document.documentElement.dataset.ftdMotion === 'reduced';
 
   function animate(node: Text, original: string, tokens: CountToken[], from: number[], bump: boolean, changedAt: number, bumpedAt: number): void {
     const current = values.get(node);
-    if (current?.frame) cancelAnimationFrame(current.frame);
+    if (current?.frame) {
+      cancelAnimationFrame(current.frame);
+      node.parentElement?.classList.remove('ftd-number-counting', 'ftd-number-bump');
+    }
     const targets = tokens.map((token) => token.value);
     const entry: MotionEntry = { targets, rendered: node.data, frame: 0, changedAt, bumpedAt };
     values.set(node, entry);
@@ -75,16 +81,25 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
       void el?.offsetWidth;
       el?.classList.add('ftd-number-bump');
     }
+    const countElement = node.parentElement;
+    countElement?.classList.add('ftd-number-counting');
     const start = performance.now();
     const duration = bump ? 520 : 1050;
     const step = (now: number) => {
-      if (stopped || !node.isConnected || values.get(node) !== entry) return;
+      if (stopped || !node.isConnected || values.get(node) !== entry) {
+        if (values.get(node) === entry) countElement?.classList.remove('ftd-number-counting');
+        return;
+      }
       const progress = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
       entry.rendered = formatCountTokens(original, tokens, targets.map((target, index) => (from[index] ?? 0) + (target - (from[index] ?? 0)) * eased));
       node.data = entry.rendered;
       if (progress < 1) entry.frame = requestAnimationFrame(step);
-      else { entry.frame = 0; node.parentElement?.classList.remove('ftd-number-bump'); }
+      else {
+        entry.frame = 0;
+        node.parentElement?.classList.remove('ftd-number-bump');
+        countElement?.classList.remove('ftd-number-counting');
+      }
     };
     entry.frame = requestAnimationFrame(step);
   }
@@ -97,7 +112,12 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     const previous = values.get(node);
     if (previous?.rendered === text) return;
     const tokens = parseCountValues(text);
-    if (!tokens.length) { if (previous?.frame) cancelAnimationFrame(previous.frame); values.delete(node); return; }
+    if (!tokens.length) {
+      if (previous?.frame) cancelAnimationFrame(previous.frame);
+      parent.classList.remove('ftd-number-counting', 'ftd-number-bump');
+      values.delete(node);
+      return;
+    }
     const now = performance.now();
     const targets = tokens.map((token) => token.value);
     if (previous && previous.targets.length === targets.length && previous.targets.every((target, index) => target === targets[index])) {
@@ -110,6 +130,7 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     // live instead of restarting a count-up that can never finish.
     if (previous && now - previous.changedAt < 120) {
       if (previous.frame) cancelAnimationFrame(previous.frame);
+      parent.classList.remove('ftd-number-counting');
       values.set(node, { targets, rendered: text, frame: 0, changedAt: now, bumpedAt: bump ? now : previous.bumpedAt });
       if (bump && !reduced()) {
         parent.classList.remove('ftd-number-bump');

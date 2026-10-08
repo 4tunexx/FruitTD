@@ -575,29 +575,29 @@
 
               <!-- ── Quests & Achievements page ── -->
               <section id="page-quests" class="menu-page hidden">
-                <div class="quests-subtabs">
-                  <button class="subtab is-active" data-sub="missions">Missions</button>
-                  <button class="subtab" data-sub="achievements">Achievements</button>
-                  <button class="subtab" data-sub="badges">Badges</button>
-                  <button class="subtab" data-sub="ranks">Ranked History</button>
+                <div class="quests-subtabs" role="tablist" aria-label="Career pages">
+                  <button id="quests-tab-missions" class="subtab is-active" role="tab" aria-selected="true" aria-controls="subpage-missions" data-sub="missions">Missions</button>
+                  <button id="quests-tab-achievements" class="subtab" role="tab" aria-selected="false" aria-controls="subpage-achievements" data-sub="achievements">Achievements</button>
+                  <button id="quests-tab-badges" class="subtab" role="tab" aria-selected="false" aria-controls="subpage-badges" data-sub="badges">Badges</button>
+                  <button id="quests-tab-ranks" class="subtab" role="tab" aria-selected="false" aria-controls="subpage-ranks" data-sub="ranks">Ranked History</button>
                 </div>
-                <div id="subpage-missions" class="quests-subcontent">
+                <div id="subpage-missions" class="quests-subcontent" role="tabpanel" aria-labelledby="quests-tab-missions" aria-hidden="false">
                   <div class="quests-banner"><span>Daily resets at 00:00 UTC · Weekly and monthly climb with the season</span></div>
                   <div id="missions-list" class="missions-grid"></div>
                 </div>
-                <div id="subpage-achievements" class="quests-subcontent hidden">
+                <div id="subpage-achievements" class="quests-subcontent hidden" role="tabpanel" aria-labelledby="quests-tab-achievements" aria-hidden="true">
                   <div class="achievements-stats-bar">
                     <span id="ach-stats-text">Unlocked: 0 / 12</span>
                     <span id="ach-claimable-text" class="text-emerald-400 font-bold"></span>
                   </div>
                   <div id="achievements-list" class="achievements-grid"></div>
                 </div>
-                <div id="subpage-badges" class="quests-subcontent hidden">
+                <div id="subpage-badges" class="quests-subcontent hidden" role="tabpanel" aria-labelledby="quests-tab-badges" aria-hidden="true">
                   <div class="quests-banner"><span>Unlock badges from play, ranks, and admin-created requirements</span></div>
                   <div id="badges-stats-bar" class="achievements-stats-bar"><span id="badge-stats-text">Unlocked: 0</span></div>
                   <div id="badges-list" class="badges-grid"></div>
                 </div>
-                <div id="subpage-ranks" class="quests-subcontent hidden">
+                <div id="subpage-ranks" class="quests-subcontent hidden" role="tabpanel" aria-labelledby="quests-tab-ranks" aria-hidden="true">
                   <div class="quests-banner"><span>Historical solo Ranked records. Current PvP rating and tiers are in Ranked PvP.</span></div>
                   <div id="rank-current-card" class="rank-current-card"></div>
                   <div id="rank-tiers-list" class="rank-tiers-list"></div>

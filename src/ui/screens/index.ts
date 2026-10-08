@@ -11,7 +11,7 @@ import './hub.css';
 import './campaign.css';
 import '../apocalypse.css';
 import { registerScreen, installScreenRouter, installNavLinks, installEscHandler } from './registry';
-import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubOptions } from './hub';
+import { renderHub, switchHubTab, refreshHub, animateHubEntrance, registerHubTab, resetHub, type HubOptions } from './hub';
 import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab, coopHubTab } from './hubTabs';
 import { menuHubTabs } from './menuHubTabs';
 import { navigation, type NavState } from '../../game/navigation';
@@ -65,13 +65,14 @@ export function refreshCurrentScreen(): void {
   renderFor(navigation.state);
 }
 
-function renderFor(state: NavState): void {
+function renderFor(state: NavState, change?: import('../../game/navigation').NavChange): void {
   if (!callbacks) return;
   const save = callbacks.getSave();
 
   if (HUB_TAB_STATES.includes(state)) {
     const root = host('screen-hub');
     if (!root) return;
+    const wasMounted = hubMounted;
     if (!hubMounted) {
       renderHub(root, save, state, hubOptions());
       hubMounted = true;
@@ -82,6 +83,7 @@ function renderFor(state: NavState): void {
     } else {
       switchHubTab(root, save, state);
     }
+    if (wasMounted && state === 'MAIN_MENU' && change?.from === 'TITLE') animateHubEntrance(root);
     activeHubTab = state;
     if (state === 'SHOP') {
       void loadLiveConfig(true).then(() => {
@@ -138,7 +140,7 @@ export function installGameScreens(cb: ScreenHostCallbacks): void {
     registerScreen({
       id,
       elementId: 'screen-hub',
-      onEnter: () => renderFor(id),
+      onEnter: (change) => renderFor(id, change),
     });
   }
 

@@ -679,3 +679,212 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
 html[data-ftd-motion='reduced'] #screen-hub :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer, .ftd-hub-panel-content) {
   animation: none !important;
 }
+
+/* Missions, achievements and badges now use the same desktop amber-glass cards
+   and square controls as every other hub destination. */
+#screen-hub #page-quests[data-hub-legacy='true'] {
+  min-height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+#screen-hub #page-quests .quests-subtabs {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid #756449;
+  background: linear-gradient(180deg, #242529f2 82%, #24252900);
+}
+#screen-hub #page-quests .quests-subtabs .subtab {
+  position: relative;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #625943;
+  background: #292a2ee8;
+  color: #c8c1b4;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .035em;
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+#screen-hub #page-quests .quests-subtabs .subtab:hover,
+#screen-hub #page-quests .quests-subtabs .subtab:focus-visible { transform: translateY(-2px); border-color: #d29a43; color: #fff0cf; outline: none; }
+#screen-hub #page-quests .quests-subtabs .subtab.is-active {
+  overflow: hidden;
+  border-color: #ffe18a;
+  background: linear-gradient(110deg, #ffe653, #ffc52e 58%, #ff9419) !important;
+  color: #21170b !important;
+  box-shadow: inset 0 1px #fff8ca, inset 0 -2px #c96d14, 0 3px 0 #0b0b0c, 0 0 18px #ffb52b42;
+  background-size: 220% 100%;
+  animation: ftd-amber-sheen 4s ease-in-out infinite;
+}
+#screen-hub #page-quests .quests-subtabs .subtab.is-active::after,
+#screen-hub #page-quests .claim-btn:not(:disabled)::after {
+  position: absolute;
+  inset: -35% auto -35% -48%;
+  width: 28%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #fffbe0d9, transparent);
+  transform: skewX(-18deg);
+  animation: ftd-quest-sweep 3.2s ease-in-out infinite;
+}
+#screen-hub #page-quests .quests-banner {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #735a36;
+  border-left: 2px solid #f48120;
+  background: linear-gradient(105deg, #30271bea, #242529e8);
+  color: #ead9b6;
+  font-size: .76rem;
+}
+#screen-hub #page-quests :is(.missions-grid, .achievements-grid, .badges-grid) {
+  max-height: none;
+  overflow: visible;
+  padding: 0 2px 14px 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 275px), 1fr));
+  gap: 12px;
+}
+#screen-hub #page-quests .missions-grid { display: flex; flex-direction: column; }
+#screen-hub #page-quests .mission-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 275px), 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+#screen-hub #page-quests .mission-group > h3 {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid #635743;
+  border-left: 2px solid #ffb52b;
+  background: linear-gradient(100deg, #2a2925ed, #25262ae8);
+  color: #ffda74;
+  font-size: .72rem;
+  letter-spacing: .14em;
+}
+#screen-hub #page-quests .mission-group--daily > h3 { border-left-color: #f48120; color: #ffd18a; background: linear-gradient(100deg, #34291fed, #25262ae8); }
+#screen-hub #page-quests .mission-group > h3 span { color: #f7e6c2; font-variant-numeric: tabular-nums; }
+#screen-hub #page-quests :is(.mission-card, .ach-card, .badge-card, .rank-current-card, .rank-tier-row) {
+  position: relative;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #5d5548;
+  background: linear-gradient(145deg, #303136ed, #222327f2);
+  box-shadow: inset 0 1px #ffffff0b, 0 5px 12px #0003;
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), border-color 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+#screen-hub #page-quests :is(.mission-card, .ach-card, .badge-card, .rank-current-card, .rank-tier-row):hover {
+  transform: translateY(-3px);
+  border-color: #bf8737;
+  box-shadow: inset 0 1px #ffffff12, 0 10px 22px #0007, 0 0 16px #f481201c;
+  filter: brightness(1.06);
+}
+#screen-hub #page-quests :is(.mission-title, .ach-title) { color: #f5e8ce; font-size: .9rem; font-weight: 900; }
+#screen-hub #page-quests :is(.mission-desc, .ach-desc) { color: #c1baad; font-size: .75rem; line-height: 1.45; }
+#screen-hub #page-quests :is(.mission-icon, .ach-icon) {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #796548;
+  background: linear-gradient(145deg, #3b3328, #242529);
+  color: #ffca45;
+}
+#screen-hub #page-quests .ach-card.is-unlocked,
+#screen-hub #page-quests .badge-card.is-unlocked { border-color: #a77b35; background: linear-gradient(145deg, #393123ed, #242327f2); }
+#screen-hub #page-quests .badge-rarity { color: #ffc857; letter-spacing: .12em; }
+#screen-hub #page-quests .achievements-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #625943;
+  background: #292a2de8;
+  color: #f2dcae;
+  font-size: .78rem;
+  font-weight: 850;
+}
+#screen-hub #page-quests .achievements-stats-bar .text-emerald-400 { color: #ffc64a; }
+#screen-hub #page-quests .bar-track {
+  height: 7px;
+  border: 1px solid #544d41;
+  background: #17181a;
+  overflow: hidden;
+}
+#screen-hub #page-quests .bar-fill {
+  transform-origin: left center;
+  background: linear-gradient(90deg, #f48120, #ffca28 72%, #ffe783);
+  box-shadow: 0 0 12px #f4812055;
+  animation: ftd-quest-progress .75s cubic-bezier(.2,.8,.2,1) both;
+}
+#screen-hub #page-quests .bar-fill--amber { background: linear-gradient(90deg, #f48120, #ffca28 72%, #ffe783); }
+#screen-hub #page-quests .reward-badge { color: #ffdc78; font-size: .72rem; font-weight: 850; }
+#screen-hub #page-quests .mission-type-pill { border: 1px solid #6c5c43; background: #35312a; color: #eecb85; }
+#screen-hub #page-quests .mission-type-pill--daily { border-color: #9c672f; background: #392b20; color: #ffd196; }
+#screen-hub #page-quests .mission-type-pill--main { border-color: #74603c; background: #302b21; color: #f2d791; }
+#screen-hub #page-quests .claim-btn:not(:disabled) {
+  position: relative;
+  overflow: hidden;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #ffe38c;
+  background: linear-gradient(110deg, #ffe653, #ffc52e 58%, #ff9419);
+  color: #21170b;
+  font-size: .7rem;
+  font-weight: 950;
+  box-shadow: inset 0 1px #fff8ca, inset 0 -2px #c96d14, 0 3px 0 #0b0b0c;
+}
+#screen-hub #page-quests .claim-btn:disabled { border: 1px solid #524d44; background: #2b2c30; color: #a9a397; box-shadow: none; }
+#screen-hub #page-quests .quests-subcontent.is-entering-forward,
+#screen-hub #page-quests .quests-subcontent.is-entering-back { animation: ftd-quest-view-slide 420ms cubic-bezier(.2,.82,.22,1) both; }
+#screen-hub .ftd-hub__sub .ftd-hub-context--entering { animation: ftd-context-slide-in 360ms cubic-bezier(.2,.82,.22,1) both; }
+
+@keyframes ftd-quest-sweep { 0%, 60% { left: -48%; opacity: 0; } 70% { opacity: .95; } 100% { left: 135%; opacity: 0; } }
+@keyframes ftd-quest-progress { from { transform: scaleX(.04); filter: brightness(1.5); } to { transform: scaleX(1); filter: brightness(1); } }
+@keyframes ftd-quest-view-slide {
+  from { opacity: 0; transform: translateX(26px) scale(.992); filter: brightness(.84); }
+  72% { opacity: 1; transform: translateX(-2px) scale(1.002); filter: brightness(1.06); }
+  to { opacity: 1; transform: translateX(0) scale(1); filter: brightness(1); }
+}
+@keyframes ftd-context-slide-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+
+/* Use the game's motion preference as the single switch. A full-motion game
+   theme keeps these requested transitions even if the OS has reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-ftd-motion='full'] #screen-hub.is-arriving .ftd-hub__header { animation: ftd-hub-drop-in 680ms cubic-bezier(.18,.78,.24,1) both !important; }
+  html[data-ftd-motion='full'] #screen-hub.is-arriving .ftd-hub__main { animation: ftd-hub-slide-left 720ms cubic-bezier(.18,.78,.24,1) 70ms both !important; }
+  html[data-ftd-motion='full'] #screen-hub.is-arriving .ftd-hub__sub:not(.is-empty) { animation: ftd-hub-slide-right 720ms cubic-bezier(.18,.78,.24,1) 130ms both !important; }
+  html[data-ftd-motion='full'] #screen-hub.is-arriving .ftd-hub__footer { animation: ftd-hub-rise-in 650ms cubic-bezier(.18,.78,.24,1) 100ms both !important; }
+  html[data-ftd-motion='full'] #screen-hub .ftd-hub-panel-content.is-sliding-in-forward { animation: ftd-hub-page-arrive-forward 440ms cubic-bezier(.2,.82,.22,1) both !important; }
+  html[data-ftd-motion='full'] #screen-hub .ftd-hub-panel-content.is-sliding-in-back { animation: ftd-hub-page-arrive-back 440ms cubic-bezier(.2,.82,.22,1) both !important; }
+  html[data-ftd-motion='full'] #screen-hub #page-quests .quests-subcontent.is-entering-forward,
+  html[data-ftd-motion='full'] #screen-hub #page-quests .quests-subcontent.is-entering-back { animation: ftd-quest-view-slide 420ms cubic-bezier(.2,.82,.22,1) both !important; }
+  html[data-ftd-motion='full'] #screen-hub .ftd-hub__sub .ftd-hub-context--entering { animation: ftd-context-slide-in 360ms cubic-bezier(.2,.82,.22,1) both !important; }
+  html[data-ftd-motion='full'] #screen-hub :is(.ftd-hub-tab.is-active, .ftd-mode-card.is-active, .ftd-catbar__tab.is-active,
+    .ftd-duel-tabs button.is-active, .ftd-duel-icon-button.is-active, .ftd-stage.is-selected, .ftd-social__nav-item.is-active,
+    #page-quests .subtab.is-active) { animation: ftd-amber-sheen 4s ease-in-out infinite !important; }
+  html[data-ftd-motion='full'] #screen-hub :is(.ftd-hub-tab.is-active, .ftd-mode-card.is-active)::after { animation: ftd-gold-shine 2.8s ease-in-out infinite !important; }
+  html[data-ftd-motion='full'] #screen-hub :is(.ftd-catbar__tab.is-active, .ftd-duel-tabs button.is-active,
+    .ftd-duel-icon-button.is-active, .ftd-stage.is-selected)::after { animation: ftd-selected-sweep 3.8s ease-in-out infinite !important; }
+  html[data-ftd-motion='full'] #screen-hub .ftd-social__nav-item.is-active::after { animation: ftd-social-shine 3.8s ease-in-out infinite !important; }
+  html[data-ftd-motion='full'] #screen-hub #page-quests .quests-subtabs .subtab.is-active::after,
+  html[data-ftd-motion='full'] #screen-hub #page-quests .claim-btn:not(:disabled)::after { animation: ftd-quest-sweep 3.2s ease-in-out infinite !important; }
+  html[data-ftd-motion='full'] #screen-hub .ftd-mode-stats .ftd-score-chart__plot i { animation: ftd-profile-chart-charge 820ms cubic-bezier(.2,.8,.2,1) var(--bar-delay,0ms) both !important; }
+}
+
+html[data-ftd-motion='reduced'] #screen-hub #page-quests :is(.quests-subcontent.is-entering-forward, .quests-subcontent.is-entering-back),
+html[data-ftd-motion='reduced'] #screen-hub .ftd-hub__sub .ftd-hub-context--entering,
+html[data-ftd-motion='reduced'] #screen-hub #page-quests .quests-subtabs .subtab.is-active::after,
+html[data-ftd-motion='reduced'] #screen-hub #page-quests .claim-btn:not(:disabled)::after,
+html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: none !important; }

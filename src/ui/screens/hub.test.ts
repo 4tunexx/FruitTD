@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import { defaultSave, type SaveData } from '../../game/save';
 import { navigation } from '../../game/navigation';
 import { resetRegistry, registerScreen, installScreenRouter, openScreen } from './registry';
-import { renderHub, switchHubTab, refreshHub, registerHubTab, resetHub, type HubTab } from './hub';
+import { renderHub, switchHubTab, refreshHub, animateHubEntrance, registerHubTab, resetHub, type HubTab } from './hub';
 import { homeHubTab, profileHubTab, shopHubTab, inventoryHubTab, heroesHubTab } from './hubTabs';
 import { menuHubTabs } from './menuHubTabs';
 import { renderSettings } from './settings';
@@ -470,6 +470,79 @@ test('desktop edge arrows reveal only their own chrome panel and preserve mobile
   assert.equal(header.inert, false);
   assert.equal(footer.inert, false);
   window.innerWidth = oldWidth;
+});
+
+test('hub entrance replays on return and lets the edge chrome tuck away afterward', () => {
+  const root = host();
+  root.classList.add('ftd-hub');
+  root.classList.add('is-chrome-auto-hidden');
+  root.append(document.createElement('header'), document.createElement('main'), document.createElement('nav'));
+  root.children[0]!.className = 'ftd-hub__header';
+  root.children[2]!.className = 'ftd-hub__footer';
+  const timers: Array<() => void> = [];
+  const originalSetTimeout = window.setTimeout;
+  (window as any).setTimeout = (callback: () => void) => { timers.push(callback); return timers.length; };
+
+  try {
+    animateHubEntrance(root);
+    assert.equal(root.classList.contains('is-arriving'), true);
+    assert.equal(root.classList.contains('is-chrome-header-revealed'), true);
+    assert.equal(root.classList.contains('is-chrome-footer-revealed'), true);
+    timers.at(-1)?.();
+    assert.equal(root.classList.contains('is-arriving'), false);
+    assert.equal(root.classList.contains('is-chrome-header-revealed'), false);
+    assert.equal(root.classList.contains('is-chrome-footer-revealed'), false);
+  } finally {
+    (window as any).setTimeout = originalSetTimeout;
+  }
+});
+
+test('career subtab changes keep the legacy page header in sync with its content', () => {
+  const shell = host();
+  shell.classList.add('ftd-hub');
+  const main = document.createElement('main');
+  main.className = 'ftd-hub__main';
+  const header = document.createElement('header');
+  header.className = 'ftd-hub-legacy__header';
+  const title = document.createElement('h1');
+  title.textContent = 'Achievements';
+  header.appendChild(title);
+  const page = document.createElement('section');
+  page.id = 'page-quests';
+  const tabs = document.createElement('div');
+  tabs.className = 'quests-subtabs';
+  for (const [id, label] of [['achievements', 'Achievements'], ['missions', 'Missions'], ['badges', 'Badges']]) {
+    const button = document.createElement('button');
+    button.className = `subtab${id === 'achievements' ? ' is-active' : ''}`;
+    button.dataset.sub = id;
+    button.textContent = label;
+    tabs.appendChild(button);
+  }
+  page.appendChild(tabs);
+  main.append(header, page);
+  const aside = document.createElement('aside');
+  aside.className = 'ftd-hub__sub';
+  const panel = document.createElement('div');
+  panel.className = 'ftd-hub-panel-content';
+  aside.appendChild(panel);
+  shell.append(main, aside);
+  const careerTab = menuHubTabs({
+    onOpenDaily: () => undefined,
+    onToggleSound: () => undefined,
+    onLogout: () => undefined,
+    onStartCampaign: () => undefined,
+    showLobbyPage: () => undefined,
+  }).find((tab) => tab.id === 'ACHIEVEMENTS');
+  assert.ok(careerTab);
+  careerTab.renderSub?.(panel, defaultSave());
+
+  tabs.querySelectorAll<HTMLButtonElement>('.subtab')[1]!.click();
+  assert.equal(main.querySelector('h1')?.textContent, 'Missions');
+  assert.match(panel.textContent ?? '', /Complete the objectives/);
+
+  tabs.querySelectorAll<HTMLButtonElement>('.subtab')[2]!.click();
+  assert.equal(main.querySelector('h1')?.textContent, 'Badges');
+  assert.match(panel.textContent ?? '', /marks you have earned/);
 });
 
 test('refreshHub repaints in place without the slide-in animation class', () => {

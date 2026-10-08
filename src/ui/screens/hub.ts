@@ -599,16 +599,24 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   root.appendChild(body);
 
   root.appendChild(buildFooter(active, root));
-  root.classList.add('is-arriving');
   bindHubChromeReveal(root);
-  window.setTimeout(() => {
-    root.classList.remove('is-arriving');
-    applyHubChromeMode(root);
-  }, 1000);
+  animateHubEntrance(root);
 
   const tab = tabs.get(active);
   if (tab) paintTab(root, tab, save, 'none');
   lastActive = active;
+}
+
+/** Replay the four-panel dashboard entrance when a signed-in player returns. */
+export function animateHubEntrance(root: HTMLElement): void {
+  root.classList.remove('is-arriving');
+  void root.offsetWidth;
+  root.classList.add('is-arriving');
+  applyHubChromeMode(root);
+  window.setTimeout(() => {
+    root.classList.remove('is-arriving');
+    applyHubChromeMode(root);
+  }, 1000);
 }
 
 /** Switches the active tab in place: header/footer stay mounted, panels slide. */
