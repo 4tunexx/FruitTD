@@ -59,6 +59,10 @@ export interface AdminConfig {
     /** Optional favicon / app icon URL (wired to #app-favicon). */
     faviconImage?: string;
   };
+  landscapeConfig: {
+    locationName: string; skyColor: string; outerGroundColor: string; groundColor: string; groundGlowColor: string; foliageColor: string;
+    ambientLight: number; sunLight: number; foliageEnabled: boolean;
+  };
   gameplayConfig: {
     startMoney: number;
     startLives: number;
@@ -107,6 +111,10 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     logoImage: '',
     faviconImage: '',
   },
+  landscapeConfig: {
+    locationName: 'Fallen Orchard', skyColor: '#4a5f3e', outerGroundColor: '#5a8a42', groundColor: '#6fa052',
+    groundGlowColor: '#2a3a1f', foliageColor: '#3d8b3a', ambientLight: 0.92, sunLight: 0.85, foliageEnabled: true,
+  },
   gameplayConfig: {
     startMoney: 140,
     startLives: 15,
@@ -133,6 +141,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG.dailyRewards,
     vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...(src.menuConfig || {}) },
+    landscapeConfig: { ...DEFAULT_ADMIN_CONFIG.landscapeConfig, ...(src.landscapeConfig || {}) },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...(src.gameplayConfig || {}) },
     coopConfig: normalizeCoopConfig(src.coopConfig),
     pvpConfig: mergePvpConfig(src.pvpConfig),

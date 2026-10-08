@@ -38,7 +38,7 @@ import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
 import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campaign';
 
-type AdminTab = 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
+type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -300,6 +300,8 @@ export class AdminController {
       this.renderCatalogEditors(this.activeTab);
     } else if (this.activeTab === 'sprites' || this.activeTab === 'studio') {
       installMediaStudio();
+    } else if (this.activeTab === 'landscape') {
+      this.renderLandscapeEditor();
     } else if (this.activeTab === 'branding') {
       this.renderBrandingEditor();
     } else if (this.activeTab === 'economy' || this.activeTab === 'pvp') {
@@ -569,6 +571,15 @@ export class AdminController {
         favImg.style.display = 'none';
       }
     }
+  }
+
+  private renderLandscapeEditor(): void {
+    if (!this.config) return;
+    const host = document.getElementById('admin-landscape-config');
+    if (!host) return;
+    renderConfigForm(host, this.config.landscapeConfig, () => {
+      window.dispatchEvent(new CustomEvent('fruit-td-landscape-update', { detail: this.config?.landscapeConfig }));
+    });
   }
 
   private renderEconomyEditor(): void {

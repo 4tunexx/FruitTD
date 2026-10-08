@@ -42,6 +42,8 @@ export class GameRenderer {
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private lookZ = 0.4;
   private readonly composer: EffectComposer;
+  private readonly ambientLight = new AmbientLight(0xe8f4dc, 0.92);
+  private readonly keyLight = new DirectionalLight(0xfff4d8, 0.85);
 
   constructor(canvas: HTMLCanvasElement) {
     this.installCameraControls(canvas);
@@ -72,13 +74,23 @@ export class GameRenderer {
     this.camera.lookAt(0, 0.2, this.lookZ);
 
     // Lighting — ambient + key (warm sun) + fill (cool sky)
-    this.scene.add(new AmbientLight(0xe8f4dc, 0.92));
-    const key = new DirectionalLight(0xfff4d8, 0.85);
-    key.position.set(8, 22, -10);
-    this.scene.add(key);
+    this.scene.add(this.ambientLight);
+    this.keyLight.position.set(8, 22, -10);
+    this.scene.add(this.keyLight);
     const fill = new DirectionalLight(0xa8d8f0, 0.35);
     fill.position.set(-9, 14, 14);
     this.scene.add(fill);
+    window.addEventListener('fruit-td-landscape-update', (event) => {
+      const config = (event as CustomEvent<Partial<{ skyColor: string; ambientLight: number; sunLight: number }>>).detail;
+      if (!config) return;
+      if (typeof config.skyColor === 'string' && /^#[0-9a-f]{6}$/i.test(config.skyColor)) {
+        this.scene.background = new Color(config.skyColor);
+        (this.scene.fog as Fog).color.set(config.skyColor);
+        this.renderer.setClearColor(config.skyColor, 1);
+      }
+      if (Number.isFinite(config.ambientLight)) this.ambientLight.intensity = Math.max(.1, Math.min(1.5, Number(config.ambientLight)));
+      if (Number.isFinite(config.sunLight)) this.keyLight.intensity = Math.max(.1, Math.min(1.5, Number(config.sunLight)));
+    });
 
     // Post-processing: Bloom → Output
     this.composer = new EffectComposer(this.renderer);
