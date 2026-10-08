@@ -112,7 +112,7 @@ export class GameRenderer {
       this.pan(-(dx / height) * this.viewH, (dy / height) * this.viewH);
     };
     const cancelBladePointer = (pointerId: number): void => {
-      canvas.dispatchEvent(new PointerEvent('pointercancel', {
+      window.dispatchEvent(new PointerEvent('pointercancel', {
         bubbles: true,
         pointerId,
         pointerType: 'touch',
@@ -167,7 +167,7 @@ export class GameRenderer {
       const nextCenter = center(points[0], points[1]);
       const height = Math.max(1, canvas.clientHeight);
       this.zoom(((pinchDistance - nextDistance) / height) * this.viewH * 1.25);
-      panByScreen(pinchCenter.x - nextCenter.x, pinchCenter.y - nextCenter.y);
+      panByScreen(nextCenter.x - pinchCenter.x, nextCenter.y - pinchCenter.y);
       pinchDistance = nextDistance;
       pinchCenter = nextCenter;
       event.preventDefault();
