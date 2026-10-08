@@ -251,12 +251,14 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   menu.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       closeMenu();
       more.focus();
       return;
     }
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
+    event.stopPropagation();
     const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
     const index = items.indexOf(document.activeElement as HTMLButtonElement);
     const delta = event.key === 'ArrowDown' ? 1 : -1;
