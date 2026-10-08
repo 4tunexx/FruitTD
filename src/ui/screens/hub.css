@@ -1450,7 +1450,7 @@
 @keyframes ftd-hub-rise-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 
 /* Keep retired green card treatments inside the hub on the same warm glass system. */
-#screen-hub :is(.ftd-stat, .ftd-item-card, .ftd-hero-tile, .ftd-mode-card, .ftd-settings-card,
+#screen-hub :is(.ftd-stat, .ftd-item-card, .ftd-hero-tile, .ftd-settings-card,
   .ftd-briefing, .ftd-mode-stats, .ftd-loadout, .ftd-home-mode-detail, .ftd-profile-banner,
   .ftd-profile-mastery__block, .ftd-coop-lobby, .ftd-coop-lobby__area, .ftd-coop-lobby__local,
   .ftd-pvp__heading, .ftd-hub-legacy__header, .ftd-run-trend, .ftd-accuracy-summary,
@@ -1465,11 +1465,24 @@
 #screen-hub .ftd-item-card.is-unaffordable { opacity: .94; }
 #screen-hub :is(.ftd-item-card__name,.ftd-item-card__desc,.ftd-item-card__description) { color: #eee4d2; }
 #screen-hub .ftd-item-card__stats li.is-positive { color: #ffca28; }
-#screen-hub :is(.ftd-catbar button.is-active, .ftd-duel-tabs button.is-active, .ftd-stage.is-selected) {
-  color: #21170b;
-  border-color: #ffe48a;
-  background: linear-gradient(115deg, #ffe653, #ff9419);
+#screen-hub :is(.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected) {
+  position: relative;
+  overflow: hidden;
+  background-size: 220% 100%;
+  animation: ftd-selected-amber 3.8s ease-in-out infinite;
 }
+#screen-hub :is(.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected)::after {
+  position: absolute;
+  inset: -45% auto -45% -40%;
+  width: 25%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(90deg,transparent,#fff8d8a8,transparent);
+  transform: skewX(-18deg);
+  animation: ftd-selected-sweep 3.8s ease-in-out infinite;
+}
+@keyframes ftd-selected-amber { 0%,65% { background-position:100% 0; } 95%,100% { background-position:0 0; } }
+@keyframes ftd-selected-sweep { 0%,65% { left:-40%; opacity:0; } 75% { opacity:.9; } 100% { left:130%; opacity:0; } }
 #screen-hub :is(.ftd-profile-bar > i, .ftd-profile-bar--tower > i, .ftd-loadout__bar i, .ftd-mission-progress__track i) {
   background: linear-gradient(90deg, #f48120, #ffca28) !important;
 }
@@ -1503,4 +1516,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ftd-hub.is-arriving :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer) { animation: none !important; }
+  #screen-hub :is(.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected)::after { animation:none !important; }
 }

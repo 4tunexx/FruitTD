@@ -1,8 +1,10 @@
 /** Gentle shared motion for visible numeric values in menus and match HUD. */
 type CountValue = { prefix: string; suffix: string; value: number; decimals: number; grouped: boolean };
+type CountToken = { value: number; decimals: number; grouped: boolean };
+type MotionEntry = { targets: number[]; rendered: string; frame: number; changedAt: number; bumpedAt: number };
 
 const NUMBER = /^(\s*(?:(?:Wave|Level|Lv|Stage|Score|×|x|\+|-|FR)\s*)?)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|XP|pts|coins|gems|COMBO)?)\s*$/i;
-const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps';
+const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel]';
 
 export function parseCountValue(text: string): CountValue | null {
   if (text.length > 48) return null;
@@ -17,24 +19,45 @@ export function parseCountValue(text: string): CountValue | null {
   };
 }
 
-function formatCount(parsed: CountValue, value: number): string {
-  const rounded = Number(value.toFixed(parsed.decimals));
-  const digits = parsed.grouped ? rounded.toLocaleString('en-US', { minimumFractionDigits: parsed.decimals, maximumFractionDigits: parsed.decimals }) : rounded.toFixed(parsed.decimals);
-  return `${parsed.prefix}${digits}${parsed.suffix}`;
+/** Find every standalone number in a visible label, including values like 13/51 or Lv 11/100. */
+export function parseCountValues(text: string): CountToken[] {
+  if (text.length > 120 || /^\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/.test(text)) return [];
+  const tokens: CountToken[] = [];
+  const pattern = /(?<![A-Za-z0-9_])\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9_])/g;
+  for (const match of text.matchAll(pattern)) {
+    const raw = match[0];
+    const value = Number(raw.replaceAll(',', ''));
+    if (!Number.isFinite(value) || value > 1_000_000_000) continue;
+    tokens.push({ value, decimals: raw.split('.')[1]?.length ?? 0, grouped: raw.includes(',') });
+  }
+  return tokens;
+}
+
+function formatCountTokens(text: string, tokens: CountToken[], values: number[]): string {
+  let index = 0;
+  return text.replace(/(?<![A-Za-z0-9_])\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9_])/g, (raw) => {
+    const token = tokens[index];
+    const value = values[index++];
+    if (!token || value === undefined) return raw;
+    const rounded = Number(value.toFixed(token.decimals));
+    return token.grouped
+      ? rounded.toLocaleString('en-US', { minimumFractionDigits: token.decimals, maximumFractionDigits: token.decimals })
+      : rounded.toFixed(token.decimals);
+  });
 }
 
 export function installNumberMotion(root: HTMLElement = document.body): () => void {
-  const values = new WeakMap<Text, { target: number; rendered: string; frame: number }>();
-  const displays = new WeakMap<Element, { target: number; changedAt: number; bumpedAt: number }>();
+  const values = new WeakMap<Text, MotionEntry>();
   let stopped = false;
   const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.ftdMotion === 'reduced';
 
-  function animate(node: Text, parsed: CountValue, from: number, bump: boolean): void {
+  function animate(node: Text, original: string, tokens: CountToken[], from: number[], bump: boolean, changedAt: number, bumpedAt: number): void {
     const current = values.get(node);
     if (current?.frame) cancelAnimationFrame(current.frame);
-    const entry = { target: parsed.value, rendered: node.data, frame: 0 };
+    const targets = tokens.map((token) => token.value);
+    const entry: MotionEntry = { targets, rendered: node.data, frame: 0, changedAt, bumpedAt };
     values.set(node, entry);
-    if (reduced() || from === parsed.value) return;
+    if (reduced() || targets.every((target, index) => target === from[index])) return;
 
     if (bump) {
       const el = node.parentElement;
@@ -49,7 +72,7 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
       if (stopped || !node.isConnected || values.get(node) !== entry) return;
       const progress = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
-      entry.rendered = formatCount(parsed, from + (parsed.value - from) * eased);
+      entry.rendered = formatCountTokens(original, tokens, targets.map((target, index) => (from[index] ?? 0) + (target - (from[index] ?? 0)) * eased));
       node.data = entry.rendered;
       if (progress < 1) entry.frame = requestAnimationFrame(step);
       else { entry.frame = 0; node.parentElement?.classList.remove('ftd-number-bump'); }
@@ -64,21 +87,21 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     const text = node.data;
     const previous = values.get(node);
     if (previous?.rendered === text) return;
-    const parsed = parseCountValue(text);
-    if (!parsed) { if (previous?.frame) cancelAnimationFrame(previous.frame); values.delete(node); return; }
+    const tokens = parseCountValues(text);
+    if (!tokens.length) { if (previous?.frame) cancelAnimationFrame(previous.frame); values.delete(node); return; }
     const now = performance.now();
-    const display = displays.get(parent);
-    if (display?.target === parsed.value) {
-      values.set(node, { target: parsed.value, rendered: text, frame: 0 });
+    const targets = tokens.map((token) => token.value);
+    if (previous && previous.targets.length === targets.length && previous.targets.every((target, index) => target === targets[index])) {
+      values.set(node, { ...previous, rendered: text, frame: previous.frame });
       return;
     }
-    const increase = !!display && parsed.value > display.target;
-    const bump = increase && (!display?.bumpedAt || now - display.bumpedAt > 300);
-    displays.set(parent, { target: parsed.value, changedAt: now, bumpedAt: bump ? now : display?.bumpedAt ?? 0 });
+    const increase = !!previous && targets.some((target, index) => target > (previous.targets[index] ?? 0));
+    const bump = increase && (!previous?.bumpedAt || now - previous.bumpedAt > 300);
     // The game HUD replaces its text on every frame. Keep those fast updates
     // live instead of restarting a count-up that can never finish.
-    if (display && now - display.changedAt < 120) {
-      values.set(node, { target: parsed.value, rendered: text, frame: 0 });
+    if (previous && now - previous.changedAt < 120) {
+      if (previous.frame) cancelAnimationFrame(previous.frame);
+      values.set(node, { targets, rendered: text, frame: 0, changedAt: now, bumpedAt: bump ? now : previous.bumpedAt });
       if (bump && !reduced()) {
         parent.classList.remove('ftd-number-bump');
         void parent.offsetWidth;
@@ -86,7 +109,7 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
       }
       return;
     }
-    animate(node, parsed, display?.target ?? 0, bump);
+    animate(node, text, tokens, previous?.targets ?? targets.map(() => 0), bump, now, bump ? now : previous?.bumpedAt ?? 0);
   }
 
   function scan(node: Node): void {

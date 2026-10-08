@@ -164,79 +164,6 @@ html[data-ftd-motion='reduced'] .ftd-score-chart__plot i { animation:none; }
 .ftd-accuracy-summary { display:flex; align-items:center; gap:20px; padding:16px 0; }
 .ftd-accuracy-summary h3 { font-size:13px; color:var(--outpost-yellow); letter-spacing:.1em; }
 
-/* Final PC palette and motion pass: remove the inherited forest green and
-   make the title and player panels share the amber glass treatment. */
-#title-screen { background-image:linear-gradient(90deg,#151618d9,#17171970 58%,#17171924),url('../assets/orchard-siege-menu.webp'); }
-#title-inner.bl-panel--title,
-.title-lore-panel,.title-tip-panel {
-  border-color:#a87539;
-  background:linear-gradient(145deg,#292b2ed0,#1b1c1fe0);
-  box-shadow:inset 0 1px #fff2d018,0 16px 38px #0008;
-  backdrop-filter:blur(18px) saturate(115%);
-}
-#title-screen .title-eyebrow,.title-logo__td { color:#ffca28; }
-#title-screen :is(.title-tip__icon svg circle,.title-tip__icon svg path) { stroke:#ffca28; }
-#title-screen .title-tip__icon svg circle { fill:#ffca281c; }
-#title-screen .title-tip__label { color:#ffca28; }
-#screen-hub :is(.ftd-hub-identity__avatar,.ftd-social__mark) { border-color:#ffca28; background:#292a2de8; color:#ffcf4b; }
-#title-screen .title-btn {
-  border-color:#766344;
-  background:linear-gradient(115deg,#34363ae8,#222428ed);
-  color:#f5e8cf;
-}
-#title-screen .title-btn--primary,
-#title-screen #title-menu .title-btn--primary {
-  position:relative;
-  overflow:hidden;
-  border-color:#fff0a0;
-  background:linear-gradient(105deg,#ffe653 0%,#ffc52e 56%,#ff9419 100%);
-  color:#21170b;
-  box-shadow:inset 0 1px #fff8ce,inset 0 -3px #ce710d,0 5px #101113,0 0 20px #ffb52b36;
-  animation:ftd-amber-sheen 4s ease-in-out infinite;
-}
-#title-screen .title-btn:hover { border-color:#ffe071; background:#403326; color:#ffe071; }
-#screen-hub :is(.ftd-btn--solid,.ftd-tone-primary,.ftd-home-mode-detail__launch,.ftd-social__button),
-#screen-hub .ftd-hub-tab.is-active {
-  background-size:220% 100%;
-  animation:ftd-amber-sheen 4s ease-in-out infinite;
-}
-#screen-hub .ftd-mode-stats .ftd-score-chart__plot i {
-  border-radius:0;
-  background:linear-gradient(180deg,#ffe653 0%,#ffbd2e 48%,#ef771d 100%);
-  box-shadow:0 0 14px #f4812055;
-  animation:ftd-profile-chart-charge 820ms cubic-bezier(.2,.8,.2,1) var(--bar-delay,0ms) both;
-}
-#screen-hub .ftd-mode-stats .ftd-score-chart__plot i::before { border-radius:0; }
-@keyframes ftd-amber-sheen {
-  0%,65% { background-position:100% 0; }
-  95%,100% { background-position:0 0; }
-}
-@keyframes ftd-profile-chart-charge {
-  0% { transform:scaleY(.025); opacity:.15; filter:brightness(.75); }
-  65% { filter:brightness(1.5); }
-  100% { transform:scaleY(1); opacity:1; filter:brightness(1); }
-}
-@media (prefers-reduced-motion:reduce) {
-  #title-screen .title-btn--primary,#screen-hub :is(.ftd-btn--solid,.ftd-tone-primary,.ftd-home-mode-detail__launch,.ftd-social__button),
-  #screen-hub .ftd-hub-tab.is-active,#screen-hub .ftd-mode-stats .ftd-score-chart__plot i { animation:none !important; }
-}
-html[data-ftd-motion='reduced'] #title-screen .title-btn--primary,
-html[data-ftd-motion='reduced'] #screen-hub :is(.ftd-btn--solid,.ftd-tone-primary,.ftd-home-mode-detail__launch,.ftd-social__button),
-html[data-ftd-motion='reduced'] #screen-hub .ftd-hub-tab.is-active,
-html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__plot i { animation:none !important; }
-
-/* The artwork sits behind genuinely translucent PC panels, including the home layout. */
-#screen-hub.ftd-hub::before {
-  background:linear-gradient(105deg,#17181bc2 0%,#17181b85 48%,#17181bb3 100%),url('../assets/orchard-siege-menu.webp') 62% center/cover no-repeat;
-  filter:blur(16px) brightness(.6) saturate(.78);
-}
-#screen-hub.ftd-hub :is(.ftd-hub__main,.ftd-hub__sub:not(.is-empty)) {
-  border-color:#a87539;
-  background:linear-gradient(145deg,#292b2db8,#1d1e21c4) !important;
-  box-shadow:inset 0 1px #fff2d01a,0 14px 34px #0006;
-  backdrop-filter:blur(20px) saturate(120%);
-}
-#screen-hub.ftd-hub.is-home .ftd-hub__main { background:linear-gradient(145deg,#292b2d9c,#1d1e21b3) !important; }
 .ftd-accuracy-summary p { font-size:12px; color:#bfb5a3; }
 .ftd-accuracy-ring { position:relative; flex-shrink:0; width:90px; height:90px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--outpost-yellow) calc(var(--accuracy)*1%),#141517 0); animation:outpost-result .5s ease-out; }
 .ftd-accuracy-ring::before { content:''; position:absolute; inset:8px; border-radius:50%; background:#292b30; }
@@ -419,3 +346,95 @@ body[data-ftd-motion='reduced'] #screen-hub.ftd-hub::before { filter:brightness(
   #modal-admin .admin-live-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   #modal-admin .admin-live-stat:first-child { grid-column:1/-1; }
 }
+
+/* Final PC palette and motion pass: remove the inherited forest green and
+   make the title and player panels share the amber glass treatment. */
+#title-screen { background-image:linear-gradient(90deg,#151618d9,#17171970 58%,#17171924),url('../assets/orchard-siege-menu.webp'); }
+#title-inner.bl-panel--title,
+.title-lore-panel,.title-tip-panel {
+  border-color:#a87539;
+  background:linear-gradient(145deg,#292b2ed0,#1b1c1fe0);
+  box-shadow:inset 0 1px #fff2d018,0 16px 38px #0008;
+  backdrop-filter:blur(18px) saturate(115%);
+}
+#title-screen .title-eyebrow,.title-logo__td { color:#ffca28; }
+#title-screen :is(.title-tip__icon svg circle,.title-tip__icon svg path) { stroke:#ffca28; }
+#title-screen .title-tip__icon svg circle { fill:#ffca281c; }
+#title-screen .title-tip__label { color:#ffca28; }
+#screen-hub :is(.ftd-hub-identity__avatar,.ftd-social__mark) { border-color:#ffca28; background:#292a2de8; color:#ffcf4b; }
+#title-screen .title-btn {
+  border-color:#766344;
+  background:linear-gradient(115deg,#34363ae8,#222428ed);
+  color:#f5e8cf;
+}
+#title-screen .title-btn--primary,
+#title-screen #title-menu .title-btn--primary {
+  position:relative;
+  overflow:hidden;
+  border-color:#fff0a0;
+  background:linear-gradient(105deg,#ffe653 0%,#ffc52e 56%,#ff9419 100%);
+  color:#21170b;
+  box-shadow:inset 0 1px #fff8ce,inset 0 -3px #ce710d,0 5px #101113,0 0 20px #ffb52b36;
+  animation:ftd-amber-sheen 4s ease-in-out infinite;
+}
+#title-screen .title-btn:hover { border-color:#ffe071; background:#403326; color:#ffe071; }
+#screen-hub :is(.ftd-hub-tab.is-active,.ftd-mode-card.is-active,.ftd-catbar__tab.is-active,
+  .ftd-duel-tabs button.is-active,.ftd-stage.is-selected) {
+  background-size:220% 100%;
+  animation:ftd-amber-sheen 4s ease-in-out infinite;
+}
+#screen-hub .ftd-mode-stats .ftd-score-chart__plot i {
+  border-radius:0;
+  background:linear-gradient(180deg,#ffe653 0%,#ffbd2e 48%,#ef771d 100%);
+  box-shadow:0 0 14px #f4812055;
+  animation:ftd-profile-chart-charge 820ms cubic-bezier(.2,.8,.2,1) var(--bar-delay,0ms) both;
+}
+#screen-hub .ftd-mode-stats .ftd-score-chart__plot i::before { border-radius:0; }
+@keyframes ftd-amber-sheen {
+  0%,65% { background-position:100% 0; }
+  95%,100% { background-position:0 0; }
+}
+@keyframes ftd-profile-chart-charge {
+  0% { transform:scaleY(.025); opacity:.15; filter:brightness(.75); }
+  65% { filter:brightness(1.5); }
+  100% { transform:scaleY(1); opacity:1; filter:brightness(1); }
+}
+@media (prefers-reduced-motion:reduce) {
+  #title-screen .title-btn--primary,
+  #screen-hub :is(.ftd-hub-tab.is-active,.ftd-mode-card.is-active,.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected),
+  #screen-hub .ftd-mode-stats .ftd-score-chart__plot i { animation:none !important; }
+}
+html[data-ftd-motion='reduced'] #title-screen .title-btn--primary,
+html[data-ftd-motion='reduced'] #screen-hub :is(.ftd-hub-tab.is-active,.ftd-mode-card.is-active,.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected),
+html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__plot i { animation:none !important; }
+
+/* The artwork sits behind genuinely translucent PC panels, including the home layout. */
+#screen-hub.ftd-hub::before {
+  z-index:0;
+  background:linear-gradient(105deg,#17181b48 0%,#17181b24 48%,#17181b52 100%),url('../assets/orchard-siege-menu.webp') 62% center/cover no-repeat;
+  filter:blur(12px) brightness(.82) saturate(1.08);
+}
+#screen-hub.ftd-hub { isolation:isolate; background:transparent !important; }
+#screen-hub.ftd-hub :is(.ftd-hub__main,.ftd-hub__sub:not(.is-empty)) {
+  border-color:#a87539;
+  background:linear-gradient(145deg,#292b2d9e,#1d1e21aa) !important;
+  box-shadow:inset 0 1px #fff2d01a,0 14px 34px #0006;
+  backdrop-filter:blur(18px) saturate(125%);
+}
+#screen-hub.ftd-hub.is-home .ftd-hub__main { background:linear-gradient(145deg,#292b2d80,#1d1e2194) !important; }
+
+/* Arena menus use the same orange glass as the rest of the hub. */
+#screen-hub .ftd-pvp:not(.is-battle) { color:#f4e8d0; background:transparent; }
+#screen-hub .ftd-pvp:not(.is-battle) :is(.ftd-pvp__heading,.ftd-pvp__queue,.ftd-pvp__result,
+  .ftd-pvp__draft,.ftd-pvp__challenge,.ftd-pvp__incoming,.ftd-pvp__bot-start,
+  .ftd-pvp__map-card,.ftd-pvp__siege-controls,.ftd-pvp__matchbar,.ftd-pvp__attackers,
+  .ftd-pvp__howto > div) {
+  border-color:#806b4a;
+  background:linear-gradient(145deg,#303237d9,#202226e6);
+  color:#f2e6cf;
+  backdrop-filter:blur(14px) saturate(118%);
+}
+#screen-hub .ftd-pvp:not(.is-battle) :is(.ftd-pvp__intro,.ftd-pvp__map-card small,.ftd-pvp__bot-start label) { color:#d0c5b3; }
+#screen-hub .ftd-pvp:not(.is-battle) .ftd-pvp__map-thumb { background:#191a1d; }
+#screen-hub .ftd-pvp:not(.is-battle) .ftd-pvp__map-thumb i { background:#303237; }
+#screen-hub .ftd-pvp:not(.is-battle) .ftd-pvp__map-thumb i.is-path { background:#c79a4b; }
