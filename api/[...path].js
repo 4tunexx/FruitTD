@@ -1457,7 +1457,7 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   }
   const [a, b] = match.players;
   const reach = 0.8;
-  const pairs = a.attackers.filter((u) => u.hp > 0).flatMap((left) => b.attackers.filter((u) => u.hp > 0).map((right) => ({ left, right, distance: Math.abs(left.progress + right.progress + 1) }))).sort((x, y) => x.distance - y.distance);
+  const pairs = a.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length).flatMap((left) => b.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length).map((right) => ({ left, right, distance: Math.abs(left.progress + right.progress + 1) }))).sort((x, y) => x.distance - y.distance);
   for (const { left, right } of pairs) {
     const oldLeft = before.get(left.id), oldRight = before.get(right.id);
     const oldSum = oldLeft + oldRight + 1, newSum = left.progress + right.progress + 1;
@@ -1472,8 +1472,8 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
     }
   }
   const damage = /* @__PURE__ */ new Map();
-  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit of team.attackers.filter((u) => u.hp > 0)) {
-    const target = enemy.attackers.filter((u) => u.hp > 0 && Math.abs(unit.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit.progress + x.progress + 1) - Math.abs(unit.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
+  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit of team.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length)) {
+    const target = enemy.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length && Math.abs(unit.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit.progress + x.progress + 1) - Math.abs(unit.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
     if (!target) continue;
     unit.fighting = true;
     unit.fightTargetId = target.id;

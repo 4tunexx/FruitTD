@@ -32,3 +32,8 @@ test('surviving squads keep attacking the tower on a timed cadence rather than d
   advancePvpMatch(m,.1,2100,config);assert.equal(m.players[0].wallHealth,config.wallHealth-25);
   advancePvpMatch(m,.1,3000,config);assert.equal(m.players[0].wallHealth,config.wallHealth-50);assert.ok(m.players[0].attackers[0]!.attackingTower);
 });
+test('queued pack members cannot fight before they visibly spawn at their keep',()=>{
+  const m=battle();m.players[0].attackers=[{id:'siege',type:'normal',hp:100,progress:config.map.pathCells.length-1}];
+  m.players[1].attackers=[{id:'queued',type:'normal',hp:100,progress:-config.map.pathCells.length-.8}];advancePvpMatch(m,.1,2000,config);
+  assert.ok(m.players[1].attackers[0]!.progress<-config.map.pathCells.length);assert.equal(m.players[1].attackers[0]!.hp,100);assert.equal(m.players[0].attackers[0]!.hp,100);assert.equal(m.players[1].attackers[0]!.fighting,false);
+});

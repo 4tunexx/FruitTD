@@ -297,7 +297,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
     }
   }
   const [a,b]=match.players;const reach=.8;
-  const pairs=a.attackers.filter(u=>u.hp>0).flatMap(left=>b.attackers.filter(u=>u.hp>0).map(right=>({left,right,distance:Math.abs(left.progress+right.progress+1)}))).sort((x,y)=>x.distance-y.distance);
+  const pairs=a.attackers.filter(u=>u.hp>0&&u.progress>=-path.length).flatMap(left=>b.attackers.filter(u=>u.hp>0&&u.progress>=-path.length).map(right=>({left,right,distance:Math.abs(left.progress+right.progress+1)}))).sort((x,y)=>x.distance-y.distance);
   for(const {left,right} of pairs){
     const oldLeft=before.get(left.id)!,oldRight=before.get(right.id)!;
     const oldSum=oldLeft+oldRight+1,newSum=left.progress+right.progress+1;
@@ -308,8 +308,8 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
     }else if(Math.abs(oldSum)<=reach&&Math.abs(newSum)<=reach+10){left.progress=oldLeft;right.progress=oldRight;}
   }
   const damage=new Map<string,number>();
-  for(const [team,enemy] of [[a,b],[b,a]] as const)for(const unit of team.attackers.filter(u=>u.hp>0)){
-    const target=enemy.attackers.filter(u=>u.hp>0&&Math.abs(unit.progress+u.progress+1)<=reach+.0001).sort((x,y)=>Math.abs(unit.progress+x.progress+1)-Math.abs(unit.progress+y.progress+1)||x.id.localeCompare(y.id))[0];
+  for(const [team,enemy] of [[a,b],[b,a]] as const)for(const unit of team.attackers.filter(u=>u.hp>0&&u.progress>=-path.length)){
+    const target=enemy.attackers.filter(u=>u.hp>0&&u.progress>=-path.length&&Math.abs(unit.progress+u.progress+1)<=reach+.0001).sort((x,y)=>Math.abs(unit.progress+x.progress+1)-Math.abs(unit.progress+y.progress+1)||x.id.localeCompare(y.id))[0];
     if(!target)continue;unit.fighting=true;unit.fightTargetId=target.id;unit.lastClashAt=Math.floor(now/300)*300;
     const hit=config.attacks[unit.type]!.wallDamage*.45*dt*(now<(enemy.rallyUntil??0)?PVP_RALLY.damageMultiplier:1);
     damage.set(target.id,(damage.get(target.id)??0)+hit);
