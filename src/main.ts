@@ -141,6 +141,7 @@ state.running = false;
 state.hero = save.hero;
 state.heroXp = save.xp[save.hero] ?? 0;
 state.heroLevel = heroXpToLevel(state.heroXp);
+const heroAbilityReadyAt: Record<string, number> = {};
 const sfx = new Sfx();
 const hud = new Hud(sfx);
 const field = new Field();
@@ -1320,7 +1321,6 @@ function resolveSlash(slash: Slash): void {
   }
 }
 
-const heroAbilityReadyAt: Record<string, number> = {};
 function tryHeroAbility(id: string): void {
   const ability = heroAbility(id);
   const loadout = save.heroAbilityLoadouts?.[state.hero] ?? [];
