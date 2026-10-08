@@ -44,6 +44,7 @@ export class GameRenderer {
   private readonly composer: EffectComposer;
 
   constructor(canvas: HTMLCanvasElement) {
+    this.installCameraControls(canvas);
     const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
     const isMobile = window.matchMedia('(max-width: 860px), (pointer: coarse)').matches;
     const isLowMemory = typeof deviceMemory === 'number' && deviceMemory <= 4;
@@ -94,6 +95,111 @@ export class GameRenderer {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+  }
+
+  private installCameraControls(canvas: HTMLCanvasElement): void {
+    type TouchPoint = { x: number; y: number };
+    const activeTouches = new Map<number, TouchPoint>();
+    let pinchDistance = 0;
+    let pinchCenter: TouchPoint | null = null;
+    let panPointer: { id: number; x: number; y: number } | null = null;
+    canvas.style.touchAction = 'none';
+
+    const distance = (a: TouchPoint, b: TouchPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
+    const center = (a: TouchPoint, b: TouchPoint): TouchPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const panByScreen = (dx: number, dy: number): void => {
+      const height = Math.max(1, canvas.clientHeight);
+      this.pan(-(dx / height) * this.viewH, (dy / height) * this.viewH);
+    };
+    const cancelBladePointer = (pointerId: number): void => {
+      canvas.dispatchEvent(new PointerEvent('pointercancel', {
+        bubbles: true,
+        pointerId,
+        pointerType: 'touch',
+        isPrimary: true,
+      }));
+    };
+
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      this.zoom(event.deltaY * 0.012);
+    }, { passive: false });
+
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+    // Desktop camera movement uses middle/right drag or Shift + left drag,
+    // leaving an ordinary left drag available for slicing.
+    canvas.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && (event.button === 1 || event.button === 2 || event.shiftKey)) {
+        panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        canvas.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      if (event.pointerType !== 'touch') return;
+      activeTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (activeTouches.size < 2) return;
+      const points = [...activeTouches.values()];
+      pinchDistance = distance(points[0], points[1]);
+      pinchCenter = center(points[0], points[1]);
+      for (const id of activeTouches.keys()) cancelBladePointer(id);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (panPointer?.id === event.pointerId) {
+        panByScreen(event.clientX - panPointer.x, event.clientY - panPointer.y);
+        panPointer.x = event.clientX;
+        panPointer.y = event.clientY;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      if (event.pointerType !== 'touch' || !activeTouches.has(event.pointerId)) return;
+      activeTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (activeTouches.size < 2 || !pinchCenter) return;
+      const points = [...activeTouches.values()];
+      const nextDistance = distance(points[0], points[1]);
+      const nextCenter = center(points[0], points[1]);
+      const height = Math.max(1, canvas.clientHeight);
+      this.zoom(((pinchDistance - nextDistance) / height) * this.viewH * 1.25);
+      panByScreen(pinchCenter.x - nextCenter.x, pinchCenter.y - nextCenter.y);
+      pinchDistance = nextDistance;
+      pinchCenter = nextCenter;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+
+    const endPointer = (event: PointerEvent): void => {
+      if (panPointer?.id === event.pointerId) {
+        panPointer = null;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+      if (!activeTouches.has(event.pointerId)) return;
+      const wasPinching = activeTouches.size > 1;
+      activeTouches.delete(event.pointerId);
+      if (activeTouches.size < 2) {
+        pinchDistance = 0;
+        pinchCenter = null;
+      }
+      if (wasPinching) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    canvas.addEventListener('pointerup', endPointer, true);
+    canvas.addEventListener('pointercancel', endPointer, true);
+    window.addEventListener('blur', () => {
+      activeTouches.clear();
+      panPointer = null;
+      pinchDistance = 0;
+      pinchCenter = null;
+    });
   }
 
   resize(): void {
