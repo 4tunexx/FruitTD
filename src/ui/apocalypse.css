@@ -256,6 +256,28 @@ body[data-ftd-motion='reduced'] #screen-hub.ftd-hub::before { filter:brightness(
 #modal-admin :is(.admin-input,.admin-reward-inputs input,.admin-reward-inputs select) { color:var(--outpost-text); background:var(--outpost-ink); border-color:var(--outpost-line); accent-color:var(--outpost-yellow); }
 #modal-admin .admin-config-form details { border-color:var(--outpost-line); background:var(--outpost-ink); }
 #modal-admin .admin-catalog-card { background:var(--outpost-steel); border-color:var(--outpost-line); }
+
+/* One readable treatment for fields and cards across embedded pages and dialogs. */
+:is(#screen-hub,.hud-modal-backdrop) :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),select,textarea) {
+  color:#fff1d3;
+  background:#191b1eef;
+  border:1px solid #82704f;
+  border-radius:4px;
+  accent-color:var(--outpost-yellow);
+  color-scheme:dark;
+}
+:is(#screen-hub,.hud-modal-backdrop) :is(input,select,textarea)::placeholder { color:#aaa396; opacity:1; }
+:is(#screen-hub,.hud-modal-backdrop) :is(input,select,textarea):focus-visible { outline:2px solid var(--outpost-yellow); outline-offset:2px; border-color:#ffe38b; }
+:is(#screen-hub,.hud-modal-backdrop) :is(input[type='checkbox'],input[type='radio'],input[type='range']) { accent-color:var(--outpost-yellow); }
+.ftd-hub .ftd-stat-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr)); gap:10px; }
+.ftd-hub .ftd-stat { position:relative; min-height:116px; display:flex; flex-direction:column; justify-content:space-between; padding:15px 16px; border-left:3px solid #ba8135; }
+.ftd-hub .ftd-stat__label { color:#ded3ba; font-size:11px; letter-spacing:.09em; text-transform:uppercase; }
+.ftd-hub .ftd-stat__value { margin:4px 0; color:#ffe071; font-size:clamp(1.4rem,2.6vw,2rem); line-height:1.05; overflow-wrap:anywhere; }
+.ftd-hub .ftd-stat__hint { color:#b9b2a5; font-size:11px; line-height:1.3; }
+.ftd-hub .ftd-stat:nth-child(7) { border-left-color:#ffca28; background:linear-gradient(135deg,#49361f,#29292b); }
+.ftd-hub .ftd-stat:nth-child(7) .ftd-stat__value { color:#fff0ad; }
+.ftd-hub .ftd-stat:nth-child(8) { border-left-color:#f48120; }
+.ftd-hub .ftd-profile-actions .ftd-btn:hover,.ftd-hub .ftd-profile-actions .ftd-btn:focus-visible { background:linear-gradient(120deg,#ffdc53,#f48120); color:#1a1a1c; border-color:#ffe99a; }
 @media(max-width:600px) {
   #modal-admin .modal-card--admin { padding:14px; }
   #modal-admin .admin-tabs-nav { top:-14px; flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding:8px 0; scrollbar-width:thin; }

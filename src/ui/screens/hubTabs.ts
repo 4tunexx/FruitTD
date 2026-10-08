@@ -43,6 +43,8 @@ import type { InventoryCallbacks } from './inventory';
 import type { ProfileStats } from './profile';
 import { HUB_HOME } from './hub';
 import { fetchDailyBonusStatus, fetchMissions } from '../../services/api';
+import { fetchAchievements } from '../../services/api';
+import { getAuthToken } from '../../services/auth';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
@@ -404,16 +406,24 @@ function profileMain(getStats: () => ProfileStats) {
       el('span', { text: save.nickname || 'SLICER' }),
     ]));
     const grid = el('div', { class: 'ftd-stat-grid' }, [
-      statCard('Highest wave', String(save.bestWave ?? 1)),
-      statCard('Highest score', (save.highScore ?? 0).toLocaleString()),
-      statCard('Ranked Arena', 'Loading rank…'),
-      statCard('Games played', String(save.games ?? 0)),
-      statCard('Best combo', stats.bestCombo ? `×${stats.bestCombo}` : '—'),
-      statCard('Coins', (save.coins ?? 0).toLocaleString()),
-      statCard('Achievements', stats.achievementsTotal ? `${stats.achievementsUnlocked ?? 0}/${stats.achievementsTotal}` : String(stats.achievementsUnlocked ?? 0)),
-      statCard('Season', stats.season ?? currentSeasonLabel()),
+      statCard('Highest wave', String(save.bestWave ?? 1), 'Farthest defense'),
+      statCard('Highest score', (save.highScore ?? 0).toLocaleString(), 'Best run'),
+      statCard('Ranked Arena', 'Loading rank…', 'Season rating'),
+      statCard('Games played', String(save.games ?? 0), 'Completed runs'),
+      statCard('Best combo', stats.bestCombo ? `×${stats.bestCombo}` : '—', 'Longest streak'),
+      statCard('Coins', (save.coins ?? 0).toLocaleString(), 'Available to spend'),
+      statCard('Achievements', getAuthToken() ? 'Loading…' : 'Sign in', 'Unlocked milestones'),
+      statCard('Season', stats.season ?? currentSeasonLabel(), 'Current season'),
     ]);
     root.appendChild(grid);
+    if (getAuthToken()) {
+      const achievementValue = grid.children[6]?.querySelector<HTMLElement>('.ftd-stat__value');
+      void fetchAchievements().then((data) => {
+        if (achievementValue?.isConnected) achievementValue.textContent = data ? `${data.stats.unlocked}/${data.stats.total}` : 'Unavailable';
+      }).catch(() => {
+        if (achievementValue?.isConnected) achievementValue.textContent = 'Unavailable';
+      });
+    }
     renderModeStats(root);
     const rankCard = grid.children[2]?.querySelector<HTMLElement>('.ftd-stat__value');
     bindArenaRating(rankCard);

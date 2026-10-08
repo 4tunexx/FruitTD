@@ -225,6 +225,18 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     menuOpen = open;
     menu.hidden = !open;
     more.setAttribute('aria-expanded', String(open));
+    if (open) {
+      document.body.appendChild(menu);
+      const rect = more.getBoundingClientRect?.();
+      const viewportWidth = window.innerWidth || 390;
+      const viewportHeight = window.innerHeight || 700;
+      const width = Math.min(250, viewportWidth - 20);
+      menu.style.width = `${width}px`;
+      menu.style.left = `${Math.max(10, Math.min((rect?.right ?? viewportWidth) - width, viewportWidth - width - 10))}px`;
+      menu.style.top = `${Math.min((rect?.bottom ?? 70) + 8, Math.max(10, viewportHeight - (menu.offsetHeight || 320) - 10))}px`;
+    } else {
+      menu.remove();
+    }
   };
   const closeMenu = () => setMenuOpen(false);
   for (const action of actions) {
@@ -253,7 +265,7 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   notifications.addEventListener('click', () => openSocialOverlay('notifications', notifications, opts));
   messages.addEventListener('click', () => openSocialOverlay('messages', messages, opts));
   community.addEventListener('click', () => openScreen('SOCIAL'));
-  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more, menu]);
+  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more]);
   const header = el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
   header.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
@@ -261,10 +273,23 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   });
   const dismissMenu = (event: Event) => {
     const target = event.target as HTMLElement | null;
-    if (menuOpen && target && !header.contains(target)) closeMenu();
+    if (menuOpen && target && !header.contains(target) && !menu.contains(target)) closeMenu();
   };
+  const repositionMenu = () => { if (menuOpen) setMenuOpen(true); };
   document.addEventListener('pointerdown', dismissMenu);
-  removeMenuDismiss = () => document.removeEventListener('pointerdown', dismissMenu);
+  document.addEventListener('keydown', dismissOnEscape);
+  window.addEventListener('resize', repositionMenu);
+  const stopNavigation = navigation.onChange(closeMenu);
+  function dismissOnEscape(event: KeyboardEvent) {
+    if (menuOpen && event.key === 'Escape') { closeMenu(); more.focus(); }
+  }
+  removeMenuDismiss = () => {
+    closeMenu();
+    document.removeEventListener('pointerdown', dismissMenu);
+    document.removeEventListener('keydown', dismissOnEscape);
+    window.removeEventListener('resize', repositionMenu);
+    stopNavigation();
+  };
   return header;
 }
 
@@ -381,6 +406,8 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
  * so the header/footer are never torn down.
  */
 export function renderHub(root: HTMLElement, save: SaveData, active: NavState, opts: HubOptions): void {
+  removeMenuDismiss?.();
+  removeMenuDismiss = null;
   if (notificationPollTimer) clearInterval(notificationPollTimer);
   notificationPollTimer = null;
   lastHubSave = save;

@@ -1037,12 +1037,12 @@
 .ftd-hub-utils { position: relative; }
 .ftd-hub-more { flex: 0 0 auto; border-color: #765d27; color: #ffd43b; background: linear-gradient(145deg, #30291c, #1b1d1e); }
 .ftd-hub-more-menu {
-  position: absolute;
-  z-index: 80;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  z-index: 10001;
   display: grid;
   min-width: 190px;
+  max-height: min(450px, calc(100dvh - 20px));
+  overflow-y: auto;
   gap: 4px;
   padding: 7px;
   border: 2px solid #d6a72e;
@@ -1063,9 +1063,6 @@
 }
 .ftd-hub-more-menu__item:hover,.ftd-hub-more-menu__item:focus-visible { border-color: #ffd43b; background: #393326; color: #ffe58a; outline: none; }
 .ftd-hub-more-menu__item.is-danger { color: #ffb09a; }
-@media (max-width: 640px) {
-  .ftd-hub-more-menu { position: fixed; top: auto; right: 10px; bottom: calc(var(--ftd-safe-bottom) + 80px); width: min(240px, calc(100vw - 20px)); }
-}
 
 .ftd-hub-social-overlay {
   position: fixed;

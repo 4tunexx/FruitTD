@@ -250,19 +250,21 @@ test('More opens reachable Settings and Admin actions, and Play waits for a sele
   assert.equal(root.querySelector('[data-testid="nav-play"]'), null);
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
   assert.equal(root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')?.getAttribute('aria-expanded'), 'true');
-  assert.ok(root.querySelector('[data-testid="hub-more-menu"]'));
-  for (const id of ['nav-settings', 'nav-admin']) assert.ok(root.querySelector(`[data-testid="${id}"]`), `${id} should be reachable from More`);
+  const menu = document.body.querySelector<HTMLElement>('[data-testid="hub-more-menu"]');
+  assert.ok(menu, 'More menu must escape the clipped hub container');
+  assert.equal(menu.hidden, false);
+  for (const id of ['nav-settings', 'nav-admin']) assert.ok(menu.querySelector(`[data-testid="${id}"]`), `${id} should be reachable from More`);
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="mode-casual"]')!.click();
   root.querySelector<HTMLButtonElement>('[data-testid="nav-play"]')!.click();
   assert.equal(playStarts, 1, 'the active Play action calls the existing launch callback');
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
-  root.querySelector<HTMLButtonElement>('[data-testid="nav-settings"]')!.click();
+  document.body.querySelector<HTMLButtonElement>('[data-testid="nav-settings"]')!.click();
   assert.equal(navigation.state, 'SETTINGS');
   assert.equal(navigation.back(), true);
   assert.equal(navigation.state, 'MAIN_MENU');
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
-  root.querySelector<HTMLButtonElement>('[data-testid="nav-admin"]')!.click();
+  document.body.querySelector<HTMLButtonElement>('[data-testid="nav-admin"]')!.click();
   assert.equal(adminOpens, 1);
 });
 
@@ -333,6 +335,7 @@ test('profile keeps destinations reachable without a Play action', () => {
   assert.deepEqual(actionLabels, ['Missions', 'Achievements', 'Ranked', 'Leaderboard', 'Local Co-op', 'Settings']);
   assert.equal(played, 0);
   assert.ok(!actionLabels.includes('Play now'));
+  assert.match(main.querySelector('.ftd-stat-grid')?.textContent ?? '', /AchievementsSign inUnlocked milestones/);
 });
 
 test('every secondary menu destination supplies a contextual desktop panel', () => {
