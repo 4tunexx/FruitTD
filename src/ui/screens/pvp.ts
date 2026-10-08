@@ -145,7 +145,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       actionError = '';
       const command = (payload as { command?: import('../../game/pvp').PvpCommand } | undefined)?.command;
       if (command) {
-        actionFeedback = command.type === 'send' ? 'BLUE SQUAD SENT → RED BASE' : command.type === 'build' ? 'DEFENCE BUILT · AUTO FIRE READY' : command.type === 'upgrade' ? 'TOWER UPGRADED' : command.type === 'rally' ? 'RALLY! +25% DAMAGE FOR 8 SECONDS' : command.type === 'release' ? 'CAPTURED FRUIT SENT → RED BASE' : command.type === 'upgrade-main' ? 'BASE UPGRADED · STRONGER WALL' : command.type === 'sell' ? 'TOWER SOLD · FRUTS REFUNDED' : '';
+        actionFeedback = command.type === 'send' ? 'BLUE SQUAD SENT → RED BASE' : command.type === 'build' ? 'DEFENCE BUILT · AUTO FIRE READY' : command.type === 'upgrade' ? 'TOWER UPGRADED' : command.type === 'rally' ? 'RALLY! +25% DAMAGE FOR 8 SECONDS' : command.type === 'release' ? 'CAPTURED FRUIT SENT → RED BASE' : command.type === 'upgrade-main' ? 'BASE UPGRADED · STRONGER WALL' : command.type === 'ability' ? 'HERO POWER ACTIVATED' : command.type === 'sell' ? 'TOWER SOLD · FRUTS REFUNDED' : '';
         feedbackUntil = Date.now() + 2200;
       }
       if (response.match) { status.match = response.match; if (!battlefield?.interacting) render(); }

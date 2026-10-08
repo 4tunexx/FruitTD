@@ -112,11 +112,18 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
       el('span', { class: 'ftd-hero-perk__rank', text: unlocked ? `Rank ${rank}/3 · ${Math.round(ability.cooldownMs / 1000)}s` : `Lv ${ability.unlockLevel}` }),
       el('span', { class: 'ftd-hero-ability__description', text: ability.description }),
     ]);
-    const button = el('button', { type: 'button', class: 'ftd-hero-ability__action', text: rank < 3 ? 'Upgrade · 1 SP' : equipped ? 'Unequip' : 'Equip' });
-    button.disabled = !unlocked || (rank < 3 && save.skillPoints < 1) || (rank === 0 && ability.id !== 'jiju-1') || (rank === 3 && !equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3);
-    button.addEventListener('click', () => rank < 3 ? cb.onUpgradeAbility?.(ability.id) : cb.onToggleAbility?.(ability.id));
-    if (rank >= 3 || ability.id === 'jiju-1') { button.textContent = equipped ? 'Unequip' : 'Equip'; button.disabled = !unlocked || (!equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3); button.onclick = () => cb.onToggleAbility?.(ability.id); }
-    row.appendChild(button); powers.appendChild(row);
+    const actions = el('div', { class: 'ftd-hero-ability__actions' });
+    if (rank < 3) {
+      const upgrade = el('button', { type: 'button', class: 'ftd-hero-ability__action', text: 'Upgrade · 1 SP' });
+      upgrade.disabled = !unlocked || save.skillPoints < 1;
+      upgrade.addEventListener('click', () => cb.onUpgradeAbility?.(ability.id));
+      actions.appendChild(upgrade);
+    }
+    const canEquip = rank > 0 || ability.id === 'jiju-1';
+    const toggle = el('button', { type: 'button', class: 'ftd-hero-ability__action', text: equipped ? 'Unequip' : 'Equip' });
+    toggle.disabled = !unlocked || !canEquip || (!equipped && (save.heroAbilityLoadouts?.[heroId] ?? []).length >= 3);
+    toggle.addEventListener('click', () => cb.onToggleAbility?.(ability.id));
+    actions.appendChild(toggle); row.appendChild(actions); powers.appendChild(row);
   }
   detail.appendChild(powers);
 
