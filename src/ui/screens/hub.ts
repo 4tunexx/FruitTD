@@ -21,12 +21,12 @@
 
 import { el, clear } from '../components/dom';
 import { GameButton, GameCurrency } from '../components/primitives';
-import { Bell, Ellipsis, MessageCircle, UsersRound, createElement, type Swords } from 'lucide';
+import { Bell, MessageCircle, MoreHorizontal, UsersRound, createElement, type Swords } from 'lucide';
 import { openScreen, back, home } from './registry';
 import { isUserAdmin } from '../../services/admin';
 import { heroDef } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
-import { bindArenaRating } from '../../services/pvpRating';
+import { rankFromScore } from '../../game/requirements';
 import type { SaveData } from '../../game/save';
 import { navigation, type NavState } from '../../game/navigation';
 import { getAuthToken } from '../../services/auth';
@@ -41,6 +41,8 @@ export interface HubTab {
   renderMain: (root: HTMLElement, save: SaveData) => void;
   /** Paints the contextual detail panel. */
   renderSub?: (root: HTMLElement, save: SaveData) => void;
+  /** Clears transient home selections before returning to the main hub. */
+  onHome?: () => void;
 }
 
 export interface HubOptions {
@@ -57,6 +59,7 @@ export const HUB_HOME: NavState = 'MAIN_MENU';
 
 const tabs = new Map<NavState, HubTab>();
 let lastActive: NavState | null = null;
+let lastHubSave: SaveData | null = null;
 
 export function registerHubTab(tab: HubTab): void {
   tabs.set(tab.id, tab);
@@ -66,9 +69,70 @@ export function hubTabs(): HubTab[] {
   return [...tabs.values()];
 }
 
+function returnHome(root: HTMLElement): void {
+  const wasHome = navigation.state === HUB_HOME;
+  tabs.get(HUB_HOME)?.onHome?.();
+  home();
+  if (wasHome && lastHubSave) refreshHub(root, lastHubSave, HUB_HOME);
+}
+
 function icon(node: typeof Swords, className: string): HTMLElement | SVGElement {
   if (typeof document.createElementNS !== 'function') return el('span', { class: className, 'aria-hidden': 'true' });
   return createElement(node, { class: className, width: 18, height: 18, 'aria-hidden': 'true' });
+}
+
+function openSocialOverlay(root: HTMLElement, view: 'messages' | 'notifications', trigger: HTMLElement): void {
+  root.querySelector('.ftd-hub-social-overlay')?.remove();
+
+  const overlay = el('div', {
+    class: 'ftd-hub-social-overlay',
+    role: 'presentation',
+    'data-testid': 'hub-social-overlay',
+  });
+  const dialog = el('section', {
+    class: 'ftd-hub-social-dialog',
+    role: 'dialog',
+    'aria-modal': 'true',
+    'aria-label': view === 'messages' ? 'Messages' : 'Notifications',
+    tabindex: '-1',
+  });
+  const content = el('div', { class: 'ftd-hub-social-dialog__content' });
+  dialog.appendChild(content);
+  overlay.appendChild(dialog);
+
+  let stopNavigation: (() => void) | undefined;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    if (trigger.parentElement) trigger.focus();
+    const unsubscribe = stopNavigation;
+    stopNavigation = undefined;
+    if (unsubscribe) queueMicrotask(unsubscribe);
+  };
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) close();
+  });
+  overlay.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  });
+  stopNavigation = navigation.onChange(close);
+  root.appendChild(overlay);
+  dialog.focus();
+
+  void import('./social').then(({ renderSocial }) => {
+    if (!overlay.parentElement) return;
+    renderSocial(content, view, { onClose: close });
+    content.classList.add('ftd-hub-social-dialog__content');
+    content.querySelector<HTMLElement>('.ftd-social__back')?.focus();
+  }).catch(() => {
+    if (!content.parentElement) return;
+    content.replaceChildren(el('p', { role: 'alert', text: 'This panel could not load. Close it and try again.' }));
+  });
 }
 
 function buildCurrency(save: SaveData): HTMLElement {
@@ -88,52 +152,11 @@ function updateCurrency(currency: HTMLElement, save: SaveData): void {
   }
 }
 
-function buildSocialControl(
-  button: HTMLButtonElement,
-  title: string,
-  actionLabel: string,
-  destination: NavState,
-  loadItems: (list: HTMLElement) => Promise<void>,
-): HTMLElement {
-  const list = el('div', { class: 'ftd-hub-popover__list' });
-  const action = el('button', { class: 'ftd-hub-popover__action', type: 'button', text: actionLabel, 'data-testid': destination === 'MESSAGES' ? 'open-messages-inbox' : 'open-notifications-center' });
-  action.addEventListener('click', () => openScreen(destination));
-  const popover = el('div', { class: 'ftd-hub-popover', role: 'region', 'aria-label': title }, [
-    el('strong', { class: 'ftd-hub-popover__title', text: title }),
-    list,
-    action,
-  ]);
-  const wrapper = el('div', { class: 'ftd-hub-social-control' }, [button, popover]);
-  let loaded = false;
-  const show = () => {
-    wrapper.parentElement?.querySelectorAll<HTMLElement>('.ftd-hub-popover').forEach((other) => {
-      if (other !== popover) other.classList.remove('is-open');
-    });
-    wrapper.parentElement?.querySelectorAll<HTMLButtonElement>('[aria-expanded="true"]').forEach((other) => {
-      if (other !== button) other.setAttribute('aria-expanded', 'false');
-    });
-    popover.classList.add('is-open');
-    button.setAttribute('aria-expanded', 'true');
-    if (loaded || !getAuthToken()) {
-      if (!getAuthToken() && !loaded) list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Sign in to view your updates.' }));
-      return;
-    }
-    loaded = true;
-    list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Loading…' }));
-    void loadItems(list).catch(() => list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Could not load updates.' })));
-  };
-  const hide = () => { popover.classList.remove('is-open'); button.setAttribute('aria-expanded', 'false'); };
-  button.addEventListener('click', () => popover.classList.contains('is-open') ? hide() : show());
-  wrapper.addEventListener('mouseenter', () => { if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) show(); });
-  wrapper.addEventListener('mouseleave', () => { if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) hide(); });
-  button.addEventListener('focus', () => { if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) show(); });
-  return wrapper;
-}
-
 /** Builds the persistent header (Panel 3). Rebuilt on each full render, but never mid-tab-switch. */
-function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
+function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLElement {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
+  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
 
   const logo = el('button', {
     class: 'ftd-hub-logo',
@@ -145,7 +168,7 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('span', { class: 'ftd-hub-logo__accent', text: 'TD' }),
   ]);
   logo.setAttribute('data-testid', 'nav-brand-home');
-  logo.addEventListener('click', () => home());
+  logo.addEventListener('click', () => returnHome(root));
 
   const identity = el('button', { class: 'ftd-hub-identity', type: 'button', title: 'Open profile', 'aria-label': `Open ${save.nickname || 'Slicer'} profile`, 'data-testid': 'nav-avatar-profile' }, [
     el('img', {
@@ -156,83 +179,81 @@ function buildHeader(save: SaveData, opts: HubOptions): HTMLElement {
     el('div', { class: 'ftd-hub-identity__text' }, [
       el('p', { class: 'ftd-hub-identity__name', text: save.nickname || 'Slicer' }),
       el('p', { class: 'ftd-hub-identity__meta' }, [
-        el('span', { class: 'ftd-hub-identity__rank', text: 'Unranked' }),
+        el('span', { class: 'ftd-hub-identity__rank', text: rank.title }),
         el('span', { class: 'ftd-hub-identity__sep', text: '·' }),
         el('span', { class: 'ftd-hub-identity__hero-level', text: `${hero.name} Lv ${xp.level}` }),
       ]),
     ]),
   ]);
-  bindArenaRating(identity.querySelector<HTMLElement>('.ftd-hub-identity__rank'));
   identity.addEventListener('click', () => openScreen('PROFILE'));
 
   const currency = buildCurrency(save);
 
-  const utilityLinks = el('div', { class:'ftd-hub-menu__items' }, [
-    GameButton({ label: 'News', variant: 'ghost', size: 'sm', onClick: () => openScreen('NEWS') }),
-    GameButton({ label: 'Leaderboard', variant: 'ghost', size: 'sm', onClick: () => openScreen('LEADERBOARD') }),
-    ...(opts.onOpenDaily ? [GameButton({ label: 'Daily', variant: 'outline', size: 'sm', onClick: opts.onOpenDaily })] : []),
-    GameButton({ label: 'Settings', variant: 'ghost', size: 'sm', onClick: () => openScreen('SETTINGS') }),
-    ...(opts.onAdmin ? [GameButton({ label: isUserAdmin() ? 'Admin' : 'Admin access', variant: 'ghost', size: 'sm', class: 'ftd-hub-admin', onClick: opts.onAdmin })] : []),
-    GameButton({ label: 'Quit', variant: 'ghost', size: 'sm', tone: 'danger', onClick: () => opts.onQuit?.() }),
-  ]);
-  const utilityMenu = el('details', { class:'ftd-hub-menu' }, [
-    el('summary', { title:'More options', 'aria-label':'More options' }, [icon(Ellipsis,'ftd-hub-menu__icon')]),
-    utilityLinks,
-  ]);
-  const notificationButton = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-expanded': 'false', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]);
-  const messageButton = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'aria-expanded': 'false', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]);
-  const notificationControl = buildSocialControl(notificationButton, 'NOTIFICATIONS', 'Open notification center', 'NOTIFICATIONS', async (list) => {
-    const data = await socialApi.notifications();
-    list.replaceChildren(...(data.notifications.slice(0, 3).map((item) => {
-      const row = el('button', { class: 'ftd-hub-popover__item', type: 'button' }, [
-        el('strong', { text: item.title }),
-        el('small', { text: item.body }),
-      ]);
-      row.addEventListener('click', () => openScreen('NOTIFICATIONS'));
-      return row;
-    })));
-    if (!data.notifications.length) list.appendChild(el('p', { class: 'ftd-hub-popover__empty', text: 'You’re all caught up.' }));
+  const notifications = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]);
+  const messages = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]);
+  const community = el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]);
+  const more = el('button', {
+    class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-more',
+    type: 'button',
+    title: 'More menus',
+    'aria-label': 'More menus',
+    'aria-haspopup': 'menu',
+    'aria-controls': 'hub-more-menu',
+    'aria-expanded': 'false',
+    'data-testid': 'nav-more',
+  }, [icon(MoreHorizontal, 'ftd-hub-social__icon')]);
+  const menu = el('div', { id: 'hub-more-menu', class: 'ftd-hub-more-menu', role: 'menu', hidden: true, 'data-testid': 'hub-more-menu' });
+  const actions: Array<{ label: string; testId: string; run: () => void; className?: string }> = [
+    { label: 'News', testId: 'nav-news', run: () => openScreen('NEWS') },
+    ...(opts.onOpenDaily ? [{ label: 'Daily rewards', testId: 'nav-daily', run: opts.onOpenDaily }] : []),
+    { label: 'Settings', testId: 'nav-settings', run: () => openScreen('SETTINGS') },
+    ...(opts.onAdmin ? [{ label: isUserAdmin() ? 'Admin' : 'Admin access', testId: 'nav-admin', run: opts.onAdmin }] : []),
+    { label: 'Quit game', testId: 'nav-quit', run: () => opts.onQuit?.(), className: 'is-danger' },
+  ];
+  let menuOpen = false;
+  const setMenuOpen = (open: boolean) => {
+    menuOpen = open;
+    menu.hidden = !open;
+    more.setAttribute('aria-expanded', String(open));
+  };
+  const closeMenu = () => {
+    setMenuOpen(false);
+  };
+  for (const action of actions) {
+    const item = el('button', { class: `ftd-hub-more-menu__item${action.className ? ` ${action.className}` : ''}`, type: 'button', role: 'menuitem', text: action.label, 'data-testid': action.testId });
+    item.addEventListener('click', () => { closeMenu(); action.run(); });
+    menu.appendChild(item);
+  }
+  more.addEventListener('click', () => {
+    setMenuOpen(!menuOpen);
+    if (menuOpen) menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
   });
-  const messageControl = buildSocialControl(messageButton, 'MESSAGES', 'Open inbox', 'MESSAGES', async (list) => {
-    const data = await socialApi.friends();
-    const friend = data.friends.find((item) => item.state === 'accepted');
-    if (!friend) {
-      list.replaceChildren(el('p', { class: 'ftd-hub-popover__empty', text: 'Your inbox is ready when you add a friend.' }));
-      return;
-    }
-    const inbox = await socialApi.messages(friend.username);
-    const recent = inbox.messages.slice(-2).reverse();
-    list.replaceChildren(...(recent.map((item) => {
-      const row = el('button', { class: 'ftd-hub-popover__item', type: 'button' }, [
-        el('strong', { text: friend.nickname || friend.username }),
-        el('small', { text: item.body }),
-      ]);
-      row.addEventListener('click', () => openScreen('MESSAGES'));
-      return row;
-    })));
-    if (!recent.length) list.appendChild(el('p', { class: 'ftd-hub-popover__empty', text: 'No recent messages.' }));
+  menu.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    closeMenu();
+    more.focus();
   });
-  const utils = el('div', { class: 'ftd-hub-utils' }, [
-    notificationControl,
-    messageControl,
-    el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]),
-    utilityMenu,
-  ]);
-
-  const settings = [...utilityLinks.querySelectorAll<HTMLButtonElement>('.ftd-btn')]
-    .find((button) => button.textContent?.trim() === 'Settings');
-  settings?.setAttribute('data-testid', 'nav-settings');
-  const admin = utilityLinks.querySelector<HTMLButtonElement>('.ftd-hub-admin');
-  admin?.setAttribute('data-testid', 'nav-admin');
-  utils.querySelector<HTMLButtonElement>('[data-testid="nav-social"]')?.addEventListener('click', () => openScreen('SOCIAL'));
-
-  return el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
+  notifications.addEventListener('click', () => openSocialOverlay(root, 'notifications', notifications));
+  messages.addEventListener('click', () => openSocialOverlay(root, 'messages', messages));
+  community.addEventListener('click', () => openScreen('SOCIAL'));
+  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more, menu]);
+  const header = el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
+  header.addEventListener('click', (event) => {
+    if (menuOpen && !(event.target as HTMLElement).closest('.ftd-hub-utils')) closeMenu();
+  });
+  root.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (menuOpen && !target.closest('.ftd-hub-more') && !target.closest('.ftd-hub-more-menu')) closeMenu();
+  });
+  return header;
 }
 
 /** Keep persistent header controls mounted while reflecting the latest save. */
 function syncHeader(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
+  const rank = rankFromScore(save.rankedScore || save.highScore || 0);
   const avatar = root.querySelector<HTMLImageElement>('.ftd-hub-identity__avatar');
   if (avatar) {
     avatar.src = save.avatar || '';
@@ -243,7 +264,7 @@ function syncHeader(root: HTMLElement, save: SaveData): void {
   const identity = root.querySelector<HTMLElement>('.ftd-hub-identity');
   identity?.setAttribute('aria-label', `Open ${save.nickname || 'Slicer'} profile`);
   const rankLabel = root.querySelector('.ftd-hub-identity__rank');
-  bindArenaRating(rankLabel as HTMLElement | null);
+  if (rankLabel) rankLabel.textContent = rank.title;
   const heroLevel = root.querySelector('.ftd-hub-identity__hero-level');
   if (heroLevel) heroLevel.textContent = `${hero.name} Lv ${xp.level}`;
   const currency = root.querySelector('.ftd-hub-currency');
@@ -251,8 +272,14 @@ function syncHeader(root: HTMLElement, save: SaveData): void {
 }
 
 /** Builds the persistent footer (Panel 4): five core game destinations. */
-function buildFooter(active: NavState): HTMLElement {
+function buildFooter(active: NavState, root: HTMLElement, opts: HubOptions): HTMLElement {
   const nav = el('nav', { class: 'ftd-hub__footer', 'aria-label': 'Game menu' });
+  const launch = GameButton({ label: 'PLAY', tone: 'primary', size: 'lg', class: 'ftd-hub-launch', onClick: () => {
+    if (root.classList.contains('is-campaign')) root.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')?.click();
+    else opts.onPlay();
+  } });
+  launch.dataset.testid = 'nav-play-pinned';
+  nav.appendChild(launch);
   const destinations: NavState[] = ['MAIN_MENU', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE'];
   for (const tab of tabs.values()) {
     if (!destinations.includes(tab.id)) continue;
@@ -268,7 +295,7 @@ function buildFooter(active: NavState): HTMLElement {
       el('span', { class: 'ftd-hub-tab__label', text: tab.label }),
     ]);
     button.addEventListener('click', () => {
-      if (tab.id === HUB_HOME) home();
+      if (tab.id === HUB_HOME) returnHome(root);
       else if (tab.id !== navigation.state) openScreen(tab.id);
     });
     nav.appendChild(button);
@@ -282,10 +309,11 @@ function buildFooter(active: NavState): HTMLElement {
  * so moving between tabs feels directional rather than a flat crossfade.
  */
 function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'forward' | 'back' | 'none'): void {
-  root.classList.remove('is-pvp-battle');
   const mainHost = root.querySelector('.ftd-hub__main') as HTMLElement | null;
   const subHost = root.querySelector('.ftd-hub__sub') as HTMLElement | null;
   if (!mainHost) return;
+  const pinnedLaunch = root.querySelector<HTMLElement>('.ftd-hub-launch');
+  if (pinnedLaunch && tab.id !== 'CAMPAIGN') pinnedLaunch.textContent = 'PLAY';
 
   // The older missions and leaderboard widgets retain their event handlers
   // when moved into the hub. Park them before replacing the previous panel.
@@ -342,12 +370,13 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
  * so the header/footer are never torn down.
  */
 export function renderHub(root: HTMLElement, save: SaveData, active: NavState, opts: HubOptions): void {
+  lastHubSave = save;
   clear(root);
   root.classList.add('ftd-hub');
   root.classList.toggle('is-home', active === HUB_HOME);
   root.classList.toggle('is-campaign', active === 'CAMPAIGN');
 
-  root.appendChild(buildHeader(save, opts));
+  root.appendChild(buildHeader(save, opts, root));
   if (getAuthToken()) {
     const bell = root.querySelector<HTMLButtonElement>('[data-testid="nav-notifications"]');
     void socialApi.notifications().then(({ unread }) => {
@@ -364,7 +393,7 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   ]);
   root.appendChild(body);
 
-  root.appendChild(buildFooter(active));
+  root.appendChild(buildFooter(active, root, opts));
 
   const tab = tabs.get(active);
   if (tab) paintTab(root, tab, save, 'none');
@@ -373,6 +402,7 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
 
 /** Switches the active tab in place: header/footer stay mounted, panels slide. */
 export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState): void {
+  lastHubSave = save;
   const tab = tabs.get(next);
   if (!tab) return;
 
@@ -398,6 +428,7 @@ export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState):
 
 /** Re-paints whichever tab is active, without animating — for data refreshes. */
 export function refreshHub(root: HTMLElement, save: SaveData, active: NavState): void {
+  lastHubSave = save;
   const tab = tabs.get(active);
   if (!tab) return;
   syncHeader(root, save);
@@ -410,6 +441,7 @@ export function refreshHub(root: HTMLElement, save: SaveData, active: NavState):
 export function resetHub(): void {
   tabs.clear();
   lastActive = null;
+  lastHubSave = null;
 }
 
 export { back, home };

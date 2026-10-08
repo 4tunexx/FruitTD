@@ -1,5 +1,5 @@
 import { beginLoading } from '../components/loading';
-import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, createElement } from 'lucide';
+import { ArrowLeft, Bell, MessageCircle, Search, UserPlus, Users, X, createElement } from 'lucide';
 import { getAuthToken } from '../../services/auth';
 import { socialApi, type ForumPost, type PublicPlayerProfile, type SocialFriend, type SocialMessage, type SocialNotification } from '../../services/social';
 import { el, clear } from '../components/dom';
@@ -17,19 +17,29 @@ const message = (host: HTMLElement, text: string, error = false) => {
 
 export type SocialView = 'community' | 'messages' | 'notifications';
 
-export function renderSocial(root: HTMLElement, initialView: SocialView = 'community'): void {
+export interface SocialRenderOptions {
+  onClose?: () => void;
+}
+
+export function renderSocial(root: HTMLElement, initialView: SocialView = 'community', options: SocialRenderOptions = {}): void {
   clear(root);
   root.className = 'ftd-screen-host ftd-social';
   root.dataset.socialView = initialView;
   const friends = new Map<string, SocialFriend>();
   let selectedFriend = '';
   let noticeHost: HTMLElement;
+  const closeButton = el('button', {
+    class: 'ftd-social__back',
+    type: 'button',
+    'aria-label': options.onClose ? 'Close social panel' : 'Back to hub',
+    'data-testid': options.onClose ? 'hub-social-close' : undefined,
+  }, [icon(options.onClose ? X : ArrowLeft), el('span', { text: options.onClose ? 'CLOSE' : 'HUB' })]);
   const header = el('header', { class: 'ftd-social__header' }, [
-    el('button', { class: 'ftd-social__back', type: 'button', 'aria-label': 'Back to hub' }, [icon(ArrowLeft), el('span', { text: 'HUB' })]),
+    closeButton,
     el('div', {}, [el('p', { class: 'ftd-social__eyebrow', text: 'FRUIT TD NETWORK' }), el('h1', { text: initialView.toUpperCase() })]),
     el('span', { class: 'ftd-social__mark', 'aria-hidden': 'true' }, [icon(Users)]),
   ]);
-  header.querySelector('button')?.addEventListener('click', back);
+  closeButton.addEventListener('click', options.onClose ?? back);
   root.appendChild(header);
   const viewNav = el('nav', { class: 'ftd-social__nav', 'aria-label': 'Community sections' });
   for (const [view, label, glyph] of [
