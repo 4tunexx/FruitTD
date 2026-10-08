@@ -1338,6 +1338,7 @@ function tryHeroAbility(id: string): void {
   else if (ability.effect === 'burst') targets = living.filter((fruit) => Math.abs(fruit.group.position.x) < 3.2);
   else if (ability.effect === 'bloom') targets = living.filter((fruit) => Math.abs(fruit.group.position.x) < 2.4 || Math.abs(fruit.group.position.z) < 3);
   renderer.impulseShake(ability.effect === 'shock' ? 1.4 : 0.8);
+  if (ability.effect === 'guard') { state.lives = Math.min(state.maxLives, state.lives + 1); wall.setTowerHealth(state.lives / state.maxLives); }
   toast(state, ability.name.toUpperCase(), 1.3);
   sfx.blitzStart();
   emit({ type: 'super' });

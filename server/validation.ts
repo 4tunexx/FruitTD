@@ -63,6 +63,8 @@ export function saveValidationError(value: unknown, allowedSkinIds: ReadonlySet<
   if (save.skills && Object.entries(save.skills).some(([id, rank]) => !SKILLS.includes(id) || !boundedInteger(rank, 3))) return 'Invalid skill ranks';
   if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 3))) return 'Invalid hero ability ranks';
   if (save.heroAbilityLoadouts && Object.entries(save.heroAbilityLoadouts).some(([hero, ids]) => !HEROES.includes(hero) || !Array.isArray(ids) || ids.length > 3 || new Set(ids).size !== ids.length || ids.some((id) => typeof id !== 'string' || !new RegExp('^' + hero + '-[1-6]$').test(id)))) return 'Invalid hero ability loadout';
+  if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== 'object' || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS.includes(id) || !boundedInteger(rank, 3)))) return 'Invalid hero perk ranks';
+  if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 3))) return 'Invalid hero ability ranks';
   for (const key of ['ownedSkins', 'ownedHeroes']) {
     const list = save[key];
     if (list !== undefined && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;

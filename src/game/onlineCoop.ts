@@ -40,6 +40,7 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       if(!ability||ability.hero!==player.hero||!player.abilityLoadout?.includes(ability.id)||rank<1&&ability.id!=='jiju-1') throw new Error('That power is not equipped.');
       player.abilityReadyAt??={}; if(now<(player.abilityReadyAt[ability.id]??0)) throw new Error('That power is cooling down.');
       player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+      if(ability.effect==='guard')match.wallHealth=Math.min(balance.wallHealth,match.wallHealth+Math.round(balance.wallHealth*.12));
       let targets=match.fruits;
       if(ability.effect==='pierce')targets=[...targets].sort((a,b)=>a.y-b.y).slice(0,Math.max(1,Math.ceil(targets.length*.4)));
       else if(ability.effect==='burst')targets=targets.filter(f=>Math.abs(f.x-5)<3);
