@@ -366,6 +366,7 @@ function applyCloudSave(remote: Record<string, any> | null): void {
   } : merged);
   syncTowerProgression(save.towerXp, save.towerLifetimeXp);
   writeSave(save);
+  hud.refreshAbilityBar(save);
   state.hero = save.hero;
   state.heroXp = save.xp[save.hero] ?? 0;
   state.heroLevel = heroXpToLevel(state.heroXp);
@@ -440,6 +441,7 @@ async function performSignedInCatalogueAction(action: CatalogueAction, id: strin
   hud.refreshHeroPick(state.hero, save);
   hud.mountShop(save);
   hud.mountSkills(save);
+  hud.refreshAbilityBar(save);
   refreshCurrentScreen();
   if (action === 'buy' || action === 'sell') sfx.place();
   else sfx.select();
