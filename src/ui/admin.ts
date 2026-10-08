@@ -38,7 +38,15 @@ import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
 import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campaign';
 
-type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'enemies' | 'slicers' | 'sprites' | 'studio' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
+type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
+const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'sprites', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
+let sliderOutputId = 0;
+
+function syncRangeOutput(input: HTMLInputElement | null): void {
+  if (!input?.dataset.valueOutput) return;
+  const output = document.getElementById(input.dataset.valueOutput);
+  if (output) { output.textContent = input.value; if (output instanceof HTMLOutputElement) output.value = input.value; }
+}
 
 export class AdminController {
   private modal = document.getElementById('modal-admin') as HTMLElement | null;
@@ -95,6 +103,11 @@ export class AdminController {
   }
 
   private initListeners(): void {
+    this.modal?.addEventListener('input', (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== 'range' || !input.dataset.valueOutput) return;
+      syncRangeOutput(input);
+    });
     document.getElementById('btn-admin')?.addEventListener('click', () => this.open());
     document.getElementById('btn-close-admin')?.addEventListener('click', () => this.close());
 
@@ -107,10 +120,10 @@ export class AdminController {
     });
 
     // Tab buttons
-    document.querySelectorAll<HTMLButtonElement>('.admin-tab-btn').forEach((btn) => {
+    this.modal?.querySelectorAll<HTMLButtonElement>('.admin-tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab as any;
-        if (tab) {
+        const tab = btn.dataset.tab as AdminTab | undefined;
+        if (tab && ADMIN_TABS.includes(tab)) {
           if (this.activeTab === 'pvp' && tab !== 'pvp') { const editor = document.getElementById('admin-pvp-config'); if (editor) disposePvpEditor(editor); }
           this.activeTab = tab;
           this.renderTabs();
@@ -119,6 +132,17 @@ export class AdminController {
           if (workspace) workspace.scrollTop = 0;
         }
       });
+    });
+    this.modal?.querySelector('.admin-tabs-nav')?.addEventListener('keydown', (event) => {
+      const keyboard = event as KeyboardEvent;
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(keyboard.key)) return;
+      const buttons = [...(this.modal?.querySelectorAll<HTMLButtonElement>('.admin-tab-btn') ?? [])];
+      const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      if (current < 0 || !buttons.length) return;
+      keyboard.preventDefault();
+      const next = keyboard.key === 'Home' ? 0 : keyboard.key === 'End' ? buttons.length - 1 : (current + (keyboard.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+      buttons[next]?.focus();
+      buttons[next]?.click();
     });
 
     // DESIGN tab → shared theme system (no second design system)
@@ -226,13 +250,24 @@ export class AdminController {
   }
 
   private renderTabs(): void {
-    document.querySelectorAll<HTMLButtonElement>('.admin-tab-btn').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.tab === this.activeTab);
+    const nav = this.modal?.querySelector<HTMLElement>('.admin-tabs-nav');
+    nav?.setAttribute('role', 'tablist');
+    nav?.setAttribute('aria-label', 'Admin workspace sections');
+    nav?.querySelectorAll<HTMLButtonElement>('.admin-tab-btn').forEach((btn) => {
+      const active = btn.dataset.tab === this.activeTab;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', String(active));
+      if (btn.dataset.tab) btn.setAttribute('aria-controls', `admin-tab-${btn.dataset.tab}`);
+      btn.tabIndex = active ? 0 : -1;
     });
-    for (const el of document.querySelectorAll('.admin-panel-tab')) {
-      el.classList.add('hidden');
+    for (const panel of this.modal?.querySelectorAll<HTMLElement>('.admin-panel-tab') ?? []) {
+      const active = panel.id === `admin-tab-${this.activeTab}`;
+      panel.classList.toggle('hidden', !active);
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-hidden', String(!active));
+      if (!panel.hasAttribute('tabindex')) panel.tabIndex = 0;
     }
-    document.getElementById(`admin-tab-${this.activeTab}`)?.classList.remove('hidden');
     if (this.activeTab === 'design') this.renderDesignTab();
   }
 
@@ -281,6 +316,7 @@ export class AdminController {
     if (badges && (!tab || tab === 'badges')) renderBadgeEditor(badges, this.config.badges);
     if (ranks && (!tab || tab === 'ranks')) renderRankEditor(ranks, this.config.ranks);
     if (slicers && (!tab || tab === 'slicers')) renderSlicerEditor(slicers, this.config.slicers);
+    this.enhanceNumericControls();
   }
 
   private renderActiveTab(): void {
@@ -298,7 +334,7 @@ export class AdminController {
       this.activeTab === 'slicers'
     ) {
       this.renderCatalogEditors(this.activeTab);
-    } else if (this.activeTab === 'sprites' || this.activeTab === 'studio') {
+    } else if (this.activeTab === 'sprites') {
       installMediaStudio();
     } else if (this.activeTab === 'landscape') {
       this.renderLandscapeEditor();
@@ -311,74 +347,105 @@ export class AdminController {
     } else if (this.activeTab === 'leaderboard') {
       this.renderLeaderboardManager();
     }
+    this.enhanceNumericControls();
+  }
+
+  private enhanceNumericControls(): void {
+    const tab = document.getElementById(`admin-tab-${this.activeTab}`);
+    if (!tab) return;
+    for (const input of tab.querySelectorAll<HTMLInputElement>('input[type="number"]')) {
+      if (input.classList.contains('studio-input') || input.value.trim() === '') continue;
+      const value = Number(input.value);
+      if (!Number.isFinite(value)) continue;
+      const min = input.min === '' ? 0 : Number(input.min);
+      const max = input.max === '' ? Math.max(min + 100, value * 2, 100) : Number(input.max);
+      input.min = String(Math.min(min, value));
+      input.max = String(Math.max(max, value));
+      if (!input.step || input.step === 'any') input.step = Number.isInteger(value) ? '1' : '0.1';
+      input.type = 'range';
+      const output = document.createElement('output');
+      output.className = 'admin-range-value';
+      output.id = `admin-range-value-${++sliderOutputId}`;
+      output.value = input.value;
+      output.textContent = input.value;
+      input.dataset.valueOutput = output.id;
+      input.setAttribute('aria-valuetext', input.value);
+      input.insertAdjacentElement('afterend', output);
+    }
   }
 
   // VIP Tiers Editor (PR7)
   private renderVipEditor(): void {
     const container = document.getElementById('admin-vip-list');
     if (!container || !this.config) return;
-    container.innerHTML = '';
+    container.replaceChildren();
 
-    this.config.vipTiers.forEach((vip) => {
-      const card = document.createElement('div');
-      card.className = 'admin-reward-row';
-      const tierColor = vip.tier === 'gold' ? '#f5c542' : vip.tier === 'silver' ? '#c0c0c0' : '#cd7f32';
-      card.innerHTML = `
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <span style="font-size:1.5rem;color:${tierColor}">◆</span>
-          <strong style="color:${tierColor}">${vip.title}</strong>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;">
-          <label class="admin-label">
-            Price (coins)
-            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="price" value="${vip.price}" min="0" />
-          </label>
-          <label class="admin-label">
-            Coin Bonus (%)
-            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="coinBonus" value="${vip.coinBonus}" min="0" max="100" />
-          </label>
-          <label class="admin-label">
-            XP Bonus (%)
-            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="xpBonus" value="${vip.xpBonus}" min="0" max="100" />
-          </label>
-          <label class="admin-label">
-            Daily Coins
-            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="dailyCoins" value="${vip.dailyCoins}" min="0" />
-          </label>
-          <label class="admin-label">
-            Daily SP
-            <input type="number" class="admin-input" data-vip="${vip.tier}" data-field="dailySp" value="${vip.dailySp}" min="0" />
-          </label>
-          <label class="admin-label">
-            Exclusive Skins (comma-separated IDs)
-            <input type="text" class="admin-input" data-vip="${vip.tier}" data-field="exclusiveSkins" value="${vip.exclusiveSkins.join(',')}" />
-          </label>
-        </div>
-        <label class="admin-label">
-          Description
-          <input type="text" class="admin-input" data-vip="${vip.tier}" data-field="description" value="${this.escapeAttr(vip.description)}" />
-        </label>
-      `;
+    const colors = { bronze: '#d89a57', silver: '#c3ccd8', gold: '#f5c542' } as const;
+    const fields: Array<{ key: keyof AdminConfig['vipTiers'][number]; label: string; type: 'text' | 'number'; min?: number; max?: number }> = [
+      { key: 'title', label: 'Tier name', type: 'text' },
+      { key: 'price', label: 'Price (coins)', type: 'number', min: 0 },
+      { key: 'coinBonus', label: 'Coin bonus (%)', type: 'number', min: 0, max: 100 },
+      { key: 'xpBonus', label: 'XP bonus (%)', type: 'number', min: 0, max: 100 },
+      { key: 'dailyCoins', label: 'Daily coins', type: 'number', min: 0 },
+      { key: 'dailySp', label: 'Daily skill points', type: 'number', min: 0 },
+      { key: 'exclusiveSkins', label: 'Exclusive skin IDs', type: 'text' },
+      { key: 'description', label: 'Player-facing benefits', type: 'text' },
+    ];
+    for (const vip of this.config.vipTiers) {
+      const card = document.createElement('section');
+      card.className = 'admin-card admin-vip-card';
+      const header = document.createElement('header');
+      header.className = 'admin-vip-card__header';
+      const mark = document.createElement('span');
+      mark.className = 'admin-vip-card__mark';
+      mark.style.color = colors[vip.tier] ?? colors.bronze;
+      mark.setAttribute('aria-hidden', 'true');
+      mark.textContent = '◆';
+      const title = document.createElement('strong');
+      title.textContent = vip.title;
+      const tier = document.createElement('span');
+      tier.className = 'admin-vip-card__tier';
+      tier.textContent = vip.tier;
+      header.append(mark, title, tier);
+
+      const form = document.createElement('div');
+      form.className = 'admin-vip-card__fields';
+      for (const field of fields) {
+        const label = document.createElement('label');
+        label.className = 'admin-label';
+        const caption = document.createElement('span');
+        caption.textContent = field.label;
+        const input = document.createElement('input');
+        input.type = field.type;
+        input.className = 'admin-input';
+        input.dataset.vip = vip.tier;
+        input.dataset.field = String(field.key);
+        const current = vip[field.key];
+        input.value = Array.isArray(current) ? current.join(', ') : String(current ?? '');
+        if (field.min !== undefined) input.min = String(field.min);
+        if (field.max !== undefined) input.max = String(field.max);
+        if (field.type === 'number') input.step = '1';
+        label.append(caption, input);
+        form.appendChild(label);
+
+        input.addEventListener('input', () => {
+          const vipObj = this.config?.vipTiers.find((entry) => entry.tier === vip.tier);
+          if (!vipObj) return;
+          if (field.key === 'exclusiveSkins') {
+            vipObj.exclusiveSkins = input.value.split(',').map((skin) => skin.trim()).filter(Boolean);
+          } else if (field.type === 'text') {
+            (vipObj[field.key] as string) = input.value;
+            if (field.key === 'title') title.textContent = input.value || 'Untitled tier';
+          } else {
+            const parsed = Number(input.value);
+            const bounded = Number.isFinite(parsed) ? Math.max(field.min ?? 0, Math.min(field.max ?? Number.MAX_SAFE_INTEGER, parsed)) : 0;
+            (vipObj[field.key] as number) = bounded;
+          }
+        });
+      }
+      card.append(header, form);
       container.appendChild(card);
-    });
-
-    container.querySelectorAll('input').forEach((input) => {
-      input.addEventListener('input', () => {
-        const tier = (input as HTMLInputElement).dataset.vip as 'bronze' | 'silver' | 'gold';
-        const field = (input as HTMLInputElement).dataset.field;
-        const vipObj = this.config!.vipTiers.find((v) => v.tier === tier);
-        if (!vipObj || !field) return;
-        
-        const value = (input as HTMLInputElement).value;
-        if (field === 'exclusiveSkins') {
-          vipObj.exclusiveSkins = value.split(',').map((s) => s.trim()).filter(Boolean);
-        } else if (field === 'description' || field === 'title') {
-          (vipObj as any)[field] = value;
-        } else {
-          (vipObj as any)[field] = parseFloat(value) || 0;
-        }
-      });
-    });
+    }
   }
 
   private renderDailyEditor(): void {
@@ -595,6 +662,7 @@ export class AdminController {
     if (inLives) inLives.value = String(gameplayConfig.startLives);
     if (inScoreMul) inScoreMul.value = String(gameplayConfig.scoreMultiplier);
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
+    [inMoney, inLives, inScoreMul, inSuperMul].forEach(syncRangeOutput);
     const bindNumber = (input: HTMLInputElement | null, field: keyof AdminConfig['gameplayConfig']) => {
       this.bindDraftInput(input, value => {
         if (!this.config || !value.trim()) return;
@@ -621,16 +689,37 @@ export class AdminController {
     const listEl = document.getElementById('admin-lb-table');
     if (!listEl) return;
     const requestId = ++this.leaderboardRequest;
-    listEl.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">Loading MongoDB scores...</div>';
+    const loading = document.createElement('p');
+    loading.className = 'admin-empty-state';
+    loading.textContent = 'Loading leaderboard scores…';
+    listEl.replaceChildren(loading);
 
-    const entries = await adminFetchLeaderboards();
+    let entries: any[];
+    try {
+      entries = await adminFetchLeaderboards();
+    } catch {
+      if (requestId !== this.leaderboardRequest) return;
+      const message = document.createElement('p');
+      message.className = 'admin-empty-state admin-empty-state--error';
+      message.textContent = 'Could not load leaderboard scores.';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'admin-btn-action';
+      retry.textContent = 'Retry';
+      retry.addEventListener('click', () => { void this.renderLeaderboardManager(); });
+      listEl.replaceChildren(message, retry);
+      return;
+    }
     if (requestId !== this.leaderboardRequest) return;
     if (entries.length === 0) {
-      listEl.innerHTML = '<div class="text-xs text-slate-400 p-4 text-center">No scores found in MongoDB.</div>';
+      const empty = document.createElement('p');
+      empty.className = 'admin-empty-state';
+      empty.textContent = 'No scores found.';
+      listEl.replaceChildren(empty);
       return;
     }
 
-    listEl.innerHTML = '';
+    listEl.replaceChildren();
     entries.forEach((e: any) => {
       const row = document.createElement('div');
       row.className = 'admin-lb-row';
@@ -838,10 +927,13 @@ export class AdminController {
       const titleInput = document.getElementById('admin-campaign-boss-title') as HTMLInputElement | null; if (titleInput) titleInput.value = boss.title;
       const descInput = document.getElementById('admin-campaign-boss-description') as HTMLTextAreaElement | null; if (descInput) descInput.value = boss.description;
       const difficultyInput = document.getElementById('admin-campaign-boss-difficulty') as HTMLInputElement | null; if (difficultyInput) difficultyInput.value = String(boss.difficulty);
+      syncRangeOutput(difficultyInput);
       const coinsInput = document.getElementById('admin-campaign-boss-coins') as HTMLInputElement | null; if (coinsInput) coinsInput.value = String(boss.rewardCoins);
       if (coinsInput) coinsInput.max = String(Math.floor((campaignWaves(Number(stageSelect.value)) + 1) * 100 / 1.5));
+      syncRangeOutput(coinsInput);
       const gemsInput = document.getElementById('admin-campaign-boss-gems') as HTMLInputElement | null; if (gemsInput) gemsInput.value = String(boss.rewardGems);
       if (gemsInput) gemsInput.max = String(Math.floor((campaignWaves(Number(stageSelect.value)) + 1) / 5));
+      syncRangeOutput(gemsInput);
       const preview = document.getElementById('admin-campaign-boss-preview') as HTMLImageElement | null;
       if (preview) { preview.src = boss.revealImage || ''; preview.classList.toggle('hidden', !boss.revealImage); }
       this.campaignRevealImage = '';

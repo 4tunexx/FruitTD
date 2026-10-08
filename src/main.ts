@@ -4,6 +4,7 @@ import { finishCampaignAttempt } from './game/campaignAttempt';
 import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
 import './style.css';
+import './ui/desktop-refresh.css';
 import { Sfx } from './audio/sfx';
 import { GameLoop } from './engine/loop';
 import { startMatchWithOptionalMedia } from './game/matchStartup';

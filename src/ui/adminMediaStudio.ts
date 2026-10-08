@@ -79,6 +79,12 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
 
 export const STUDIO_STATES: StudioState[] = ['idle', 'walk', 'run', 'hit', 'death'];
 export const STUDIO_DIRECTIONS: StudioDirection[] = ['down', 'left', 'right', 'up'];
+const SAFE_ENTITY_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+const BLOCKED_ENTITY_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isSafeEntityKey(key: string): boolean {
+  return SAFE_ENTITY_KEY.test(key) && !BLOCKED_ENTITY_KEYS.has(key.toLowerCase());
+}
 
 /** Key SFX slots from src/audio/sfx.ts BANKS (+ a few one-shots). */
 export function clipKey(state: StudioState, dir: StudioDirection): string {
@@ -254,10 +260,11 @@ export function migrateStoreToV2(raw: unknown): MediaStudioStore {
   const entitiesIn = s.entities && typeof s.entities === 'object' ? (s.entities as Record<string, unknown>) : {};
   const entities: Record<string, EntityStudioData> = {};
   for (const [key, val] of Object.entries(entitiesIn)) {
+    if (!isSafeEntityKey(key)) continue;
     entities[key] = normalizeEntityData(val);
   }
   const selected =
-    typeof s.selectedEntity === 'string' && s.selectedEntity
+    typeof s.selectedEntity === 'string' && isSafeEntityKey(s.selectedEntity)
       ? s.selectedEntity
       : 'enemy-normal';
   return { version: 2, entities, selectedEntity: selected };
@@ -323,7 +330,7 @@ export function parseEntityPack(raw: unknown): EntityPackJson | null {
   if (!raw || typeof raw !== 'object') return null;
   const p = raw as Record<string, unknown>;
   if (p.kind !== 'fruittd-creator-entity') return null;
-  if (typeof p.entityKey !== 'string' || !p.entityKey) return null;
+  if (typeof p.entityKey !== 'string' || !isSafeEntityKey(p.entityKey)) return null;
   return {
     version: 2,
     kind: 'fruittd-creator-entity',
@@ -396,12 +403,12 @@ function fillEntitySelect(): void {
   const sel = $('studio-entity') as HTMLSelectElement | null;
   if (!sel) return;
   const keys = knownEntityKeys();
-  sel.innerHTML = keys
-    .map((key) => {
-      const ent = store.entities[key];
-      return `<option value="${key}">${entityLabel(key, ent)}</option>`;
-    })
-    .join('');
+  sel.replaceChildren(...keys.map((key) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = entityLabel(key, store.entities[key]);
+    return option;
+  }));
   if (!keys.includes(store.selectedEntity)) store.selectedEntity = keys[0] || 'enemy-normal';
   sel.value = store.selectedEntity;
 }
@@ -418,15 +425,21 @@ function renderEntityRail(): void {
     row.type = 'button';
     row.className = 'studio-rail-item' + (key === store.selectedEntity ? ' is-on' : '');
     row.dataset.entityKey = key;
-    const dots = coverageForEntity(ent)
-      .slice(0, 11)
-      .map((c) => `<span class="studio-cov-dot${c.ok ? ' is-ok' : ''}" title="${c.key}"></span>`)
-      .join('');
-    row.innerHTML = `
-      <span class="studio-rail-title">${entityLabel(key, ent)}</span>
-      <span class="studio-rail-meta">${cov.hasSheet ? 'sheet' : 'no sheet'} · ${cov.filled}/${cov.total}</span>
-      <span class="studio-rail-cov">${dots}</span>
-    `;
+    const title = document.createElement('span');
+    title.className = 'studio-rail-title';
+    title.textContent = entityLabel(key, ent);
+    const meta = document.createElement('span');
+    meta.className = 'studio-rail-meta';
+    meta.textContent = `${cov.hasSheet ? 'sheet' : 'no sheet'} · ${cov.filled}/${cov.total}`;
+    const coverage = document.createElement('span');
+    coverage.className = 'studio-rail-cov';
+    for (const item of coverageForEntity(ent).slice(0, 11)) {
+      const dot = document.createElement('span');
+      dot.className = `studio-cov-dot${item.ok ? ' is-ok' : ''}`;
+      dot.title = item.key;
+      coverage.appendChild(dot);
+    }
+    row.append(title, meta, coverage);
     row.addEventListener('click', () => {
       store.selectedEntity = key;
       fillEntitySelect();

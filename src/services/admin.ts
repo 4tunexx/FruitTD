@@ -272,16 +272,11 @@ export async function adminResetDailyStreak(userId: string): Promise<{ success: 
 }
 
 export async function adminFetchLeaderboards(): Promise<any[]> {
-  try {
-    const res = await fetch('/api/admin/leaderboard', {
-      headers: getAdminHeaders(),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.entries || [];
-  } catch {
-    return [];
-  }
+  const res = await fetch('/api/admin/leaderboard', { headers: getAdminHeaders() });
+  if (!res.ok) throw new Error(`Leaderboard request failed (${res.status})`);
+  const data = await res.json();
+  if (!Array.isArray(data?.entries)) throw new Error('Leaderboard response was invalid');
+  return data.entries;
 }
 
 export async function adminDeleteScore(id: string): Promise<boolean> {

@@ -951,6 +951,7 @@
             <!-- Admin Tabs Navigation -->
             <div class="admin-tabs-nav">
               <button class="admin-tab-btn is-active" data-tab="daily">Daily Rewards</button>
+              <button class="admin-tab-btn" data-tab="vip">VIP Tiers</button>
               <button class="admin-tab-btn" data-tab="missions">Missions</button>
               <button class="admin-tab-btn" data-tab="achievements">Achievements</button>
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
@@ -968,13 +969,20 @@
 
             <!-- Tab 1: Daily Rewards -->
             <div id="admin-tab-daily" class="admin-panel-tab">
-              <p class="text-xs text-slate-400 mb-3">Live edit coin rewards, skill points, icons, and unlock items for Days 1 through 7. Changes save directly to MongoDB Atlas.</p>
+              <p class="text-xs text-slate-400 mb-3">Edit coin rewards, skill points, icons, and unlock items for Days 1 through 7. Use Save to publish your changes to the shared config.</p>
               <div id="admin-daily-list" class="admin-daily-grid"></div>
               <div class="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
                 <button id="btn-admin-reset-daily" class="admin-btn-action admin-btn-action--warning">
                   ⚡ Reset My Streak (Test Claiming Immediately)
                 </button>
               </div>
+            </div>
+
+            <div id="admin-tab-vip" class="admin-panel-tab hidden">
+              <div class="admin-catalog-toolbar">
+                <p class="text-xs text-slate-400">Set VIP pricing, bonuses, daily rewards, exclusive skins, and the benefit copy shown to players.</p>
+              </div>
+              <div id="admin-vip-list" class="admin-vip-list"></div>
             </div>
 
             <div id="admin-tab-missions" class="admin-panel-tab hidden">
@@ -1687,19 +1695,19 @@
               <div class="admin-form-col">
                 <label>
                   <span>Starting Coins ($)</span>
-                  <input id="admin-in-money" type="number" class="admin-input" min="0" step="10" />
+                  <input id="admin-in-money" type="range" class="admin-input" min="0" max="5000" step="10" data-value-output="admin-in-money-value" /><output id="admin-in-money-value" class="admin-range-value">0</output>
                 </label>
                 <label>
                   <span>Starting Wall Lives</span>
-                  <input id="admin-in-lives" type="number" class="admin-input" min="1" max="100" />
+                  <input id="admin-in-lives" type="range" class="admin-input" min="1" max="100" step="1" data-value-output="admin-in-lives-value" /><output id="admin-in-lives-value" class="admin-range-value">1</output>
                 </label>
                 <label>
                   <span>Score Multiplier</span>
-                  <input id="admin-in-scoremul" type="number" class="admin-input" min="0.1" max="10" step="0.1" />
+                  <input id="admin-in-scoremul" type="range" class="admin-input" min="0.1" max="10" step="0.1" data-value-output="admin-in-scoremul-value" /><output id="admin-in-scoremul-value" class="admin-range-value">1</output>
                 </label>
                 <label>
                   <span>Super Juice Charge Rate</span>
-                  <input id="admin-in-supermul" type="number" class="admin-input" min="0.5" max="5" step="0.1" />
+                  <input id="admin-in-supermul" type="range" class="admin-input" min="0.5" max="5" step="0.1" data-value-output="admin-in-supermul-value" /><output id="admin-in-supermul-value" class="admin-range-value">1</output>
                 </label>
               </div>
             </div>
@@ -1723,9 +1731,9 @@
                 <label>Title <input id="admin-campaign-boss-title" class="admin-input" maxlength="100" /></label>
                 <label>Description <textarea id="admin-campaign-boss-description" rows="3" class="admin-input" maxlength="500"></textarea></label>
                 <div class="admin-form-row">
-                  <label>Difficulty multiplier <input id="admin-campaign-boss-difficulty" type="number" min="1" max="8" step="0.1" class="admin-input" /></label>
-                  <label>Coin reward <input id="admin-campaign-boss-coins" type="number" min="0" max="100000" step="10" class="admin-input" /></label>
-                  <label>Gem reward <input id="admin-campaign-boss-gems" type="number" min="0" max="1000" class="admin-input" /></label>
+                  <label><span>Difficulty multiplier</span><input id="admin-campaign-boss-difficulty" type="range" min="1" max="8" step="0.1" class="admin-input" data-value-output="admin-campaign-boss-difficulty-value" /><output id="admin-campaign-boss-difficulty-value" class="admin-range-value">1</output></label>
+                  <label><span>Coin reward</span><input id="admin-campaign-boss-coins" type="range" min="0" max="100000" step="100" class="admin-input" data-value-output="admin-campaign-boss-coins-value" /><output id="admin-campaign-boss-coins-value" class="admin-range-value">0</output></label>
+                  <label><span>Gem reward</span><input id="admin-campaign-boss-gems" type="range" min="0" max="1000" step="1" class="admin-input" data-value-output="admin-campaign-boss-gems-value" /><output id="admin-campaign-boss-gems-value" class="admin-range-value">0</output></label>
                 </div>
                 <label>Reveal art (PNG/JPEG, optimized to WebP under 30 KB) <input id="admin-campaign-boss-image" type="file" accept="image/png,image/jpeg,image/webp" class="admin-input" /></label>
                 <div id="admin-campaign-boss-live-preview" class="admin-boss-live-preview" aria-live="polite">

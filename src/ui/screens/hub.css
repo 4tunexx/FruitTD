@@ -540,6 +540,7 @@
 }
 
 @media (max-width: 640px) {
+  .ftd-hub-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
   .ftd-hub {
     grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 0.5rem;
@@ -1158,3 +1159,198 @@
 .ftd-home-mode-detail__signal { margin: 0; padding: 0.65rem 0.75rem; border-left: 3px solid #ffc52e; background: #111315; color: #f6d76b; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.1em; }
 .ftd-home-mode-detail__launch { min-height: 54px; margin-top: auto; }
 .ftd-hub.is-home .ftd-home-mode-detail .ftd-tone-primary { background: linear-gradient(110deg, #ffe256, #ff9d1a); color: #17130d; border-color: #fff06a; box-shadow: 0 4px 0 #6b390c, 0 0 18px #ffbb3266; }
+
+/* Desktop hub finish: keep every screen comfortably inside Panel 1, then
+   give the five core destinations a deliberate game-menu dock treatment. */
+@media (min-width: 901px) {
+  .ftd-hub-actions {
+    display: flex;
+    flex: 1 0 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .45rem;
+    min-width: 0;
+  }
+  .ftd-hub-actions .ftd-hub-utils { width: 100%; flex: 0 0 auto; }
+  .ftd-hub-utils .ftd-hub-more { display: none !important; }
+  .ftd-hub-actions .ftd-hub-more-menu,
+  .ftd-hub-actions .ftd-hub-more-menu[hidden] {
+    position: static;
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    gap: .4rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .ftd-hub-actions .ftd-hub-more-menu__item {
+    min-width: 0;
+    min-height: 38px;
+    padding: .55rem .45rem;
+    border-color: color-mix(in srgb, var(--ftd-color-primary) 28%, var(--ftd-color-border));
+    background: linear-gradient(145deg, color-mix(in srgb, var(--ftd-color-panel-secondary) 80%, transparent), color-mix(in srgb, var(--ftd-color-panel) 94%, #101610));
+    color: var(--ftd-color-text-muted);
+    font-size: .68rem;
+    text-align: center;
+    white-space: nowrap;
+    transition: transform 150ms ease, border-color 150ms ease, color 150ms ease, background 150ms ease;
+  }
+  .ftd-hub-actions .ftd-hub-more-menu__item:hover,
+  .ftd-hub-actions .ftd-hub-more-menu__item:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--ftd-color-primary);
+    background: color-mix(in srgb, var(--ftd-color-primary) 13%, var(--ftd-color-panel));
+    color: var(--ftd-color-text);
+  }
+
+  .ftd-hub:not(.is-pvp-battle) .ftd-hub__main > .ftd-hub-panel-content {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: clamp(1.15rem, 1.9vw, 2rem);
+  }
+
+  .ftd-hub__main,
+  .ftd-hub__sub:not(.is-empty) {
+    border-color: color-mix(in srgb, var(--ftd-color-primary) 24%, var(--ftd-color-border));
+    border-radius: 14px;
+    box-shadow: inset 0 1px #ffffff08, 0 16px 44px #0004;
+  }
+  .ftd-hub__main { border-left-width: 1px; }
+
+  .ftd-hub__footer {
+    display: flex;
+    justify-self: center;
+    width: min(100%, 1080px);
+    gap: clamp(.55rem, 1vw, .85rem);
+    padding: .65rem;
+    border: 1px solid color-mix(in srgb, var(--ftd-color-primary) 24%, var(--ftd-color-border));
+    border-radius: 15px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ftd-color-panel-secondary) 90%, transparent), color-mix(in srgb, var(--ftd-color-background) 96%, #080d09));
+    box-shadow: inset 0 1px #ffffff12, 0 12px 34px #0005;
+    backdrop-filter: blur(18px);
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: .75rem;
+    min-width: 0;
+    min-height: 66px;
+    padding: .75rem clamp(.7rem, 1.1vw, 1.2rem);
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--ftd-color-border) 70%, transparent);
+    border-radius: 10px;
+    clip-path: none;
+    color: var(--ftd-color-text-muted);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--ftd-color-panel-secondary) 84%, transparent), color-mix(in srgb, var(--ftd-color-panel) 92%, #101610));
+    box-shadow: inset 0 1px #ffffff0a, 0 3px 0 #050806;
+    transition: transform 180ms cubic-bezier(.2,.8,.2,1), border-color 180ms ease, color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab__icon {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    color: var(--ftd-color-primary);
+    transition: transform 180ms cubic-bezier(.2,.8,.2,1), filter 180ms ease;
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab__label {
+    font-size: .76rem;
+    font-weight: 850;
+    letter-spacing: .075em;
+    color: inherit;
+    transition: color 180ms ease;
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab:hover,
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab:focus-visible {
+    z-index: 1;
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--ftd-color-primary) 62%, var(--ftd-color-border));
+    color: var(--ftd-color-text);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--ftd-color-primary) 12%, var(--ftd-color-panel-secondary)), var(--ftd-color-panel));
+    box-shadow: inset 0 1px #ffffff16, 0 7px 18px #0005, 0 0 20px color-mix(in srgb, var(--ftd-color-primary) 12%, transparent);
+    outline: none;
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab:hover .ftd-hub-tab__icon,
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab:focus-visible .ftd-hub-tab__icon { transform: scale(1.12); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ftd-color-primary) 52%, transparent)); }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab:active { transform: translateY(0) scale(.985); }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab.is-active {
+    border-color: color-mix(in srgb, var(--ftd-color-primary) 88%, white);
+    color: #1c170c;
+    background: linear-gradient(115deg, color-mix(in srgb, var(--ftd-color-primary) 72%, white), var(--ftd-color-primary) 58%, var(--ftd-color-accent));
+    box-shadow: inset 0 1px #ffffff88, inset 0 -3px color-mix(in srgb, var(--ftd-color-secondary) 65%, #5b310b), 0 4px 0 #070908, 0 0 22px color-mix(in srgb, var(--ftd-color-primary) 28%, transparent);
+  }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon,
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__label { color: #211909; }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab.is-active::after { animation-duration: 4.5s; opacity: .72; }
+
+  .ftd-hub:not(.is-pvp-battle) .ftd-hub__main :is(.ftd-item-card, .ftd-hero-tile, .ftd-stat, .ftd-mode-card) {
+    transition: transform 180ms cubic-bezier(.2,.8,.2,1), border-color 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  }
+  .ftd-hub:not(.is-pvp-battle) .ftd-hub__main :is(.ftd-item-card, .ftd-hero-tile, .ftd-stat, .ftd-mode-card):hover {
+    transform: translateY(-3px);
+    filter: brightness(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab,
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab__icon,
+  .ftd-hub__main :is(.ftd-item-card, .ftd-hero-tile, .ftd-stat, .ftd-mode-card) { transition: none !important; }
+  .ftd-hub > .ftd-hub__footer .ftd-hub-tab.is-active::after { animation: none !important; }
+}
+
+/* PC shape language: square edges, with a restrained two-corner cut on
+   interactive controls to match FruitTD's in-game action buttons. */
+@media (min-width: 901px) {
+  button, .ftd-btn, [role="button"] {
+    border-radius: 0 !important;
+    clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px)) !important;
+  }
+  input, select, textarea { border-radius: 0 !important; }
+
+  #screen-hub :is(.ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer, .ftd-hub-social-popover,
+    .ftd-item-card, .ftd-hero-tile, .ftd-stat, .ftd-profile-banner,
+    .ftd-profile-mastery__block, .ftd-catbar, .ftd-home-mode-detail),
+  :is(.menu-player-card, .mode-btn, .hero-btn, .skin-btn, .skill-btn, .inv-card,
+    .profile-stat-card, .profile-section, .shop-section-head, .vip-status-card,
+    .inv-empty-state, .ftd-hub-social-popover, .ftd-hub-social-popover__item,
+    .ftd-hub-social-popover__all),
+  .modal-card,
+  #modal-admin .modal-card--admin,
+  #modal-admin :is(.admin-live-stats, .admin-live-stat, .admin-config-form details,
+    .admin-config-field, .admin-section, .admin-card, .admin-input) {
+    border-radius: 0 !important;
+  }
+
+  #modal-admin input[type=range]::-webkit-slider-runnable-track { border-radius: 0; }
+  #modal-admin input[type=range]::-webkit-slider-thumb { border-radius: 0; }
+  #modal-admin input[type=range]::-moz-range-track { border-radius: 0; }
+  #modal-admin input[type=range]::-moz-range-thumb { border-radius: 0; }
+
+  #screen-hub :is(.ftd-btn--solid, .ftd-tone-primary, .ftd-home-mode-detail__launch) {
+    border: 2px solid color-mix(in srgb, var(--ftd-color-primary) 72%, white) !important;
+    color: #21170b !important;
+    background: linear-gradient(105deg, #ffe653 0%, #ffc52e 56%, #ff9419 100%) !important;
+    box-shadow: inset 0 1px #fff8c7, inset 0 -3px #ce710d, 0 4px 0 #08090a, 0 0 18px color-mix(in srgb, var(--ftd-color-primary) 22%, transparent) !important;
+    font-style: italic;
+    font-weight: 900;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+    transition: transform 150ms cubic-bezier(.2,.8,.2,1), filter 150ms ease, box-shadow 150ms ease !important;
+  }
+  #screen-hub :is(.ftd-btn--solid, .ftd-tone-primary, .ftd-home-mode-detail__launch):hover,
+  #screen-hub :is(.ftd-btn--solid, .ftd-tone-primary, .ftd-home-mode-detail__launch):focus-visible {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+    box-shadow: inset 0 1px #fffbdc, inset 0 -3px #ce710d, 0 6px 0 #08090a, 0 0 28px color-mix(in srgb, var(--ftd-color-primary) 36%, transparent) !important;
+  }
+  #screen-hub :is(.ftd-btn--solid, .ftd-tone-primary, .ftd-home-mode-detail__launch):active { transform: translateY(1px); }
+}

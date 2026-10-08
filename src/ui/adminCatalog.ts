@@ -16,6 +16,11 @@ function escapeAttr(value: string): string {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
+function safeColor(value: string): string {
+  const color = String(value ?? '').trim();
+  return /^#[\da-f]{3}(?:[\da-f])?$|^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(color) ? color : '#cbd5e1';
+}
+
 function reqFields(req: Requirement, prefix: string): string {
   const def = requirementById(req.type);
   const category = def?.category || 'slicing';
@@ -337,7 +342,7 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
       card.className = 'admin-catalog-card admin-rank-card';
       card.innerHTML = `
         <div class="admin-catalog-head">
-          <strong style="color:${escapeAttr(item.color)}">${escapeAttr(item.title)}</strong>
+          <strong style="color:${safeColor(item.color)}">${escapeAttr(item.title)}</strong>
           <button type="button" class="admin-del-btn r-del">Remove</button>
         </div>
         <div class="admin-reward-inputs">
@@ -346,7 +351,7 @@ export function renderRankEditor(container: HTMLElement, items: RankTier[]): voi
           <label><span>Min monthly score</span><input type="number" class="admin-input r-score" value="${item.minScore}" min="0" /></label>
           <label><span>Coins</span><input type="number" class="admin-input r-coins" value="${item.rewardCoins ?? 0}" min="0" /></label>
           <label><span>Gems</span><input type="number" class="admin-input r-gems" value="${item.rewardGems ?? 0}" min="0" /></label>
-          <label><span>Color</span><input type="color" class="admin-input admin-color r-color" value="${escapeAttr(item.color)}" /></label>
+          <label><span>Color</span><input type="color" class="admin-input admin-color r-color" value="${safeColor(item.color)}" /></label>
           <label><span>Lucide icon</span><input class="admin-input r-icon" value="${escapeAttr(item.icon)}" maxlength="32" placeholder="e.g. Crown" /></label>
         </div>
       `;
@@ -404,7 +409,7 @@ export function renderSlicerEditor(container: HTMLElement, items: CatalogSlicer[
   items.forEach((item, idx) => {
     const card = document.createElement('div');
     card.className = 'admin-catalog-card admin-slicer-card';
-    const preview = `linear-gradient(90deg, ${escapeAttr(item.color)}, ${escapeAttr(item.glowColor)})`;
+    const preview = `linear-gradient(90deg, ${safeColor(item.color)}, ${safeColor(item.glowColor)})`;
     card.innerHTML = `
       <div class="admin-catalog-head">
         <strong>${escapeAttr(item.name) || 'Untitled slicer'}</strong>
@@ -425,8 +430,8 @@ export function renderSlicerEditor(container: HTMLElement, items: CatalogSlicer[
         </label>
         <label><span>Cost</span><input type="number" class="admin-input sl-cost" value="${item.cost}" min="0" /></label>
         <label><span>Sell value</span><input type="number" class="admin-input sl-sell" value="${item.sellValue}" min="0" /></label>
-        <label><span>Trail color</span><input type="color" class="admin-input admin-color sl-color" value="${escapeAttr(item.color)}" /></label>
-        <label><span>Glow color</span><input type="color" class="admin-input admin-color sl-glowc" value="${escapeAttr(item.glowColor)}" /></label>
+        <label><span>Trail color</span><input type="color" class="admin-input admin-color sl-color" value="${safeColor(item.color)}" /></label>
+        <label><span>Glow color</span><input type="color" class="admin-input admin-color sl-glowc" value="${safeColor(item.glowColor)}" /></label>
         <label><span>FX style</span>
           <select class="admin-input sl-fx">
             ${(['solid', 'spark', 'plasma', 'ember', 'frost'] as SlicerFxStyle[])
@@ -473,7 +478,7 @@ export function renderSlicerEditor(container: HTMLElement, items: CatalogSlicer[
           note.textContent = `Effects on fruit: damage ×${item.damageMul.toFixed(2)}, juice ×${item.juiceMul.toFixed(2)}, brittle +${item.brittleBonus.toFixed(1)}s · look: ${item.fxStyle}`;
         }
         const swatch = card.querySelector('.admin-slicer-swatch') as HTMLElement | null;
-        if (swatch) swatch.style.background = `linear-gradient(90deg, ${item.color}, ${item.glowColor})`;
+        if (swatch) swatch.style.background = `linear-gradient(90deg, ${safeColor(item.color)}, ${safeColor(item.glowColor)})`;
       };
       input?.addEventListener('input', sync);
       input?.addEventListener('change', sync);
@@ -500,12 +505,12 @@ export function renderSlicerEditor(container: HTMLElement, items: CatalogSlicer[
     bindText('.sl-color', (v) => {
       item.color = v;
       const swatch = card.querySelector('.admin-slicer-swatch') as HTMLElement | null;
-      if (swatch) swatch.style.background = `linear-gradient(90deg, ${item.color}, ${item.glowColor})`;
+      if (swatch) swatch.style.background = `linear-gradient(90deg, ${safeColor(item.color)}, ${safeColor(item.glowColor)})`;
     });
     bindText('.sl-glowc', (v) => {
       item.glowColor = v;
       const swatch = card.querySelector('.admin-slicer-swatch') as HTMLElement | null;
-      if (swatch) swatch.style.background = `linear-gradient(90deg, ${item.color}, ${item.glowColor})`;
+      if (swatch) swatch.style.background = `linear-gradient(90deg, ${safeColor(item.color)}, ${safeColor(item.glowColor)})`;
     });
     card.querySelector('.sl-fx')?.addEventListener('change', (e) => {
       item.fxStyle = (e.target as HTMLSelectElement).value as SlicerFxStyle;

@@ -53,14 +53,26 @@ export function installSpriteUploads(): void {
     
     const loadStored = () => {
       const stored = localStorage.getItem(storageKey);
+      preview.replaceChildren();
       if (stored) {
-        preview.innerHTML = `<img src="${stored}" alt="${id}" />`;
+        const image = document.createElement('img');
+        image.src = stored;
+        image.alt = id;
+        preview.appendChild(image);
         clearBtn.style.display = 'block';
       } else {
-        preview.innerHTML = '<span style="font-size: 0.7rem; color: #64748b;">No sprite</span>';
+        const empty = document.createElement('span');
+        empty.textContent = 'No sprite';
+        preview.appendChild(empty);
         clearBtn.style.display = 'none';
       }
     };
+
+    if (input.dataset.spriteUploadWired === '1') {
+      loadStored();
+      return;
+    }
+    input.dataset.spriteUploadWired = '1';
     
     input.addEventListener('change', (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];

@@ -62,6 +62,7 @@ let lastActive: NavState | null = null;
 let lastHubSave: SaveData | null = null;
 let removeMenuDismiss: (() => void) | null = null;
 let notificationPollTimer: ReturnType<typeof setInterval> | null = null;
+let closeSocialPreview: (() => void) | null = null;
 
 export function registerHubTab(tab: HubTab): void {
   tabs.set(tab.id, tab);
@@ -83,63 +84,122 @@ function icon(node: typeof Swords, className: string): HTMLElement | SVGElement 
   return createElement(node, { class: className, width: 18, height: 18, 'aria-hidden': 'true' });
 }
 
-function openSocialOverlay(view: 'messages' | 'notifications', trigger: HTMLElement, opts: HubOptions): void {
-  document.querySelector('.ftd-hub-social-overlay')?.remove();
+function openSocialPreview(view: 'messages' | 'notifications', trigger: HTMLElement): void {
+  if (closeSocialPreview) {
+    const sameTrigger = trigger.getAttribute('aria-expanded') === 'true';
+    closeSocialPreview();
+    if (sameTrigger) return;
+  }
 
-  const overlay = el('div', { class: 'ftd-hub-social-overlay', role: 'presentation', 'data-testid': 'hub-social-overlay' });
-  const dialog = el('section', {
-    class: 'ftd-hub-social-dialog',
+  const title = view === 'messages' ? 'Messages' : 'Notifications';
+  const destination: NavState = view === 'messages' ? 'MESSAGES' : 'NOTIFICATIONS';
+  const panel = el('section', {
+    class: 'ftd-hub-social-popover',
     role: 'dialog',
-    'aria-modal': 'true',
-    'aria-label': view === 'messages' ? 'Messages' : 'Notifications',
-    tabindex: '-1',
+    'aria-label': `${title} preview`,
+    'data-testid': 'hub-social-popover',
   });
-  const content = el('div', { class: 'ftd-hub-social-dialog__content' });
-  dialog.appendChild(content);
-  overlay.appendChild(dialog);
+  const heading = el('header', { class: 'ftd-hub-social-popover__header' }, [
+    el('strong', { text: title }),
+    el('span', { class: 'ftd-hub-social-popover__loading', text: 'Loading…', role: 'status' }),
+  ]);
+  const list = el('div', { class: 'ftd-hub-social-popover__list', 'aria-live': 'polite' });
+  const footer = el('button', { type: 'button', class: 'ftd-hub-social-popover__all', text: view === 'messages' ? 'Open message centre' : 'Open notification centre' });
+  panel.append(heading, list, footer);
 
-  let stopNavigation: (() => void) | undefined;
   let closed = false;
-  const close = () => {
+  const close = (restoreFocus = false) => {
     if (closed) return;
     closed = true;
-    overlay.remove();
+    panel.remove();
+    closeSocialPreview = null;
     trigger.setAttribute('aria-expanded', 'false');
-    if (trigger.isConnected) trigger.focus();
-    const unsubscribe = stopNavigation;
-    stopNavigation = undefined;
-    if (unsubscribe) queueMicrotask(unsubscribe);
+    document.removeEventListener('pointerdown', dismissOutside);
+    document.removeEventListener('keydown', dismissOnEscape);
+    window.removeEventListener('resize', position);
+    window.removeEventListener('scroll', position, true);
+    stopNavigation();
+    if (restoreFocus && trigger.isConnected) trigger.focus();
   };
-  overlay.addEventListener('click', (event) => {
-    if (event.target === overlay) close();
-  });
-  overlay.addEventListener('keydown', (event) => {
+  const openCentre = () => { close(); openScreen(destination); };
+  const dismissOutside = (event: Event) => {
+    const isInside = (ancestor: HTMLElement) => {
+      let node = event.target as (Node & { parentElement?: HTMLElement | null }) | null;
+      while (node) { if (node === ancestor) return true; node = node.parentElement ?? null; }
+      return false;
+    };
+    if (event.target && !isInside(panel) && !isInside(trigger)) close();
+  };
+  const dismissOnEscape = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return;
-    event.preventDefault();
-    event.stopPropagation();
-    close();
-  });
-  stopNavigation = navigation.onChange(close);
+    event.preventDefault(); event.stopPropagation(); close(true);
+  };
+  const position = () => {
+    if (!panel.isConnected) return;
+    const rect = (trigger as HTMLElement & { getBoundingClientRect?: () => DOMRect }).getBoundingClientRect?.();
+    const viewportWidth = window.innerWidth || 390;
+    const width = Math.min(380, viewportWidth - 24);
+    panel.style.width = `${width}px`;
+    panel.style.left = `${Math.max(12, Math.min((rect?.right ?? viewportWidth - 12) - width, viewportWidth - width - 12))}px`;
+    const height = (panel as HTMLElement & { offsetHeight?: number }).offsetHeight || 320;
+    panel.style.top = `${Math.min((rect?.bottom ?? 48) + 10, Math.max(12, (window.innerHeight || 700) - height - 12))}px`;
+  };
+  const stopNavigation = navigation.onChange(() => close());
+  closeSocialPreview = () => close();
   trigger.setAttribute('aria-expanded', 'true');
-  document.body.appendChild(overlay);
-  dialog.focus();
+  document.body.appendChild(panel);
+  position();
+  footer.addEventListener('click', openCentre);
+  document.addEventListener('pointerdown', dismissOutside);
+  document.addEventListener('keydown', dismissOnEscape);
+  window.addEventListener('resize', position);
+  window.addEventListener('scroll', position, true);
 
-  void import('./social').then(({ renderSocial }) => {
-    if (!overlay.parentElement) return;
-    renderSocial(content, view, {
-      onClose: close,
-      onJoinCoopInvite: (code) => {
-        close();
-        void import('./onlineCoop').then(({ openOnlineCoopInvite }) => openOnlineCoopInvite(code));
-      },
-      onOpenDailyReward: () => { close(); opts.onOpenDaily?.(); },
-    });
-    content.classList.add('ftd-hub-social-dialog__content');
-    content.querySelector<HTMLElement>('.ftd-social__back')?.focus();
-  }).catch(() => {
-    if (!content.parentElement) return;
-    content.replaceChildren(el('p', { role: 'alert', text: 'This panel could not load. Close it and try again.' }));
-  });
+  const setLoading = (loading: boolean) => {
+    const status = heading.querySelector<HTMLElement>('.ftd-hub-social-popover__loading');
+    if (status) status.textContent = loading ? 'Loading…' : '';
+  };
+  const addRow = (primary: string, secondary: string, meta: string) => {
+    const row = el('button', { type: 'button', class: 'ftd-hub-social-popover__item' }, [
+      el('strong', { text: primary }), el('span', { text: secondary }), el('small', { text: meta }),
+    ]);
+    row.addEventListener('click', openCentre);
+    list.appendChild(row);
+  };
+  const empty = (text: string) => list.replaceChildren(el('p', { class: 'ftd-hub-social-popover__empty', text }));
+
+  if (!getAuthToken()) {
+    setLoading(false);
+    empty('Sign in to view your messages and activity.');
+    return;
+  }
+  if (view === 'notifications') {
+    void socialApi.notifications().then(({ notifications }) => {
+      if (closed) return;
+      setLoading(false);
+      if (!notifications.length) return empty('You’re all caught up.');
+      for (const item of notifications.slice(0, 5)) {
+        addRow(item.title, item.body, `${item.actorName || 'Fruit TD'} · ${new Date(item.createdAt).toLocaleDateString()}`);
+      }
+    }).catch(() => { if (!closed) { setLoading(false); empty('Notifications are unavailable right now.'); } });
+  } else {
+    void socialApi.friends().then(async ({ friends }) => {
+      const accepted = friends.filter((friend) => friend.state === 'accepted').slice(0, 6);
+      const threads = await Promise.all(accepted.map(async (friend) => {
+        try {
+          const { messages } = await socialApi.messages(friend.username);
+          return { friend, latest: messages.at(-1) };
+        } catch { return { friend, latest: undefined }; }
+      }));
+      if (closed) return;
+      setLoading(false);
+      const recent = threads.filter((thread) => thread.latest).sort((a, b) => Date.parse(b.latest!.createdAt) - Date.parse(a.latest!.createdAt));
+      if (!recent.length) return empty(accepted.length ? 'No messages yet. Start a conversation from your message centre.' : 'Add friends to start a conversation.');
+      for (const { friend, latest } of recent.slice(0, 5)) {
+        addRow(friend.nickname || friend.username, latest!.body, new Date(latest!.createdAt).toLocaleString());
+      }
+    }).catch(() => { if (!closed) { setLoading(false); empty('Messages are unavailable right now.'); } });
+  }
 }
 
 function buildCurrency(save: SaveData): HTMLElement {
@@ -161,6 +221,7 @@ function updateCurrency(currency: HTMLElement, save: SaveData): void {
 
 /** Builds the persistent header (Panel 3). Rebuilt on each full render, but never mid-tab-switch. */
 function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLElement {
+  closeSocialPreview?.();
   removeMenuDismiss?.();
   removeMenuDismiss = null;
   const hero = heroDef(save.hero);
@@ -201,6 +262,8 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   const notifications = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-notifications', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'data-testid': 'nav-notifications' }, [icon(Bell, 'ftd-hub-social__icon'), el('span', { class: 'ftd-hub-social__count', hidden: true, 'aria-hidden': 'true' })]);
   const messages = el('button', { class: 'ftd-hub-utility ftd-hub-utility--icon', type: 'button', title: 'Messages', 'aria-label': 'Messages', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'data-testid': 'nav-messages' }, [icon(MessageCircle, 'ftd-hub-social__icon')]);
   const community = el('button', { class: 'ftd-hub-utility ftd-hub-utility--community', type: 'button', title: 'Community', 'aria-label': 'Community', 'data-testid': 'nav-social' }, [icon(UsersRound, 'ftd-hub-social__icon'), el('span', { text: 'Community' })]);
+  const desktopActions = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 901px)') : null;
+  const isDesktop = () => desktopActions?.matches ?? false;
   const more = el('button', {
     class: 'ftd-hub-utility ftd-hub-utility--icon ftd-hub-more',
     type: 'button',
@@ -211,7 +274,9 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     'aria-expanded': 'false',
     'data-testid': 'nav-more',
   }, [icon(Ellipsis, 'ftd-hub-social__icon')]);
-  const menu = el('div', { id: 'hub-more-menu', class: 'ftd-hub-more-menu', role: 'menu', hidden: true, 'data-testid': 'hub-more-menu' });
+  const menu = el('div', { id: 'hub-more-menu', class: 'ftd-hub-more-menu', role: isDesktop() ? 'group' : 'menu', 'aria-label': 'Game actions', hidden: !isDesktop(), 'data-testid': 'hub-more-menu' });
+  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more]);
+  const actionsRow = el('div', { class: 'ftd-hub-actions' }, [utils, menu]);
   const actions: Array<{ label: string; testId: string; run: () => void; className?: string }> = [
     { label: 'News', testId: 'nav-news', run: () => openScreen('NEWS') },
     { label: 'Leaderboard', testId: 'nav-leaderboard', run: () => openScreen('LEADERBOARD') },
@@ -222,8 +287,19 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   ];
   let menuOpen = false;
   const setMenuOpen = (open: boolean) => {
+    if (isDesktop()) {
+      menuOpen = false;
+      menu.hidden = false;
+      more.hidden = true;
+      more.setAttribute('aria-expanded', 'false');
+      if (menu.parentElement !== actionsRow) actionsRow.appendChild(menu);
+      return;
+    }
     menuOpen = open;
     menu.hidden = !open;
+    more.hidden = false;
+    menu.setAttribute('role', 'menu');
+    menu.querySelectorAll<HTMLButtonElement>('[data-testid^="nav-"]').forEach((item) => item.setAttribute('role', 'menuitem'));
     more.setAttribute('aria-expanded', String(open));
     if (open) {
       document.body.appendChild(menu);
@@ -240,10 +316,30 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   };
   const closeMenu = () => setMenuOpen(false);
   for (const action of actions) {
-    const item = el('button', { class: `ftd-hub-more-menu__item${action.className ? ` ${action.className}` : ''}`, type: 'button', role: 'menuitem', text: action.label, 'data-testid': action.testId });
+    const item = el('button', { class: `ftd-hub-more-menu__item${action.className ? ` ${action.className}` : ''}`, type: 'button', role: isDesktop() ? undefined : 'menuitem', text: action.label, 'data-testid': action.testId });
     item.addEventListener('click', () => { closeMenu(); action.run(); });
     menu.appendChild(item);
   }
+  const updateMenuPresentation = () => {
+    if (isDesktop()) {
+      menuOpen = false;
+      menu.hidden = false;
+      menu.setAttribute('role', 'group');
+      menu.querySelectorAll<HTMLButtonElement>('[data-testid^="nav-"]').forEach((item) => item.removeAttribute('role'));
+      more.hidden = true;
+      more.setAttribute('aria-expanded', 'false');
+      more.removeAttribute('aria-haspopup');
+      if (menu.parentElement !== actionsRow) actionsRow.appendChild(menu);
+    } else {
+      menu.hidden = !menuOpen;
+      menu.setAttribute('role', 'menu');
+      menu.querySelectorAll<HTMLButtonElement>('[data-testid^="nav-"]').forEach((item) => item.setAttribute('role', 'menuitem'));
+      more.hidden = false;
+      more.setAttribute('aria-haspopup', 'menu');
+      if (!menuOpen) menu.remove();
+    }
+  };
+  updateMenuPresentation();
   more.addEventListener('click', () => {
     setMenuOpen(!menuOpen);
     if (menuOpen) menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
@@ -264,11 +360,10 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     const delta = event.key === 'ArrowDown' ? 1 : -1;
     items[(index + delta + items.length) % items.length]?.focus();
   });
-  notifications.addEventListener('click', () => openSocialOverlay('notifications', notifications, opts));
-  messages.addEventListener('click', () => openSocialOverlay('messages', messages, opts));
+  notifications.addEventListener('click', () => openSocialPreview('notifications', notifications));
+  messages.addEventListener('click', () => openSocialPreview('messages', messages));
   community.addEventListener('click', () => openScreen('SOCIAL'));
-  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more]);
-  const header = el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, utils]);
+  const header = el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, actionsRow]);
   header.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (menuOpen && !target.closest('.ftd-hub-more') && !target.closest('.ftd-hub-more-menu')) closeMenu();
@@ -277,10 +372,14 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     const target = event.target as HTMLElement | null;
     if (menuOpen && target && !header.contains(target) && !menu.contains(target)) closeMenu();
   };
-  const repositionMenu = () => { if (menuOpen) setMenuOpen(true); };
+  const repositionMenu = () => {
+    updateMenuPresentation();
+    if (menuOpen) setMenuOpen(true);
+  };
   document.addEventListener('pointerdown', dismissMenu);
   document.addEventListener('keydown', dismissOnEscape);
   window.addEventListener('resize', repositionMenu);
+  desktopActions?.addEventListener?.('change', updateMenuPresentation);
   const stopNavigation = navigation.onChange(closeMenu);
   function dismissOnEscape(event: KeyboardEvent) {
     if (menuOpen && event.key === 'Escape') { closeMenu(); more.focus(); }
@@ -290,6 +389,7 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     document.removeEventListener('pointerdown', dismissMenu);
     document.removeEventListener('keydown', dismissOnEscape);
     window.removeEventListener('resize', repositionMenu);
+    desktopActions?.removeEventListener?.('change', updateMenuPresentation);
     stopNavigation();
   };
   return header;

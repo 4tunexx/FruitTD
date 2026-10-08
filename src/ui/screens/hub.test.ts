@@ -78,7 +78,7 @@ test('the active tab is marked in the footer', () => {
   assert.equal(heroTab.classList.contains('is-active'), false);
 });
 
-test('notifications and messages open above the hub while other header controls keep their routes', () => {
+test('notifications and messages open compact dropdowns, dismiss outside, and link to their centers', () => {
   resetHub();
   navigation.reset('MAIN_MENU');
   registerHubTab(homeHubTab(() => undefined));
@@ -90,14 +90,21 @@ test('notifications and messages open above the hub while other header controls 
   ] as const) {
     const button = root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!;
     button.click();
-    assert.equal(navigation.state, 'MAIN_MENU', 'social panels must not route behind the hub');
+    assert.equal(navigation.state, 'MAIN_MENU', 'opening a preview must not navigate');
     assert.equal(button.getAttribute('aria-expanded'), 'true');
-    const overlay = document.body.querySelector<HTMLElement>('[data-testid="hub-social-overlay"]');
-    assert.ok(overlay, `${title} should open in a top-layer panel`);
-    assert.equal(overlay!.querySelector('[role="dialog"]')?.getAttribute('aria-label'), title);
-    overlay!.click();
-    assert.equal(document.body.querySelector('[data-testid="hub-social-overlay"]'), null, `${title} should close cleanly`);
+    const popover = document.body.querySelector<HTMLElement>('[data-testid="hub-social-popover"]');
+    assert.ok(popover, `${title} should open a compact top-layer preview`);
+    assert.equal(popover!.getAttribute('aria-label'), `${title} preview`);
+    assert.equal(popover!.getAttribute('aria-modal'), null, 'the preview must not block the whole page');
+    document.dispatchEvent({ type: 'pointerdown', target: document.body } as unknown as Event);
+    assert.equal(document.body.querySelector('[data-testid="hub-social-popover"]'), null, `${title} should close on outside press`);
+    assert.equal(button.getAttribute('aria-expanded'), 'false');
   }
+  const messageButton = root.querySelector<HTMLButtonElement>('[data-testid="nav-messages"]')!;
+  messageButton.click();
+  document.body.querySelector<HTMLButtonElement>('.ftd-hub-social-popover__all')!.click();
+  assert.equal(navigation.state, 'MESSAGES', 'the preview action should open the full message centre');
+  assert.equal(document.body.querySelector('[data-testid="hub-social-popover"]'), null);
   for (const [testId, destination] of [
     ['nav-social', 'SOCIAL'],
     ['nav-avatar-profile', 'PROFILE'],
@@ -266,6 +273,31 @@ test('More opens reachable Settings and Admin actions, and Play waits for a sele
   root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!.click();
   document.body.querySelector<HTMLButtonElement>('[data-testid="nav-admin"]')!.click();
   assert.equal(adminOpens, 1);
+});
+
+test('desktop shows every secondary destination inline and removes the More control', () => {
+  resetHub();
+  navigation.reset('MAIN_MENU');
+  registerHubTab(homeHubTab(() => undefined));
+  const previousMatchMedia = (window as any).matchMedia;
+  (window as any).matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} });
+
+  try {
+    const root = host();
+    renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined, onAdmin: () => undefined });
+    const more = root.querySelector<HTMLButtonElement>('[data-testid="nav-more"]')!;
+    const actions = root.querySelector<HTMLElement>('[data-testid="hub-more-menu"]')!;
+    assert.equal(more.hidden, true, 'desktop should not hide actions behind the ellipsis');
+    assert.equal(actions.hidden, false, 'desktop actions stay visible');
+    assert.equal(actions.parentElement?.className, 'ftd-hub-actions');
+    for (const id of ['nav-news', 'nav-leaderboard', 'nav-settings', 'nav-admin', 'nav-quit']) {
+      assert.ok(actions.querySelector(`[data-testid="${id}"]`), `${id} should be directly available`);
+    }
+    resetHub();
+  } finally {
+    if (previousMatchMedia === undefined) delete (window as any).matchMedia;
+    else (window as any).matchMedia = previousMatchMedia;
+  }
 });
 
 test('Home clears mode selection and restores the active hero panel', () => {
