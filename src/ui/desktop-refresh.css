@@ -11,8 +11,9 @@
 @media (min-width: 861px) {
   #hud-start { background: var(--ftd-color-background); }
   #menu-inner {
-    grid-template-columns: clamp(220px, 17vw, 270px) minmax(0, 1fr) clamp(245px, 19vw, 310px);
+    grid-template-columns: minmax(0, 1fr) clamp(245px, 19vw, 310px);
     grid-template-rows: 72px minmax(0, 1fr) 88px;
+    grid-template-areas: 'topbar topbar' 'world rightstats' 'bottombar bottombar';
     background:
       radial-gradient(ellipse at 52% 18%, var(--ftd-ui-glow), transparent 42%),
       linear-gradient(140deg, color-mix(in srgb, var(--ftd-color-background) 92%, #15251a), var(--ftd-color-background) 65%);
@@ -277,7 +278,7 @@
     max-width: 1480px;
     max-height: none;
     margin: 0 auto;
-    padding: .1rem 0 1.2rem;
+    padding: .1rem 0 5.5rem;
     overflow: visible;
   }
   #modal-admin .admin-panel-tab > p:first-child { max-width: 90ch; margin: 0 0 1rem; color: var(--ftd-color-text-muted); font-size: .83rem; line-height: 1.55; }
@@ -360,6 +361,7 @@
   #modal-admin .admin-vip-card__tier { margin-left: auto; color: var(--ftd-color-text-muted); font-size: .64rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
   #modal-admin .admin-vip-card__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
   #modal-admin .admin-vip-card__fields label:last-child { grid-column: 1 / -1; }
+  #modal-admin .admin-vip-card__fields textarea.admin-input { min-height: 74px; resize: vertical; line-height: 1.45; }
   #modal-admin .admin-btn-action,
   #modal-admin .studio-btn,
   #modal-admin .modal-btn {

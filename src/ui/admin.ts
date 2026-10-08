@@ -381,7 +381,7 @@ export class AdminController {
     container.replaceChildren();
 
     const colors = { bronze: '#d89a57', silver: '#c3ccd8', gold: '#f5c542' } as const;
-    const fields: Array<{ key: keyof AdminConfig['vipTiers'][number]; label: string; type: 'text' | 'number'; min?: number; max?: number }> = [
+    const fields: Array<{ key: keyof AdminConfig['vipTiers'][number]; label: string; type: 'text' | 'number' | 'textarea'; min?: number; max?: number }> = [
       { key: 'title', label: 'Tier name', type: 'text' },
       { key: 'price', label: 'Price (coins)', type: 'number', min: 0 },
       { key: 'coinBonus', label: 'Coin bonus (%)', type: 'number', min: 0, max: 100 },
@@ -389,7 +389,7 @@ export class AdminController {
       { key: 'dailyCoins', label: 'Daily coins', type: 'number', min: 0 },
       { key: 'dailySp', label: 'Daily skill points', type: 'number', min: 0 },
       { key: 'exclusiveSkins', label: 'Exclusive skin IDs', type: 'text' },
-      { key: 'description', label: 'Player-facing benefits', type: 'text' },
+      { key: 'description', label: 'Player-facing benefits', type: 'textarea' },
     ];
     for (const vip of this.config.vipTiers) {
       const card = document.createElement('section');
@@ -415,16 +415,20 @@ export class AdminController {
         label.className = 'admin-label';
         const caption = document.createElement('span');
         caption.textContent = field.label;
-        const input = document.createElement('input');
-        input.type = field.type;
+        let input: HTMLInputElement | HTMLTextAreaElement;
+        if (field.type === 'textarea') input = document.createElement('textarea');
+        else { input = document.createElement('input'); input.type = field.type; }
         input.className = 'admin-input';
         input.dataset.vip = vip.tier;
         input.dataset.field = String(field.key);
         const current = vip[field.key];
         input.value = Array.isArray(current) ? current.join(', ') : String(current ?? '');
-        if (field.min !== undefined) input.min = String(field.min);
-        if (field.max !== undefined) input.max = String(field.max);
-        if (field.type === 'number') input.step = '1';
+        if (input instanceof HTMLTextAreaElement) { input.rows = 3; input.maxLength = 240; }
+        if (input instanceof HTMLInputElement) {
+          if (field.min !== undefined) input.min = String(field.min);
+          if (field.max !== undefined) input.max = String(field.max);
+          if (field.type === 'number') input.step = '1';
+        }
         label.append(caption, input);
         form.appendChild(label);
 
@@ -433,7 +437,7 @@ export class AdminController {
           if (!vipObj) return;
           if (field.key === 'exclusiveSkins') {
             vipObj.exclusiveSkins = input.value.split(',').map((skin) => skin.trim()).filter(Boolean);
-          } else if (field.type === 'text') {
+          } else if (field.type !== 'number') {
             (vipObj[field.key] as string) = input.value;
             if (field.key === 'title') title.textContent = input.value || 'Untitled tier';
           } else {
