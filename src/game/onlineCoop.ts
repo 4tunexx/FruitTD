@@ -1,10 +1,10 @@
+import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
 import type { PvpConfig } from './pvp';
 import type { HeroId } from './heroes';
-import { heroAbility } from './heroAbilities';
 export interface CoopPlayer { userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
-export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; boss: boolean }
-export interface CoopMatch { id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
+export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; slowUntil?:number; slowMultiplier?:number; boss: boolean }
+export interface CoopMatch { powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
 export interface CoopConfig { bossEveryWaves: number; baseWaveSize: number; extraPerWave: number; spawnGapMs: number; intermissionMs: number; bossIntroMs: number; coinsPerKill: number; coinsPerWave: number; gemsEveryWaves: number; xpPerKill: number; towerXpPerWave: number; rewardCoinCap: number; bladeDamage: number; bladeRadius: number; bladeCooldownMs: number; bossHealthMultiplier: number; bossSpeedMultiplier: number; fruitSpeedMultiplier: number }
 export const DEFAULT_COOP_CONFIG: CoopConfig = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 10, rewardCoinCap: 3000, bladeDamage: 35, bladeRadius: .65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: .35, fruitSpeedMultiplier: .65 };
 export function normalizeCoopConfig(raw: unknown): CoopConfig {
@@ -36,16 +36,14 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       if(match.fruts<stats.cost) throw new Error('Not enough shared Fruts.');
       match.fruts-=stats.cost; match.towers.push({id:`${match.id}:${command.cell}`,type:command.tower,cell:command.cell,lastFiredAt:now});
     } else if(command.type==='ability') {
-      const ability=heroAbility(command.abilityId); const rank=player.abilityRanks?.[command.abilityId]??0;
-      if(!ability||ability.hero!==player.hero||!player.abilityLoadout?.includes(ability.id)||rank<1&&ability.id!=='jiju-1') throw new Error('That power is not equipped.');
-      player.abilityReadyAt??={}; if(now<(player.abilityReadyAt[ability.id]??0)) throw new Error('That power is cooling down.');
-      player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
-      if(ability.effect==='guard')match.wallHealth=Math.min(balance.wallHealth,match.wallHealth+Math.round(balance.wallHealth*.12));
-      let targets=match.fruits;
-      if(ability.effect==='pierce')targets=[...targets].sort((a,b)=>a.y-b.y).slice(0,Math.max(1,Math.ceil(targets.length*.4)));
-      else if(ability.effect==='burst')targets=targets.filter(f=>Math.abs(f.x-5)<3);
-      const damage=ability.damage+Math.max(0,rank-1)*8;
-      for(const fruit of targets)fruit.hp-=ability.effect==='frost'?damage*.65:damage;
+      const {ability,stats}=equippedPower(command.abilityId,player.hero,player.abilityLoadout,player.abilityRanks);
+      if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down.');
+      if(match.fruts<stats.cost)throw new Error('Not enough shared Fruts.');
+      const targets=powerTargets(match.fruits.filter(f=>f.hp>0),ability,f=>f);
+      match.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+      match.wallHealth=Math.min(balance.wallHealth,match.wallHealth+balance.wallHealth*stats.healFraction);
+      match.powerCasts=appendPowerCast(match.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(f=>({x:f.x,y:f.y}))});
+      for(const fruit of targets){fruit.hp-=stats.damage;if(stats.slowMs){fruit.slowUntil=Math.max(fruit.slowUntil??0,now+stats.slowMs);fruit.slowMultiplier=stats.slowMultiplier;}}
       const killed=match.fruits.filter(f=>f.hp<=0);player.kills+=killed.length;collectKills(match,balance);
     } else if(command.type==='slash') {
       for(const p of [command.from,command.to]) if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>10||p.y<0||p.y>14) throw new Error('Invalid blade stroke.');
@@ -76,7 +74,7 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
     match.fruits.push({id:`${match.id}:${serial}`,type:kind,x:boss?5:1+(serial*37%80)/10,y:0,hp:stats.health*(boss?config.bossHealthMultiplier:1)*(1+Math.floor(match.wave/8)*.2),boss});
     match.remainingSpawns--;match.spawnAt=now+config.spawnGapMs;
   }
-  for(const fruit of match.fruits) fruit.y+=balance.attacks[fruit.type]!.speed*delta*(fruit.boss?config.bossSpeedMultiplier:config.fruitSpeedMultiplier);
+  for(const fruit of match.fruits) fruit.y+=balance.attacks[fruit.type]!.speed*delta*(fruit.boss?config.bossSpeedMultiplier:config.fruitSpeedMultiplier)*(now<(fruit.slowUntil??0)?fruit.slowMultiplier??.45:1);
   const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number):boolean=>{
     if(now-last<stats.cooldownMs) return false;
     const fruit=match.fruits.filter(f=>f.hp>0&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false; fruit.hp-=stats.damage;return true;

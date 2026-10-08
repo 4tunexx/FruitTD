@@ -102,12 +102,12 @@ describe('Arena and Ranked PvP rules', () => {
     defender.towers.push({ id: 'tower', type: 'railgun', cell: nearPath, placedAt: 1_000 });
     applyPvpCommand(defended, defended.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, singleConfig);
     assert.equal(defended.players[1]!.fruts, cfg.startingFruts - cfg.attacks.normal!.cost);
-    for (let t = 1; t <= 3; t++) advancePvpMatch(defended, 1, 1_001 + t * 1000, cfg);
+    for (let t = 1; t <= 20; t++) advancePvpMatch(defended, 1, 1_001 + t * 1000, cfg);
     assert.equal(defender.attackers.length, 0);
 
     const open = match(); open.status = 'active'; open.map = cfg.maps[0]!; open.endsAt = 100_000;
     applyPvpCommand(open, open.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, singleConfig);
-    for (let t = 1; t <= cfg.maps[0]!.pathCells.length; t++) advancePvpMatch(open, 1, 1_001 + t * 1000, cfg);
+    for (let t = 1; t <= 40 && open.players[0].wallHealth === cfg.wallHealth; t++) advancePvpMatch(open, 1, 1_001 + t * 1000, cfg);
     assert.equal(open.players[0]!.wallHealth, cfg.wallHealth - cfg.attacks.normal!.wallDamage);
   });
 

@@ -3,7 +3,7 @@
 
 // server/routes/coop.ts
 import { Router } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID as randomUUID2 } from "node:crypto";
 import { Rest } from "ably";
 
 // server/db.ts
@@ -49,6 +49,7 @@ async function getDb() {
     await db.collection("friends").createIndex({ friendId: 1, state: 1, updatedAt: -1 });
     await db.collection("notifications").createIndex({ userId: 1, createdAt: -1 });
     await db.collection("notifications").createIndex({ notificationId: 1 }, { unique: true });
+    await db.collection("notifications").createIndex({ userId: 1, eventKey: 1 }, { unique: true, partialFilterExpression: { eventKey: { $exists: true } } });
     await db.collection("messages").createIndex({ conversationId: 1, createdAt: 1 });
     await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
     await db.collection("forum_posts").createIndex({ postId: 1 }, { unique: true });
@@ -342,6 +343,26 @@ function buildPads() {
 var PADS = buildPads();
 var MAIN_INDEX = PADS.findIndex((p) => p.main);
 
+// src/game/heroAbilities.ts
+var names = {
+  jiju: [["Blue Arc", "Shock the whole field for heavy damage.", "\u26A1", "shock"], ["Clean Sweep", "A balanced burst around the lead fruit.", "\u2726", "burst"], ["Quick Draw", "Pierce the nearest fruit.", "\u27A4", "pierce"], ["Still Frame", "Freeze the field, then strike.", "\u2744", "frost"], ["Orchard Guard", "A steady burst that protects the wall.", "\u2B21", "guard"], ["Grand Finale", "A full-field finishing strike.", "\u2739", "shock"]],
+  topfu: [["Cold Press", "Slow and crack every fruit.", "\u2744", "frost"], ["Soft Crush", "Burst damage around the front fruit.", "\u25CF", "burst"], ["Brittle Wave", "A freezing full-field wave.", "\u2727", "frost"], ["Heavy Drop", "High damage to the front pack.", "\u2B07", "pierce"], ["Chill Guard", "Slow the full field and steady the wall.", "\u2B21", "guard"], ["Deep Freeze", "Topfu\u2019s strongest field freeze.", "\u2739", "frost"]],
+  lagen: [["Long Lance", "Pierce a line through the field.", "\u27A4", "pierce"], ["Far Reach", "Strike fruit across the whole field.", "\u2301", "shock"], ["Spearhead", "High damage to the lead fruit.", "\u2197", "pierce"], ["Raking Line", "A broad slash through the front pack.", "\u2571", "burst"], ["Vine Snare", "Slow every fruit in its path.", "\u2667", "frost"], ["Horizon Break", "A full field lance strike.", "\u2739", "shock"]],
+  tripos: [["Triple Cut", "Three fast cuts across the field.", "\u224B", "burst"], ["Rose Burst", "A powerful clustered blast.", "\u273F", "burst"], ["Crosswind", "Strike the field from both sides.", "\u2723", "shock"], ["Pink Haze", "Slow and damage every fruit.", "\u274B", "frost"], ["Encore", "Repeat damage on the strongest fruit.", "\u266B", "pierce"], ["Grand Waltz", "Tripos\u2019 full field finale.", "\u2739", "shock"]],
+  ki: [["Golden Pulse", "A fast full-field pulse.", "\u263C", "shock"], ["Lucky Drop", "A heavy burst near the lead fruit.", "\u2726", "burst"], ["Sunbeam", "Pierce through the leading line.", "\u2600", "pierce"], ["Golden Guard", "Slow fruit and protect the wall.", "\u2B21", "guard"], ["Solar Bloom", "Blast the front pack with solar energy.", "\u273A", "burst"], ["Daybreak", "Ki\u2019s strongest full-field strike.", "\u2739", "shock"]]
+};
+var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description, icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [9e3, 13e3, 16e3, 19e3, 23e3, 28e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/icons/sigil-${String(["jiju", "topfu", "lagen", "tripos", "ki"].indexOf(hero) * 6 + i + 1).padStart(2, "0")}.svg` })));
+var MAX_HERO_ABILITY_RANK = 5;
+function heroAbility(id) {
+  return HERO_ABILITIES.find((a) => a.id === id);
+}
+function emptyHeroAbilityRanks() {
+  return Object.fromEntries(HERO_ABILITIES.map((a) => [a.id, 0]));
+}
+function emptyHeroAbilityLoadouts() {
+  return { jiju: ["jiju-1"], topfu: [], lagen: [], tripos: [], ki: [] };
+}
+
 // src/game/progression/rewards.ts
 var EMPTY_REWARD = Object.freeze({
   score: 0,
@@ -459,6 +480,8 @@ function defaultSave() {
     wallSkin: "wall-brick",
     mode: "casual",
     heroPerkRanks: emptyPerkRanks(),
+    heroAbilityRanks: emptyHeroAbilityRanks(),
+    heroAbilityLoadouts: emptyHeroAbilityLoadouts(),
     vipStatus: "none",
     saveRevision: 0,
     savedAt: 0,
@@ -532,6 +555,39 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   );
 }
 
+// src/game/powerCombat.ts
+function powerStats(ability, rawRank) {
+  const rank = Math.max(1, Math.min(MAX_HERO_ABILITY_RANK, Math.floor(rawRank) || 1));
+  return {
+    rank,
+    damage: ability.damage * (1 + (rank - 1) * 0.2),
+    cost: ability.juiceCost,
+    slowMs: ability.effect === "frost" || ability.effect === "guard" || ability.id === "topfu-6" ? 2e3 + (rank - 1) * 350 : 0,
+    slowMultiplier: ability.id === "topfu-6" ? 0.15 : 0.45,
+    healFraction: ability.effect === "guard" ? 0.12 + (rank - 1) * 0.02 : 0
+  };
+}
+function equippedPower(id, hero, loadout, ranks) {
+  const ability = heroAbility(id);
+  const rank = id === "jiju-1" ? Math.max(1, ranks?.[id] ?? 0) : ranks?.[id] ?? 0;
+  if (!ability || ability.hero !== hero || !loadout?.includes(id) || !Number.isFinite(rank) || rank < 1) throw new Error("That power is not equipped");
+  return { ability, stats: powerStats(ability, rank) };
+}
+function powerTargets(items, ability, point) {
+  const ordered = [...items].sort((a, b) => point(b).y - point(a).y);
+  if (ability.effect === "pierce") return ordered.slice(0, Math.max(1, Math.ceil(items.length * 0.4)));
+  if (ability.effect === "burst" || ability.effect === "bloom") {
+    const lead = ordered[0];
+    if (!lead) return [];
+    const origin = point(lead);
+    return ordered.filter((item) => Math.hypot(point(item).x - origin.x, point(item).y - origin.y) <= 3.2);
+  }
+  return ordered;
+}
+function appendPowerCast(casts, cast) {
+  return [...(casts ?? []).filter((item) => cast.at - item.at < 5e3), cast].slice(-24);
+}
+
 // src/game/onlineCoop.ts
 var DEFAULT_COOP_CONFIG = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 10, rewardCoinCap: 3e3, bladeDamage: 35, bladeRadius: 0.65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: 0.35, fruitSpeedMultiplier: 0.65 };
 function normalizeCoopConfig(raw) {
@@ -575,6 +631,26 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
       match.fruts -= stats.cost;
       match.towers.push({ id: `${match.id}:${command.cell}`, type: command.tower, cell: command.cell, lastFiredAt: now });
+    } else if (command.type === "ability") {
+      const { ability, stats } = equippedPower(command.abilityId, player.hero, player.abilityLoadout, player.abilityRanks);
+      if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down.");
+      if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
+      const targets = powerTargets(match.fruits.filter((f) => f.hp > 0), ability, (f) => f);
+      match.fruts -= stats.cost;
+      player.abilityReadyAt ??= {};
+      player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
+      match.wallHealth = Math.min(balance.wallHealth, match.wallHealth + balance.wallHealth * stats.healFraction);
+      match.powerCasts = appendPowerCast(match.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map((f) => ({ x: f.x, y: f.y })) });
+      for (const fruit of targets) {
+        fruit.hp -= stats.damage;
+        if (stats.slowMs) {
+          fruit.slowUntil = Math.max(fruit.slowUntil ?? 0, now + stats.slowMs);
+          fruit.slowMultiplier = stats.slowMultiplier;
+        }
+      }
+      const killed = match.fruits.filter((f) => f.hp <= 0);
+      player.kills += killed.length;
+      collectKills(match, balance);
     } else if (command.type === "slash") {
       for (const p of [command.from, command.to]) if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > 10 || p.y < 0 || p.y > 14) throw new Error("Invalid blade stroke.");
       if (Math.hypot(command.from.x - command.to.x, command.from.y - command.to.y) < 0.15 || now - player.lastSlashAt < config.bladeCooldownMs) throw new Error("Swipe across the fruit.");
@@ -627,7 +703,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     match.remainingSpawns--;
     match.spawnAt = now + config.spawnGapMs;
   }
-  for (const fruit of match.fruits) fruit.y += balance.attacks[fruit.type].speed * delta * (fruit.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier);
+  for (const fruit of match.fruits) fruit.y += balance.attacks[fruit.type].speed * delta * (fruit.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier) * (now < (fruit.slowUntil ?? 0) ? fruit.slowMultiplier ?? 0.45 : 1);
   const fire = (x, y, stats, last) => {
     if (now - last < stats.cooldownMs) return false;
     const fruit = match.fruits.filter((f) => f.hp > 0 && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
@@ -1285,7 +1361,33 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     if (target.attackers.length >= 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
     player.fruts -= cost;
     player.captured = player.captured.filter((item) => item !== captured);
-    target.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: 0, released: true });
+    target.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: -(match.map ?? config.map).pathCells.length, released: true });
+  } else if (command.type === "ability") {
+    const { ability, stats } = equippedPower(command.abilityId, player.hero ?? "", player.abilityLoadout, player.abilityRanks);
+    if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down");
+    if (player.fruts < stats.cost) throw new Error("Not enough match Fruts");
+    const map = match.map ?? config.map;
+    const point = (attacker) => {
+      const cell = map.pathCells[Math.min(map.pathCells.length - 1, Math.max(0, Math.round(attacker.progress)))] ?? 0;
+      return { x: cell % map.width + 0.5, y: Math.floor(cell / map.width) + 0.5, progress: attacker.progress };
+    };
+    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0), ability, point);
+    player.fruts -= stats.cost;
+    player.abilityReadyAt ??= {};
+    player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
+    player.wallHealth = Math.min(player.wallMaxHealth ?? config.wallHealth, player.wallHealth + (player.wallMaxHealth ?? config.wallHealth) * stats.healFraction);
+    player.powerCasts = appendPowerCast(player.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map(point) });
+    for (const attacker of targets) {
+      attacker.hp -= stats.damage;
+      if (stats.slowMs) {
+        attacker.slowUntil = Math.max(attacker.slowUntil ?? 0, now + stats.slowMs);
+        attacker.slowMultiplier = stats.slowMultiplier;
+      }
+    }
+    const killed = player.attackers.filter((a) => a.hp <= 0);
+    player.score += killed.length * 10;
+    player.fruts += killed.reduce((sum, a) => sum + (config.attacks[a.type]?.rewardFruts ?? 0), 0);
+    player.attackers = player.attackers.filter((a) => a.hp > 0);
   } else if (command.type === "rally") {
     if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error("Rally is cooling down");
     player.rallyUntil = now + PVP_RALLY.durationMs;
@@ -1326,7 +1428,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
     if (target.attackers.length + count > 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
     player.fruts -= attack.cost;
-    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, maxHp: attack.health, progress: -i * 0.8 });
+    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, maxHp: attack.health, progress: -(match.map ?? config.map).pathCells.length - i * 0.8 });
   } else if (command.type === "slash") {
     throw new Error("Slicing is disabled in Arena. Build towers to defend.");
   } else throw new Error("Unknown match action");
@@ -1340,19 +1442,53 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;
   const path = map.pathCells;
+  const before = /* @__PURE__ */ new Map();
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
-    for (const attacker of player.attackers) {
-      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
-      const slowed = player.towers.some((tower) => tower.type === "vortex" && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex, tower.level).range);
-      attacker.progress += config.attacks[attacker.type].speed * dt * Math.max(1, (path.length - 1) / 13) * (slowed ? 0.6 : 1);
+    for (const unit of player.attackers) {
+      before.set(unit.id, unit.progress);
+      unit.fighting = false;
+      delete unit.fightTargetId;
+      if (unit.hp <= 0) continue;
+      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(unit.progress)))];
+      const slowed = unit.progress >= 0 && player.towers.some((tower) => tower.type === "vortex" && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex, tower.level).range);
+      unit.progress += config.attacks[unit.type].speed * dt * Math.max(1, (path.length - 1) / 13) * Math.min(slowed ? 0.6 : 1, now < (unit.slowUntil ?? 0) ? unit.slowMultiplier ?? 0.45 : 1);
     }
+  }
+  const [a, b] = match.players;
+  const reach = 0.8;
+  const pairs = a.attackers.filter((u) => u.hp > 0).flatMap((left) => b.attackers.filter((u) => u.hp > 0).map((right) => ({ left, right, distance: Math.abs(left.progress + right.progress + 1) }))).sort((x, y) => x.distance - y.distance);
+  for (const { left, right } of pairs) {
+    const oldLeft = before.get(left.id), oldRight = before.get(right.id);
+    const oldSum = oldLeft + oldRight + 1, newSum = left.progress + right.progress + 1;
+    if (oldSum <= -reach && newSum >= -reach) {
+      const movement = left.progress - oldLeft + (right.progress - oldRight);
+      const fraction = movement > 0 ? Math.max(0, Math.min(1, (-reach - oldSum) / movement)) : 0;
+      left.progress = oldLeft + (left.progress - oldLeft) * fraction;
+      right.progress = oldRight + (right.progress - oldRight) * fraction;
+    } else if (Math.abs(oldSum) <= reach && Math.abs(newSum) <= reach + 10) {
+      left.progress = oldLeft;
+      right.progress = oldRight;
+    }
+  }
+  const damage = /* @__PURE__ */ new Map();
+  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit of team.attackers.filter((u) => u.hp > 0)) {
+    const target = enemy.attackers.filter((u) => u.hp > 0 && Math.abs(unit.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit.progress + x.progress + 1) - Math.abs(unit.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
+    if (!target) continue;
+    unit.fighting = true;
+    unit.fightTargetId = target.id;
+    unit.lastClashAt = Math.floor(now / 300) * 300;
+    const hit = config.attacks[unit.type].wallDamage * 0.45 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
+    damage.set(target.id, (damage.get(target.id) ?? 0) + hit);
+  }
+  for (const player of match.players) for (const unit of player.attackers) unit.hp -= damage.get(unit.id) ?? 0;
+  for (const player of match.players) {
     const shoot = (cell, stats, lastFiredAt, type = "main", level = 1) => {
       if (now - lastFiredAt < stats.cooldownMs) return false;
       const target = [...player.attackers].filter((attacker) => {
         const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
         return attacker.progress >= 0 && attacker.hp > 0 && pvpHexDistance(pathCell, cell, map.width) <= stats.range;
-      }).sort((a, b) => b.progress - a.progress)[0];
+      }).sort((a2, b2) => b2.progress - a2.progress)[0];
       if (!target) return false;
       if (type === "catcher" && !target.released && target.hp <= (target.maxHp ?? config.attacks[target.type].health) * (0.3 + (pvpTowerLevel(level) - 1) * 0.1) && (player.captured?.length ?? 0) < PVP_CAPTURE_CAPACITY) {
         player.captured ??= [];
@@ -1382,8 +1518,12 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
         player.score += 10;
         player.fruts += config.attacks[attacker.type].rewardFruts;
       } else if (attacker.progress >= path.length - 1) {
-        player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type].wallDamage);
-        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
+        attacker.progress = path.length - 1;
+        attacker.attackingTower = true;
+        if (now - (attacker.lastTowerHitAt ?? 0) >= 1e3) {
+          player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type].wallDamage);
+          attacker.lastTowerHitAt = now;
+        }
       }
     }
   }
@@ -1408,10 +1548,10 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   } else if (now >= match.endsAt) {
     match.status = "complete";
     match.resultReason = "timeout";
-    const [a, b] = match.players;
-    const aHealth = a.wallHealth / (a.wallMaxHealth ?? config.wallHealth);
-    const bHealth = b.wallHealth / (b.wallMaxHealth ?? config.wallHealth);
-    match.winnerId = Math.abs(aHealth - bHealth) < 1e-6 ? null : aHealth > bHealth ? a.userId : b.userId;
+    const [a2, b2] = match.players;
+    const aHealth = a2.wallHealth / (a2.wallMaxHealth ?? config.wallHealth);
+    const bHealth = b2.wallHealth / (b2.wallMaxHealth ?? config.wallHealth);
+    match.winnerId = Math.abs(aHealth - bHealth) < 1e-6 ? null : aHealth > bHealth ? a2.userId : b2.userId;
   }
   match.revision++;
   return match;
@@ -1444,6 +1584,17 @@ var DEFAULT_ADMIN_CONFIG = {
     logoImage: "",
     faviconImage: ""
   },
+  landscapeConfig: {
+    locationName: "Fallen Orchard",
+    skyColor: "#4a5f3e",
+    outerGroundColor: "#5a8a42",
+    groundColor: "#6fa052",
+    groundGlowColor: "#2a3a1f",
+    foliageColor: "#3d8b3a",
+    ambientLight: 0.92,
+    sunLight: 0.85,
+    foliageEnabled: true
+  },
   gameplayConfig: {
     startMoney: 140,
     startLives: 15,
@@ -1469,6 +1620,7 @@ function mergeAdminConfig(raw) {
     dailyRewards: Array.isArray(src.dailyRewards) && src.dailyRewards.length === 7 ? src.dailyRewards : DEFAULT_ADMIN_CONFIG.dailyRewards,
     vipTiers: Array.isArray(src.vipTiers) && src.vipTiers.length === 3 ? src.vipTiers : DEFAULT_ADMIN_CONFIG.vipTiers,
     menuConfig: { ...DEFAULT_ADMIN_CONFIG.menuConfig, ...src.menuConfig || {} },
+    landscapeConfig: { ...DEFAULT_ADMIN_CONFIG.landscapeConfig, ...src.landscapeConfig || {} },
     gameplayConfig: { ...DEFAULT_ADMIN_CONFIG.gameplayConfig, ...src.gameplayConfig || {} },
     coopConfig: normalizeCoopConfig(src.coopConfig),
     pvpConfig: mergePvpConfig(src.pvpConfig),
@@ -1534,6 +1686,27 @@ function mergePvpConfig(raw) {
   };
 }
 
+// server/notifications.ts
+import { randomUUID } from "node:crypto";
+async function saveNotification(source, input) {
+  try {
+    const collection = typeof source === "function" ? await source() : source;
+    await collection.insertOne({
+      notificationId: randomUUID(),
+      userId: input.userId,
+      actorId: input.actorId ?? "system",
+      actorName: input.actorName ?? "Fruit TD",
+      type: input.type,
+      title: input.title.slice(0, 100),
+      body: input.body.slice(0, 240),
+      ...input.eventKey ? { eventKey: input.eventKey } : {},
+      createdAt: /* @__PURE__ */ new Date()
+    });
+  } catch (error2) {
+    if (error2?.code !== 11e3) console.error("Could not save notification:", error2);
+  }
+}
+
 // server/routes/coop.ts
 function createCoopService(deps = {}) {
   const getCollection2 = deps.collection ?? getCollection;
@@ -1569,14 +1742,21 @@ function createCoopService(deps = {}) {
     const reward = coopRewards(room, cfg.coop);
     for (const player2 of room.players) {
       if (room.completedWaves < 1) continue;
-      await creditClaimReward2(player2.userId, `coop:${room.id}`, { coins: reward.coins, gems: reward.gems, xp: { [player2.hero]: reward.xp }, towerXp: reward.towerXp, games: 1, bestWave: room.completedWaves, highScore: room.score });
+      await creditClaimReward2(player2.userId, "coop:" + room.id, { coins: reward.coins, gems: reward.gems, xp: { [player2.hero]: reward.xp }, towerXp: reward.towerXp, games: 1, bestWave: room.completedWaves, highScore: room.score });
       const board = await getCollection2("leaderboards");
       const record = { userId: player2.userId, nickname: player2.name, avatar: "", hero: player2.hero, mode: "coop", score: room.score, wave: room.completedWaves, fruitsSliced: room.kills, maxCombo: 0, createdAt: /* @__PURE__ */ new Date() };
       await board.updateOne({ userId: player2.userId, mode: "coop" }, { $setOnInsert: record }, { upsert: true });
       await board.updateOne({ userId: player2.userId, mode: "coop", $or: [{ score: { $lt: room.score } }, { score: room.score, wave: { $lt: room.completedWaves } }] }, { $set: record });
+      await saveNotification(() => getCollection2("notifications"), { userId: player2.userId, type: "coop_result", title: "Co-op run finished", body: room.completedWaves + " waves \xB7 " + reward.coins + " coins \xB7 " + reward.gems + " gems", eventKey: "coop-result:" + player2.userId + ":" + room.id });
       if (room.completedWaves >= 6) {
-        await (await getCollection2("achievements")).updateOne({ userId: player2.userId, achievementId: "coop_first_team_run" }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 }, $setOnInsert: { claimed: false } }, { upsert: true });
-        await (await getCollection2("badges")).updateOne({ userId: player2.userId, badgeId: "coop-team-slicer" }, { $set: { unlocked: true, unlockedAt: /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 } }, { upsert: true });
+        const achievements = await getCollection2("achievements");
+        const achievement = await achievements.findOne({ userId: player2.userId, achievementId: "coop_first_team_run" });
+        await achievements.updateOne({ userId: player2.userId, achievementId: "coop_first_team_run" }, { $set: { unlocked: true, unlockedAt: achievement?.unlockedAt || /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 }, $setOnInsert: { claimed: false } }, { upsert: true });
+        if (!achievement?.unlocked) await saveNotification(() => getCollection2("notifications"), { userId: player2.userId, type: "achievement_unlocked", title: "Achievement unlocked", body: "Co-op Team Slicer \xB7 Claim your achievement reward.", eventKey: "achievement-unlocked:" + player2.userId + ":coop_first_team_run" });
+        const badges = await getCollection2("badges");
+        const badge = await badges.findOne({ userId: player2.userId, badgeId: "coop-team-slicer" });
+        await badges.updateOne({ userId: player2.userId, badgeId: "coop-team-slicer" }, { $set: { unlocked: true, unlockedAt: badge?.unlockedAt || /* @__PURE__ */ new Date(), progress: 1, maxProgress: 1 } }, { upsert: true });
+        if (!badge?.unlocked) await saveNotification(() => getCollection2("notifications"), { userId: player2.userId, type: "badge_unlocked", title: "Badge unlocked", body: "Co-op Team Slicer badge added to your collection.", eventKey: "badge-unlocked:" + player2.userId + ":coop-team-slicer" });
       }
     }
     await (await getCollection2("coop_matches")).updateOne({ id: room.id }, { $set: { settled: true } });
@@ -1610,8 +1790,11 @@ function createCoopService(deps = {}) {
   }
   async function player(user) {
     const save = await (await getCollection2("cloud_saves")).findOne({ userId: user.userId });
-    const hero = save?.saveData?.hero;
-    return { userId: user.userId, name: String(user.nickname || "Slicer").slice(0, 64), hero: HEROES.some((h) => h.id === hero) ? hero : "jiju", sequence: 0, lastSeenAt: Date.now(), lastSlashAt: 0, kills: 0 };
+    const data = save?.saveData ?? {};
+    const hero = data.hero;
+    const validHero = HEROES.some((h) => h.id === hero) ? hero : "jiju";
+    const loadout = Array.isArray(data.heroAbilityLoadouts?.[validHero]) ? data.heroAbilityLoadouts[validHero].filter((id) => heroAbility(id)?.hero === validHero).slice(0, 3) : validHero === "jiju" ? ["jiju-1"] : [];
+    return { userId: user.userId, name: String(user.nickname || "Slicer").slice(0, 64), hero: validHero, abilityLoadout: loadout, abilityRanks: data.heroAbilityRanks ?? {}, abilityReadyAt: {}, sequence: 0, lastSeenAt: Date.now(), lastSlashAt: 0, kills: 0 };
   }
   coopRouter2.get("/status", async (req2, res) => {
     const user = await resolveRequestUser2(req2);
@@ -1659,7 +1842,7 @@ function createCoopService(deps = {}) {
           }
         }
       }
-      const room = { ...newCoopMatch(randomUUID().replace(/-/g, "").slice(0, 10), self, cfg.balance), public: req2.body?.public === true, activePlayers: [user.userId], updatedAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1e3) };
+      const room = { ...newCoopMatch(randomUUID2().replace(/-/g, "").slice(0, 10), self, cfg.balance), public: req2.body?.public === true, activePlayers: [user.userId], updatedAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1e3) };
       await rooms.insertOne(room);
       res.json({ success: true, room });
     } catch (error2) {
@@ -1691,6 +1874,26 @@ function createCoopService(deps = {}) {
       if (error2.code === 11e3) return fail2(res, 409, "You already have an active Co-op room.");
       console.error("Co-op join failed", error2);
       fail2(res, 503, "Could not join the room.");
+    }
+  });
+  coopRouter2.post("/:id/invite", async (req2, res) => {
+    const user = await resolveRequestUser2(req2);
+    if (!user) return fail2(res, 401, "Sign in first.");
+    try {
+      const username = typeof req2.body?.username === "string" ? req2.body.username.trim() : "";
+      if (!/^[a-z0-9_]{3,24}$/i.test(username)) return fail2(res, 400, "Enter a valid friend username.");
+      const rooms = await getCollection2("coop_matches");
+      const room = await rooms.findOne({ id: req2.params.id, status: "waiting", "players.userId": user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
+      if (!room) return fail2(res, 404, "Your waiting room is no longer available.");
+      const friend = await (await getCollection2("users")).findOne({ username: { $regex: "^" + username + "$", $options: "i" } });
+      if (!friend || friend.userId === user.userId) return fail2(res, 404, "Friend not found.");
+      const relation = await (await getCollection2("friends")).findOne({ $or: [{ userId: user.userId, friendId: friend.userId, state: "accepted" }, { userId: friend.userId, friendId: user.userId, state: "accepted" }] });
+      if (!relation) return fail2(res, 403, "Co-op invites are available to accepted friends only.");
+      await saveNotification(() => getCollection2("notifications"), { userId: friend.userId, actorId: user.userId, actorName: String(user.username || user.nickname || "Slicer").slice(0, 32), type: "coop_invite", title: "Co-op room invitation", body: "Join " + String(user.username || user.nickname || "your friend") + " in Co-op with code " + room.id.toUpperCase() + "." });
+      res.json({ success: true, username: String(friend.username || username) });
+    } catch (error2) {
+      console.error("Co-op invite failed", error2);
+      fail2(res, 503, "Could not send Co-op invite.");
     }
   });
   coopRouter2.post("/:id/command", async (req2, res) => {
@@ -1825,7 +2028,7 @@ var HEROES2 = ["jiju", "topfu", "lagen", "tripos", "ki"];
 var SKILLS2 = ["edge", "reach", "flow", "steel", "storm"];
 var HERO_PERKS2 = ["combo", "juice", "tower", "critical", "survival"];
 var DEFAULT_OWNABLE_SKINS = /* @__PURE__ */ new Set(["blade-default", "blade-gold", "blade-ink", "blade-cherry", "wall-brick", "wall-stone", "wall-night"]);
-var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
+var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "heroAbilityRanks", "heroAbilityLoadouts", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
 var SERVER_OWNED_SAVE_KEYS = [
   "xp",
   "ownedHeroes",
@@ -1842,6 +2045,8 @@ var SERVER_OWNED_SAVE_KEYS = [
   "skills",
   "ownedSkins",
   "heroPerkRanks",
+  "heroAbilityRanks",
+  "heroAbilityLoadouts",
   "vipStatus",
   "hero",
   "bladeSkin",
@@ -1866,12 +2071,14 @@ function saveValidationError(value, allowedSkinIds = DEFAULT_OWNABLE_SKINS) {
   for (const [key, max] of Object.entries(limits)) {
     if (save[key] !== void 0 && !boundedInteger(save[key], max)) return `Invalid ${key}: expected a nonnegative integer within maximum`;
   }
-  for (const key of ["xp", "skills", "heroPerkRanks"]) {
+  for (const key of ["xp", "skills", "heroPerkRanks", "heroAbilityRanks", "heroAbilityLoadouts"]) {
     const field = save[key];
     if (field !== void 0 && (!field || typeof field !== "object" || Array.isArray(field))) return `Invalid ${key}`;
   }
   if (save.xp && Object.entries(save.xp).some(([hero, xp]) => !HEROES2.includes(hero) || !boundedInteger(xp, 1e6))) return "Invalid hero XP";
   if (save.skills && Object.entries(save.skills).some(([id, rank]) => !SKILLS2.includes(id) || !boundedInteger(rank, 3))) return "Invalid skill ranks";
+  if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 5))) return "Invalid hero ability ranks";
+  if (save.heroAbilityLoadouts && Object.entries(save.heroAbilityLoadouts).some(([hero, ids]) => !HEROES2.includes(hero) || !Array.isArray(ids) || ids.length > 3 || new Set(ids).size !== ids.length || ids.some((id) => typeof id !== "string" || !new RegExp("^" + hero + "-[1-6]$").test(id)))) return "Invalid hero ability loadout";
   if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES2.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS2.includes(id) || !boundedInteger(rank, 3)))) return "Invalid hero perk ranks";
   for (const key of ["ownedSkins", "ownedHeroes"]) {
     const list = save[key];
@@ -1935,8 +2142,8 @@ function createLeaderboardRouter(deps = defaultDeps) {
       } else if (!wallet) filter.mode = category;
       const rows = await (await deps.collection(collection)).find(filter).sort({ [field]: -1, ...category === "horde" ? { score: -1 } : {}, userId: 1 }).limit(50).toArray();
       const users = rows.length ? await (await deps.collection("users")).find({ userId: { $in: rows.map((row) => row.userId) } }).toArray() : [];
-      const names = new Map(users.map((person) => [person.userId, person.username || person.nickname || "Slicer"]));
-      res.json({ metric: ranked ? "FR points" : wallet ? category : category === "horde" ? "highest wave" : "high score", entries: rows.map((row, index) => ({ rank: index + 1, name: names.get(row.userId) || row.nickname || "Slicer", value: Number(ranked ? row.points : wallet ? row.saveData?.[category] || 0 : row[field]), detail: ranked ? `${row.wins || 0} wins \xB7 ${row.matches} matches` : wallet ? "Current balance" : `Wave ${row.wave} \xB7 Best combo \xD7${row.maxCombo || 0}`, isYou: row.userId === user?.userId })) });
+      const names2 = new Map(users.map((person) => [person.userId, person.username || person.nickname || "Slicer"]));
+      res.json({ metric: ranked ? "FR points" : wallet ? category : category === "horde" ? "highest wave" : "high score", entries: rows.map((row, index) => ({ rank: index + 1, name: names2.get(row.userId) || row.nickname || "Slicer", value: Number(ranked ? row.points : wallet ? row.saveData?.[category] || 0 : row[field]), detail: ranked ? `${row.wins || 0} wins \xB7 ${row.matches} matches` : wallet ? "Current balance" : `Wave ${row.wave} \xB7 Best combo \xD7${row.maxCombo || 0}`, isYou: row.userId === user?.userId })) });
     } catch {
       res.status(503).json({ error: "Leaderboards are temporarily unavailable. Try again." });
     }
@@ -2325,6 +2532,22 @@ function createAchievementsRouter(deps = defaultDeps2) {
           { upsert: true }
         );
       }
+      for (const achievementId of newlyUnlocked) {
+        const def = catalog.achievements.find((achievement) => achievement.id === achievementId);
+        if (!def) continue;
+        const reward = [
+          def.rewardCoins ? `${def.rewardCoins} coins` : "",
+          def.rewardGems ? `${def.rewardGems} gems` : "",
+          def.rewardSp ? `${def.rewardSp} skill points` : ""
+        ].filter(Boolean).join(" \xB7 ");
+        await saveNotification(() => deps.collection("notifications"), {
+          userId,
+          type: "achievement_unlocked",
+          title: "Achievement unlocked",
+          body: `${def.title}${reward ? ` \xB7 Claim ${reward}` : ""}`,
+          eventKey: `achievement-unlocked:${userId}:${achievementId}`
+        });
+      }
       res.json({ success: true, newlyUnlocked });
     } catch (err) {
       console.error("Error updating achievement progress:", err);
@@ -2359,6 +2582,18 @@ function createAchievementsRouter(deps = defaultDeps2) {
       if (!wallet) return res.status(400).json({ success: false, error: "Reward already claimed" });
       const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
       if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Reward already claimed" });
+      const reward = [
+        def.rewardCoins ? `${def.rewardCoins} coins` : "",
+        def.rewardGems ? `${def.rewardGems} gems` : "",
+        def.rewardSp ? `${def.rewardSp} skill points` : ""
+      ].filter(Boolean).join(" \xB7 ");
+      await saveNotification(() => deps.collection("notifications"), {
+        userId,
+        type: "achievement_reward",
+        title: "Achievement reward received",
+        body: `${def.title}${reward ? ` \xB7 ${reward}` : ""}`,
+        eventKey: `achievement-reward:${userId}:${achievementId}`
+      });
       res.json({
         success: true,
         achievementId,
@@ -2486,6 +2721,22 @@ function createMissionsRouter(deps = defaultDeps3) {
           { upsert: true }
         );
       }
+      for (const missionId of newlyCompleted) {
+        const def = catalog.missions.find((mission) => mission.id === missionId);
+        if (!def) continue;
+        const reward = [
+          def.rewardCoins ? `${def.rewardCoins} coins` : "",
+          def.rewardGems ? `${def.rewardGems} gems` : "",
+          def.rewardSp ? `${def.rewardSp} skill points` : ""
+        ].filter(Boolean).join(" \xB7 ");
+        await saveNotification(() => deps.collection("notifications"), {
+          userId,
+          type: "mission_ready",
+          title: "Mission completed",
+          body: `${def.title}${reward ? ` \xB7 Claim ${reward}` : " \xB7 Claim your reward"}`,
+          eventKey: `mission-ready:${userId}:${periodKey(def.type)}:${missionId}`
+        });
+      }
       res.json({ success: true, newlyCompleted });
     } catch (err) {
       console.error("Error updating missions:", err);
@@ -2521,6 +2772,18 @@ function createMissionsRouter(deps = defaultDeps3) {
       if (!wallet) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
       const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: /* @__PURE__ */ new Date() } });
       if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
+      const reward = [
+        def.rewardCoins ? `${def.rewardCoins} coins` : "",
+        def.rewardGems ? `${def.rewardGems} gems` : "",
+        def.rewardSp ? `${def.rewardSp} skill points` : ""
+      ].filter(Boolean).join(" \xB7 ");
+      await saveNotification(() => deps.collection("notifications"), {
+        userId,
+        type: "mission_reward",
+        title: "Mission reward received",
+        body: `${def.title}${reward ? ` \xB7 ${reward}` : ""}`,
+        eventKey: `mission-reward:${userId}:${activeKey}:${missionId}`
+      });
       res.json({
         success: true,
         missionId,
@@ -3008,6 +3271,19 @@ function createDailyRouter(deps = defaultDeps4) {
       if (consumed.modifiedCount !== 1 && consumed.upsertedCount !== 1) {
         return res.status(409).json({ success: false, error: "Daily claim receipt was recorded; reload your wallet" });
       }
+      const rewardParts = [
+        reward.coins ? `${reward.coins} coins` : "",
+        reward.gems ? `${reward.gems} gems` : "",
+        reward.skillPoints ? `${reward.skillPoints} skill points` : "",
+        reward.skinUnlock ? "a new item" : ""
+      ].filter(Boolean).join(" \xB7 ");
+      await saveNotification(() => deps.collection("notifications"), {
+        userId,
+        type: "daily_reward",
+        title: "Daily drop received",
+        body: `Day ${newStreak}: ${rewardParts || reward.label}`,
+        eventKey: `daily-reward:${userId}:${todayStr}`
+      });
       res.json({
         success: true,
         streak: newStreak,
@@ -3791,6 +4067,13 @@ badgesRouter.post("/claim", async (req2, res) => {
       gems: def.rewardGems ?? 0
     });
     if (!wallet) return res.status(409).json({ success: false, error: "Badge reward already claimed" });
+    await saveNotification(() => getCollection("notifications"), {
+      userId: user.userId,
+      type: "badge_reward",
+      title: "Badge reward received",
+      body: `${def.title} \xB7 ${def.rewardCoins ?? 0} coins \xB7 ${def.rewardGems ?? 0} gems`,
+      eventKey: `badge-reward:${user.userId}:${badgeId}`
+    });
     res.json({ success: true, badgeId, rewardCoins: def.rewardCoins ?? 0, rewardGems: def.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3836,6 +4119,17 @@ badgesRouter.post("/progress", async (req2, res) => {
         { upsert: true }
       );
     }
+    for (const badgeId of newlyUnlocked) {
+      const def = catalog.badges.find((badge) => badge.id === badgeId);
+      if (!def) continue;
+      await saveNotification(() => getCollection("notifications"), {
+        userId,
+        type: "badge_unlocked",
+        title: "Badge unlocked",
+        body: `${def.title}${def.rewardCoins || def.rewardGems ? ` \xB7 ${def.rewardCoins ?? 0} coins \xB7 ${def.rewardGems ?? 0} gems` : ""}`,
+        eventKey: `badge-unlocked:${userId}:${badgeId}`
+      });
+    }
     res.json({ success: true, newlyUnlocked });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3844,7 +4138,7 @@ badgesRouter.post("/progress", async (req2, res) => {
 
 // server/routes/social.ts
 import { Router as Router11 } from "express";
-import { randomUUID as randomUUID2 } from "node:crypto";
+import { randomUUID as randomUUID3 } from "node:crypto";
 var defaults = { resolveUser: resolveRequestUser, collection: getCollection };
 var fail = (res, status, error2) => res.status(status).json({ success: false, error: error2 });
 var safeName = (user) => String(user.username || user.nickname || "Slicer").slice(0, 32);
@@ -3857,7 +4151,7 @@ async function byUsername(col, username) {
 }
 async function notify(col, userId, actorId, actorName, type, title, body) {
   try {
-    await col.insertOne({ notificationId: randomUUID2(), userId, actorId, actorName, type, title, body: body.slice(0, 240), createdAt: /* @__PURE__ */ new Date() });
+    await col.insertOne({ notificationId: randomUUID3(), userId, actorId, actorName, type, title, body: body.slice(0, 240), createdAt: /* @__PURE__ */ new Date() });
   } catch (err) {
     console.error("Could not save social notification:", err);
   }
@@ -3881,7 +4175,7 @@ function createSocialRouter(deps = defaults) {
       const title = typeof req2.body?.title === "string" ? req2.body.title.trim() : "";
       const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
       if (title.length < 3 || title.length > 100 || body.length < 3 || body.length > 2e3) return fail(res, 400, "Title must be 3\u2013100 characters and post 3\u20132,000 characters");
-      const post = { postId: randomUUID2(), userId: user.userId, author: safeName(user), title, body, createdAt: /* @__PURE__ */ new Date(), replies: [] };
+      const post = { postId: randomUUID3(), userId: user.userId, author: safeName(user), title, body, createdAt: /* @__PURE__ */ new Date(), replies: [] };
       await (await deps.collection("forum_posts")).insertOne(post);
       res.status(201).json({ success: true, post });
     } catch (err) {
@@ -3895,7 +4189,7 @@ function createSocialRouter(deps = defaults) {
       if (!user) return fail(res, 401, "Sign in to reply");
       const body = typeof req2.body?.body === "string" ? req2.body.body.trim() : "";
       if (!body || body.length > 1e3) return fail(res, 400, "Reply must contain 1\u20131,000 characters");
-      const reply = { replyId: randomUUID2(), userId: user.userId, author: safeName(user), body, createdAt: /* @__PURE__ */ new Date() };
+      const reply = { replyId: randomUUID3(), userId: user.userId, author: safeName(user), body, createdAt: /* @__PURE__ */ new Date() };
       const posts = await deps.collection("forum_posts");
       const post = await posts.findOne({ postId: String(req2.params.postId) });
       if (!post) return fail(res, 404, "Post not found");
@@ -4058,7 +4352,7 @@ function createSocialRouter(deps = defaults) {
       if (!body || body.length > 1e3) return fail(res, 400, "Messages must contain 1 to 1,000 characters");
       const relation = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: peer.userId, state: "accepted" });
       if (!relation) return fail(res, 403, "You can message friends only");
-      const message = { messageId: randomUUID2(), conversationId: pairKey(user.userId, peer.userId), senderId: user.userId, recipientId: peer.userId, body, createdAt: /* @__PURE__ */ new Date() };
+      const message = { messageId: randomUUID3(), conversationId: pairKey(user.userId, peer.userId), senderId: user.userId, recipientId: peer.userId, body, createdAt: /* @__PURE__ */ new Date() };
       await (await deps.collection("messages")).insertOne(message);
       await notify(await deps.collection("notifications"), peer.userId, user.userId, safeName(user), "message", "New message", body.slice(0, 100));
       res.status(201).json({ success: true, message });
@@ -4072,7 +4366,7 @@ function createSocialRouter(deps = defaults) {
 var socialRouter = createSocialRouter();
 
 // server/routes/lobbies.ts
-import { randomBytes, randomUUID as randomUUID3 } from "node:crypto";
+import { randomBytes, randomUUID as randomUUID4 } from "node:crypto";
 import { Router as Router12 } from "express";
 var defaults2 = { resolveUser: resolveRequestUser, collection: getCollection };
 var error = (res, status, message) => res.status(status).json({ success: false, error: message });
@@ -4114,7 +4408,7 @@ function createLobbyRouter(deps = defaults2) {
       const existing = await rooms.findOne({ "members.userId": user.userId, ...active() });
       if (existing) return error(res, 409, "Leave your current lobby first");
       const lobby = {
-        lobbyId: randomUUID3(),
+        lobbyId: randomUUID4(),
         code: randomBytes(4).toString("hex").toUpperCase(),
         hostId: user.userId,
         visibility: req2.body?.visibility === "public" ? "public" : "friends",
@@ -4197,7 +4491,7 @@ function createLobbyRouter(deps = defaults2) {
       const relationship = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: friend.userId, state: "accepted" });
       if (!relationship) return error(res, 403, "Invite accepted friends only");
       await (await deps.collection("notifications")).insertOne({
-        notificationId: randomUUID3(),
+        notificationId: randomUUID4(),
         userId: friend.userId,
         actorId: user.userId,
         actorName: String(user.username || user.nickname || "Slicer").slice(0, 32),
@@ -4241,7 +4535,7 @@ function createItemsRouter(deps = defaultDeps6) {
       if (!user) return res.status(401).json({ success: false, error: "Sign in to manage gear" });
       const action = req2.body?.action;
       const id = req2.body?.id;
-      if (!["buy", "equip", "unequip", "sell", "buy-vip", "buy-skill"].includes(action) || typeof id !== "string" || id.length > 120) {
+      if (!["buy", "equip", "unequip", "sell", "buy-vip", "buy-skill", "buy-ability", "equip-ability"].includes(action) || typeof id !== "string" || id.length > 120) {
         return res.status(400).json({ success: false, error: "Invalid gear action" });
       }
       const slicers = await deps.slicers();
@@ -4249,7 +4543,7 @@ function createItemsRouter(deps = defaultDeps6) {
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith("hero:") ? id.slice(5) : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
-      if (!["buy-vip", "buy-skill"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
+      if (!["buy-vip", "buy-skill", "buy-ability", "equip-ability"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
       const col = await deps.collection("cloud_saves");
       const current = await col.findOne({ userId: user.userId });
       const currentRevision = serverRevision2(current?.revision);
@@ -4271,6 +4565,26 @@ function createItemsRouter(deps = defaultDeps6) {
         saveData.gems -= price;
         saveData.vipStatus = tier;
         saveData.coins = Math.min(1e6, (Number.isSafeInteger(saveData.coins) ? saveData.coins : 0) + VIP_FALLBACK[tier].coins);
+      } else if (action === "buy-ability" || action === "equip-ability") {
+        const ability = heroAbility(id);
+        if (!ability) return res.status(404).json({ success: false, error: "Ability not found" });
+        if (!ownedHeroes.includes(ability.hero)) return res.status(403).json({ success: false, error: "Unlock this hero first" });
+        if (heroXpToLevel(Number(saveData.xp?.[ability.hero] || 0)) < ability.unlockLevel) return res.status(403).json({ success: false, error: `Unlocks at hero level ${ability.unlockLevel}` });
+        saveData.heroAbilityRanks ??= {};
+        saveData.heroAbilityLoadouts ??= { jiju: ["jiju-1"], topfu: [], lagen: [], tripos: [], ki: [] };
+        const rank = Number(saveData.heroAbilityRanks[id] || 0);
+        if (action === "buy-ability") {
+          if (rank >= MAX_HERO_ABILITY_RANK) return res.status(409).json({ success: false, error: "Ability is fully upgraded" });
+          if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: "Not enough skill points" });
+          saveData.skillPoints -= 1;
+          saveData.heroAbilityRanks[id] = rank + 1;
+          if (rank === 0 && (saveData.heroAbilityLoadouts[ability.hero] || []).length < 3) saveData.heroAbilityLoadouts[ability.hero] = [...saveData.heroAbilityLoadouts[ability.hero] || [], id];
+        } else {
+          if (rank < 1 && !(ability.id === "jiju-1" && ability.hero === "jiju")) return res.status(403).json({ success: false, error: "Unlock the ability first" });
+          const loadout = saveData.heroAbilityLoadouts[ability.hero] || [];
+          if (!loadout.includes(id) && loadout.length >= 3) return res.status(409).json({ success: false, error: "Choose at most three abilities" });
+          saveData.heroAbilityLoadouts[ability.hero] = loadout.includes(id) ? loadout.filter((item) => item !== id) : [...loadout, id];
+        }
       } else if (action === "buy-skill") {
         const skill = SKILLS.find((entry) => entry.id === id);
         if (!skill) return res.status(404).json({ success: false, error: "Skill not found" });
@@ -4372,7 +4686,7 @@ function rateLimit(maxRequests, windowMs) {
 
 // server/routes/pvp.ts
 import { Router as Router14 } from "express";
-import { randomUUID as randomUUID4 } from "node:crypto";
+import { randomUUID as randomUUID5 } from "node:crypto";
 import { Rest as Rest2 } from "ably";
 
 // src/game/pvpMatchmaking.ts
@@ -4429,6 +4743,14 @@ function playPvpBotTurn(match, botUserId, now, config) {
   if (!command) return false;
   applyPvpCommand(match, botUserId, command, bot.sequence + 1, now, config);
   return true;
+}
+
+// src/game/pvpIdentity.ts
+function pvpAccountIdentity(account, fallbackName = "Player") {
+  const steamLinked = Boolean(account?.steamId);
+  const name = (steamLinked ? account?.steamPersona : account?.username) || account?.nickname || fallbackName;
+  const avatar = (steamLinked ? account?.steamAvatar : account?.avatar) || account?.avatar || "";
+  return { name: String(name).trim().slice(0, 32) || "Player", avatar: String(avatar).slice(0, 9e5) };
 }
 
 // server/routes/pvp.ts
@@ -4518,7 +4840,7 @@ function publicMatch(match, userId) {
     vetoTurnId: match.vetoTurn,
     yourVetoTurn: match.vetoTurn === userId,
     vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured }) => ({ userId: id, name, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side,
@@ -4531,17 +4853,24 @@ async function equippedAppearance(userId) {
   const save = cloud?.saveData;
   const hero = HEROES.some((item) => item.id === save?.hero) && (save?.hero === "jiju" || save?.ownedHeroes?.includes(save.hero)) ? save.hero : "jiju";
   const wallSkin = WALL_SKINS.some((item) => item.id === save?.wallSkin) && (save?.wallSkin === "wall-brick" || save?.ownedSkins?.includes(save.wallSkin)) ? save.wallSkin : "wall-brick";
-  return { hero, wallSkin };
+  const rawLoadout = save?.heroAbilityLoadouts?.[hero];
+  const abilityLoadout = Array.isArray(rawLoadout) ? rawLoadout.filter((id) => heroAbility(id)?.hero === hero).slice(0, 3) : hero === "jiju" ? ["jiju-1"] : [];
+  return { hero, wallSkin, abilityLoadout, abilityRanks: save?.heroAbilityRanks ?? {}, abilityReadyAt: {} };
 }
 async function makeMatch(queue, left, right, config) {
-  const match = newPvpMatch(randomUUID4(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
+  const match = newPvpMatch(randomUUID5(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
   match.updatedAt = /* @__PURE__ */ new Date();
   match.balance = structuredClone(config);
   match.activePlayers = [left.userId, right.userId];
-  const ratings = await Promise.all(match.players.map(async (player) => {
+  const [accounts, ratings] = await Promise.all([
+    (await getCollection("users")).find({ userId: { $in: match.players.map((player) => player.userId) } }).toArray(),
+    Promise.all(match.players.map(async (player) => (await ratingFor(player.userId, config)).points))
+  ]);
+  for (const player of match.players) {
+    const account = accounts.find((row) => row.userId === player.userId);
+    Object.assign(player, pvpAccountIdentity(account, player.name));
     Object.assign(player, await equippedAppearance(player.userId));
-    return (await ratingFor(player.userId, config)).points;
-  }));
+  }
   match.startRatings = Object.fromEntries(match.players.map((player, index) => [player.userId, ratings[index]]));
   await (await getCollection("pvp_matches")).insertOne(match);
   void publishMatch(match);
@@ -4596,6 +4925,13 @@ async function settleMatch(match, config) {
           if (reached) await badge(reached);
         }
       }
+      await saveNotification(() => getCollection("notifications"), {
+        userId: player.userId,
+        type: "pvp_result",
+        title: "Arena match finished",
+        body: `${outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Tie"} \xB7 ${match.queue === "ranked" && player.ratingDelta !== void 0 ? `${player.ratingDelta > 0 ? "+" : ""}${player.ratingDelta} rating` : "Casual Arena"}`,
+        eventKey: `pvp-result:${player.userId}:${match.id}`
+      });
     }
     match.settled = true;
     await matches.updateOne({ id: match.id }, { $set: { settled: true, players: match.players }, $unset: { activePlayers: "" } });
@@ -4695,7 +5031,7 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
     const active2 = await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": user.userId });
     if (active2) return routerError(res, 409, "Finish your current match before starting a test.");
     const now = Date.now();
-    const id = randomUUID4();
+    const id = randomUUID5();
     const botUserId = `bot:${id}`;
     const match = newPvpMatch(id, queue, [createPvpPlayer(user.userId, user.username || user.nickname || "Slicer", "blue", config, now), createPvpPlayer(botUserId, "Orchard Siege Bot", "red", config, now)], now, config);
     match.status = "active";
@@ -4760,7 +5096,7 @@ pvpRouter.post("/queue", async (req2, res) => {
     const now = /* @__PURE__ */ new Date();
     const rating = await ratingFor(user.userId, config);
     const existing = await queues.findOne({ userId: user.userId, queue, expiresAt: { $gt: now } });
-    const entry = { userId: user.userId, name: user.username || user.nickname || "Slicer", queue, points: rating.points, season: seasonKey(), createdAt: existing?.createdAt ?? now, expiresAt: new Date(Date.now() + 12e4) };
+    const entry = { userId: user.userId, name: user.steamPersona || user.username || user.nickname || "Player", queue, points: rating.points, season: seasonKey(), createdAt: existing?.createdAt ?? now, expiresAt: new Date(Date.now() + 12e4) };
     await queues.updateOne({ userId: user.userId }, { $set: entry }, { upsert: true });
     const match = await pairQueued(entry, config);
     if (match) return res.json({ success: true, match: publicMatch(match, user.userId) });
@@ -4790,10 +5126,10 @@ pvpRouter.post("/challenge", async (req2, res) => {
     const users = await getCollection("users");
     const friend = await users.findOne({ userId: friendId });
     if (!friend) return routerError(res, 404, "Friend not found.");
-    const challenge = { challengeId: randomUUID4(), fromId: user.userId, fromName: user.username || user.nickname || "Slicer", toId: friendId, createdAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 12e4) };
+    const challenge = { challengeId: randomUUID5(), fromId: user.userId, fromName: user.steamPersona || user.username || user.nickname || "Player", toId: friendId, createdAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 12e4) };
     await (await getCollection("pvp_challenges")).insertOne(challenge);
     try {
-      await (await getCollection("notifications")).insertOne({ notificationId: randomUUID4(), userId: friendId, actorId: user.userId, actorName: challenge.fromName, type: "pvp_challenge", title: "Arena challenge", body: `${challenge.fromName} challenged you to an Arena siege. Open Arena to accept within two minutes.`, createdAt: /* @__PURE__ */ new Date() });
+      await (await getCollection("notifications")).insertOne({ notificationId: randomUUID5(), userId: friendId, actorId: user.userId, actorName: challenge.fromName, type: "pvp_challenge", title: "Arena challenge", body: `${challenge.fromName} challenged you to an Arena siege. Open Arena to accept within two minutes.`, createdAt: /* @__PURE__ */ new Date() });
     } catch (error2) {
       console.error("Could not create the Arena challenge notification:", error2);
     }

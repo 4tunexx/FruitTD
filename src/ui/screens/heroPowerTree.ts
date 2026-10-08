@@ -9,7 +9,7 @@ export function renderHeroPowerTree(save:SaveData,heroId:HeroId,heroLevel:number
  const abilities=HERO_ABILITIES.filter(a=>a.hero===heroId);
  const tree=el('section',{class:'ftd-hero-power-tree','aria-label':'Hero power skill tree'},[
   el('div',{class:'ftd-hero-power-tree__head'},[
-   el('div',{},[el('span',{class:'ftd-hero-power-tree__eyebrow',text:'POWER SKILL TREE'}),el('p',{class:'ftd-hero-power-tree__hint',text:'Six powers · five upgrade nodes each · equip up to three'})]),
+   el('div',{},[el('span',{class:'ftd-hero-power-tree__eyebrow',text:'POWER SKILL TREE'}),el('p',{class:'ftd-hero-power-tree__hint',text:'Six powers · 1 SP per rank · equip three · solo uses juice, online uses Fruts'})]),
    el('span',{class:'ftd-hero-power-tree__points',text:`${save.skillPoints} SP`}),
   ]),
  ]);

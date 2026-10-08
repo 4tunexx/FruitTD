@@ -4,8 +4,17 @@ import { Group, OrthographicCamera, Plane, Raycaster, Scene, Vector3 } from 'thr
 import { installDomStub } from '../domStub.test-helper';
 installDomStub();
 (globalThis as any).localStorage = { getItem: () => null };
-import { PvpBattlefield, pvpWorldPoint } from './pvpBattlefield';
+import { PvpBattlefield, pvpWorldPoint, pvpArmyPoint } from './pvpBattlefield';
 import { DEFAULT_PVP_CONFIG as config, createPvpPlayer } from '../../game/pvp';
+
+test('Co-op screen strokes invert the rendered own-lane coordinates without row jumps',()=>{
+  const width=390,height=844,map=config.map;
+  const canvas=document.createElement('div');(canvas as any).getBoundingClientRect=()=>({width,height,left:0,top:0});
+  const camera=new OrthographicCamera(-20,20,30,-30,.1,200);camera.up.set(0,0,-1);camera.position.set(0,90,14);camera.lookAt(0,0,14);camera.updateMatrixWorld(true);
+  const field:any=Object.create(PvpBattlefield.prototype);Object.assign(field,{canvas,snapshot:{map,shared:true},camera,ray:new Raycaster(),ground:new Plane(new Vector3(0,1,0),0)});
+  for(const y of [0,1,1.99,2,2.01,5,12]){const world=pvpWorldPoint(map,4.2,y,true);const screen=world.clone().project(camera);const point=field.point({clientX:(screen.x+1)*width/2,clientY:(1-screen.y)*height/2});assert.ok(point);assert.ok(Math.abs(point.x-4.2)<.0001);assert.ok(Math.abs(point.y-y)<.0001);}
+  assert.ok(pvpWorldPoint(map,4.2,1.999,true).distanceTo(pvpWorldPoint(map,4.2,2.001,true))<.01);
+});
 
 test('portrait and landscape picking reach every legal hex and exclude path and rival tiles', () => {
   for (const [width, height] of [[375,470],[950,606],[1400,700]]) for (const map of config.maps) for (const side of ['blue', 'red'] as const) {
@@ -45,4 +54,11 @@ test('PvP touch drag and pinch move the camera while a tap remains a build selec
  field.camera.position.set(0,75,-48);field.camera.lookAt(0,0,0);field.camera.updateProjectionMatrix();field.camera.updateMatrixWorld(true);
  field.snapshot.players=[{side:'red',towers:[{cell:4}]}];const towerPoint=pvpWorldPoint(config.maps[0]!,4%config.maps[0]!.width+.5,Math.floor(4/config.maps[0]!.width)+.5,true);towerPoint.y=1.1;towerPoint.project(field.camera);assert.equal(field.towerCell({clientX:(towerPoint.x+1)*375/2,clientY:(1-towerPoint.y)*470/2}),4,'placed tower is touch-selectable for upgrades');
  field.pointerDown({button:0,pointerId:1,clientX:100,clientY:200});field.pointerUp({pointerId:1,clientX:100,clientY:200});assert.deepEqual(selected,[4]);field.pointerDown({button:0,pointerId:2,clientX:100,clientY:200});field.pointerMove({pointerId:2,clientX:155,clientY:230});field.pointerUp({pointerId:2,clientX:155,clientY:230});assert.equal(selected.length,1);assert.notEqual(field.cameraX,0);field.pointerDown({button:0,pointerId:3,clientX:100,clientY:200});field.pointerDown({button:0,pointerId:4,clientX:200,clientY:200});field.pointerMove({pointerId:4,clientX:250,clientY:200});assert.ok(field.zoom>1);field.pointerCancel({pointerId:3});field.pointerCancel({pointerId:4});
+});
+
+
+test('both armies share the same world route in opposite directions across every map',()=>{
+ for(const map of config.maps)for(const progress of [-map.pathCells.length,-4,-1,-.7,-.5,-.2,0,4,map.pathCells.length-1]){
+  const own=pvpArmyPoint(map,progress,true),opposing=pvpArmyPoint(map,-progress-1,false);assert.ok(own.distanceTo(opposing)<1e-6,`${map.id} same fight position from both teams`);
+ }
 });

@@ -1,3 +1,4 @@
+import { heroArt } from '../heroArt';
 /**
  * HERO SCREEN (§5).
  *
@@ -47,7 +48,7 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
   art.style.setProperty('--hero-color', `#${def.color.toString(16).padStart(6, '0')}`);
   art.style.setProperty('--hero-trail', `#${def.trail.toString(16).padStart(6, '0')}`);
   art.appendChild(el('span', { class: 'ftd-hero-art__glow' }));
-  art.appendChild(el('span', { class: 'ftd-hero-art__initial', text: def.name.charAt(0) }));
+  art.appendChild(heroArt(heroId));
 
   const detail = el('div', { class: 'ftd-hero-detail', 'data-hero': heroId }, [
     art,
@@ -176,6 +177,7 @@ export function renderHeroScreen(root: HTMLElement, save: SaveData, cb: HeroScre
       ].filter(Boolean).join(' '),
       type: 'button',
     }, [
+      heroArt(status.heroId),
       el('span', { class: 'ftd-hero-tile__name', text: def.name }),
       el('span', {
         class: 'ftd-hero-tile__lv',

@@ -283,3 +283,34 @@ body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
     animation: none;
   }
 }
+
+/* Shared raised controls: mouse hover, keyboard focus and real touch presses. */
+:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot,.ftd-power-row__equip,.ftd-power-row__hex,.ftd-card--interactive){
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform 160ms cubic-bezier(.2,.8,.2,1),filter 160ms,border-color 160ms,box-shadow 160ms;
+}
+:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot,.ftd-power-row__equip,.ftd-power-row__hex,.ftd-card--interactive):not(:disabled):is(:focus-visible,:active){
+  transform:translateY(-2px);filter:brightness(1.14);border-color:#ffca28;box-shadow:0 5px 0 #060908,0 0 0 1px #ffca2866;outline:2px solid #ffca28;outline-offset:2px;
+}
+:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transition:transform 190ms cubic-bezier(.2,.8,.2,1),filter 190ms;transform-origin:50% 80%;}
+:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot):not(:disabled):is(:active,:focus-visible,.is-selected,.is-active) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transform:translateY(-5px) scale(1.08);filter:drop-shadow(0 5px 3px #0008);}
+@media(hover:hover) and (pointer:fine){
+ :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot,.ftd-power-row__equip,.ftd-power-row__hex,.ftd-card--interactive):not(:disabled):hover{transform:translateY(-3px);filter:brightness(1.12);border-color:#ffca28;box-shadow:0 6px 0 #060908,0 0 0 1px #ffca2844;}
+ :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot):not(:disabled):hover :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transform:translateY(-6px) scale(1.1);filter:drop-shadow(0 6px 3px #0008);}
+ .ftd-hero-detail:hover .ftd-hero-portrait{transform:translateY(-8px) scale(1.025);}
+}
+.ftd-hero-portrait{position:relative;display:inline-block;width:48px;height:58px;flex-shrink:0;transition:transform 200ms;vertical-align:middle;filter:drop-shadow(0 5px 2px #0007);}
+.ftd-hero-portrait__image{width:100%;height:100%;object-fit:contain;}
+.ftd-hero-portrait__figure{position:absolute;inset:0;}
+.ftd-hero-portrait__head{position:absolute;left:34%;top:5%;width:34%;height:26%;background:#dcc5a2;border:3px solid #101512;border-radius:35% 35% 15% 15%;box-shadow:inset 0 7px var(--hero-color);}
+.ftd-hero-portrait__body{position:absolute;left:23%;top:33%;width:52%;height:61%;background:linear-gradient(110deg,var(--hero-color),#18241e);border:3px solid #101512;clip-path:polygon(12% 0,88% 0,100% 72%,75% 72%,70% 100%,30% 100%,25% 72%,0 72%);}
+.ftd-hero-portrait__weapon{position:absolute;left:77%;top:24%;height:72%;width:10%;background:#dce2dc;border:2px solid #101512;transform:rotate(24deg);}
+.ftd-hero-art>.ftd-hero-portrait{width:80%;height:88%;z-index:1;}
+.ftd-hero-tile .ftd-hero-portrait{display:block;margin:0 auto 7px;}
+@media(prefers-reduced-motion:reduce){
+ :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot,.ftd-power-row__equip,.ftd-power-row__hex,.ftd-card--interactive,.ftd-hero-portrait),:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transition:none!important;transform:none!important;}
+}
+.ftd-power-row__icon{transition:transform 180ms cubic-bezier(.2,.8,.2,1),filter 180ms;}
+.ftd-power-row:focus-within .ftd-power-row__icon,.ftd-power-row:has(button:active) .ftd-power-row__icon{transform:translateY(-5px) scale(1.08);filter:drop-shadow(0 6px 3px #0008);}
+@media(hover:hover) and (pointer:fine){.ftd-power-row:hover .ftd-power-row__icon{transform:translateY(-6px) scale(1.08);}}
+@media(prefers-reduced-motion:reduce){.ftd-power-row__icon{transition:none!important;transform:none!important;}}

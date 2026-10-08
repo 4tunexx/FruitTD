@@ -1,5 +1,5 @@
+import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
 /** Shared Arena/Ranked PvP contracts and deterministic server rules. */
-import { heroAbility } from './heroAbilities';
 export type PvpQueue = 'arena' | 'ranked';
 export type PvpTier = 'Amateur' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Emerald' | 'Sapphire';
 export interface PvpMap { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] }
@@ -121,7 +121,7 @@ export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_
 export const PVP_CAPTURE_CAPACITY = 3;
 export function pvpMainUpgradeCost(level = 1): number { return pvpTowerLevel(level) === 1 ? 220 : 340; }
 export function pvpReleaseCost(attackCost: number, packSize = 1): number { return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * .5)); }
-export interface PvpPlayer { abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; released?: boolean }> }
+export interface PvpPlayer { powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
 export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
 export type PvpCommand = { type: 'ability'; abilityId: string } | { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
 
@@ -216,24 +216,20 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     const target = match.players.find(item => item !== player)!;
     if (target.attackers.length >= 128) throw new Error('The opponent lane is full. Wait for the attack wave.');
     player.fruts -= cost; player.captured = player.captured!.filter(item => item !== captured);
-    target.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: 0, released: true });
+    target.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: -(match.map??config.map).pathCells.length, released: true });
   } else if (command.type === 'ability') {
-    const ability=heroAbility(command.abilityId); const rank=player.abilityRanks?.[command.abilityId]??0;
-    if(!ability||ability.hero!==player.hero||!player.abilityLoadout?.includes(ability.id)||rank<1&&ability.id!=='jiju-1')throw new Error('That power is not equipped');
-    player.abilityReadyAt??={};if(now<(player.abilityReadyAt[ability.id]??0))throw new Error('That power is cooling down');
-    player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
-    if(ability.effect==='guard'){player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+Math.round(config.wallHealth*.12));}
-    else {
-      let targets=[...player.attackers].sort((a,b)=>b.progress-a.progress);
-      if(ability.effect==='pierce')targets=targets.slice(0,Math.max(1,Math.ceil(targets.length*.35)));
-      else if(ability.effect==='burst')targets=targets.slice(0,Math.min(4,targets.length));
-      const damage=ability.damage+Math.max(0,rank-1)*8;
-      for(const attacker of targets)attacker.hp-=ability.effect==='frost'?damage*.65:damage;
-      const killed=player.attackers.filter(a=>a.hp<=0);
-      player.score+=killed.length*10;
-      player.fruts+=killed.reduce((sum,a)=>sum+(config.attacks[a.type]?.rewardFruts??0),0);
-      player.attackers=player.attackers.filter(a=>a.hp>0);
-    }
+    const {ability,stats}=equippedPower(command.abilityId,player.hero??'',player.abilityLoadout,player.abilityRanks);
+    if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down');
+    if(player.fruts<stats.cost)throw new Error('Not enough match Fruts');
+    const map=match.map??config.map;
+    const point=(attacker:PvpPlayer['attackers'][number])=>{const cell=map.pathCells[Math.min(map.pathCells.length-1,Math.max(0,Math.round(attacker.progress)))]??0;return {x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5,progress:attacker.progress};};
+    const targets=powerTargets(player.attackers.filter(a=>a.hp>0),ability,point);
+    player.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+    player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+(player.wallMaxHealth??config.wallHealth)*stats.healFraction);
+    player.powerCasts=appendPowerCast(player.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(point)});
+    for(const attacker of targets){attacker.hp-=stats.damage;if(stats.slowMs){attacker.slowUntil=Math.max(attacker.slowUntil??0,now+stats.slowMs);attacker.slowMultiplier=stats.slowMultiplier;}}
+    const killed=player.attackers.filter(a=>a.hp<=0);player.score+=killed.length*10;
+    player.fruts+=killed.reduce((sum,a)=>sum+(config.attacks[a.type]?.rewardFruts??0),0);player.attackers=player.attackers.filter(a=>a.hp>0);
   } else if (command.type === 'rally') {
     if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error('Rally is cooling down');
     player.rallyUntil = now + PVP_RALLY.durationMs; player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
@@ -271,7 +267,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
     if (target.attackers.length + count > 128) throw new Error('The opponent lane is full. Wait for the attack wave.');
     player.fruts -= attack.cost;
-    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, maxHp: attack.health, progress: -i * .8 });
+    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, maxHp: attack.health, progress: -(match.map??config.map).pathCells.length-i*.8 });
   } else if (command.type === 'slash') {
     throw new Error('Slicing is disabled in Arena. Build towers to defend.');
   } else throw new Error('Unknown match action');
@@ -286,15 +282,40 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;
   const path = map.pathCells;
-  // Arena squads come from the opponent's send/release command. Random shared
-  // waves obscured who was attacking whom and punished both players for waiting.
-  for (const player of match.players) {
-    player.fruts += config.incomePerSecond * dt;
-    for (const attacker of player.attackers) {
-      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))]!;
-      const slowed = player.towers.some(tower => tower.type === 'vortex' && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex!, tower.level).range);
-      attacker.progress += config.attacks[attacker.type]!.speed * dt * Math.max(1, (path.length - 1) / 13) * (slowed ? .6 : 1);
+  // Stored under the defending player, squads travel from the sender's keep
+  // through the shared centre and into the enemy half. Both teams move before
+  // combat, and melee damage is applied simultaneously to avoid side advantage.
+  const before=new Map<string,number>();
+  for(const player of match.players){
+    player.fruts+=config.incomePerSecond*dt;
+    for(const unit of player.attackers){
+      before.set(unit.id,unit.progress);unit.fighting=false;delete unit.fightTargetId;
+      if(unit.hp<=0)continue;
+      const cell=path[Math.max(0,Math.min(path.length-1,Math.floor(unit.progress)))]!;
+      const slowed=unit.progress>=0&&player.towers.some(tower=>tower.type==='vortex'&&pvpHexDistance(tower.cell,cell,map.width)<=pvpTowerStats(config.towers.vortex!,tower.level).range);
+      unit.progress+=config.attacks[unit.type]!.speed*dt*Math.max(1,(path.length-1)/13)*Math.min(slowed?.6:1,now<(unit.slowUntil??0)?unit.slowMultiplier??.45:1);
     }
+  }
+  const [a,b]=match.players;const reach=.8;
+  const pairs=a.attackers.filter(u=>u.hp>0).flatMap(left=>b.attackers.filter(u=>u.hp>0).map(right=>({left,right,distance:Math.abs(left.progress+right.progress+1)}))).sort((x,y)=>x.distance-y.distance);
+  for(const {left,right} of pairs){
+    const oldLeft=before.get(left.id)!,oldRight=before.get(right.id)!;
+    const oldSum=oldLeft+oldRight+1,newSum=left.progress+right.progress+1;
+    if(oldSum<=-reach&&newSum>=-reach){
+      const movement=(left.progress-oldLeft)+(right.progress-oldRight);
+      const fraction=movement>0?Math.max(0,Math.min(1,(-reach-oldSum)/movement)):0;
+      left.progress=oldLeft+(left.progress-oldLeft)*fraction;right.progress=oldRight+(right.progress-oldRight)*fraction;
+    }else if(Math.abs(oldSum)<=reach&&Math.abs(newSum)<=reach+10){left.progress=oldLeft;right.progress=oldRight;}
+  }
+  const damage=new Map<string,number>();
+  for(const [team,enemy] of [[a,b],[b,a]] as const)for(const unit of team.attackers.filter(u=>u.hp>0)){
+    const target=enemy.attackers.filter(u=>u.hp>0&&Math.abs(unit.progress+u.progress+1)<=reach+.0001).sort((x,y)=>Math.abs(unit.progress+x.progress+1)-Math.abs(unit.progress+y.progress+1)||x.id.localeCompare(y.id))[0];
+    if(!target)continue;unit.fighting=true;unit.fightTargetId=target.id;unit.lastClashAt=Math.floor(now/300)*300;
+    const hit=config.attacks[unit.type]!.wallDamage*.45*dt*(now<(enemy.rallyUntil??0)?PVP_RALLY.damageMultiplier:1);
+    damage.set(target.id,(damage.get(target.id)??0)+hit);
+  }
+  for(const player of match.players)for(const unit of player.attackers)unit.hp-=damage.get(unit.id)??0;
+  for (const player of match.players) {
     const shoot = (cell: number, stats: { damage: number; range: number; cooldownMs: number }, lastFiredAt: number, type = 'main', level = 1) => {
       if (now - lastFiredAt < stats.cooldownMs) return false;
       const target = [...player.attackers].filter((attacker) => {
@@ -329,8 +350,8 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
       } else if (attacker.progress >= path.length - 1) {
         // These attackers are on this player's incoming lane, so they strike
         // this player's wall. The send command already placed them here.
-        player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type]!.wallDamage);
-        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
+        attacker.progress=path.length-1;attacker.attackingTower=true;
+        if(now-(attacker.lastTowerHitAt??0)>=1000){player.wallHealth=Math.max(0,player.wallHealth-config.attacks[attacker.type]!.wallDamage);attacker.lastTowerHitAt=now;}
       }
     }
   }

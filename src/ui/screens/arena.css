@@ -237,3 +237,5 @@
 .ftd-pvp.is-battle .ftd-duel-icon-button { transition:transform .12s ease,filter .12s ease; }
 .ftd-pvp.is-battle .ftd-duel-icon-button:not(:disabled):active { transform:translateY(2px) scale(.96); }
 @media(prefers-reduced-motion:reduce) { .ftd-pvp.is-battle .ftd-duel-icon-button { transition:none; } }
+
+.ftd-coop-power-icon{width:38px;height:38px;object-fit:contain;flex-shrink:0}.hero-ability-bar .ftd-button{display:flex;align-items:center;gap:8px}

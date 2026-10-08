@@ -44,7 +44,7 @@ export interface Fruit {
   alive: boolean; kind: FruitKind; enemyKind: EnemyKind; radius: number; group: Group; body: Mesh; outline: Mesh; hpBar: Mesh; hpBack: Mesh;
   hazardRing: Mesh; armorRing: Mesh;
   squash: number; vel: Vector3; spin: Vector3; bob: number; hp: number; maxHp: number; dodgeX: number; dodgeZ: number;
-  brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
+  powerSlowLeft?: number; powerSlowMultiplier?: number; brittle: number; impulseX: number; impulseZ: number; boss: boolean; volatileTriggered: boolean;
   bossEnraged?: boolean;
   /** Spawned by a Pod-Spawner death — never counted as a wave member. */
   splitChild: boolean;
@@ -245,7 +245,7 @@ export class FruitField {
     idle.alive = true; idle.kind = kind; idle.enemyKind = enemyKind; idle.boss = boss;
     idle.radius = def.radius * (boss ? 1.05 : 0.62);
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
-    idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
+    idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.powerSlowLeft = 0; idle.powerSlowMultiplier = 1; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false; idle.bossEnraged = false;
     idle.splitChild = false;
     resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind, bossStage });
@@ -365,9 +365,9 @@ export class FruitField {
       if (!fruit.alive) continue;
       fruit.bob += dt * (fruit.boss ? (fruit.enemyKind === 'swift' ? 4.8 : fruit.enemyKind === 'armored' ? 2.15 : 2.8) : 3);
       const dx = -fruit.group.position.x * 0.12; const dz = LEAK_Z - fruit.group.position.z; const dist = Math.hypot(dx, dz) || 0.0001;
-      fruit.brittle = Math.max(0, fruit.brittle - dt); fruit.impulseX *= 0.88; fruit.impulseZ *= 0.88;
+      fruit.powerSlowLeft = Math.max(0, (fruit.powerSlowLeft ?? 0) - dt); fruit.brittle = Math.max(0, fruit.brittle - dt); fruit.impulseX *= 0.88; fruit.impulseZ *= 0.88;
       const enemy = ENEMY_RULES[fruit.enemyKind] || ENEMY_RULES.normal;
-      const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * 0.32 * rules.speedMul * (fruit.boss ? 0.58 * (fruit.bossEnraged ? 1.4 : 1) : 1) * (fruit.brittle > 0 ? 0.48 : 1);
+      const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * 0.32 * rules.speedMul * (fruit.boss ? 0.58 * (fruit.bossEnraged ? 1.4 : 1) : 1) * Math.min(fruit.brittle > 0 ? .48 : 1, (fruit.powerSlowLeft ?? 0) > 0 ? fruit.powerSlowMultiplier ?? .45 : 1);
       fruit.dodgeX *= 0.86; fruit.dodgeZ *= 0.86;
       const moveX = (dx / dist) * speed + fruit.dodgeX + fruit.impulseX;
       const moveZ = (dz / dist) * speed + fruit.dodgeZ + fruit.impulseZ;

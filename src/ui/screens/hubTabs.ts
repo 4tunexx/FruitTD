@@ -1,3 +1,4 @@
+import { heroArt } from '../heroArt';
 import { bindArenaRating } from '../../services/pvpRating';
 import { renderHeroPowerTree } from './heroPowerTree';
 import { renderModeStats } from './modeStats';
@@ -12,7 +13,6 @@ import { renderModeStats } from './modeStats';
  */
 
 import { el } from '../components/dom';
-import { getAdminSprite } from '../adminSprites';
 import { GameButton, GameCurrency } from '../components/primitives';
 import { categoryTabs, emptyState } from './shell';
 import { renderItemCard } from './itemCard';
@@ -260,6 +260,7 @@ function heroesMain(cb: HeroScreenCallbacks) {
         ].filter(Boolean).join(' '),
         type: 'button',
       }, [
+        heroArt(status.heroId),
         el('span', { class: 'ftd-hero-tile__name', text: def.name }),
         el('span', {
           class: 'ftd-hero-tile__lv',
@@ -302,13 +303,7 @@ function heroesSub(cb: HeroScreenCallbacks) {
     art.style.setProperty('--hero-color', `#${def.color.toString(16).padStart(6, '0')}`);
     art.style.setProperty('--hero-trail', `#${def.trail.toString(16).padStart(6, '0')}`);
     art.appendChild(el('span', { class: 'ftd-hero-art__glow' }));
-    const sprite = getAdminSprite(`hero-${heroId}` as Parameters<typeof getAdminSprite>[0]);
-    if (sprite) art.appendChild(el('img', { class: 'ftd-hero-art__sprite', src: sprite, alt: `${def.name} character art` }));
-    else art.appendChild(el('span', { class: 'ftd-hero-art__figure', 'aria-hidden': 'true' }, [
-      el('i', { class: 'ftd-hero-art__head' }),
-      el('i', { class: 'ftd-hero-art__body' }),
-      el('i', { class: 'ftd-hero-art__weapon' }),
-    ]));
+    art.appendChild(heroArt(heroId));
 
     const detail = el('div', { class: 'ftd-hero-detail', 'data-hero': heroId }, [
       art,

@@ -1,3 +1,5 @@
+import { PowerVfx } from './game/powerVfx';
+import { powerStats, powerTargets } from './game/powerCombat';
 import { finishCampaignAttempt } from './game/campaignAttempt';
 import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
@@ -39,7 +41,7 @@ import { StrokeContacts } from './game/strokeContacts';
 import { installCombatDiagnostics } from './game/combatDiagnostics';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
-import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, slotIndexAt, upgradeCost } from './game/world';
+import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, slotIndexAt, upgradeCost } from './game/world';
 import { advanceLocalCoop, type LocalCoopState } from './game/localCoop';
 import { CoopActors } from './game/coopActors';
 import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
@@ -157,6 +159,7 @@ const heroAbilityReadyAt: Record<string, number> = {};
 const sfx = new Sfx();
 const hud = new Hud(sfx);
 const field = new Field();
+const powerVfx = new PowerVfx(renderer.scene);
 const fruits = new FruitField((g) => renderer.scene.add(g));
 const debris = new SliceDebris((g) => renderer.scene.add(g));
 const juice = new JuiceSystem();
@@ -1039,6 +1042,8 @@ function restart(): void {
   bossRevealRemaining = 0;
   bossIntroEl.classList.add('hidden');
   resetState(state);
+  powerVfx.clear();
+  for(const id of Object.keys(heroAbilityReadyAt))delete heroAbilityReadyAt[id];
   combatImpact.clear();
   lastBossFruit = null;
   lastBossStep = -1;
@@ -1338,7 +1343,7 @@ function resolveSlash(slash: Slash): void {
 function tryHeroAbility(id: string): void {
   const ability = heroAbility(id);
   const loadout = save.heroAbilityLoadouts?.[state.hero] ?? [];
-  if (!ability || !loadout.includes(id) || !navigation.canInteract() || !state.running) return;
+  if (!ability || ability.hero !== state.hero || (save.heroAbilityRanks?.[id] ?? 0) < 1 && id !== 'jiju-1' || !loadout.includes(id) || !navigation.canInteract() || !state.running) return;
   if ((heroAbilityReadyAt[id] ?? 0) > Date.now()) { sfx.denied(); return; }
   if (state.superJuice < ability.juiceCost) { toast(state, 'Need more juice', 1.4); sfx.denied(); return; }
   state.superJuice -= ability.juiceCost;
@@ -1346,20 +1351,18 @@ function tryHeroAbility(id: string): void {
   const swipe = new Vector3(0, 0.4, 1);
   const living = fruits.fruits.filter((fruit) => fruit.alive);
   const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
-  const damage = ability.damage + Math.max(0, rank - 1) * 8 + state.heroLevel * 1.5;
-  let targets = living;
-  if (ability.effect === 'pierce') targets = [...living].sort((a, b) => a.group.position.z - b.group.position.z).slice(0, Math.max(1, Math.ceil(living.length * 0.4)));
-  else if (ability.effect === 'burst') targets = living.filter((fruit) => Math.abs(fruit.group.position.x) < 3.2);
-  else if (ability.effect === 'bloom') targets = living.filter((fruit) => Math.abs(fruit.group.position.x) < 2.4 || Math.abs(fruit.group.position.z) < 3);
+  const stats=powerStats(ability,rank);const damage=stats.damage;
+  const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:fruit.group.position.z}));
+  powerVfx.spawn(ability,stats.rank,new Vector3(0,.7,WALL_Z),targets.map(fruit=>fruit.group.position.clone()));
   renderer.impulseShake(ability.effect === 'shock' ? 1.4 : 0.8);
-  if (ability.effect === 'guard') { state.lives = Math.min(state.maxLives, state.lives + 1); wall.setTowerHealth(state.lives / state.maxLives); }
+  if (ability.effect === 'guard') { state.lives = Math.min(state.maxLives, state.lives + Math.max(1,Math.round(state.maxLives*stats.healFraction))); wall.setTowerHealth(state.lives / state.maxLives); }
   toast(state, ability.name.toUpperCase(), 1.3);
   sfx.blitzStart();
   emit({ type: 'super' });
   for (const fruit of targets) {
     const tint = ability.effect === 'frost' ? 0x7dd3fc : ability.hero === 'tripos' ? 0xf472b6 : heroDef(state.hero).color;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, tint);
-    if (ability.effect === 'frost') fruit.brittle = Math.max(fruit.brittle, 2);
+    if (stats.slowMs) { fruit.powerSlowLeft = Math.max(fruit.powerSlowLeft ?? 0, stats.slowMs/1000); fruit.powerSlowMultiplier = stats.slowMultiplier; }
     if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2);
   }
   hud.refreshAbilityBar(save);
@@ -1874,7 +1877,7 @@ function simulate(dt: number): void {
 
   juice.update(dt);
   debris.update(dt);
-  slashFx.update(dt);
+  slashFx.update(dt);powerVfx.update(dt);
   combos.update(dt, state.combo, state.comboTimer);
   floatingScore.update(dt);
   renderer.update(dt);

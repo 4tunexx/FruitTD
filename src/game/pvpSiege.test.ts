@@ -33,7 +33,7 @@ it('Catcher stores weakened zombies without bounties; paid release sends one uni
   assert.equal(game.players[1].attackers.length, 1); assert.equal(game.players[1].attackers[0]!.released, true);
   assert.throws(() => act(game, 'a', { type: 'release', capturedId: captive.id }, 4200), /captured/);
   assert.throws(() => act(game, 'b', { type: 'release', capturedId: captive.id }, 4200), /captured/);
-  const rival = game.players[1]; rival.towers.push({ id: 'cage', type: 'catcher', cell, level: 3, placedAt: 0 }); rival.attackers[0]!.hp = 25;
+  const rival = game.players[1]; rival.towers.push({ id: 'cage', type: 'catcher', cell, level: 3, placedAt: 0 }); rival.attackers[0]!.hp = 25; rival.attackers[0]!.progress = 0;
   advancePvpMatch(game, 0, 6000, config); assert.equal(rival.captured!.length, 0); assert.equal(rival.attackers[0]!.hp, 25 - pvpTowerStats(config.towers.catcher!, 3).damage);
 });
 it('capture capacity, full attack lanes, insufficient funds, and stronger capture upgrades are enforced', () => {
