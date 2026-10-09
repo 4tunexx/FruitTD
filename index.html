@@ -12,6 +12,9 @@
     <style>
       #boot-loader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#68421c 0%,#191a1d 70%);font-family:Outfit,system-ui,sans-serif;color:#f1f5f9;transition:opacity .45s ease}
       #boot-loader.is-done{opacity:0;pointer-events:none}
+      #boot-loader.is-error .boot-stage,#boot-loader.is-error .boot-bar{display:none}
+      .boot-retry{min-height:44px;margin-top:1rem;padding:.7rem 1.2rem;border:1px solid #ffca28;border-radius:10px;background:#ffca28;color:#191a1d;font:800 .9rem Outfit,system-ui,sans-serif;cursor:pointer}
+      .boot-retry:focus-visible{outline:3px solid #fff;outline-offset:3px}
       .boot-stage{position:relative;width:220px;height:180px}
       .boot-fruit{position:absolute;inset:18px 28px;transform-origin:center}
       .boot-half{position:absolute;top:0;width:50%;height:100%;overflow:hidden}
@@ -40,6 +43,34 @@
       .boot-drip--2{animation-delay:.06s}
       .boot-drip--3{animation-delay:.12s}
     </style>
+    <script>
+      (function () {
+        var startupFailed = false;
+        function showStartupError() {
+          var loader = document.getElementById('boot-loader');
+          if (!loader) { startupFailed = true; return; }
+          if (loader.classList.contains('is-done') || loader.classList.contains('is-error')) return;
+          loader.classList.add('is-error');
+          var subtitle = loader.querySelector('.boot-sub');
+          if (subtitle) subtitle.textContent = 'The game did not start. Reload to try again.';
+          var retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'boot-retry';
+          retry.textContent = 'Reload game';
+          retry.addEventListener('click', function () { window.location.reload(); });
+          loader.appendChild(retry);
+        }
+        window.addEventListener('error', function (event) {
+          if (event.target === window || (event.target && event.target.tagName === 'SCRIPT')) {
+            window.setTimeout(showStartupError, 100);
+          }
+        }, true);
+        window.addEventListener('DOMContentLoaded', function () {
+          if (startupFailed) showStartupError();
+        });
+        window.setTimeout(showStartupError, 15000);
+      })();
+    </script>
   </head>
   <body>
     <div id="boot-loader" aria-live="polite">

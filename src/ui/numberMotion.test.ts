@@ -19,3 +19,10 @@ test('shared number motion counts every standalone value in composite progress l
   assert.deepEqual(parseCountValues('06:30'), []);
   assert.deepEqual(parseCountValues('mode-arena'), []);
 });
+
+test('shared number motion ignores digits embedded in identifiers without lookbehind regex support', () => {
+  assert.deepEqual(parseCountValues('Hero12 rank3 mode-arena 12 / 24'), [
+    { value: 12, decimals: 0, grouped: false },
+    { value: 24, decimals: 0, grouped: false },
+  ]);
+});

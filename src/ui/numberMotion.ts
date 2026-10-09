@@ -19,7 +19,7 @@ export function parseCountValue(text: string): CountValue | null {
   if (text.length > 48) return null;
   const match = NUMBER.exec(text);
   if (!match) return null;
-  const value = Number(match[2]!.replaceAll(',', ''));
+  const value = Number(match[2]!.replace(/,/g, ''));
   if (!Number.isFinite(value) || value > 1_000_000_000) return null;
   return {
     prefix: match[1]!, suffix: match[3]!, value,
@@ -28,31 +28,62 @@ export function parseCountValue(text: string): CountValue | null {
   };
 }
 
+type LocatedNumber = { raw: string; start: number; end: number };
+
+function isWordCharacter(character: string | undefined): boolean {
+  return character !== undefined && /[A-Za-z0-9_]/.test(character);
+}
+
+function standaloneNumbers(text: string): LocatedNumber[] {
+  const matches: LocatedNumber[] = [];
+  const pattern = /\d[\d,]*(?:\.\d+)?/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (isWordCharacter(text[start - 1]) || isWordCharacter(text[end])) continue;
+    matches.push({ raw: match[0], start, end });
+  }
+  return matches;
+}
+
 /** Find every standalone number in a visible label, including values like 13/51 or Lv 11/100. */
 export function parseCountValues(text: string): CountToken[] {
   if (text.length > 120 || /^\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/.test(text)) return [];
   const tokens: CountToken[] = [];
-  const pattern = /(?<![A-Za-z0-9_])\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9_])/g;
-  for (const match of text.matchAll(pattern)) {
-    const raw = match[0];
-    const value = Number(raw.replaceAll(',', ''));
+  for (const match of standaloneNumbers(text)) {
+    const value = Number(match.raw.replace(/,/g, ''));
     if (!Number.isFinite(value) || value > 1_000_000_000) continue;
-    tokens.push({ value, decimals: raw.split('.')[1]?.length ?? 0, grouped: raw.includes(',') });
+    tokens.push({ value, decimals: match.raw.split('.')[1]?.length ?? 0, grouped: match.raw.includes(',') });
   }
   return tokens;
 }
 
 function formatCountTokens(text: string, tokens: CountToken[], values: number[]): string {
+  const matches = standaloneNumbers(text);
   let index = 0;
-  return text.replace(/(?<![A-Za-z0-9_])\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9_])/g, (raw) => {
+  let cursor = 0;
+  let formatted = '';
+  for (const match of matches) {
+    formatted += text.slice(cursor, match.start);
+    const rawValue = Number(match.raw.replace(/,/g, ''));
+    if (!Number.isFinite(rawValue) || rawValue > 1_000_000_000) {
+      formatted += match.raw;
+      cursor = match.end;
+      continue;
+    }
     const token = tokens[index];
     const value = values[index++];
-    if (!token || value === undefined) return raw;
-    const rounded = Number(value.toFixed(token.decimals));
-    return token.grouped
-      ? rounded.toLocaleString('en-US', { minimumFractionDigits: token.decimals, maximumFractionDigits: token.decimals })
-      : rounded.toFixed(token.decimals);
-  });
+    if (!token || value === undefined) formatted += match.raw;
+    else {
+      const rounded = Number(value.toFixed(token.decimals));
+      formatted += token.grouped
+        ? rounded.toLocaleString('en-US', { minimumFractionDigits: token.decimals, maximumFractionDigits: token.decimals })
+        : rounded.toFixed(token.decimals);
+    }
+    cursor = match.end;
+  }
+  return formatted + text.slice(cursor);
 }
 
 export function installNumberMotion(root: HTMLElement = document.body): () => void {
