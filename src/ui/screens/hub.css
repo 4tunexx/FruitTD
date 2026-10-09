@@ -1065,6 +1065,79 @@
 .ftd-hub-more-menu__item:hover,.ftd-hub-more-menu__item:focus-visible { border-color: #ffd43b; background: #393326; color: #ffe58a; outline: none; }
 .ftd-hub-more-menu__item.is-danger { color: #ffb09a; }
 
+/* Notification and message previews must work on mobile without the
+   desktop-only refresh stylesheet. Keep them as top-layer panels like More. */
+.ftd-hub-social-popover {
+  position: fixed;
+  z-index: 30000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: min(460px, calc(100dvh - 24px));
+  overflow: hidden;
+  border: 2px solid #d6a72e;
+  color: #f8f1dc;
+  background: linear-gradient(145deg, #29292c, #17181a);
+  box-shadow: 4px 5px 0 #060607, 0 14px 28px #0009;
+  transform-origin: top right;
+  animation: ftd-social-popover-in 150ms cubic-bezier(.2,.8,.2,1) both;
+}
+.ftd-hub-social-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 52px;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid #57534a;
+  color: #ffd43b;
+}
+.ftd-hub-social-popover__header strong { font-size: .95rem; }
+.ftd-hub-social-popover__loading { color: #c6c2b8; font-size: .72rem; }
+.ftd-hub-social-popover__loading:empty { display: none; }
+.ftd-hub-social-popover__list {
+  display: grid;
+  gap: .35rem;
+  min-height: 58px;
+  overflow-y: auto;
+  padding: .55rem;
+  overscroll-behavior: contain;
+}
+.ftd-hub-social-popover__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .25rem;
+  width: 100%;
+  padding: .7rem .75rem;
+  border: 1px solid #57534a;
+  color: #f8f1dc;
+  background: #222326;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ftd-hub-social-popover__item:hover,
+.ftd-hub-social-popover__item:focus-visible { border-color: #ffd43b; background: #393326; outline: none; }
+.ftd-hub-social-popover__item strong { overflow: hidden; color: #ffd43b; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.ftd-hub-social-popover__item span { overflow: hidden; color: #f8f1dc; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.ftd-hub-social-popover__item small { color: #c6c2b8; font-size: .66rem; }
+.ftd-hub-social-popover__empty { margin: 0; padding: 1rem .8rem; color: #c6c2b8; font-size: .78rem; line-height: 1.5; }
+.ftd-hub-social-popover__all {
+  min-height: 44px;
+  margin: .35rem .6rem .6rem;
+  border: 1px solid #765d27;
+  color: #ffd43b;
+  background: #29261f;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ftd-hub-social-popover__all:hover,
+.ftd-hub-social-popover__all:focus-visible { border-color: #ffd43b; background: #393326; outline: none; }
+@keyframes ftd-social-popover-in { from { opacity: 0; transform: translateY(-7px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ftd-hub-social-popover { animation: none; } }
+
 .ftd-hub-social-overlay {
   position: fixed;
   z-index: 10000;
