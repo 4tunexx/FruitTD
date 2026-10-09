@@ -4,7 +4,6 @@ import { finishCampaignAttempt } from './game/campaignAttempt';
 import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
 import './style.css';
-import './ui/desktop-refresh.css';
 import { Sfx } from './audio/sfx';
 import { GameLoop } from './engine/loop';
 import { startMatchWithOptionalMedia } from './game/matchStartup';
@@ -90,6 +89,12 @@ mountLucidePlaceholders();
 installMenuInput();
 installPowerHotkeys();
 installNumberMotion();
+
+// The desktop-only refresh sheet must not block the game's module startup on
+// phones. Load it as a separate chunk only when the desktop layout is active.
+if (window.matchMedia('(min-width: 861px)').matches) {
+  void import('./ui/desktop-refresh.css');
+}
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
