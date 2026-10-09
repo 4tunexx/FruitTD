@@ -64,6 +64,7 @@ const wallSkinTextures = new Map<string, Texture>();
 
 export class WallBase {
   readonly group = new Group();
+  readonly healthRail = new Group();
   readonly slots: Slot[] = [];
   selected = MAIN_INDEX;
   moving = false;
@@ -107,14 +108,14 @@ export class WallBase {
     // A framed segmented bar sits just below the wall and remains attached to
     // the tower as the camera moves.
     const hpZ = WALL_Z - 1.45;
-    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.92), new MeshBasicMaterial({ color: 0x9c762b, depthWrite: false, depthTest: false }));
+    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.58), new MeshBasicMaterial({ color: 0xd6be70, depthWrite: false, depthTest: false }));
     hpFrame.rotation.x = -Math.PI / 2;
     hpFrame.position.set(0, 0.135, hpZ);
-    const towerHpTrack = new Mesh(new PlaneGeometry(ARENA_W - 2.05, 0.68), new MeshBasicMaterial({ color: 0x111512, depthWrite: false, depthTest: false }));
+    const towerHpTrack = new Mesh(new PlaneGeometry(ARENA_W - 1.95, 0.4), new MeshBasicMaterial({ color: 0x303d28, depthWrite: false, depthTest: false }));
     towerHpTrack.rotation.x = -Math.PI / 2;
     towerHpTrack.position.set(0, 0.145, hpZ);
-    this.towerHpFillWidth = ARENA_W - 2.55;
-    this.towerHpFill = new Mesh(new PlaneGeometry(this.towerHpFillWidth, 0.42), new MeshBasicMaterial({ color: 0x65d34f, depthWrite: false, depthTest: false }));
+    this.towerHpFillWidth = ARENA_W - 1.95;
+    this.towerHpFill = new Mesh(new PlaneGeometry(this.towerHpFillWidth, 0.4), new MeshBasicMaterial({ color: 0x9be458, depthWrite: false, depthTest: false }));
     this.towerHpFill.rotation.x = -Math.PI / 2;
     this.towerHpFill.position.set(0, 0.155, hpZ);
     hpFrame.renderOrder = 90;
@@ -128,7 +129,13 @@ export class WallBase {
       mark.renderOrder = 93;
       hpSegments.add(mark);
     }
-    this.group.add(hpFrame, towerHpTrack, this.towerHpFill, hpSegments);
+    this.healthRail.add(hpFrame, towerHpTrack, this.towerHpFill, hpSegments);
+    this.group.add(this.healthRail);
+    if (typeof window !== 'undefined') {
+      const fitHealthRail = () => { this.healthRail.scale.x = window.innerWidth / window.innerHeight < .82 ? .82 : 1; };
+      fitHealthRail();
+      window.addEventListener('resize', fitHealthRail);
+    }
     for (let i = 0; i < 6; i++) {
       const merlon = new Mesh(new BoxGeometry(0.32, 0.38, 0.28), new MeshLambertMaterial({ color: 0x5a271f }));
       const a = (i / 6) * Math.PI * 2;
@@ -234,6 +241,8 @@ export class WallBase {
       sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') ||
       (this.towerStudio.active ? updateStudioAnim(this.towerStudio, 0, 0, 0) : null);
     if (studioTex) {
+      this.keepMesh.visible = true;
+      main.visible = true;
       mat.map = studioTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -241,6 +250,7 @@ export class WallBase {
     }
     const adminTex = getAdminTexture('tower-main');
     if (adminTex) {
+      main.visible = true; this.keepMesh.visible = true;
       mat.map = adminTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -285,6 +295,7 @@ export class WallBase {
       (this.heroStudio.active ? updateStudioAnim(this.heroStudio, 0, 0, 0) : null);
 
     if (studioTex) {
+      this.keepMesh.visible = true;
       mat.map = studioTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -293,6 +304,7 @@ export class WallBase {
 
     const heroTex = getAdminTexture(`hero-${this.currentHero}` as any);
     if (heroTex) {
+      this.keepMesh.visible = true;
       mat.map = heroTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -302,6 +314,7 @@ export class WallBase {
     const towerStudio =
       sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') || getAdminTexture('tower-main');
     if (towerStudio) {
+      this.keepMesh.visible = true;
       mat.map = towerStudio;
       mat.color.setHex(0xffffff);
     } else {
@@ -365,6 +378,7 @@ export class WallBase {
     }
     for (const s of this.shots) this.group.remove(s.mesh);
     this.shots.length = 0;
+    this.setTowerHealth(1);
     this.selected = MAIN_INDEX;
     this.moving = false;
     this.rangeRequested = false;
@@ -476,11 +490,12 @@ export class WallBase {
     return this.slots[this.selected];
   }
 
+
   setTowerHealth(ratio: number): void {
     const t = Math.max(0, Math.min(1, ratio));
     this.towerHpFill.scale.x = Math.max(0.001, t);
     this.towerHpFill.position.x = -(this.towerHpFillWidth / 2) * (1 - t);
-    (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf04c42 : t <= 0.6 ? 0xffb72e : 0x65d34f);
+    (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf04c42 : t <= 0.6 ? 0xf59e0b : 0x9be458);
   }
 
   damageFeedback(): void {
@@ -515,7 +530,7 @@ export class WallBase {
       if (!slot.filled) continue;
       if (slot.turret) {
         const fired = slot.turret.tick(slot.x, slot.z, slot.level, {
-          dt,
+          dt: dt,
           fruits,
           juice,
           bank,

@@ -4,7 +4,7 @@ type CountToken = { value: number; decimals: number; grouped: boolean };
 type MotionEntry = { targets: number[]; rendered: string; frame: number; changedAt: number; bumpedAt: number };
 
 const NUMBER = /^(\s*(?:(?:Wave|Level|Lv|Stage|Score|×|x|\+|-|FR)\s*)?)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|XP|pts|coins|gems|COMBO)?)\s*$/i;
-const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel]';
+const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel],#game-ui,.hero-ability-slot,.ftd-duel-wallet,.ftd-duel-hud,.floating-score-layer,.ftd-pvp.is-battle,.ftd-coop-battle';
 let scanInstalledNumbers: ((root: Node) => void) | null = null;
 
 /** Re-scan freshly rendered screen content so every page entry counts in visibly. */
@@ -138,6 +138,7 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
   function visit(node: Text): void {
     const parent = node.parentElement;
     if (!parent || parent.closest(EXCLUDED) || !parent.isConnected) return;
+    if (document.body.dataset.ftdScreen === 'PLAY') return;
     if (parent.closest('[hidden],[aria-hidden="true"],.hidden')) return;
     const text = node.data;
     const previous = values.get(node);
@@ -154,7 +155,7 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     const now = performance.now();
     const targets = tokens.map((token) => token.value);
     if (previous && previous.targets.length === targets.length && previous.targets.every((target, index) => target === targets[index])) {
-      values.set(node, { ...previous, rendered: text, frame: previous.frame });
+      previous.rendered = text;
       return;
     }
     const increase = !!previous && targets.some((target, index) => target > (previous.targets[index] ?? 0));

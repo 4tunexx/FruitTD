@@ -1,0 +1,2578 @@
+
+> fruit-td@1.1.0 test
+> node scripts/test-runner.mjs
+
+TAP version 13
+# Subtest: admin branding keeps safe logo, background and favicon assets
+ok 1 - admin branding keeps safe logo, background and favicon assets
+  ---
+  duration_ms: 2.356
+  ...
+# Subtest: admin accepts all generated campaign bosses and optimized reveal images
+ok 2 - admin accepts all generated campaign bosses and optimized reveal images
+  ---
+  duration_ms: 2.6419
+  ...
+# [API] POST /api/admin/verify
+# [API] POST /api/admin/verify
+# [API] POST /api/admin/verify
+# [API] POST /api/admin/config
+# [API] GET /api/admin/config
+# ✅ Connected to MongoDB Atlas (FruitTD)
+# Subtest: admin API routes are registered and authorized
+ok 3 - admin API routes are registered and authorized
+  ---
+  duration_ms: 9684.2063
+  ...
+# Subtest: verification previews are available in development and withheld in production
+ok 4 - verification previews are available in development and withheld in production
+  ---
+  duration_ms: 11.0692
+  ...
+# Subtest: production email failures do not log verification response content
+ok 5 - production email failures do not log verification response content
+  ---
+  duration_ms: 65.9625
+  ...
+# Subtest: daily_bonus parallel claims credit once and profile read returns the authoritative wallet
+ok 6 - daily_bonus parallel claims credit once and profile read returns the authoritative wallet
+  ---
+  duration_ms: 179.0493
+  ...
+# Subtest: missions parallel claims credit once and profile read returns the authoritative wallet
+ok 7 - missions parallel claims credit once and profile read returns the authoritative wallet
+  ---
+  duration_ms: 52.2945
+  ...
+# Subtest: achievements parallel claims credit once and profile read returns the authoritative wallet
+ok 8 - achievements parallel claims credit once and profile read returns the authoritative wallet
+  ---
+  duration_ms: 37.9431
+  ...
+# Subtest: VIP daily coins and skill points are credited in the same one-time daily claim
+ok 9 - VIP daily coins and skill points are credited in the same one-time daily claim
+  ---
+  duration_ms: 16.7059
+  ...
+# Subtest: daily claim caps authoritative wallet values instead of overflowing them
+ok 10 - daily claim caps authoritative wallet values instead of overflowing them
+  ---
+  duration_ms: 14.3425
+  ...
+# Subtest: two authenticated Co-op clients share rooms, commands and equal idempotent rewards
+ok 11 - two authenticated Co-op clients share rooms, commands and equal idempotent rewards
+  ---
+  duration_ms: 529.2841
+  ...
+# Subtest: VIP purchase uses the configured gem cost and credits coins atomically
+ok 12 - VIP purchase uses the configured gem cost and credits coins atomically
+  ---
+  duration_ms: 127.2637
+  ...
+# Subtest: skill purchase spends server-owned skill points and survives a wallet read
+ok 13 - skill purchase spends server-owned skill points and survives a wallet read
+  ---
+  duration_ms: 18.5563
+  ...
+# Subtest: a successful server action fills missing currency fields on a legacy wallet
+ok 14 - a successful server action fills missing currency fields on a legacy wallet
+  ---
+  duration_ms: 19.0901
+  ...
+# Subtest: profile sync rejects a stale or missing server revision and accepts the current revision
+ok 15 - profile sync rejects a stale or missing server revision and accepts the current revision
+  ---
+  duration_ms: 146.3648
+  ...
+# Subtest: profile sync rejects forged catalog ownership and in-cap balances
+ok 16 - profile sync rejects forged catalog ownership and in-cap balances
+  ---
+  duration_ms: 46.1367
+  ...
+# Subtest: leaderboard requires and consumes a server-issued run token
+ok 17 - leaderboard requires and consumes a server-issued run token
+  ---
+  duration_ms: 58.5909
+  ...
+# Subtest: a consumed run settles bounded kill, wave, and match rewards into the cloud wallet
+ok 18 - a consumed run settles bounded kill, wave, and match rewards into the cloud wallet
+  ---
+  duration_ms: 216.3976
+  ...
+# Subtest: leaving Ranked settles earned currency without granting a monthly placement
+ok 19 - leaving Ranked settles earned currency without granting a monthly placement
+  ---
+  duration_ms: 43.5162
+  ...
+# Subtest: a rare fruit gem settles only after the run records 100 kills
+ok 20 - a rare fruit gem settles only after the run records 100 kills
+  ---
+  duration_ms: 33.5967
+  ...
+# Subtest: run settlement rejects rewards beyond the score and wave allowance
+ok 21 - run settlement rejects rewards beyond the score and wave allowance
+  ---
+  duration_ms: 23.2118
+  ...
+# Subtest: a freshly issued run token cannot settle an impossible score and wallet reward
+ok 22 - a freshly issued run token cannot settle an impossible score and wallet reward
+  ---
+  duration_ms: 21.5889
+  ...
+# [API] POST /api/leaderboard
+# [API] POST /api/leaderboard
+# [API] POST /api/leaderboard
+# [API] POST /api/leaderboard
+# [API] POST /api/leaderboard
+# Subtest: leaderboard rejects absurd score values
+ok 23 - leaderboard rejects absurd score values
+  ---
+  duration_ms: 151.0854
+  ...
+# [API] POST /api/profile/sync
+# ✅ Connected to MongoDB Atlas (FruitTD)
+# [API] POST /api/profile/sync
+# [API] POST /api/profile/sync
+# [API] POST /api/profile/sync
+# Subtest: cloud save sync rejects absurd economy values
+ok 24 - cloud save sync rejects absurd economy values
+  ---
+  duration_ms: 6978.3595
+  ...
+# [API] GET /api/achievements
+# [API] GET /api/missions
+# [API] GET /api/badges
+# [API] GET /api/daily
+# [API] POST /api/achievements/progress
+# [API] POST /api/missions/progress
+# [API] POST /api/badges/progress
+# [API] POST /api/daily/claim
+# Subtest: progression and reward routes require an authenticated session
+ok 25 - progression and reward routes require an authenticated session
+  ---
+  duration_ms: 47.0408
+  ...
+# [API] GET /api/profile
+# [API] GET /api/leaderboard/monthly-rank
+# ✅ Connected to MongoDB Atlas (FruitTD)
+# Subtest: cloud profile reads require a session and leaderboard reads ignore spoofed IDs
+ok 26 - cloud profile reads require a session and leaderboard reads ignore spoofed IDs
+  ---
+  duration_ms: 4490.6418
+  ...
+# Subtest: shop purchase, equip and unequip survive a cloud profile reload
+ok 27 - shop purchase, equip and unequip survive a cloud profile reload
+  ---
+  duration_ms: 147.2354
+  ...
+# Subtest: power upgrades spend skill points through rank five and stop at the cap
+ok 28 - power upgrades spend skill points through rank five and stop at the cap
+  ---
+  duration_ms: 50.6791
+  ...
+# Subtest: category boards use real FR, wallet fields and accepted friends, without exposing private data
+ok 29 - category boards use real FR, wallet fields and accepted friends, without exposing private data
+  ---
+  duration_ms: 95.2545
+  ...
+# Subtest: Horde standings reward the deepest wave before score
+ok 30 - Horde standings reward the deepest wave before score
+  ---
+  duration_ms: 70.3365
+  ...
+# Subtest: rooms cap at two, enforce private codes, and send invites to accepted friends
+ok 31 - rooms cap at two, enforce private codes, and send invites to accepted friends
+  ---
+  duration_ms: 150.5403
+  ...
+# Subtest: mission progress uses lifetime keys for main missions and reports first completion once
+ok 32 - mission progress uses lifetime keys for main missions and reports first completion once
+  ---
+  duration_ms: 109.0866
+  ...
+# Subtest: normalizes an absolute Vercel rewrite target before Express parses it
+ok 33 - normalizes an absolute Vercel rewrite target before Express parses it
+  ---
+  duration_ms: 2.171
+  ...
+# Subtest: keeps an existing API request path and query unchanged
+ok 34 - keeps an existing API request path and query unchanged
+  ---
+  duration_ms: 0.3432
+  ...
+# Subtest: both Arena clients receive authoritative cast effects while private loadouts remain hidden
+ok 35 - both Arena clients receive authoritative cast effects while private loadouts remain hidden
+  ---
+  duration_ms: 3.791
+  ...
+# Subtest: social endpoints require auth for friends and return a privacy-limited public profile
+ok 36 - social endpoints require auth for friends and return a privacy-limited public profile
+  ---
+  duration_ms: 85.6274
+  ...
+# Subtest: forum posts and replies persist for signed-in players and validate input
+ok 37 - forum posts and replies persist for signed-in players and validate input
+  ---
+  duration_ms: 63.3067
+  ...
+# Subtest: social requests are addressed by username and messages require an accepted friendship
+ok 38 - social requests are addressed by username and messages require an accepted friendship
+  ---
+  duration_ms: 30.2072
+  ...
+# Subtest: solo camera stays angled and anchors wall HP near the lower safe edge on every screen
+ok 39 - solo camera stays angled and anchors wall HP near the lower safe edge on every screen
+  ---
+  duration_ms: 4.27
+  ...
+# Subtest: authored battle map skeletons
+    # Subtest: provides independent maps for each shared game mode with top spawns
+    ok 1 - provides independent maps for each shared game mode with top spawns
+      ---
+      duration_ms: 1.3548
+      ...
+    # Subtest: maps normalized image points into the same world coordinate frame at every viewport size
+    ok 2 - maps normalized image points into the same world coordinate frame at every viewport size
+      ---
+      duration_ms: 1.4608
+      ...
+    # Subtest: bounds untrusted editor fields and drops unsafe asset values
+    ok 3 - bounds untrusted editor fields and drops unsafe asset values
+      ---
+      duration_ms: 1.7988
+      ...
+    # Subtest: migrates old 66-unit routes to the compact field without moving their gates off the top
+    ok 4 - migrates old 66-unit routes to the compact field without moving their gates off the top
+      ---
+      duration_ms: 0.5004
+      ...
+    1..4
+ok 40 - authored battle map skeletons
+  ---
+  duration_ms: 6.767
+  type: 'suite'
+  ...
+# Subtest: boss transition uses the existing animated letterbox element
+ok 41 - boss transition uses the existing animated letterbox element
+  ---
+  duration_ms: 3.2824
+  ...
+# Subtest: all 100 campaign stages produce playable waves and a single final boss, and unlock in order
+ok 42 - all 100 campaign stages produce playable waves and a single final boss, and unlock in order
+  ---
+  duration_ms: 32.9196
+  ...
+# Subtest: locked, fractional and out-of-range stages cannot advance Campaign
+ok 43 - locked, fractional and out-of-range stages cannot advance Campaign
+  ---
+  duration_ms: 0.8559
+  ...
+# Subtest: campaign wave schedule matches the stage milestones through stage 100
+ok 44 - campaign wave schedule matches the stage milestones through stage 100
+  ---
+  duration_ms: 0.2319
+  ...
+# Subtest: the 100 generated campaign bosses have distinct names and increasing threat/rewards
+ok 45 - the 100 generated campaign bosses have distinct names and increasing threat/rewards
+  ---
+  duration_ms: 0.461
+  ...
+# Subtest: campaign roster overrides and saved unlock progress are bounded
+ok 46 - campaign roster overrides and saved unlock progress are bounded
+  ---
+  duration_ms: 0.4993
+  ...
+# Subtest: Horde and Campaign rules are playable modes, and Horde has no guest assist
+ok 47 - Horde and Campaign rules are playable modes, and Horde has no guest assist
+  ---
+  duration_ms: 0.229
+  ...
+# Subtest: every campaign boss ends its own match and unlocks one stage without auto advancing combat
+ok 48 - every campaign boss ends its own match and unlocks one stage without auto advancing combat
+  ---
+  duration_ms: 8.6515
+  ...
+# Subtest: a breach, normal enemy death, or another game mode cannot complete Campaign
+ok 49 - a breach, normal enemy death, or another game mode cannot complete Campaign
+  ---
+  duration_ms: 1.153
+  ...
+# Subtest: campaign reveals twenty distinct authored chapters at five-stage milestones
+ok 50 - campaign reveals twenty distinct authored chapters at five-stage milestones
+  ---
+  duration_ms: 3.5115
+  ...
+# Subtest: a breached boss cannot clear or unlock a campaign stage
+ok 51 - a breached boss cannot clear or unlock a campaign stage
+  ---
+  duration_ms: 1.3262
+  ...
+# Subtest: the catalog exposes items with complete, sane data
+ok 52 - the catalog exposes items with complete, sane data
+  ---
+  duration_ms: 2.8195
+  ...
+# Subtest: duplicate live blade IDs normalize to one catalogue item
+ok 53 - duplicate live blade IDs normalize to one catalogue item
+  ---
+  duration_ms: 0.8055
+  ...
+# Subtest: an item can never be worth more sold than it costs to buy
+ok 54 - an item can never be worth more sold than it costs to buy
+  ---
+  duration_ms: 0.7261
+  ...
+# Subtest: rarity ordering is stable
+ok 55 - rarity ordering is stable
+  ---
+  duration_ms: 0.3089
+  ...
+# Subtest: starter gear is identified and free
+ok 56 - starter gear is identified and free
+  ---
+  duration_ms: 0.4518
+  ...
+# Subtest: shop shows only unowned items, inventory only owned ones
+ok 57 - shop shows only unowned items, inventory only owned ones
+  ---
+  duration_ms: 17.8618
+  ...
+# Subtest: shop and inventory never contain the same item
+ok 58 - shop and inventory never contain the same item
+  ---
+  duration_ms: 0.5556
+  ...
+# Subtest: buying moves an item from the shop to the inventory
+ok 59 - buying moves an item from the shop to the inventory
+  ---
+  duration_ms: 0.4803
+  ...
+# Subtest: buying does not equip the item
+ok 60 - buying does not equip the item
+  ---
+  duration_ms: 0.4075
+  ...
+# Subtest: the shop never lists free starter gear
+ok 61 - the shop never lists free starter gear
+  ---
+  duration_ms: 0.3927
+  ...
+# Subtest: category filters work on both views
+ok 62 - category filters work on both views
+  ---
+  duration_ms: 0.318
+  ...
+# Subtest: only non-empty categories are offered as tabs
+ok 63 - only non-empty categories are offered as tabs
+  ---
+  duration_ms: 0.3923
+  ...
+# Subtest: a new player owns starter gear and nothing else
+ok 64 - a new player owns starter gear and nothing else
+  ---
+  duration_ms: 0.3072
+  ...
+# Subtest: tower wall catalog has one textured default and two textured shop skins
+ok 65 - tower wall catalog has one textured default and two textured shop skins
+  ---
+  duration_ms: 0.5446
+  ...
+# Subtest: equipped state is reported per slot
+ok 66 - equipped state is reported per slot
+  ---
+  duration_ms: 0.3158
+  ...
+# Subtest: equipping one blade does not equip another
+ok 67 - equipping one blade does not equip another
+  ---
+  duration_ms: 0.2636
+  ...
+# Subtest: inventory lists equipped items first
+ok 68 - inventory lists equipped items first
+  ---
+  duration_ms: 0.2419
+  ...
+# Subtest: starter gear can never be sold
+ok 69 - starter gear can never be sold
+  ---
+  duration_ms: 0.5486
+  ...
+# Subtest: an unowned item cannot be sold
+ok 70 - an unowned item cannot be sold
+  ---
+  duration_ms: 0.2445
+  ...
+# Subtest: the equipped item cannot be sold when it is the only one in its slot
+ok 71 - the equipped item cannot be sold when it is the only one in its slot
+  ---
+  duration_ms: 1.2079
+  ...
+# Subtest: the equipped item can be sold once a replacement is owned
+ok 72 - the equipped item can be sold once a replacement is owned
+  ---
+  duration_ms: 0.6703
+  ...
+# Subtest: an unequipped owned item with value can always be sold
+ok 73 - an unequipped owned item with value can always be sold
+  ---
+  duration_ms: 0.3743
+  ...
+# Subtest: items with no sell value are refused
+ok 74 - items with no sell value are refused
+  ---
+  duration_ms: 0.3999
+  ...
+# Subtest: every sell refusal explains itself to the player
+ok 75 - every sell refusal explains itself to the player
+  ---
+  duration_ms: 0.5017
+  ...
+# Subtest: only purchase-only heroes are sold, and never free ones
+ok 76 - only purchase-only heroes are sold, and never free ones
+  ---
+  duration_ms: 0.4951
+  ...
+# Subtest: an owned hero moves to the inventory view
+ok 77 - an owned hero moves to the inventory view
+  ---
+  duration_ms: 0.4488
+  ...
+# Subtest: heroes cannot be sold
+ok 78 - heroes cannot be sold
+  ---
+  duration_ms: 0.3853
+  ...
+# Subtest: Pulp-Popper damages neighboring enemies but protects bosses and turret-only exploders
+ok 79 - Pulp-Popper damages neighboring enemies but protects bosses and turret-only exploders
+  ---
+  duration_ms: 253.2659
+  ...
+# Subtest: Phase 3: Fruit Atlas & Fruit Definitions Audit
+    # Subtest: atlas has exactly 8 columns and 4 rows matching 1024x1024 layout
+    ok 1 - atlas has exactly 8 columns and 4 rows matching 1024x1024 layout
+      ---
+      duration_ms: 1.1856
+      ...
+    # Subtest: every fruit skin and flesh coordinate falls within the valid [0-7, 0-3] atlas bounds
+    ok 2 - every fruit skin and flesh coordinate falls within the valid [0-7, 0-3] atlas bounds
+      ---
+      duration_ms: 0.3723
+      ...
+    # Subtest: apple is defined as a first-class fruit with valid family, radii, and textures
+    ok 3 - apple is defined as a first-class fruit with valid family, radii, and textures
+      ---
+      duration_ms: 1.1755
+      ...
+    # Subtest: watermelon, lemon, orange, banana, strawberry, pineapple, kiwi have verified atlas coordinates
+    ok 4 - watermelon, lemon, orange, banana, strawberry, pineapple, kiwi have verified atlas coordinates
+      ---
+      duration_ms: 0.6397
+      ...
+    1..4
+ok 80 - Phase 3: Fruit Atlas & Fruit Definitions Audit
+  ---
+  duration_ms: 6.2416
+  type: 'suite'
+  ...
+# Subtest: Phase 3: Multi-Segment Slicing & Hit Detection
+    # Subtest: detects hits across multi-segment strokes
+    ok 1 - detects hits across multi-segment strokes
+      ---
+      duration_ms: 4.7506
+      ...
+    # Subtest: stroke does not hit fruit far from its path
+    ok 2 - stroke does not hit fruit far from its path
+      ---
+      duration_ms: 5.036
+      ...
+    # Subtest: minimum slice speed is enforced to filter accidental slow drags
+    ok 3 - minimum slice speed is enforced to filter accidental slow drags
+      ---
+      duration_ms: 0.2615
+      ...
+    1..3
+ok 81 - Phase 3: Multi-Segment Slicing & Hit Detection
+  ---
+  duration_ms: 10.5378
+  type: 'suite'
+  ...
+# Subtest: Phase 3: Combo Escalation Tiers
+    # Subtest: combo streak table contains all required tiers: 1, 2, 3, 5, 10, 25, 50
+    ok 1 - combo streak table contains all required tiers: 1, 2, 3, 5, 10, 25, 50
+      ---
+      duration_ms: 0.4322
+      ...
+    1..1
+ok 82 - Phase 3: Combo Escalation Tiers
+  ---
+  duration_ms: 0.6482
+  type: 'suite'
+  ...
+# Subtest: Phase 3: Reslicing & Special Enemies
+    # Subtest: max reslice is capped at 2 to prevent infinite farming
+    ok 1 - max reslice is capped at 2 to prevent infinite farming
+      ---
+      duration_ms: 0.3487
+      ...
+    # Subtest: explosive enemy has high damage risk to tower
+    ok 2 - explosive enemy has high damage risk to tower
+      ---
+      duration_ms: 0.3566
+      ...
+    # Subtest: armored enemy has high HP multiplier and score reward
+    ok 3 - armored enemy has high HP multiplier and score reward
+      ---
+      duration_ms: 0.4687
+      ...
+    1..3
+ok 83 - Phase 3: Reslicing & Special Enemies
+  ---
+  duration_ms: 1.6246
+  type: 'suite'
+  ...
+# Subtest: combat polish regressions
+    # Subtest: enemies use one flat, legible health rail that shrinks after damage
+    ok 1 - enemies use one flat, legible health rail that shrinks after damage
+      ---
+      duration_ms: 164.8444
+      ...
+    # Subtest: published map routes spawn enemies at the top and guide them to the leak line
+    ok 2 - published map routes spawn enemies at the top and guide them to the leak line
+      ---
+      duration_ms: 22.7965
+      ...
+    # Subtest: solid map entities divert enemies around the authored footprint
+    ok 3 - solid map entities divert enemies around the authored footprint
+      ---
+      duration_ms: 32.7164
+      ...
+    # Subtest: pit entities remove enemies through the environment kill callback
+    ok 4 - pit entities remove enemies through the environment kill callback
+      ---
+      duration_ms: 15.185
+      ...
+    # Subtest: trail geometry updates GPU-backed positions and resets cleanly
+    ok 5 - trail geometry updates GPU-backed positions and resets cleanly
+      ---
+      duration_ms: 9.4174
+      ...
+    # Subtest: slash flashes are directional (not radial) and expire quickly
+    ok 6 - slash flashes are directional (not radial) and expire quickly
+      ---
+      duration_ms: 7.829
+      ...
+    # Subtest: stroke contacts enforce one-hit-per-gesture and spawn-serial identity
+    ok 7 - stroke contacts enforce one-hit-per-gesture and spawn-serial identity
+      ---
+      duration_ms: 4.4943
+      ...
+    # Subtest: wave accounting excludes split children and requires strict perfect-wave equality
+    ok 8 - wave accounting excludes split children and requires strict perfect-wave equality
+      ---
+      duration_ms: 1.2735
+      ...
+    # Subtest: boss completion is consumed once and cannot leak into later pooled-enemy waves
+    ok 9 - boss completion is consumed once and cannot leak into later pooled-enemy waves
+      ---
+      duration_ms: 1.5434
+      ...
+    # Subtest: splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure
+    ok 10 - splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure
+      ---
+      duration_ms: 12.4188
+      ...
+    # Subtest: a full fruit pool resumes queued wave spawns as soon as one slot is released
+    ok 11 - a full fruit pool resumes queued wave spawns as soon as one slot is released
+      ---
+      duration_ms: 17.866
+      ...
+    # Subtest: explosive fruit hits damage the tower more in later waves
+    ok 12 - explosive fruit hits damage the tower more in later waves
+      ---
+      duration_ms: 10.1399
+      ...
+    # Subtest: brood bosses trigger a single halfway phase and release runners
+    ok 13 - brood bosses trigger a single halfway phase and release runners
+      ---
+      duration_ms: 12.2712
+      ...
+    1..13
+ok 84 - combat polish regressions
+  ---
+  duration_ms: 316.0666
+  type: 'suite'
+  ...
+# Subtest: upgraded towers start every solo mode at full health
+ok 85 - upgraded towers start every solo mode at full health
+  ---
+  duration_ms: 5.2486
+  ...
+# Subtest: published Creator clips and image data survive bounded normalization
+ok 86 - published Creator clips and image data survive bounded normalization
+  ---
+  duration_ms: 2.3348
+  ...
+# Subtest: Creator publishing rejects executable URLs and oversized packs
+ok 87 - Creator publishing rejects executable URLs and oversized packs
+  ---
+  duration_ms: 1.1098
+  ...
+# Subtest: creatorVfx helpers
+    # Subtest: normalizes default presets and empty store
+    ok 1 - normalizes default presets and empty store
+      ---
+      duration_ms: 1.9582
+      ...
+    # Subtest: applySlicerPackOverrides overlays authored fields
+    ok 2 - applySlicerPackOverrides overlays authored fields
+      ---
+      duration_ms: 1.3225
+      ...
+    # Subtest: mergeSlicerPacksIntoCatalog leaves unbound slicers intact
+    ok 3 - mergeSlicerPacksIntoCatalog leaves unbound slicers intact
+      ---
+      duration_ms: 0.534
+      ...
+    # Subtest: resolveSlicerBind maps events to presets
+    ok 4 - resolveSlicerBind maps events to presets
+      ---
+      duration_ms: 0.4311
+      ...
+    # Subtest: previewVfxPayload reports shake / juice / slash color
+    ok 5 - previewVfxPayload reports shake / juice / slash color
+      ---
+      duration_ms: 0.4576
+      ...
+    # Subtest: fireCreatorSlicerVfx is best-effort and invokes callbacks
+    ok 6 - fireCreatorSlicerVfx is best-effort and invokes callbacks
+      ---
+      duration_ms: 2.2091
+      ...
+    1..6
+ok 88 - creatorVfx helpers
+  ---
+  duration_ms: 10.1801
+  type: 'suite'
+  ...
+# Subtest: creatorWaves helpers
+    # Subtest: previewSummary matches Level N → waves + boss
+    ok 1 - previewSummary matches Level N → waves + boss
+      ---
+      duration_ms: 3.1759
+      ...
+    # Subtest: expandSpawns expands counts and boss flags
+    ok 2 - expandSpawns expands counts and boss flags
+      ---
+      duration_ms: 0.3431
+      ...
+    # Subtest: resolveAuthoredLevel prefers creator draft over live
+    ok 3 - resolveAuthoredLevel prefers creator draft over live
+      ---
+      duration_ms: 0.992
+      ...
+    # Subtest: authoredWavesPerLevel falls back to procedural max(5,N)
+    ok 4 - authoredWavesPerLevel falls back to procedural max(5,N)
+      ---
+      duration_ms: 0.3725
+      ...
+    # Subtest: tryAuthoredPlanWave builds WavePlan from pack
+    ok 5 - tryAuthoredPlanWave builds WavePlan from pack
+      ---
+      duration_ms: 0.8908
+      ...
+    # Subtest: tryAuthoredPlanBossWave uses explicit boss slot
+    ok 6 - tryAuthoredPlanBossWave uses explicit boss slot
+      ---
+      duration_ms: 0.8034
+      ...
+    # Subtest: authoredWaveToPlan returns null for empty spawns
+    ok 7 - authoredWaveToPlan returns null for empty spawns
+      ---
+      duration_ms: 0.288
+      ...
+    # Subtest: tryAuthoredPlanWave returns null when level missing (procedural fallback path)
+    ok 8 - tryAuthoredPlanWave returns null when level missing (procedural fallback path)
+      ---
+      duration_ms: 0.3505
+      ...
+    # Subtest: setLiveWavesConfig feeds resolveAuthoredLevel live source
+    ok 9 - setLiveWavesConfig feeds resolveAuthoredLevel live source
+      ---
+      duration_ms: 0.503
+      ...
+    # Subtest: ensureAuthoredLevel keeps max(5,N)-style counts editable
+    ok 10 - ensureAuthoredLevel keeps max(5,N)-style counts editable
+      ---
+      duration_ms: 0.3737
+      ...
+    1..10
+ok 89 - creatorWaves helpers
+  ---
+  duration_ms: 11.5528
+  type: 'suite'
+  ...
+# Subtest: each hero has six unique active powers with bounded three-slot loadouts
+ok 90 - each hero has six unique active powers with bounded three-slot loadouts
+  ---
+  duration_ms: 2.6346
+  ...
+# Subtest: local co-op does not slash without player two input
+ok 91 - local co-op does not slash without player two input
+  ---
+  duration_ms: 1.7116
+  ...
+# Subtest: player two moves diagonally at normalized speed and can slash repeatedly
+ok 92 - player two moves diagonally at normalized speed and can slash repeatedly
+  ---
+  duration_ms: 0.5099
+  ...
+# Subtest: player two stays within the battlefield
+ok 93 - player two stays within the battlefield
+  ---
+  duration_ms: 0.2995
+  ...
+# Subtest: Fruts pay for artillery independently of score, coins, gems and combos
+ok 94 - Fruts pay for artillery independently of score, coins, gems and combos
+  ---
+  duration_ms: 2.7397
+  ...
+# Subtest: rare fruit drops grant separate bounded Fruts, shop coins and gems
+ok 95 - rare fruit drops grant separate bounded Fruts, shop coins and gems
+  ---
+  duration_ms: 1.3748
+  ...
+# Subtest: a clean first sector can afford a few defenses but not a fully built wall
+ok 96 - a clean first sector can afford a few defenses but not a fully built wall
+  ---
+  duration_ms: 2.1692
+  ...
+# Subtest: a match starts without waiting for slow sound or atlas downloads
+ok 97 - a match starts without waiting for slow sound or atlas downloads
+  ---
+  duration_ms: 1.61
+  ...
+# Subtest: a failed optional asset does not prevent entering PLAY
+ok 98 - a failed optional asset does not prevent entering PLAY
+  ---
+  duration_ms: 1.4548
+  ...
+# Subtest: every required screen state is navigable
+ok 99 - every required screen state is navigable
+  ---
+  duration_ms: 1.9018
+  ...
+# Subtest: OPEN stacks and BACK returns to the previous screen
+ok 100 - OPEN stacks and BACK returns to the previous screen
+  ---
+  duration_ms: 0.4582
+  ...
+# Subtest: BACK unwinds a deep stack one screen at a time
+ok 101 - BACK unwinds a deep stack one screen at a time
+  ---
+  duration_ms: 1.7849
+  ...
+# Subtest: BACK always works — it is never a dead end
+ok 102 - BACK always works — it is never a dead end
+  ---
+  duration_ms: 0.5027
+  ...
+# Subtest: BACK from the title screen is the only dead end
+ok 103 - BACK from the title screen is the only dead end
+  ---
+  duration_ms: 1.3272
+  ...
+# Subtest: HOME unwinds the whole stack at once
+ok 104 - HOME unwinds the whole stack at once
+  ---
+  duration_ms: 0.3778
+  ...
+# Subtest: CLOSE is equivalent to BACK
+ok 105 - CLOSE is equivalent to BACK
+  ---
+  duration_ms: 0.3532
+  ...
+# Subtest: switching base state clears anything stacked above it
+ok 106 - switching base state clears anything stacked above it
+  ---
+  duration_ms: 0.3322
+  ...
+# Subtest: opening the screen you are already on does nothing
+ok 107 - opening the screen you are already on does nothing
+  ---
+  duration_ms: 0.5085
+  ...
+# Subtest: a guard can veto leaving a live match
+ok 108 - a guard can veto leaving a live match
+  ---
+  duration_ms: 0.6542
+  ...
+# Subtest: a guard that allows the change lets navigation through
+ok 109 - a guard that allows the change lets navigation through
+  ---
+  duration_ms: 0.4691
+  ...
+# Subtest: guards can be removed
+ok 110 - guards can be removed
+  ---
+  duration_ms: 0.4752
+  ...
+# Subtest: pausing and resuming is never blocked by the leave-match guard
+ok 111 - pausing and resuming is never blocked by the leave-match guard
+  ---
+  duration_ms: 0.5482
+  ...
+# Subtest: listeners receive the direction of travel
+ok 112 - listeners receive the direction of travel
+  ---
+  duration_ms: 0.654
+  ...
+# Subtest: listeners can be unsubscribed
+ok 113 - listeners can be unsubscribed
+  ---
+  duration_ms: 0.541
+  ...
+# Subtest: interaction is only allowed while actually playing
+ok 114 - interaction is only allowed while actually playing
+  ---
+  duration_ms: 0.3787
+  ...
+# Subtest: in-game and menu states are mutually exclusive
+ok 115 - in-game and menu states are mutually exclusive
+  ---
+  duration_ms: 0.47
+  ...
+# Subtest: overlay screens are identified correctly
+ok 116 - overlay screens are identified correctly
+  ---
+  duration_ms: 0.5492
+  ...
+# Subtest: history integration pops a screen instead of leaving the game
+ok 117 - history integration pops a screen instead of leaving the game
+  ---
+  duration_ms: 0.7171
+  ...
+# Subtest: history integration is installed only once
+ok 118 - history integration is installed only once
+  ---
+  duration_ms: 0.4356
+  ...
+# Subtest: navigation still works when history is unavailable
+ok 119 - navigation still works when history is unavailable
+  ---
+  duration_ms: 0.6154
+  ...
+# Subtest: two distinct accounts join once, countdown starts, third player cannot join
+ok 120 - two distinct accounts join once, countdown starts, third player cannot join
+  ---
+  duration_ms: 2.7589
+  ...
+# Subtest: both players slice the same authoritative fruit and receive equal reward totals
+ok 121 - both players slice the same authoritative fruit and receive equal reward totals
+  ---
+  duration_ms: 2.0354
+  ...
+# Subtest: shared builds debit once and reject occupied pads, replays and unauthorized actions
+ok 122 - shared builds debit once and reject occupied pads, replays and unauthorized actions
+  ---
+  duration_ms: 0.4448
+  ...
+# Subtest: boss introduction counts down and creates an actual high-health boss
+ok 123 - boss introduction counts down and creates an actual high-health boss
+  ---
+  duration_ms: 0.3614
+  ...
+# Subtest: wall leaks end match; disconnect grace ends abandoned matches; no unearned rewards
+ok 124 - wall leaks end match; disconnect grace ends abandoned matches; no unearned rewards
+  ---
+  duration_ms: 0.4423
+  ...
+# Subtest: equipped hero power damages the authoritative Co-op field and enforces cooldowns
+ok 125 - equipped hero power damages the authoritative Co-op field and enforces cooldowns
+  ---
+  duration_ms: 0.8941
+  ...
+# Subtest: jiju-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 126 - jiju-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 7.609
+  ...
+# Subtest: jiju-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 127 - jiju-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.4396
+  ...
+# Subtest: jiju-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 128 - jiju-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9865
+  ...
+# Subtest: jiju-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 129 - jiju-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 4.4255
+  ...
+# Subtest: jiju-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 130 - jiju-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.4432
+  ...
+# Subtest: jiju-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 131 - jiju-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.7615
+  ...
+# Subtest: topfu-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 132 - topfu-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.0119
+  ...
+# Subtest: topfu-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 133 - topfu-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.8065
+  ...
+# Subtest: topfu-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 134 - topfu-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.1613
+  ...
+# Subtest: topfu-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 135 - topfu-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.0458
+  ...
+# Subtest: topfu-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 136 - topfu-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.2617
+  ...
+# Subtest: topfu-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 137 - topfu-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.7872
+  ...
+# Subtest: lagen-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 138 - lagen-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4371
+  ...
+# Subtest: lagen-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 139 - lagen-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.5802
+  ...
+# Subtest: lagen-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 140 - lagen-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.6118
+  ...
+# Subtest: lagen-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 141 - lagen-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4921
+  ...
+# Subtest: lagen-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 142 - lagen-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.5699
+  ...
+# Subtest: lagen-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 143 - lagen-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.6831
+  ...
+# Subtest: tripos-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 144 - tripos-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4177
+  ...
+# Subtest: tripos-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 145 - tripos-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4468
+  ...
+# Subtest: tripos-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 146 - tripos-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.3747
+  ...
+# Subtest: tripos-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 147 - tripos-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4266
+  ...
+# Subtest: tripos-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 148 - tripos-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.3549
+  ...
+# Subtest: tripos-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 149 - tripos-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4952
+  ...
+# Subtest: ki-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 150 - ki-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.442
+  ...
+# Subtest: ki-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 151 - ki-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.3924
+  ...
+# Subtest: ki-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 152 - ki-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.478
+  ...
+# Subtest: ki-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 153 - ki-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.637
+  ...
+# Subtest: ki-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 154 - ki-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.4773
+  ...
+# Subtest: ki-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+ok 155 - ki-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.51
+  ...
+# Subtest: insufficient funds and unequipped casts leave both online match states unchanged
+ok 156 - insufficient funds and unequipped casts leave both online match states unchanged
+  ---
+  duration_ms: 1.3142
+  ...
+# Subtest: all 30 powers create animated art, expire and release their scene objects
+ok 157 - all 30 powers create animated art, expire and release their scene objects
+  ---
+  duration_ms: 34.4659
+  ...
+# Subtest: hero perks unlock and gain ranks through mastery
+ok 158 - hero perks unlock and gain ranks through mastery
+  ---
+  duration_ms: 1.3805
+  ...
+# Subtest: combat perk multipliers use spent ranks, not auto level ranks
+ok 159 - combat perk multipliers use spent ranks, not auto level ranks
+  ---
+  duration_ms: 3.8468
+  ...
+# Subtest: Main Tower has progression milestones through level 10
+ok 160 - Main Tower has progression milestones through level 10
+  ---
+  duration_ms: 1.0277
+  ...
+# Subtest: tower milestone bonuses accumulate juice, fire rate, combo, last stand
+ok 161 - tower milestone bonuses accumulate juice, fire rate, combo, last stand
+  ---
+  duration_ms: 0.4882
+  ...
+# Subtest: perfect wave is detected only when the wave is fully cleared
+ok 162 - perfect wave is detected only when the wave is fully cleared
+  ---
+  duration_ms: 0.7693
+  ...
+# Subtest: awardPerfectWave is a pure calculation and grants nothing itself
+ok 163 - awardPerfectWave is a pure calculation and grants nothing itself
+  ---
+  duration_ms: 0.393
+  ...
+# Subtest: resetState applies starting/max lives from tower milestones
+ok 164 - resetState applies starting/max lives from tower milestones
+  ---
+  duration_ms: 0.738
+  ...
+# Subtest: each mode starts with its configured lives, including Casual and Co-op
+ok 165 - each mode starts with its configured lives, including Casual and Co-op
+  ---
+  duration_ms: 1.0758
+  ...
+# Subtest: VIP helpers read live config prices and percent bonuses
+ok 166 - VIP helpers read live config prices and percent bonuses
+  ---
+  duration_ms: 1.4065
+  ...
+# Subtest: addScore applies combo + last-stand milestone reward multipliers
+ok 167 - addScore applies combo + last-stand milestone reward multipliers
+  ---
+  duration_ms: 0.5549
+  ...
+# Subtest: hero runtime state derives level from XP and caps at level 100
+ok 168 - hero runtime state derives level from XP and caps at level 100
+  ---
+  duration_ms: 0.2325
+  ...
+# Subtest: special enemies scale into the wave and pay meaningful rewards
+ok 169 - special enemies scale into the wave and pay meaningful rewards
+  ---
+  duration_ms: 0.308
+  ...
+# Subtest: enemy multipliers scale rewards meaningfully above base
+ok 170 - enemy multipliers scale rewards meaningfully above base
+  ---
+  duration_ms: 0.2176
+  ...
+# Subtest: hero progression reaches level 100 and keeps unlock milestones
+ok 171 - hero progression reaches level 100 and keeps unlock milestones
+  ---
+  duration_ms: 1.6388
+  ...
+# Subtest: special enemies become available in later waves
+ok 172 - special enemies become available in later waves
+  ---
+  duration_ms: 0.3861
+  ...
+# Subtest: bomb and boss leak damage scales by wave tiers and has a hard cap
+ok 173 - bomb and boss leak damage scales by wave tiers and has a hard cap
+  ---
+  duration_ms: 0.2444
+  ...
+# Subtest: enemy kinds stay stable with fruit-zombie fantasy labels
+ok 174 - enemy kinds stay stable with fruit-zombie fantasy labels
+  ---
+  duration_ms: 1.2836
+  ...
+# Subtest: hero level 1 is the floor and costs no XP
+ok 175 - hero level 1 is the floor and costs no XP
+  ---
+  duration_ms: 1.4082
+  ...
+# Subtest: hero levels 10, 25, 50 and 100 resolve exactly
+ok 176 - hero levels 10, 25, 50 and 100 resolve exactly
+  ---
+  duration_ms: 0.2985
+  ...
+# Subtest: hero XP is monotonic and caps at level 100
+ok 177 - hero XP is monotonic and caps at level 100
+  ---
+  duration_ms: 0.3609
+  ...
+# Subtest: hero XP overflow clamps instead of wrapping or resetting
+ok 178 - hero XP overflow clamps instead of wrapping or resetting
+  ---
+  duration_ms: 2.889
+  ...
+# Subtest: XP is assigned to the correct hero and never transfers
+ok 179 - XP is assigned to the correct hero and never transfers
+  ---
+  duration_ms: 0.5551
+  ...
+# Subtest: hero XP state exposes progress toward the next level
+ok 180 - hero XP state exposes progress toward the next level
+  ---
+  duration_ms: 0.4067
+  ...
+# Subtest: no hero is capped at level 5 anywhere in the progression system
+ok 181 - no hero is capped at level 5 anywhere in the progression system
+  ---
+  duration_ms: 1.3514
+  ...
+# Subtest: hero milestones cover every required level
+ok 182 - hero milestones cover every required level
+  ---
+  duration_ms: 0.9941
+  ...
+# Subtest: milestones are reported exactly once when crossed
+ok 183 - milestones are reported exactly once when crossed
+  ---
+  duration_ms: 0.3543
+  ...
+# Subtest: next milestone advances with level
+ok 184 - next milestone advances with level
+  ---
+  duration_ms: 0.3005
+  ...
+# Subtest: milestones never auto-unlock the purchase-only heroes
+ok 185 - milestones never auto-unlock the purchase-only heroes
+  ---
+  duration_ms: 0.2287
+  ...
+# Subtest: perk points accrue from levels and milestones and never go negative
+ok 186 - perk points accrue from levels and milestones and never go negative
+  ---
+  duration_ms: 0.6054
+  ...
+# Subtest: levelling grants perk points through the reward pipeline
+ok 187 - levelling grants perk points through the reward pipeline
+  ---
+  duration_ms: 0.3435
+  ...
+# Subtest: topfu unlocks at Jiju level 10 and lagen at 25
+ok 188 - topfu unlocks at Jiju level 10 and lagen at 25
+  ---
+  duration_ms: 1.2377
+  ...
+# Subtest: purchase-only heroes never unlock from levelling
+ok 189 - purchase-only heroes never unlock from levelling
+  ---
+  duration_ms: 0.5109
+  ...
+# Subtest: hero prices come from one central configurable value
+ok 190 - hero prices come from one central configurable value
+  ---
+  duration_ms: 0.4968
+  ...
+# Subtest: hero status reports owned / locked / purchasable correctly
+ok 191 - hero status reports owned / locked / purchasable correctly
+  ---
+  duration_ms: 23.3827
+  ...
+# Subtest: a locked hero can never be equipped
+ok 192 - a locked hero can never be equipped
+  ---
+  duration_ms: 0.7554
+  ...
+# Subtest: hero purchase is atomic: coins out, hero in, exactly once
+ok 193 - hero purchase is atomic: coins out, hero in, exactly once
+  ---
+  duration_ms: 0.4309
+  ...
+# Subtest: a failed purchase leaves the save completely untouched
+ok 194 - a failed purchase leaves the save completely untouched
+  ---
+  duration_ms: 0.3315
+  ...
+# Subtest: non-purchasable heroes are rejected by the purchase path
+ok 195 - non-purchasable heroes are rejected by the purchase path
+  ---
+  duration_ms: 0.3413
+  ...
+# Subtest: purchased heroes survive an unlock re-sync
+ok 196 - purchased heroes survive an unlock re-sync
+  ---
+  duration_ms: 0.3628
+  ...
+# Subtest: tower levels span 1 to 10
+ok 197 - tower levels span 1 to 10
+  ---
+  duration_ms: 0.2289
+  ...
+# Subtest: every tower level from 2 to 10 has a milestone reward
+ok 198 - every tower level from 2 to 10 has a milestone reward
+  ---
+  duration_ms: 0.2454
+  ...
+# Subtest: tower milestone bonuses accumulate and reach gameplay values
+ok 199 - tower milestone bonuses accumulate and reach gameplay values
+  ---
+  duration_ms: 0.3365
+  ...
+# Subtest: tower XP persists and levels up through the pipeline
+ok 200 - tower XP persists and levels up through the pipeline
+  ---
+  duration_ms: 0.3757
+  ...
+# Subtest: tower XP never exceeds the level 10 requirement
+ok 201 - tower XP never exceeds the level 10 requirement
+  ---
+  duration_ms: 0.3349
+  ...
+# Subtest: reward calculation is pure and produces no negative values
+ok 202 - reward calculation is pure and produces no negative values
+  ---
+  duration_ms: 0.5904
+  ...
+# Subtest: special enemy multipliers actually reach the reward system
+ok 203 - special enemy multipliers actually reach the reward system
+  ---
+  duration_ms: 0.2792
+  ...
+# Subtest: boss kills award a premium gem through the same progression pipeline
+ok 204 - boss kills award a premium gem through the same progression pipeline
+  ---
+  duration_ms: 0.4184
+  ...
+# Subtest: campaign boss bounty uses the configured coin and gem rewards
+ok 205 - campaign boss bounty uses the configured coin and gem rewards
+  ---
+  duration_ms: 0.4671
+  ...
+# Subtest: boss score, coins and XP rise with later waves and stop at a fair tier cap
+ok 206 - boss score, coins and XP rise with later waves and stop at a fair tier cap
+  ---
+  duration_ms: 0.3566
+  ...
+# Subtest: combo increases rewards up to a fair cap
+ok 207 - combo increases rewards up to a fair cap
+  ---
+  duration_ms: 0.3748
+  ...
+# Subtest: modifiers scale rewards without being applied twice
+ok 208 - modifiers scale rewards without being applied twice
+  ---
+  duration_ms: 0.2331
+  ...
+# Subtest: applying rewards updates hero XP, tower XP and coins together
+ok 209 - applying rewards updates hero XP, tower XP and coins together
+  ---
+  duration_ms: 0.3707
+  ...
+# Subtest: an empty reward changes nothing
+ok 210 - an empty reward changes nothing
+  ---
+  duration_ms: 0.259
+  ...
+# Subtest: coins are capped so rewards cannot overflow the economy
+ok 211 - coins are capped so rewards cannot overflow the economy
+  ---
+  duration_ms: 0.331
+  ...
+# Subtest: game over grants a bounded shop coin payout exactly once
+ok 212 - game over grants a bounded shop coin payout exactly once
+  ---
+  duration_ms: 0.46
+  ...
+# Subtest: combo tiers are data-driven and ordered
+ok 213 - combo tiers are data-driven and ordered
+  ---
+  duration_ms: 0.4695
+  ...
+# Subtest: combo tier bonuses are awarded once per crossing
+ok 214 - combo tier bonuses are awarded once per crossing
+  ---
+  duration_ms: 0.5022
+  ...
+# Subtest: combo milestone rewards scale with the tier
+ok 215 - combo milestone rewards scale with the tier
+  ---
+  duration_ms: 0.3926
+  ...
+# Subtest: full play → save → reload keeps every progression value
+ok 216 - full play → save → reload keeps every progression value
+  ---
+  duration_ms: 2.2073
+  ...
+# Subtest: hero XP never silently resets across a reload
+ok 217 - hero XP never silently resets across a reload
+  ---
+  duration_ms: 4.0721
+  ...
+# Subtest: cloud merge keeps the highest progression but not stale balances
+ok 218 - cloud merge keeps the highest progression but not stale balances
+  ---
+  duration_ms: 0.9475
+  ...
+# Subtest: a newer cloud save wins for spendable balances
+ok 219 - a newer cloud save wins for spendable balances
+  ---
+  duration_ms: 0.4138
+  ...
+# Subtest: legacy saves without revisions fall back to the player-friendly maximum
+ok 220 - legacy saves without revisions fall back to the player-friendly maximum
+  ---
+  duration_ms: 0.4932
+  ...
+# Subtest: merging a null remote is a safe no-op
+ok 221 - merging a null remote is a safe no-op
+  ---
+  duration_ms: 0.2876
+  ...
+# Subtest: writeSave bumps the revision so merges can order writes
+ok 222 - writeSave bumps the revision so merges can order writes
+  ---
+  duration_ms: 0.6986
+  ...
+# Subtest: corrupt or hostile save data is sanitised, not trusted
+ok 223 - corrupt or hostile save data is sanitised, not trusted
+  ---
+  duration_ms: 0.5659
+  ...
+# Subtest: unparseable save data falls back to a clean default
+ok 224 - unparseable save data falls back to a clean default
+  ---
+  duration_ms: 0.3333
+  ...
+# Subtest: migration: an old save with no perk ranks or revision still loads
+ok 225 - migration: an old save with no perk ranks or revision still loads
+  ---
+  duration_ms: 0.4357
+  ...
+# Subtest: rewards granted repeatedly accumulate without duplication
+ok 226 - rewards granted repeatedly accumulate without duplication
+  ---
+  duration_ms: 1.323
+  ...
+# Subtest: Arena and Ranked PvP rules
+    # Subtest: spawns only player-sent squads, including matches carrying legacy wave timers
+    ok 1 - spawns only player-sent squads, including matches carrying legacy wave timers
+      ---
+      duration_ms: 4.3113
+      ...
+    # Subtest: provides seven long editable routes with top-to-bottom adjacent path cells
+    ok 2 - provides seven long editable routes with top-to-bottom adjacent path cells
+      ---
+      duration_ms: 1.0929
+      ...
+    # Subtest: alternates path vetoes and server-randomly starts the match at two remaining
+    ok 3 - alternates path vetoes and server-randomly starts the match at two remaining
+      ---
+      duration_ms: 1.2351
+      ...
+    # Subtest: charges tower build costs and rejects invalid or replayed commands
+    ok 4 - charges tower build costs and rejects invalid or replayed commands
+      ---
+      duration_ms: 0.5083
+      ...
+    # Subtest: upgrades only owned towers, charges each level, caps upgrades and frees a sold hex
+    ok 5 - upgrades only owned towers, charges each level, caps upgrades and frees a sold hex
+      ---
+      duration_ms: 0.8225
+      ...
+    # Subtest: uses upgraded damage in the authority simulation and ends a surrendered match
+    ok 6 - uses upgraded damage in the authority simulation and ends a surrendered match
+      ---
+      duration_ms: 1.1978
+      ...
+    # Subtest: charges attack costs, kills attackers with towers, and damages the wall when one gets through
+    ok 7 - charges attack costs, kills attackers with towers, and damages the wall when one gets through
+      ---
+      duration_ms: 2.6115
+      ...
+    # Subtest: sends configured staggered packs and rejects a full lane without spending
+    ok 8 - sends configured staggered packs and rejects a full lane without spending
+      ---
+      duration_ms: 0.6166
+      ...
+    # Subtest: starting towers defend and built towers only fire when their cooldown expires
+    ok 9 - starting towers defend and built towers only fire when their cooldown expires
+      ---
+      duration_ms: 0.6891
+      ...
+    # Subtest: rejects slicing in both queues without changing resources, sequence, or fruit
+    ok 10 - rejects slicing in both queues without changing resources, sequence, or fruit
+      ---
+      duration_ms: 1.4367
+      ...
+    # Subtest: gives every hero identical Rally timing and damage with server cooldown validation
+    ok 11 - gives every hero identical Rally timing and damage with server cooldown validation
+      ---
+      duration_ms: 0.8261
+      ...
+    # Subtest: preserves the spacing of an intentionally sent squad
+    ok 12 - preserves the spacing of an intentionally sent squad
+      ---
+      duration_ms: 0.417
+      ...
+    # Subtest: awards correct FR deltas, caps performance, keeps a loss net negative, and uses configured tiers
+    ok 13 - awards correct FR deltas, caps performance, keeps a loss net negative, and uses configured tiers
+      ---
+      duration_ms: 0.6868
+      ...
+    # Subtest: resets a monthly rating 25% toward 1000 and ends a match on its timeout tiebreak
+    ok 14 - resets a monthly rating 25% toward 1000 and ends a match on its timeout tiebreak
+      ---
+      duration_ms: 0.7691
+      ...
+    # Subtest: forfeits after 45 seconds without a reconnect heartbeat
+    ok 15 - forfeits after 45 seconds without a reconnect heartbeat
+      ---
+      duration_ms: 0.6002
+      ...
+    1..15
+ok 227 - Arena and Ranked PvP rules
+  ---
+  duration_ms: 20.5852
+  type: 'suite'
+  ...
+# Subtest: server-authoritative hero powers
+    # Subtest: validates equipped powers, applies their effect, and rejects cooldown replays
+    ok 1 - validates equipped powers, applies their effect, and rejects cooldown replays
+      ---
+      duration_ms: 1.4153
+      ...
+    1..1
+ok 228 - server-authoritative hero powers
+  ---
+  duration_ms: 1.7584
+  type: 'suite'
+  ...
+# Subtest: admin PvP bot
+    # Subtest: builds, sends real fruit, and uses validated command sequences
+    ok 1 - builds, sends real fruit, and uses validated command sequences
+      ---
+      duration_ms: 9.6399
+      ...
+    # Subtest: defends its own incoming lane with a turret and never slices
+    ok 2 - defends its own incoming lane with a turret and never slices
+      ---
+      duration_ms: 3.6574
+      ...
+    # Subtest: stops when the match ends
+    ok 3 - stops when the match ends
+      ---
+      duration_ms: 0.366
+      ...
+    1..3
+ok 229 - admin PvP bot
+  ---
+  duration_ms: 15.5163
+  type: 'suite'
+  ...
+# Subtest: released squads start at their own keep, meet and stop rather than walking through one another
+ok 230 - released squads start at their own keep, meet and stop rather than walking through one another
+  ---
+  duration_ms: 8.4627
+  ...
+# Subtest: stronger squads win melee, resume their push and eventually damage the opposing keep
+ok 231 - stronger squads win melee, resume their push and eventually damage the opposing keep
+  ---
+  duration_ms: 4.8187
+  ...
+# Subtest: equal opposing fighters die simultaneously with no blue or red damage advantage
+ok 232 - equal opposing fighters die simultaneously with no blue or red damage advantage
+  ---
+  duration_ms: 3.4741
+  ...
+# Subtest: long server ticks cannot let fast opposing units tunnel past each other
+ok 233 - long server ticks cannot let fast opposing units tunnel past each other
+  ---
+  duration_ms: 0.726
+  ...
+# Subtest: surviving squads keep attacking the tower on a timed cadence rather than disappearing
+ok 234 - surviving squads keep attacking the tower on a timed cadence rather than disappearing
+  ---
+  duration_ms: 0.8249
+  ...
+# Subtest: queued pack members cannot fight before they visibly spawn at their keep
+ok 235 - queued pack members cannot fight before they visibly spawn at their keep
+  ---
+  duration_ms: 0.5019
+  ...
+# Subtest: PvP identity uses the linked Steam persona and current Steam avatar
+ok 236 - PvP identity uses the linked Steam persona and current Steam avatar
+  ---
+  duration_ms: 2.6423
+  ...
+# Subtest: non-Steam profiles use the account name and avatar with safe fallbacks
+ok 237 - non-Steam profiles use the account name and avatar with safe fallbacks
+  ---
+  duration_ms: 0.341
+  ...
+# Subtest: only pairs nearby ratings, same queues, and bounded tiers even after long waits
+ok 238 - only pairs nearby ratings, same queues, and bounded tiers even after long waits
+  ---
+  duration_ms: 3.4655
+  ...
+# Subtest: uses opponent strength for ranked gains and losses, with no slice bonuses
+ok 239 - uses opponent strength for ranked gains and losses, with no slice bonuses
+  ---
+  duration_ms: 0.4357
+  ...
+# Subtest: equal walls draw even when kill counts differ, and simultaneous wall defeats draw
+ok 240 - equal walls draw even when kill counts differ, and simultaneous wall defeats draw
+  ---
+  duration_ms: 9.3231
+  ...
+# Subtest: turret counters distinguish armor piercing, splash, and slow instead of raw damage only
+ok 241 - turret counters distinguish armor piercing, splash, and slow instead of raw damage only
+  ---
+  duration_ms: 4.3007
+  ...
+# Subtest: main upgrades spend match Fruts, improve damage/health, and cannot exceed level three or replay
+ok 242 - main upgrades spend match Fruts, improve damage/health, and cannot exceed level three or replay
+  ---
+  duration_ms: 5.7439
+  ...
+# Subtest: Catcher stores weakened zombies without bounties; paid release sends one unit and cannot be replayed or recaptured
+ok 243 - Catcher stores weakened zombies without bounties; paid release sends one unit and cannot be replayed or recaptured
+  ---
+  duration_ms: 2.8709
+  ...
+# Subtest: capture capacity, full attack lanes, insufficient funds, and stronger capture upgrades are enforced
+ok 244 - capture capacity, full attack lanes, insufficient funds, and stronger capture upgrades are enforced
+  ---
+  duration_ms: 1.8263
+  ...
+# Subtest: building a larger full-health main tower alone cannot win a percentage-health timeout
+ok 245 - building a larger full-health main tower alone cannot win a percentage-health timeout
+  ---
+  duration_ms: 0.5845
+  ...
+# Subtest: mirrored strategies are symmetric on all maps; sending fruit can defeat an undefended opponent
+ok 246 - mirrored strategies are symmetric on all maps; sending fruit can defeat an undefended opponent
+  ---
+  duration_ms: 9981.0946
+  ...
+# Subtest: captured release pricing accounts for pack size and always costs Fruts
+ok 247 - captured release pricing accounts for pack size and always costs Fruts
+  ---
+  duration_ms: 0.2402
+  ...
+# Subtest: production content ships 50 main missions, 5 daily missions, and the PvP-expanded achievement and badge catalogs
+ok 248 - production content ships 50 main missions, 5 daily missions, and the PvP-expanded achievement and badge catalogs
+  ---
+  duration_ms: 4.5807
+  ...
+# Subtest: old Mongo content keeps edits and receives missing production defaults once
+ok 249 - old Mongo content keeps edits and receives missing production defaults once
+  ---
+  duration_ms: 1.6747
+  ...
+# Subtest: Admin configuration preserves an intentionally shortened reward catalogue
+ok 250 - Admin configuration preserves an intentionally shortened reward catalogue
+  ---
+  duration_ms: 4.6695
+  ...
+# Subtest: online Co-op catalog upgrade preserves edits and does not restore subsequent removals
+ok 251 - online Co-op catalog upgrade preserves edits and does not restore subsequent removals
+  ---
+  duration_ms: 0.8465
+  ...
+# Subtest: run history records each match once, retains mode and accuracy, and bounds storage
+ok 252 - run history records each match once, retains mode and accuracy, and bounds storage
+  ---
+  duration_ms: 29.1819
+  ...
+# Subtest: save validation prevents absurd economy values
+ok 253 - save validation prevents absurd economy values
+  ---
+  duration_ms: 4.3317
+  ...
+# Subtest: hero perk ranks migrate from old localStorage key format
+ok 254 - hero perk ranks migrate from old localStorage key format
+  ---
+  duration_ms: 0.9821
+  ...
+# Subtest: hero perk ranks respect max rank limits when sanitizing
+ok 255 - hero perk ranks respect max rank limits when sanitizing
+  ---
+  duration_ms: 1.2355
+  ...
+# Subtest: cloud save merge preserves highest hero perk ranks
+ok 256 - cloud save merge preserves highest hero perk ranks
+  ---
+  duration_ms: 2.8926
+  ...
+# Subtest: cloud save merge takes maximum of economy values
+ok 257 - cloud save merge takes maximum of economy values
+  ---
+  duration_ms: 1.3259
+  ...
+# Subtest: sanitiseSave keeps unequipped blade/wall empty (does not force starters)
+ok 258 - sanitiseSave keeps unequipped blade/wall empty (does not force starters)
+  ---
+  duration_ms: 0.601
+  ...
+# Subtest: sanitiseSave clears invalid equipped skin ids but keeps valid ones
+ok 259 - sanitiseSave clears invalid equipped skin ids but keeps valid ones
+  ---
+  duration_ms: 0.721
+  ...
+# Subtest: sanitiseSave does not re-equip default when user unequipped starter blade
+ok 260 - sanitiseSave does not re-equip default when user unequipped starter blade
+  ---
+  duration_ms: 0.559
+  ...
+# Subtest: ability ranks preserve five upgrade nodes and cap malformed saves
+ok 261 - ability ranks preserve five upgrade nodes and cap malformed saves
+  ---
+  duration_ms: 0.6621
+  ...
+# Subtest: save merge caps coins at 1M maximum
+ok 262 - save merge caps coins at 1M maximum
+  ---
+  duration_ms: 7.5377
+  ...
+# Subtest: save merge prevents coin inflation via absurd remote values
+ok 263 - save merge prevents coin inflation via absurd remote values
+  ---
+  duration_ms: 1.2239
+  ...
+# Subtest: save merge caps skill points
+ok 264 - save merge caps skill points
+  ---
+  duration_ms: 1.3323
+  ...
+# Subtest: save merge caps hero XP per hero
+ok 265 - save merge caps hero XP per hero
+  ---
+  duration_ms: 1.4353
+  ...
+# Subtest: save merge handles missing remote gracefully
+ok 266 - save merge handles missing remote gracefully
+  ---
+  duration_ms: 0.9208
+  ...
+# Subtest: save merge combines owned skins
+ok 267 - save merge combines owned skins
+  ---
+  duration_ms: 0.8196
+  ...
+# Subtest: enemyKindToStudioKey maps all enemy kinds
+ok 268 - enemyKindToStudioKey maps all enemy kinds
+  ---
+  duration_ms: 2.4406
+  ...
+# Subtest: directionFromVelocity picks dominant axis
+ok 269 - directionFromVelocity picks dominant axis
+  ---
+  duration_ms: 0.5183
+  ...
+# Subtest: advanceFrameCursor steps by fps and wraps
+ok 270 - advanceFrameCursor steps by fps and wraps
+  ---
+  duration_ms: 0.7359
+  ...
+# Subtest: fireStudioEvent invokes callbacks for hooks in localStorage store
+ok 271 - fireStudioEvent invokes callbacks for hooks in localStorage store
+  ---
+  duration_ms: 2.9728
+  ...
+# Subtest: heroIdToStudioKey maps hero ids
+ok 272 - heroIdToStudioKey maps hero ids
+  ---
+  duration_ms: 0.5461
+  ...
+# Subtest: tower and boss studio key helpers
+ok 273 - tower and boss studio key helpers
+  ---
+  duration_ms: 1.5858
+  ...
+# Subtest: enemyKindToStudioKey and resolveFruitStudioKey fallbacks without store
+ok 274 - enemyKindToStudioKey and resolveFruitStudioKey fallbacks without store
+  ---
+  duration_ms: 0.4606
+  ...
+# Subtest: resolveFruitStudioKey prefers boss-overlord when pack has clips
+ok 275 - resolveFruitStudioKey prefers boss-overlord when pack has clips
+  ---
+  duration_ms: 0.9749
+  ...
+# Subtest: Creator Hub changes notify registered runtime cache listeners
+ok 276 - Creator Hub changes notify registered runtime cache listeners
+  ---
+  duration_ms: 1.8322
+  ...
+# Subtest: tower range is shown only after selection and tower HP updates the ground bar
+ok 277 - tower range is shown only after selection and tower HP updates the ground bar
+  ---
+  duration_ms: 463.3073
+  ...
+# Subtest: combat HUD retains health text without duplicating the arena health rail
+ok 278 - combat HUD retains health text without duplicating the arena health rail
+  ---
+  duration_ms: 3.3992
+  ...
+# Subtest: every selectable mode generates a playable opening wave
+ok 279 - every selectable mode generates a playable opening wave
+  ---
+  duration_ms: 4.6505
+  ...
+# Subtest: late Casual and Horde waves retain ordinary targets instead of becoming all bombs
+ok 280 - late Casual and Horde waves retain ordinary targets instead of becoming all bombs
+  ---
+  duration_ms: 1.7265
+  ...
+# Subtest: late-wave HP keeps increasing at a readable rate in Casual and boss waves
+ok 281 - late-wave HP keeps increasing at a readable rate in Casual and boss waves
+  ---
+  duration_ms: 0.8047
+  ...
+# Subtest: five boss archetypes rotate through campaign stages with distinct traits
+ok 282 - five boss archetypes rotate through campaign stages with distinct traits
+  ---
+  duration_ms: 1.8288
+  ...
+# Subtest: early waves teach safe chain explosions alongside turret-only hazards
+ok 283 - early waves teach safe chain explosions alongside turret-only hazards
+  ---
+  duration_ms: 0.4562
+  ...
+# Subtest: synthetic mouse canvas stroke kills a fruit and grants score/XP
+ok 284 - synthetic mouse canvas stroke kills a fruit and grants score/XP
+  ---
+  duration_ms: 60.2193
+  ...
+# Subtest: synthetic touch canvas stroke kills a fruit and grants score/XP
+ok 285 - synthetic touch canvas stroke kills a fruit and grants score/XP
+  ---
+  duration_ms: 29.6075
+  ...
+# Subtest: signed-out startup skips personal monthly-rank requests
+ok 286 - signed-out startup skips personal monthly-rank requests
+  ---
+  duration_ms: 3.5094
+  ...
+# Subtest: monthly rank uses the authenticated session without a client-supplied identity
+ok 287 - monthly rank uses the authenticated session without a client-supplied identity
+  ---
+  duration_ms: 79.7869
+  ...
+# Subtest: admin title and economy drafts survive switching tabs before publishing
+ok 288 - admin title and economy drafts survive switching tabs before publishing
+  ---
+  duration_ms: 12.572
+  ...
+# Subtest: admin leaderboard renders untrusted player names as text
+ok 289 - admin leaderboard renders untrusted player names as text
+  ---
+  duration_ms: 87.9489
+  ...
+# Subtest: an older admin leaderboard response cannot overwrite a newer refresh
+ok 290 - an older admin leaderboard response cannot overwrite a newer refresh
+  ---
+  duration_ms: 8.192
+  ...
+# Subtest: admin config fallback is not reported as live when MongoDB is offline
+ok 291 - admin config fallback is not reported as live when MongoDB is offline
+  ---
+  duration_ms: 8.4048
+  ...
+# Subtest: frameRect maps row-major indices to cells
+ok 292 - frameRect maps row-major indices to cells
+  ---
+  duration_ms: 5.004
+  ...
+# Subtest: frameRect wraps and honors explicit frame size
+ok 293 - frameRect wraps and honors explicit frame size
+  ---
+  duration_ms: 0.4981
+  ...
+# Subtest: indexFromCell and clipKey helpers
+ok 294 - indexFromCell and clipKey helpers
+  ---
+  duration_ms: 0.4085
+  ...
+# Subtest: timeline range math: clipDefFromRange / clipEndFrame / clampClipRange
+ok 295 - timeline range math: clipDefFromRange / clipEndFrame / clampClipRange
+  ---
+  duration_ms: 0.5991
+  ...
+# Subtest: migrateStoreToV2 upgrades v1 entities and fills event defaults
+ok 296 - migrateStoreToV2 upgrades v1 entities and fills event defaults
+  ---
+  duration_ms: 1.8234
+  ...
+# Subtest: normalizeEntityData preserves clip fps/fx and event hooks
+ok 297 - normalizeEntityData preserves clip fps/fx and event hooks
+  ---
+  duration_ms: 0.8519
+  ...
+# Subtest: defaultEvents and normalizeEventHook defaults
+ok 298 - defaultEvents and normalizeEventHook defaults
+  ---
+  duration_ms: 0.7806
+  ...
+# Subtest: coverage checklist counts clip keys
+ok 299 - coverage checklist counts clip keys
+  ---
+  duration_ms: 1.4166
+  ...
+# Subtest: entity pack import/export round-trip
+ok 300 - entity pack import/export round-trip
+  ---
+  duration_ms: 1.2332
+  ...
+# Subtest: title Create Account opens the registration form
+ok 301 - title Create Account opens the registration form
+  ---
+  duration_ms: 6.5037
+  ...
+# Subtest: title actions and status accurately reflect signed-in state
+ok 302 - title actions and status accurately reflect signed-in state
+  ---
+  duration_ms: 1.4784
+  ...
+# Subtest: primitives render theme-driven classes, never inline colours
+ok 303 - primitives render theme-driven classes, never inline colours
+  ---
+  duration_ms: 380.4532
+  ...
+# Subtest: button click handlers fire
+ok 304 - button click handlers fire
+  ---
+  duration_ms: 4.3353
+  ...
+# Subtest: tabs switch active state and report changes
+ok 305 - tabs switch active state and report changes
+  ---
+  duration_ms: 5.115
+  ...
+# Subtest: modal system opens, stacks and closes
+ok 306 - modal system opens, stacks and closes
+  ---
+  duration_ms: 6.7595
+  ...
+# Subtest: ESC closes only the top surface
+ok 307 - ESC closes only the top surface
+  ---
+  duration_ms: 5.4937
+  ...
+# Subtest: mobile/browser back closes the top surface
+ok 308 - mobile/browser back closes the top surface
+  ---
+  duration_ms: 5.6487
+  ...
+# Subtest: clicking the backdrop dismisses, clicking the card does not
+ok 309 - clicking the backdrop dismisses, clicking the card does not
+  ---
+  duration_ms: 4.2613
+  ...
+# Subtest: dismissOnBackdrop:false keeps the surface open
+ok 310 - dismissOnBackdrop:false keeps the surface open
+  ---
+  duration_ms: 3.3593
+  ...
+# Subtest: screen surfaces follow the layout presentation rules
+ok 311 - screen surfaces follow the layout presentation rules
+  ---
+  duration_ms: 4.243
+  ...
+# Subtest: confirm modal resolves true on confirm and false on cancel
+ok 312 - confirm modal resolves true on confirm and false on cancel
+  ---
+  duration_ms: 5.6094
+  ...
+# Subtest: toasts mount into a shared host
+ok 313 - toasts mount into a shared host
+  ---
+  duration_ms: 3.0715
+  ...
+# Subtest: rich warning toasts use themed text nodes rather than injecting markup
+ok 314 - rich warning toasts use themed text nodes rather than injecting markup
+  ---
+  duration_ms: 5.089
+  ...
+# Subtest: theme store applies css variables to the document and persists
+ok 315 - theme store applies css variables to the document and persists
+  ---
+  duration_ms: 33.4666
+  ...
+# Subtest: theme store notifies subscribers and rejects invalid patches
+ok 316 - theme store notifies subscribers and rejects invalid patches
+  ---
+  duration_ms: 5.3621
+  ...
+# Subtest: theme import/export round-trips through the store
+ok 317 - theme import/export round-trips through the store
+  ---
+  duration_ms: 5.3351
+  ...
+# Subtest: asset slots accept safe urls and reject unsafe ones
+ok 318 - asset slots accept safe urls and reject unsafe ones
+  ---
+  duration_ms: 12.7759
+  ...
+# Subtest: asset urls reach the dom as url() css variables
+ok 319 - asset urls reach the dom as url() css variables
+  ---
+  duration_ms: 6.0898
+  ...
+# Subtest: layout application writes responsive data attributes
+ok 320 - layout application writes responsive data attributes
+  ---
+  duration_ms: 4.1999
+  ...
+# Subtest: design mode renders every preview screen without game state
+ok 321 - design mode renders every preview screen without game state
+  ---
+  duration_ms: 394.4923
+  ...
+# Subtest: theme editor renders controls bound to the store
+ok 322 - theme editor renders controls bound to the store
+  ---
+  duration_ms: 27.1689
+  ...
+# Subtest: design mode opens as a fullscreen surface and closes
+ok 323 - design mode opens as a fullscreen surface and closes
+  ---
+  duration_ms: 17.4891
+  ...
+# Subtest: keyboard and gamepad focus ignore hidden dialogs and stay inside the visible legacy modal
+ok 324 - keyboard and gamepad focus ignore hidden dialogs and stay inside the visible legacy modal
+  ---
+  duration_ms: 7.7672
+  ...
+# Subtest: shared number motion recognises currency, progress, and score displays
+ok 325 - shared number motion recognises currency, progress, and score displays
+  ---
+  duration_ms: 3.7733
+  ...
+# Subtest: shared number motion counts every standalone value in composite progress labels
+ok 326 - shared number motion counts every standalone value in composite progress labels
+  ---
+  duration_ms: 1.3126
+  ...
+# Subtest: shared number motion ignores digits embedded in identifiers without lookbehind regex support
+ok 327 - shared number motion ignores digits embedded in identifiers without lookbehind regex support
+  ---
+  duration_ms: 0.5903
+  ...
+# Subtest: recharge remains bounded and resumes the correct point after a snapshot
+ok 328 - recharge remains bounded and resumes the correct point after a snapshot
+  ---
+  duration_ms: 2.1378
+  ...
+# Subtest: powers preserve their icon and node as cooldown and affordability change
+ok 329 - powers preserve their icon and node as cooldown and affordability change
+  ---
+  duration_ms: 2.3673
+  ...
+# Subtest: persistent power refresh does not accelerate the recharge animation
+ok 330 - persistent power refresh does not accelerate the recharge animation
+  ---
+  duration_ms: 0.8437
+  ...
+# Subtest: blade cards contain one animated canvas and no static sword or stacked overlays
+ok 331 - blade cards contain one animated canvas and no static sword or stacked overlays
+  ---
+  duration_ms: 7.1926
+  ...
+# Subtest: preview moves the slice, draws its shine, then clears between swipes
+ok 332 - preview moves the slice, draws its shine, then clears between swipes
+  ---
+  duration_ms: 16.8497
+  ...
+# Subtest: Campaign renders unlocked stages, boss intel, and starts the selected stage
+ok 333 - Campaign renders unlocked stages, boss intel, and starts the selected stage
+  ---
+  duration_ms: 60.3507
+  ...
+# Subtest: Campaign clamps corrupt progress and disables locked stages
+ok 334 - Campaign clamps corrupt progress and disables locked stages
+  ---
+  duration_ms: 2.167
+  ...
+# Subtest: Campaign labels the cleared final stage as replayable
+ok 335 - Campaign labels the cleared final stage as replayable
+  ---
+  duration_ms: 2.0388
+  ...
+# Subtest: Campaign can browse back to and replay every older cleared stage
+ok 336 - Campaign can browse back to and replay every older cleared stage
+  ---
+  duration_ms: 6.7894
+  ...
+# Subtest: selecting Campaign shows its briefing and opens the stage launcher from Panel 2
+ok 337 - selecting Campaign shows its briefing and opens the stage launcher from Panel 2
+  ---
+  duration_ms: 275.4126
+  ...
+# Subtest: hub keeps launch beside the map after moving boss intel to its side panel
+ok 338 - hub keeps launch beside the map after moving boss intel to its side panel
+  ---
+  duration_ms: 31.6644
+  ...
+# Subtest: local Co-op shows both player controls and starts a real match callback
+ok 339 - local Co-op shows both player controls and starts a real match callback
+  ---
+  duration_ms: 5.8601
+  ...
+# Subtest: renderHub paints header, footer and the active tab once
+ok 340 - renderHub paints header, footer and the active tab once
+  ---
+  duration_ms: 57.0717
+  ...
+# Subtest: the active tab is marked in the footer
+ok 341 - the active tab is marked in the footer
+  ---
+  duration_ms: 10.8952
+  ...
+# Subtest: notifications and messages open compact dropdowns, dismiss outside, and link to their centers
+ok 342 - notifications and messages open compact dropdowns, dismiss outside, and link to their centers
+  ---
+  duration_ms: 30.1993
+  ...
+# Subtest: mode cards only select and Panel 2 supplies the launch action
+ok 343 - mode cards only select and Panel 2 supplies the launch action
+  ---
+  duration_ms: 39.7375
+  ...
+# Subtest: home shows separate daily and main mission progress meters
+ok 344 - home shows separate daily and main mission progress meters
+  ---
+  duration_ms: 9.4518
+  ...
+# Subtest: legacy Missions moves into the hub and returns to its original host while Ranked is now dedicated PvP
+ok 345 - legacy Missions moves into the hub and returns to its original host while Ranked is now dedicated PvP
+  ---
+  duration_ms: 44.9357
+  ...
+# Subtest: primary hub routes are reachable, Back returns one level, and Home clears the stack
+ok 346 - primary hub routes are reachable, Back returns one level, and Home clears the stack
+  ---
+  duration_ms: 12.6008
+  ...
+# Subtest: More opens reachable Settings and Admin actions, and Play waits for a selected mode
+ok 347 - More opens reachable Settings and Admin actions, and Play waits for a selected mode
+  ---
+  duration_ms: 16.884
+  ...
+# Subtest: desktop shows every secondary destination inline and removes the More control
+ok 348 - desktop shows every secondary destination inline and removes the More control
+  ---
+  duration_ms: 10.1338
+  ...
+# Subtest: Home clears mode selection and restores the active hero panel
+ok 349 - Home clears mode selection and restores the active hero panel
+  ---
+  duration_ms: 15.5887
+  ...
+# Subtest: legacy lobby navigation and Play markup are hidden, inert, and unwired
+ok 350 - legacy lobby navigation and Play markup are hidden, inert, and unwired
+  ---
+  duration_ms: 6.3494
+  ...
+# Subtest: the footer presents five core destinations and keeps the home state explicit
+ok 351 - the footer presents five core destinations and keeps the home state explicit
+  ---
+  duration_ms: 4.2126
+  ...
+# Subtest: profile keeps destinations reachable without a Play action
+ok 352 - profile keeps destinations reachable without a Play action
+  ---
+  duration_ms: 10.7495
+  ...
+# Subtest: every secondary menu destination supplies a contextual desktop panel
+ok 353 - every secondary menu destination supplies a contextual desktop panel
+  ---
+  duration_ms: 0.8361
+  ...
+# Subtest: switchHubTab replaces panel content without rebuilding header/footer
+ok 354 - switchHubTab replaces panel content without rebuilding header/footer
+  ---
+  duration_ms: 10.1498
+  ...
+# Subtest: a tab with no renderSub leaves the sub panel empty
+ok 355 - a tab with no renderSub leaves the sub panel empty
+  ---
+  duration_ms: 3.065
+  ...
+# Subtest: Settings toggle pins the hub header and bottom navigation
+ok 356 - Settings toggle pins the hub header and bottom navigation
+  ---
+  duration_ms: 1.338
+  ...
+# Subtest: desktop edge arrows reveal only their own chrome panel and preserve mobile visibility
+ok 357 - desktop edge arrows reveal only their own chrome panel and preserve mobile visibility
+  ---
+  duration_ms: 1.668
+  ...
+# Subtest: hub entrance replays on return and lets the edge chrome tuck away afterward
+ok 358 - hub entrance replays on return and lets the edge chrome tuck away afterward
+  ---
+  duration_ms: 1.0177
+  ...
+# Subtest: career subtab changes keep the legacy page header in sync with its content
+ok 359 - career subtab changes keep the legacy page header in sync with its content
+  ---
+  duration_ms: 2.4484
+  ...
+# Subtest: refreshHub repaints in place without the slide-in animation class
+ok 360 - refreshHub repaints in place without the slide-in animation class
+  ---
+  duration_ms: 8.6949
+  ...
+# Subtest: hub category changes replace the previous Shop and Inventory grids
+ok 361 - hub category changes replace the previous Shop and Inventory grids
+  ---
+  duration_ms: 13.2012
+  ...
+# Subtest: selecting a hero refreshes its detail without leaving the tab
+ok 362 - selecting a hero refreshes its detail without leaving the tab
+  ---
+  duration_ms: 21.7094
+  ...
+# Subtest: refreshing a hub tab updates the persistent header balance and identity
+ok 363 - refreshing a hub tab updates the persistent header balance and identity
+  ---
+  duration_ms: 8.5997
+  ...
+# Subtest: the hub mounts for MAIN_MENU and stays a single screen host
+ok 364 - the hub mounts for MAIN_MENU and stays a single screen host
+  ---
+  duration_ms: 7.657
+  ...
+# Subtest: opening SHOP keeps the same \#screen-hub element and swaps its content
+ok 365 - opening SHOP keeps the same \#screen-hub element and swaps its content
+  ---
+  duration_ms: 12.6609
+  ...
+# Subtest: BACK from a hub tab returns to the home tab (PLAY stage)
+ok 366 - BACK from a hub tab returns to the home tab (PLAY stage)
+  ---
+  duration_ms: 14.4906
+  ...
+# Subtest: switching hub tabs never touches the legacy hud-start dashboard
+ok 367 - switching hub tabs never touches the legacy hud-start dashboard
+  ---
+  duration_ms: 20.3418
+  ...
+# Subtest: re-rendering the same active tab (e.g. after a purchase) refreshes data without a slide animation
+ok 368 - re-rendering the same active tab (e.g. after a purchase) refreshes data without a slide animation
+  ---
+  duration_ms: 7.5408
+  ...
+# Subtest: Casual and Horde selection launch their selected mode through Play
+ok 369 - Casual and Horde selection launch their selected mode through Play
+  ---
+  duration_ms: 5.7516
+  ...
+# Subtest: Co-op and Arena open their destinations only after the Panel 2 launch action
+ok 370 - Co-op and Arena open their destinations only after the Panel 2 launch action
+  ---
+  duration_ms: 28.9656
+  ...
+# Subtest: Home owns one Play button and other menu adapters own none
+ok 371 - Home owns one Play button and other menu adapters own none
+  ---
+  duration_ms: 80.095
+  ...
+# Subtest: Achievements opens the quests page and selects its achievements subtab
+ok 372 - Achievements opens the quests page and selects its achievements subtab
+  ---
+  duration_ms: 4.2518
+  ...
+# Subtest: non-legacy screens hide the shared legacy lobby host
+ok 373 - non-legacy screens hide the shared legacy lobby host
+  ---
+  duration_ms: 0.651
+  ...
+# Subtest: one run shows a narrow chart mark and explains that no trend exists yet
+ok 374 - one run shows a narrow chart mark and explains that no trend exists yet
+  ---
+  duration_ms: 63.1674
+  ...
+# Subtest: several runs show separate score marks and a comparison
+ok 375 - several runs show separate score marks and a comparison
+  ---
+  duration_ms: 4.1087
+  ...
+# Subtest: failed realtime subscription falls back without an immediate retry loop
+ok 376 - failed realtime subscription falls back without an immediate retry loop
+  ---
+  duration_ms: 24.8196
+  ...
+# Subtest: leaving Arena during a delayed realtime import never creates a late client
+ok 377 - leaving Arena during a delayed realtime import never creates a late client
+  ---
+  duration_ms: 7.5579
+  ...
+# Subtest: a late subscription failure from an old Arena screen cannot close its replacement client
+ok 378 - a late subscription failure from an old Arena screen cannot close its replacement client
+  ---
+  duration_ms: 14.8831
+  ...
+# Subtest: late Arena tokens are rejected after disposal and pending subscriptions are handled
+ok 379 - late Arena tokens are rejected after disposal and pending subscriptions are handled
+  ---
+  duration_ms: 6.7455
+  ...
+# Subtest: profile and header show the server Arena tier instead of survival score
+ok 380 - profile and header show the server Arena tier instead of survival score
+  ---
+  duration_ms: 102.8997
+  ...
+# Subtest: rank loading and signed-out states never fabricate a tier
+ok 381 - rank loading and signed-out states never fabricate a tier
+  ---
+  duration_ms: 0.4555
+  ...
+# Subtest: arena UI builds, upgrades, sells, attacks, ends and returns to queue
+ok 382 - arena UI builds, upgrades, sells, attacks, ends and returns to queue
+  ---
+  duration_ms: 209.2278
+  ...
+# Subtest: ranked UI builds, upgrades, sells, attacks, ends and returns to queue
+ok 383 - ranked UI builds, upgrades, sells, attacks, ends and returns to queue
+  ---
+  duration_ms: 220.9989
+  ...
+# Subtest: one Arena screen switches queue type and submits only the selected queue
+ok 384 - one Arena screen switches queue type and submits only the selected queue
+  ---
+  duration_ms: 19.7485
+  ...
+# Subtest: Co-op screen strokes invert the rendered own-lane coordinates without row jumps
+ok 385 - Co-op screen strokes invert the rendered own-lane coordinates without row jumps
+  ---
+  duration_ms: 6.9815
+  ...
+# Subtest: portrait and landscape picking reach every legal hex and exclude path and rival tiles
+ok 386 - portrait and landscape picking reach every legal hex and exclude path and rival tiles
+  ---
+  duration_ms: 1685.4568
+  ...
+# Subtest: PvP touch drag and pinch move the camera while a tap remains a build selection
+ok 387 - PvP touch drag and pinch move the camera while a tap remains a build selection
+  ---
+  duration_ms: 4.3186
+  ...
+# Subtest: both armies share the same world route in opposite directions across every map
+ok 388 - both armies share the same world route in opposite directions across every map
+  ---
+  duration_ms: 1.1897
+  ...
+# Subtest: screens can be registered and looked up
+ok 389 - screens can be registered and looked up
+  ---
+  duration_ms: 4.8175
+  ...
+# Subtest: the router paints the current screen on install
+ok 390 - the router paints the current screen on install
+  ---
+  duration_ms: 0.2789
+  ...
+# Subtest: opening a full screen hides the previous one
+ok 391 - opening a full screen hides the previous one
+  ---
+  duration_ms: 0.4326
+  ...
+# Subtest: an overlay keeps its parent mounted underneath
+ok 392 - an overlay keeps its parent mounted underneath
+  ---
+  duration_ms: 0.5618
+  ...
+# Subtest: closing an overlay restores the parent and hides the overlay
+ok 393 - closing an overlay restores the parent and hides the overlay
+  ---
+  duration_ms: 0.3754
+  ...
+# Subtest: onEnter and onExit fire exactly once per transition
+ok 394 - onEnter and onExit fire exactly once per transition
+  ---
+  duration_ms: 0.3465
+  ...
+# Subtest: re-entering a screen re-fires onEnter so it can refresh its data
+ok 395 - re-entering a screen re-fires onEnter so it can refresh its data
+  ---
+  duration_ms: 0.2991
+  ...
+# Subtest: only one non-overlay screen is ever visible at a time
+ok 396 - only one non-overlay screen is ever visible at a time
+  ---
+  duration_ms: 0.6202
+  ...
+# Subtest: switching backward between hub routes keeps their shared host visible
+ok 397 - switching backward between hub routes keeps their shared host visible
+  ---
+  duration_ms: 1.7954
+  ...
+# Subtest: deep overlay stacks keep every ancestor mounted
+ok 398 - deep overlay stacks keep every ancestor mounted
+  ---
+  duration_ms: 1.0337
+  ...
+# Subtest: navigating to an unregistered screen hides everything else safely
+ok 399 - navigating to an unregistered screen hides everything else safely
+  ---
+  duration_ms: 0.4316
+  ...
+# Subtest: the body records the active screen for CSS hooks
+ok 400 - the body records the active screen for CSS hooks
+  ---
+  duration_ms: 0.5785
+  ...
+# Subtest: data-nav buttons push the named screen
+ok 401 - data-nav buttons push the named screen
+  ---
+  duration_ms: 2.1229
+  ...
+# Subtest: data-nav controls inside hidden or inert legacy markup cannot route
+ok 402 - data-nav controls inside hidden or inert legacy markup cannot route
+  ---
+  duration_ms: 0.7799
+  ...
+# Subtest: data-nav="back" and "home" work through delegation
+ok 403 - data-nav="back" and "home" work through delegation
+  ---
+  duration_ms: 1.1024
+  ...
+# Subtest: ESC closes the top screen but never interrupts a match
+ok 404 - ESC closes the top screen but never interrupts a match
+  ---
+  duration_ms: 0.8412
+  ...
+# Subtest: back() is a no-op rather than an error at the root
+ok 405 - back() is a no-op rather than an error at the root
+  ---
+  duration_ms: 0.3162
+  ...
+# Subtest: main menu renders for a new player and leads with PLAY
+ok 406 - main menu renders for a new player and leads with PLAY
+  ---
+  duration_ms: 47.8168
+  ...
+# Subtest: main menu shows who the player is
+ok 407 - main menu shows who the player is
+  ---
+  duration_ms: 2.9022
+  ...
+# Subtest: main menu PLAY button invokes the launch callback
+ok 408 - main menu PLAY button invokes the launch callback
+  ---
+  duration_ms: 3.6915
+  ...
+# Subtest: main menu always exposes the admin access entry when it is wired
+ok 409 - main menu always exposes the admin access entry when it is wired
+  ---
+  duration_ms: 2.3558
+  ...
+# Subtest: shop renders and never lists an owned item
+ok 410 - shop renders and never lists an owned item
+  ---
+  duration_ms: 6.2236
+  ...
+# Subtest: inventory renders only owned gear
+ok 411 - inventory renders only owned gear
+  ---
+  duration_ms: 5.2534
+  ...
+# Subtest: active inventory exposes a working Unequip action for equipped blades
+ok 412 - active inventory exposes a working Unequip action for equipped blades
+  ---
+  duration_ms: 3.6669
+  ...
+# Subtest: inventory shows a helpful empty state rather than a blank page
+ok 413 - inventory shows a helpful empty state rather than a blank page
+  ---
+  duration_ms: 1.4517
+  ...
+# Subtest: hero screen renders roster, level and an action
+ok 414 - hero screen renders roster, level and an action
+  ---
+  duration_ms: 6.7644
+  ...
+# Subtest: hero screen marks locked heroes with their requirement
+ok 415 - hero screen marks locked heroes with their requirement
+  ---
+  duration_ms: 5.6661
+  ...
+# Subtest: profile renders the full career record
+ok 416 - profile renders the full career record
+  ---
+  duration_ms: 1.6007
+  ...
+# Subtest: every screen renders a back control so BACK is always reachable
+ok 417 - every screen renders a back control so BACK is always reachable
+  ---
+  duration_ms: 23.3821
+  ...
+# Subtest: screens re-render cleanly without duplicating content
+ok 418 - screens re-render cleanly without duplicating content
+  ---
+  duration_ms: 6.2397
+  ...
+# Subtest: default theme is valid and complete
+ok 419 - default theme is valid and complete
+  ---
+  duration_ms: 2.5719
+  ...
+# Subtest: every builtin preset validates and has a unique id
+ok 420 - every builtin preset validates and has a unique id
+  ---
+  duration_ms: 1.8313
+  ...
+# Subtest: presets contain only visual configuration
+ok 421 - presets contain only visual configuration
+  ---
+  duration_ms: 0.4722
+  ...
+# Subtest: invalid theme falls back to defaults without throwing
+ok 422 - invalid theme falls back to defaults without throwing
+  ---
+  duration_ms: 0.5511
+  ...
+# Subtest: non-object payloads fall back to the default theme
+ok 423 - non-object payloads fall back to the default theme
+  ---
+  duration_ms: 0.5521
+  ...
+# Subtest: numbers are range clamped and type checked
+ok 424 - numbers are range clamped and type checked
+  ---
+  duration_ms: 0.3049
+  ...
+# Subtest: theme data never carries executable content
+ok 425 - theme data never carries executable content
+  ---
+  duration_ms: 0.3172
+  ...
+# Subtest: sanitizeCssValue strips CSS escapes
+ok 426 - sanitizeCssValue strips CSS escapes
+  ---
+  duration_ms: 0.3693
+  ...
+# Subtest: export produces JSON that round-trips
+ok 427 - export produces JSON that round-trips
+  ---
+  duration_ms: 1.2718
+  ...
+# Subtest: import rejects malformed JSON safely
+ok 428 - import rejects malformed JSON safely
+  ---
+  duration_ms: 0.6743
+  ...
+# Subtest: import of a partial theme fills missing sections
+ok 429 - import of a partial theme fills missing sections
+  ---
+  duration_ms: 0.5348
+  ...
+# Subtest: mergeTheme deep-merges patches and revalidates
+ok 430 - mergeTheme deep-merges patches and revalidates
+  ---
+  duration_ms: 0.6811
+  ...
+# Subtest: cloneTheme returns an independent copy
+ok 431 - cloneTheme returns an independent copy
+  ---
+  duration_ms: 0.6319
+  ...
+# Subtest: asset urls are restricted to safe forms
+ok 432 - asset urls are restricted to safe forms
+  ---
+  duration_ms: 1.1056
+  ...
+# Subtest: unsafe asset urls are dropped during validation
+ok 433 - unsafe asset urls are dropped during validation
+  ---
+  duration_ms: 0.4111
+  ...
+# Subtest: theme flattens to --ftd-* css variables
+ok 434 - theme flattens to --ftd-* css variables
+  ---
+  duration_ms: 4.4459
+  ...
+# Subtest: typography scale multiplies exposed font sizes
+ok 435 - typography scale multiplies exposed font sizes
+  ---
+  duration_ms: 0.8249
+  ...
+# Subtest: reduced motion zeroes animation durations
+ok 436 - reduced motion zeroes animation durations
+  ---
+  duration_ms: 1.038
+  ...
+# Subtest: css text output is a valid rule block
+ok 437 - css text output is a valid rule block
+  ---
+  duration_ms: 0.9775
+  ...
+# Subtest: breakpoints map widths to device classes
+ok 438 - breakpoints map widths to device classes
+  ---
+  duration_ms: 0.3453
+  ...
+# Subtest: screens resolve to responsive presentations
+ok 439 - screens resolve to responsive presentations
+  ---
+  duration_ms: 0.8274
+  ...
+# Subtest: layout presets are addressable and cover every screen
+ok 440 - layout presets are addressable and cover every screen
+  ---
+  duration_ms: 0.5131
+  ...
+1..440
+# tests 492
+# suites 11
+# pass 492
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26538.6361

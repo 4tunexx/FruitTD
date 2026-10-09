@@ -1,9 +1,7 @@
 export const ARENA_W = 22;
-// Keep the original camera start, but give authored maps a longer northbound field.
-// Keep two screens of extra northbound ground behind the keep. Players can
-// pan to the authored spawns, while waves travel long enough to use several
-// approaches instead of piling into one short center lane.
+// PvP retains its long approach; solo modes use a compact combat field.
 export const ARENA_D = 132;
+export const SOLO_ARENA_D = 44;
 export const MAX_LIVES = 15;
 export const MAX_TOWER_LEVEL = 10;
 export const PARTICLE_CAP = 180;

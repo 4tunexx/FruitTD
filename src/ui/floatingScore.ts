@@ -3,7 +3,7 @@
  * Pooled DOM nodes prevent memory allocations and DOM thrashing during high-combo play.
  */
 
-export type FloatingScoreType = 'normal' | 'critical' | 'special' | 'boss' | 'reslice' | 'combo';
+export type FloatingScoreType = 'normal' | 'critical' | 'special' | 'boss' | 'reslice' | 'combo' | 'damage';
 
 interface FloatingNode {
   el: HTMLElement;
@@ -19,7 +19,7 @@ interface FloatingNode {
 export class FloatingScoreManager {
   private container: HTMLElement | null = null;
   private readonly pool: FloatingNode[] = [];
-  private readonly POOL_SIZE = 4;
+  private readonly POOL_SIZE = 24;
 
   constructor() {
     this.ensureContainer();
@@ -76,11 +76,11 @@ export class FloatingScoreManager {
     if (!node) return;
 
     node.active = true;
-    node.maxLife = type === 'boss' ? 0.7 : 0.55;
+    node.maxLife = type === 'boss' ? 0.8 : 0.65;
     node.life = node.maxLife;
     node.x = Math.max(10, Math.min(90, nx));
     node.y = Math.max(16, Math.min(82, ny - 3));
-    node.vy = -3;
+    node.vy = -8;
     node.amount = Number(amount) || 0;
 
     const el = node.el;

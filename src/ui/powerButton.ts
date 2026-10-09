@@ -23,14 +23,15 @@ export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt
     button.style.setProperty('--recharge-delay', `${-progress * ability.cooldownMs}ms`);
   }
   const status = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} F` : 'READY';
-  button.querySelector('.hero-ability-slot__cooldown')!.textContent = status;
+  const label = button.querySelector('.hero-ability-slot__cooldown')!;
+  if (label.textContent !== status) label.textContent = status;
   button.title = `${ability.name} · ${status} · ${ability.description}`;
   button.setAttribute('aria-label', `${ability.name}, ${wait ? `recharging, ${Math.ceil(wait / 1000)} seconds` : funds < ability.juiceCost ? 'not enough juice' : 'ready'}`);
 }
 
 export function powerButton(id: string, onUse: () => void): HTMLButtonElement {
   const ability = heroAbility(id)!;
-  const button = el('button', { type:'button', class:'hero-ability-slot', 'data-power':id }, [
+  const button = el('button', { type:'button', class:'hero-ability-slot', 'data-power':id, 'data-no-count':'' }, [
     el('span', { class:'hero-ability-slot__sweep', 'aria-hidden':'true' }),
     el('img', { class:'hero-ability-slot__icon', src:powerIconSource(id, ability.iconUrl), alt:'', draggable:'false', 'data-power-icon':id, 'data-power-default':ability.iconUrl }),
     el('span', { class:'hero-ability-slot__name', text:ability.name }),

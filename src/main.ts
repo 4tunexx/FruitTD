@@ -134,7 +134,7 @@ if (profileChip && superWrap) {
   const alignSuperBar = () => {
     const panel = profileChip.getBoundingClientRect();
     superWrap.style.left = `${panel.left}px`;
-    superWrap.style.top = `${panel.bottom + 7}px`;
+    superWrap.style.top = `${panel.bottom + 2}px`;
     superWrap.style.width = `${panel.width}px`;
   };
   new ResizeObserver(alignSuperBar).observe(profileChip);
@@ -1071,6 +1071,7 @@ function tryUpgrade(): void {
 }
 
 function restart(): void {
+  renderer.resetView();
   campaignSession += 1;
   campaignStageSaving = false;
   bossRevealRemaining = 0;
@@ -1835,6 +1836,7 @@ function simulate(dt: number): void {
     }
     
     emit({ type: 'wave_clear', wave: clearedWave, lives: state.lives, maxLives: state.maxLives });
+    return;
   }
 
   fruits.update(dt, state, (fruit) => {
@@ -1902,6 +1904,8 @@ function simulate(dt: number): void {
       sfx.bossHit();
       renderer.impulseShake(0.22);
     }
+    const hitScreen = worldPct(hit.fruit.group.position.x, hit.fruit.group.position.y + .55, hit.fruit.group.position.z);
+    floatingScore.spawn(String(Math.min(hit.fruit.hp, dmg)), hitScreen.nx, hitScreen.ny, 'damage');
     if (fruits.hurt(hit.fruit, dmg)) {
       killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
     }
@@ -2231,3 +2235,13 @@ installCombatDiagnostics(() => {
 });
 
 loop.start();
+
+// Local-only combat preview for visual QA; it never creates an authenticated session.
+if (import.meta.env.DEV) {
+  const previewMode = new URLSearchParams(window.location.search).get('combatPreview');
+  if (previewMode === 'casual' || previewMode === 'campaign' || previewMode === 'horde' || previewMode === 'coop') {
+    state.mode = previewMode;
+    loadBattleMap(previewMode);
+    void fruitAtlas.load().catch(() => undefined).then(() => { wall.applySkins(); void restartMatch(); });
+  }
+}

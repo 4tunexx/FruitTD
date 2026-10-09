@@ -18,7 +18,7 @@ test('tower range is shown only after selection and tower HP updates the ground 
   const wall = new WallBase();
   const range = (wall as any).rangeRing as import('three').Mesh;
   const hp = (wall as any).towerHpFill as import('three').Mesh;
-  const hpTrack = wall.group.children.find((child: any) => child.type === 'Mesh' && child !== hp && child.geometry?.type === 'PlaneGeometry' && child.geometry.parameters.width > 18);
+  const hpTrack = wall.healthRail.children.find((child: any) => child.type === 'Mesh' && child !== hp && child.geometry?.type === 'PlaneGeometry' && child.geometry.parameters.width > 18);
 
   assert.equal(range.visible, false, 'initial main tower selection should not cover the arena with a range ring');
   wall.select(MAIN_INDEX);

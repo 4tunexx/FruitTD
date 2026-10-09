@@ -1,7 +1,7 @@
-import { BoxGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, TextureLoader, SRGBColorSpace } from 'three';
+import { BoxGeometry, CircleGeometry, DodecahedronGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, TextureLoader, SRGBColorSpace } from 'three';
 import type { AdminConfig } from '../services/admin';
 import { mapPointToWorld, type BattleMap } from './battleMaps';
-import { ARENA_D, ARENA_W } from './world';
+import { SOLO_ARENA_D, ARENA_W } from './world';
 
 type Appearance = AdminConfig['landscapeConfig'];
 const DEFAULT: Appearance = {
@@ -13,7 +13,7 @@ export class Field {
  readonly group=new Group();
  private readonly legacyGroup=new Group();
  private readonly mapMaterial=new MeshBasicMaterial({ color:0xffffff, toneMapped:false });
- private readonly mapSurface=new Mesh(new PlaneGeometry(ARENA_W,ARENA_D),this.mapMaterial);
+ private readonly mapSurface=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.mapMaterial);
  private readonly mapEntities=new Group();
  private mapRequest=0;
  private readonly outer=new MeshLambertMaterial({color:DEFAULT.outerGroundColor,emissive:0x1a2a15,emissiveIntensity:.15});
@@ -23,10 +23,10 @@ export class Field {
   this.mapSurface.rotation.x=-Math.PI/2;this.mapSurface.position.y=.018;this.mapSurface.visible=false;this.group.add(this.mapSurface,this.mapEntities);
   // A quiet apocalyptic fallback while an authored 2D map texture loads (or
   // if an upload is missing). Never show the retired 3D orchard/trees here.
-  const ground=new Mesh(new PlaneGeometry(ARENA_W+8,ARENA_D+8),this.outer);ground.rotation.x=-Math.PI/2;this.legacyGroup.add(ground);
-  const inner=new Mesh(new PlaneGeometry(ARENA_W,ARENA_D),this.inner);inner.rotation.x=-Math.PI/2;inner.position.y=.01;this.legacyGroup.add(inner);
-  const lane=new Mesh(new PlaneGeometry(ARENA_W*.46,ARENA_D),this.road);lane.rotation.x=-Math.PI/2;lane.position.set(0,.035,0);this.legacyGroup.add(lane);
-  const rim=new Mesh(new BoxGeometry(ARENA_W+1,.6,ARENA_D+1),new MeshLambertMaterial({color:0x302c29}));rim.position.y=-.34;this.legacyGroup.add(rim);
+  const ground=new Mesh(new PlaneGeometry(ARENA_W+8,SOLO_ARENA_D+8),this.outer);ground.rotation.x=-Math.PI/2;this.legacyGroup.add(ground);
+  const inner=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.inner);inner.rotation.x=-Math.PI/2;inner.position.y=.01;this.legacyGroup.add(inner);
+  const lane=new Mesh(new PlaneGeometry(ARENA_W*.46,SOLO_ARENA_D),this.road);lane.rotation.x=-Math.PI/2;lane.position.set(0,.035,0);this.legacyGroup.add(lane);
+  const rim=new Mesh(new BoxGeometry(ARENA_W+1,.6,SOLO_ARENA_D+1),new MeshLambertMaterial({color:0x302c29}));rim.position.y=-.34;this.legacyGroup.add(rim);
   this.group.add(this.legacyGroup);
   window.addEventListener('fruit-td-landscape-update',e=>this.applyLandscape((e as CustomEvent<Partial<Appearance>>).detail));
  }
@@ -68,12 +68,12 @@ export class Field {
    const visual=new Group();visual.position.set(position.x,0,position.z);visual.rotation.y=entity.rotation*Math.PI/180;
    if((entity.kind==='solid'||entity.kind==='prop')&&!entity.asset){
     const height=entity.kind==='prop'?1.1:1.5;
-    const block=new Mesh(new BoxGeometry(width,height,depth),new MeshLambertMaterial({color:entity.kind==='prop'?0x51463c:0x69645b,flatShading:true}));
+    const block=new Mesh(new DodecahedronGeometry(.55,0),new MeshLambertMaterial({color:entity.kind==='prop'?0x71786b:0x69645b,flatShading:true}));block.scale.set(width,height,depth);
     block.position.y=height/2;visual.add(block);
    }else if(entity.kind==='pit'||entity.kind==='hazard'){
     const color=entity.kind==='pit'?0x090a0c:0xff542c;
-    const decal=new Mesh(new PlaneGeometry(width,depth),new MeshBasicMaterial({color,transparent:true,opacity:entity.kind==='pit'?.9:.46,side:DoubleSide,depthWrite:false}));
-    decal.rotation.x=-Math.PI/2;decal.position.y=.04;visual.add(decal);
+    const decal=new Mesh(new CircleGeometry(.5,32),new MeshBasicMaterial({color,transparent:true,opacity:entity.kind==='pit'?.9:.46,side:DoubleSide,depthWrite:false}));
+    decal.scale.set(width,depth,1);decal.rotation.x=-Math.PI/2;decal.position.y=.04;visual.add(decal);
    }
    if(entity.asset){
     const spriteWidth=width;const spriteHeight=Math.max(.35,depth);

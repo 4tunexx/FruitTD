@@ -142,7 +142,7 @@ export function resetState(state: GameState): void {
   // The state setter caps lives at maxLives, so raise the cap before assigning
   // modes that start above the default 15 lives (Casual and Co-op).
   state.maxLives = Math.max(startingLives, startingLives + bonuses.maxLives);
-  state.lives = startingLives;
+  state.lives = state.maxLives;
   state.currency = Math.max(0, Math.round(rules.startMoney * getStartMoneyScale()));
 }
 

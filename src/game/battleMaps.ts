@@ -1,4 +1,4 @@
-import { ARENA_D, ARENA_W, LEAK_Z, PADS, WALL_Z } from './world';
+import { ARENA_D, SOLO_ARENA_D, ARENA_W, LEAK_Z, PADS, WALL_Z } from './world';
 
 /** Gameplay coordinates are normalized to the authored map, never CSS pixels. */
 export type BattleMapMode = 'casual' | 'horde' | 'campaign' | 'coop' | 'pvp';
@@ -75,9 +75,11 @@ const entity = (id: string, kind: MapEntityKind, x: number, y: number, width: nu
 });
 
 function standardMap(mode: BattleMapMode, name: string, background: string): BattleMap {
+  const depth = mode === 'pvp' ? ARENA_D : SOLO_ARENA_D;
+  const end = .5 - LEAK_Z / depth;
   return {
     schemaVersion: 1, id: `sample-${mode}`, mode, name, background,
-    world: { ...baseWorld }, routes: standardRoutes(),
+    world: { ...baseWorld, depth, rows: depth }, routes: standardRoutes().map(route => ({ ...route, points: route.points.map(p => ({ ...p, y: topGateY + (p.y - topGateY) * (end - topGateY) / (routeEndY - topGateY) })) })),
     spawns: laneRoutes.map((lane, i) => ({
       id: `${lane.id}-gate`, routeId: lane.id, x: lane.xs[0]!, y: .025, enabled: true,
       label: `${['West', 'West-center', 'Center', 'East-center', 'East'][i]} top spawn`,
@@ -89,24 +91,24 @@ function standardMap(mode: BattleMapMode, name: string, background: string): Bat
       entity('pit-hazard', 'pit', .83, .3, .12, .08, { asset: '/assets/maps/samples/sample-pit.svg', label: 'Pit sample' }),
       ...PADS.filter((pad) => !pad.main).map((pad, i) => entity(
         `tower-slot-${i + 1}`, 'turret-slot', (pad.x / ARENA_W) + .5,
-        .5 - ((pad.z - WALL_Z) / ARENA_D), .05, .04,
+        .5 - (pad.z / depth), .05, .04,
         { collision: 'none', damage: 0, visible: true, label: `Tower slot ${i + 1}` },
       )),
     ],
-    tower: { x: .5, y: .5 - (WALL_Z / ARENA_D) },
+    tower: { x: .5, y: .5 - (WALL_Z / depth) },
     published: true, revision: 1,
   };
 }
 
 export const DEFAULT_BATTLE_MAPS: Record<BattleMapMode, BattleMap> = {
-  casual: standardMap('casual', 'Ashen Road', '/assets/maps/samples/casual-fallen-orchard.webp'),
-  horde: standardMap('horde', 'Scrapline', '/assets/maps/samples/horde-night-harvest.webp'),
-  campaign: standardMap('campaign', 'Ruined Causeway', '/assets/maps/samples/campaign-old-orchard.webp'),
+  casual: standardMap('casual', 'Ashen Road', '/assets/maps/samples/casual-fallen-orchard.svg'),
+  horde: standardMap('horde', 'Scrapline', '/assets/maps/samples/horde-night-harvest.svg'),
+  campaign: standardMap('campaign', 'Ruined Causeway', '/assets/maps/samples/campaign-old-orchard.svg'),
   coop: {
-    ...standardMap('coop', 'Broken Junction', '/assets/maps/samples/coop-shared-grove.webp'),
+    ...standardMap('coop', 'Broken Junction', '/assets/maps/samples/coop-shared-grove.svg'),
     routes: [
-      { id: 'west-route', name: 'West approach', width: 5, points: [{ x: .18, y: .025 }, { x: .3, y: .2 }, { x: .22, y: .38 }, { x: .5, y: routeEndY }] },
-      { id: 'east-route', name: 'East approach', width: 5, points: [{ x: .82, y: .025 }, { x: .7, y: .2 }, { x: .78, y: .38 }, { x: .5, y: routeEndY }] },
+      { id: 'west-route', name: 'West approach', width: 5, points: [{ x: .18, y: .025 }, { x: .3, y: .2 }, { x: .22, y: .38 }, { x: .5, y: .5 - LEAK_Z / SOLO_ARENA_D }] },
+      { id: 'east-route', name: 'East approach', width: 5, points: [{ x: .82, y: .025 }, { x: .7, y: .2 }, { x: .78, y: .38 }, { x: .5, y: .5 - LEAK_Z / SOLO_ARENA_D }] },
     ],
     spawns: [
       { id: 'west-gate', routeId: 'west-route', x: .18, y: .025, enabled: true, label: 'West spawn' },
@@ -114,7 +116,7 @@ export const DEFAULT_BATTLE_MAPS: Record<BattleMapMode, BattleMap> = {
     ],
   },
   pvp: {
-    ...standardMap('pvp', 'Twin Wastes', '/assets/maps/samples/pvp-twin-pass.webp'),
+    ...standardMap('pvp', 'Twin Wastes', '/assets/maps/samples/pvp-twin-pass.svg'),
     tower: { x: .5, y: .94 },
     opponentTower: { x: .5, y: .06 },
     routes: [{ id: 'duel-route', name: 'Duel route', width: 4.5, points: [{ x: .5, y: .94 }, { x: .38, y: .72 }, { x: .62, y: .5 }, { x: .38, y: .28 }, { x: .5, y: .06 }] }],
@@ -132,14 +134,14 @@ export function normalizeBattleMap(raw: unknown, fallbackMode: BattleMapMode = '
   const row = raw && typeof raw === 'object' ? raw as Partial<BattleMap> : {};
   const mode = modes.has(row.mode as BattleMapMode) ? row.mode as BattleMapMode : fallbackMode;
   const fallback = DEFAULT_BATTLE_MAPS[mode];
+  const targetDepth = mode === 'pvp' ? ARENA_D : SOLO_ARENA_D;
   const storedDepth = Number.isFinite(Number(row.world?.depth)) ? Math.max(1, Number(row.world?.depth)) : ARENA_D;
-  // Stretch maps saved against the old 66-unit arena into the new 132-unit
-  // north approach, while keeping gates at the top and the exit at the keep.
+  // Rescale older authored approaches to the mode depth, preserving gates and the leak line.
   const migrateY = (value: unknown, fallbackY = .5): number => {
     const y = Math.max(topGateY, unit(value, fallbackY));
-    if (storedDepth >= ARENA_D) return y;
+    if (storedDepth === targetDepth || y <= .05) return y;
     const oldEnd = .5 - LEAK_Z / storedDepth;
-    const ratio = (routeEndY - topGateY) / Math.max(.001, oldEnd - topGateY);
+    const ratio = (.5 - LEAK_Z / targetDepth - topGateY) / Math.max(.001, oldEnd - topGateY);
     return Math.max(0, Math.min(1, topGateY + (y - topGateY) * ratio));
   };
   const routes = Array.isArray(row.routes) ? row.routes.slice(0, 12).map((r, i) => ({
@@ -170,13 +172,14 @@ export function normalizeBattleMap(raw: unknown, fallbackMode: BattleMapMode = '
     label: typeof e.label === 'string' ? e.label.slice(0, 80) : `Entity ${i + 1}`,
   })) : fallback.entities;
   const point = (p: unknown, def: MapPoint): MapPoint => p && typeof p === 'object' ? { x: unit((p as MapPoint).x, def.x), y: unit((p as MapPoint).y, def.y) } : def;
-  const bg = safeAsset(row.background) && row.background ? row.background : fallback.background;
+  const suppliedBackground = safeAsset(row.background) && row.background ? row.background : fallback.background;
+  const bg = /^\/assets\/maps\/samples\/(casual-fallen-orchard|campaign-old-orchard|horde-night-harvest|coop-shared-grove|pvp-twin-pass)\.webp$/.test(suppliedBackground) ? suppliedBackground.replace(/\.webp$/, '.svg') : suppliedBackground;
   // Match the physical world and tower anchors; responsive layouts come from
   // normalized coordinates, not from stretching gameplay physics per map.
   const width = ARENA_W;
-  const depth = ARENA_D;
+  const depth = targetDepth;
   const storedRows = Math.floor(Number(row.world?.rows) || fallback.world.rows);
-  const rows = storedDepth < ARENA_D ? Math.round(storedRows * ARENA_D / storedDepth) : storedRows;
+  const rows = Math.round(storedRows * targetDepth / storedDepth);
   return {
     schemaVersion: 1,
     id: typeof row.id === 'string' && /^[a-z0-9_-]{1,80}$/i.test(row.id) ? row.id : fallback.id,
@@ -185,7 +188,7 @@ export function normalizeBattleMap(raw: unknown, fallbackMode: BattleMapMode = '
     ...(safeAsset(row.nightBackground) && row.nightBackground ? { nightBackground: row.nightBackground } : {}),
     world: { width, depth, columns: Math.max(4, Math.min(64, Math.floor(Number(row.world?.columns) || fallback.world.columns))), rows: Math.max(8, Math.min(256, rows)) },
     routes, spawns, entities,
-    tower: row.tower && storedDepth < ARENA_D ? { ...point(row.tower, fallback.tower), y: migrateY(row.tower.y, fallback.tower.y) } : point(row.tower, fallback.tower),
+    tower: mode === 'pvp' ? point(row.tower, fallback.tower) : { x: .5, y: .5 - WALL_Z / depth },
     ...(mode === 'pvp' ? { opponentTower: row.opponentTower && storedDepth < ARENA_D ? { ...point(row.opponentTower, fallback.opponentTower!), y: migrateY(row.opponentTower.y, fallback.opponentTower!.y) } : point(row.opponentTower, fallback.opponentTower!) } : {}),
     published: row.published !== false,
     revision: Number.isSafeInteger(row.revision) && Number(row.revision) > 0 ? Number(row.revision) : 1,

@@ -82,3 +82,30 @@ body[data-ftd-screen='PLAY'] #btn-sidebar-hide { display:grid!important; }
 .ftd-duel-action-label { display:block; font-size:7px; line-height:1; font-weight:900; letter-spacing:.06em; }
 .ftd-duel-dock .ftd-duel-icon-button { align-content:center; gap:3px; }
 .ftd-duel-dock .ftd-duel-panel .ftd-duel-guide { display:block; font-size:10px; margin:0 0 8px; }
+
+/* Combat surfaces use the same angular brass frame as FruitTD's profile. */
+body[data-ftd-screen='PLAY'] #super-wrap {
+  top:63px; left:8px; width:150px; height:14px; padding:0; gap:0;
+  border:0; border-radius:0; background:none; box-shadow:none; backdrop-filter:none;
+}
+body[data-ftd-screen='PLAY'] #player-chip.is-collapsed + #super-wrap { top:63px; }
+body[data-ftd-screen='PLAY'] #super-bar-track {
+  height:10px; border:1px solid #dfba57; border-radius:0!important;
+  background:#6b74394d; box-shadow:0 1px 2px #0004; clip-path:none;
+}
+body[data-ftd-screen='PLAY'] #super-fill { transition:width 140ms linear; }
+body[data-ftd-screen='PLAY'] .super-liquid__body { box-shadow:inset 0 1px #fff7; }
+body[data-ftd-screen='PLAY'] .super-liquid__wave { display:none; }
+body[data-ftd-screen='PLAY'] #btn-super { position:absolute; left:158px; top:-7px; min-height:26px; border-radius:0; }
+body[data-ftd-screen='PLAY'] :is(#sidebar,#player-chip,.chip-btn,#btn-game-menu-quick,#btn-sidebar-toggle,.skill-btn) { border-radius:0; }
+.hero-ability-slot { border-radius:0; clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px)); }
+.hero-ability-slot.is-recharging { animation:none; }
+.hero-ability-slot__cooldown { transform:none!important; animation:none!important; white-space:nowrap; }
+.hero-ability-slot:disabled:not(.is-recharging) { opacity:.8; }
+.hero-ability-bar--solo { top:100px; }
+body[data-ftd-screen='PLAY'] :is(.ftd-number-bump,.ftd-number-counting) { animation:none!important; transform:none!important; filter:none; text-shadow:none; }
+.floating-score-item { font-variant-numeric:tabular-nums; text-shadow:0 2px 0 #16251b,1px 0 0 #16251b,-1px 0 0 #16251b; }
+.score-type-damage { font-size:16px; font-weight:900; color:#fff6d5; }
+
+body[data-ftd-screen='PLAY'] #hud-toast { top:18px; bottom:auto; max-width:calc(100vw - 350px); padding:6px 10px; border-radius:0; background:none!important; border:0; box-shadow:none; backdrop-filter:none; text-shadow:0 2px 2px #112019; white-space:normal; text-align:center; }
+@media(max-width:860px) { body[data-ftd-screen='PLAY'] #hud-toast { top:82px; left:76px; right:8px; max-width:none; transform:none; font-size:10px; padding:4px; } }

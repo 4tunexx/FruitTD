@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96">
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="96" viewBox="0 0 128 96">
   <path d="M8 47 20 24 46 12h37l28 17 10 24-16 26-27 7H43L18 74Z" fill="#917447" stroke="#20170f" stroke-width="7" stroke-linejoin="round"/>
   <ellipse cx="64" cy="49" rx="44" ry="28" fill="#151716" stroke="#d39b3e" stroke-width="6"/>
   <ellipse cx="64" cy="53" rx="28" ry="16" fill="#07090a"/>

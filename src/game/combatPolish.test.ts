@@ -51,9 +51,9 @@ describe('combat polish regressions', () => {
     ]);
     const field = new FruitField(() => undefined);
     const map = defaultMapForMode('casual');
-    field.setBattleMap(map);
+    field.setBattleMap({ ...map, entities: [] });
     const fruit = field.spawn('lemon')!;
-    assert.ok(fruit.group.position.z > 20, 'authored spawn should be at the far top edge');
+    assert.ok(fruit.group.position.z > 20 && fruit.group.position.z < 22, 'authored spawn should be at the far top edge');
     assert.ok(fruit.routePoints && fruit.routePoints.length >= 2);
 
     const state = createState();
@@ -271,4 +271,23 @@ describe('combat polish regressions', () => {
     field.hurt(boss, 1, 'turret');
     assert.equal(phases, 1);
   });
+});
+
+it('upgraded towers start every solo mode at full health', async () => {
+  installStorageShim();
+  const { syncTowerProgression, resetTowerProgression } = await import('./towerProgression');
+  const { createState, resetState, damageTower } = await import('./state');
+  syncTowerProgression(3500);
+  try {
+    for (const mode of ['casual', 'campaign', 'horde', 'coop'] as const) {
+      const state = createState();
+      state.mode = mode;
+      resetState(state);
+      assert.equal(state.lives, state.maxLives);
+      damageTower(state, 2);
+      assert.equal(state.lives, state.maxLives - 2);
+      resetState(state);
+      assert.equal(state.lives, state.maxLives);
+    }
+  } finally { resetTowerProgression(); }
 });

@@ -21,7 +21,8 @@ const CLEAR = new Color(0x4a5f3e);
 /** Preserve all spawn lanes at default zoom, including narrow portrait screens. */
 export function arenaFrustum(width: number, height: number, zoomHeight = 20) {
   const aspect = Math.max(1, width) / Math.max(1, height);
-  const viewHeight = Math.max(20, (ARENA_W + 2) / aspect) * (zoomHeight / 20);
+  const minimumWidth = aspect < .82 ? 18 : ARENA_W + 2;
+  const viewHeight = Math.max(20, minimumWidth / aspect) * (zoomHeight / 20);
   const viewWidth = viewHeight * aspect;
   return { left: -viewWidth / 2, right: viewWidth / 2, top: viewHeight / 2, bottom: -viewHeight / 2 };
 }
@@ -33,7 +34,7 @@ export class GameRenderer {
   readonly cameraBase = new Vector3(0, 26, -32);
   panX = 0;
   panZ = 0;
-  viewH = 20;
+  viewH = 28;
 
   private readonly shake = new Vector3();
   private shakeVel = 0;
@@ -222,10 +223,10 @@ export class GameRenderer {
     // for the compact top HUD. Keep landscape/desktop composition unchanged.
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
-    const aspect = w / Math.max(1, h);
-    // The doubled north approach must fit from the spawn edge to the keep in
-    // portrait play; landscape keeps its current tighter desktop framing.
-    Object.assign(this.camera, arenaFrustum(w, h, this.viewH * (aspect < .82 ? 1.4 : 1)));
+    // Fit the full tower width and compact approach at every screen ratio.
+    const portrait = w / Math.max(1, h) < .82;
+    this.cameraBase.set(0, portrait ? 32 : 26, portrait ? -24 : -32);
+    Object.assign(this.camera, arenaFrustum(w, h, this.viewH * (portrait ? 20 / 28 : 1)));
     // Keep a fixed cinematic pitch. Re-aiming the camera to fit the wall was
     // flattening the world and changing the input projection on every resize.
     this.lookZ = 1.5;
@@ -237,7 +238,7 @@ export class GameRenderer {
     const wall = new Vector3(0, .15, -10.6).project(this.camera);
     // Portrait play keeps the full-width keep and its health rail close to the
     // bottom safe edge. Desktop framing keeps the existing cinematic margin.
-    const wallTargetY = w / h < .82 ? .94 : .88;
+    const wallTargetY = 1 - 6 / Math.max(1, h);
     const shift = (wall.y - (1 - 2 * wallTargetY)) * (this.camera.top - this.camera.bottom) / 2;
     this.camera.top += shift; this.camera.bottom += shift;
     this.camera.updateProjectionMatrix();
@@ -245,7 +246,16 @@ export class GameRenderer {
 
   pan(dx: number, dz: number): void {
     this.panX = Math.max(-11, Math.min(11, this.panX + dx));
-    this.panZ = Math.max(-5, Math.min(44, this.panZ + dz));
+    this.panZ = Math.max(-2, Math.min(8, this.panZ + dz));
+  }
+
+  resetView(): void {
+    this.panX = 0;
+    this.panZ = 0;
+    this.viewH = 28;
+    this.blastKick = 0;
+    this.camera.zoom = 1;
+    this.resize();
   }
 
   zoom(delta: number): void {

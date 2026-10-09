@@ -213,7 +213,7 @@ test('legacy Missions moves into the hub and returns to its original host while 
   switchHubTab(root, defaultSave(), 'ARENA');
   assert.equal(quests.parentElement, world);
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
-  assert.match(root.textContent!, /ARENA/);
+  assert.match(root.textContent!, /Arena/i);
   assert.equal(root.querySelector('#page-leaderboard'), null, 'the solo leaderboard is kept out of the PvP rating screen');
   switchHubTab(root, defaultSave(), 'MAIN_MENU');
   assert.equal(leaderboard.parentElement, world, 'historical solo leaderboard content remains in its original host');

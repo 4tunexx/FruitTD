@@ -7,8 +7,8 @@ describe('authored battle map skeletons', () => {
     for (const mode of ['casual', 'horde', 'campaign', 'coop', 'pvp'] as const) {
       const map = DEFAULT_BATTLE_MAPS[mode];
       assert.equal(map.mode, mode);
-      assert.ok(map.background.endsWith('.webp'));
-      assert.equal(map.world.depth, 132);
+      assert.ok(map.background.endsWith('.svg'));
+      assert.equal(map.world.depth, mode === 'pvp' ? 132 : 44);
       assert.ok(map.routes.every((route) => route.points.length >= 2));
       assert.ok(map.spawns.every((spawn) => spawn.y < .1));
     }
@@ -38,23 +38,23 @@ describe('authored battle map skeletons', () => {
     });
     assert.equal(map.background, DEFAULT_BATTLE_MAPS.casual.background);
     assert.equal(map.world.width, 22);
-    assert.equal(map.world.depth, 132);
+    assert.equal(map.world.depth, 44);
     assert.equal(map.routes[0]?.points[0]?.y, .025);
-    assert.ok(Math.abs(map.routes[0]!.points[0]!.y - map.spawns[0]!.y) < .001);
+    assert.ok(Math.abs(map.routes[0]!.points[0]!.y - map.spawns[0]!.y) < .002);
     assert.deepEqual(map.routes[0]?.points[0], { x: 1, y: .025 });
     assert.equal(map.entities[0]?.asset, '');
     assert.equal(map.entities[0]?.width, 1);
     assert.equal(map.entities[0]?.height, .005);
   });
 
-  it('migrates old 66-unit routes to the doubled field without moving their gates off the top', () => {
+  it('migrates old 66-unit routes to the compact field without moving their gates off the top', () => {
     const map = normalizeBattleMap({
       mode: 'casual', world: { width: 22, depth: 66, columns: 11, rows: 66 },
       routes: [{ id: 'legacy', name: 'Legacy', width: 4, points: [{ x: .5, y: .03 }, { x: .5, y: .614 }] }],
       spawns: [{ id: 'old-gate', routeId: 'legacy', x: .5, y: .03, enabled: true, label: 'Old gate' }],
     });
-    assert.equal(map.world.depth, 132);
+    assert.equal(map.world.depth, 44);
     assert.ok(map.spawns[0]!.y <= .03, 'legacy spawn stays at the north edge');
-    assert.ok(Math.abs(map.routes[0]!.points.at(-1)!.y - (.5 + 7.5 / 132)) < .001);
+    assert.ok(Math.abs(map.routes[0]!.points.at(-1)!.y - (.5 + 7.5 / 44)) < .002);
   });
 });

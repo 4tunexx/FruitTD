@@ -1,0 +1,159 @@
+TAP version 13
+# Subtest: solo camera stays angled and anchors wall HP near the lower safe edge on every screen
+ok 1 - solo camera stays angled and anchors wall HP near the lower safe edge on every screen
+  ---
+  duration_ms: 5.0384
+  ...
+# Subtest: authored battle map skeletons
+    # Subtest: provides independent maps for each shared game mode with top spawns
+    ok 1 - provides independent maps for each shared game mode with top spawns
+      ---
+      duration_ms: 2.3131
+      ...
+    # Subtest: maps normalized image points into the same world coordinate frame at every viewport size
+    ok 2 - maps normalized image points into the same world coordinate frame at every viewport size
+      ---
+      duration_ms: 2.3358
+      ...
+    # Subtest: bounds untrusted editor fields and drops unsafe asset values
+    ok 3 - bounds untrusted editor fields and drops unsafe asset values
+      ---
+      duration_ms: 2.5745
+      ...
+    # Subtest: migrates old 66-unit routes to the compact field without moving their gates off the top
+    ok 4 - migrates old 66-unit routes to the compact field without moving their gates off the top
+      ---
+      duration_ms: 1.8579
+      ...
+    1..4
+ok 2 - authored battle map skeletons
+  ---
+  duration_ms: 13.232
+  type: 'suite'
+  ...
+# Subtest: combat polish regressions
+    # Subtest: enemies use one flat, legible health rail that shrinks after damage
+    ok 1 - enemies use one flat, legible health rail that shrinks after damage
+      ---
+      duration_ms: 190.3271
+      ...
+    # Subtest: published map routes spawn enemies at the top and guide them to the leak line
+    ok 2 - published map routes spawn enemies at the top and guide them to the leak line
+      ---
+      duration_ms: 27.5521
+      ...
+    # Subtest: solid map entities divert enemies around the authored footprint
+    ok 3 - solid map entities divert enemies around the authored footprint
+      ---
+      duration_ms: 43.788
+      ...
+    # Subtest: pit entities remove enemies through the environment kill callback
+    ok 4 - pit entities remove enemies through the environment kill callback
+      ---
+      duration_ms: 24.0452
+      ...
+    # Subtest: trail geometry updates GPU-backed positions and resets cleanly
+    ok 5 - trail geometry updates GPU-backed positions and resets cleanly
+      ---
+      duration_ms: 11.5438
+      ...
+    # Subtest: slash flashes are directional (not radial) and expire quickly
+    ok 6 - slash flashes are directional (not radial) and expire quickly
+      ---
+      duration_ms: 6.5613
+      ...
+    # Subtest: stroke contacts enforce one-hit-per-gesture and spawn-serial identity
+    ok 7 - stroke contacts enforce one-hit-per-gesture and spawn-serial identity
+      ---
+      duration_ms: 3.9552
+      ...
+    # Subtest: wave accounting excludes split children and requires strict perfect-wave equality
+    ok 8 - wave accounting excludes split children and requires strict perfect-wave equality
+      ---
+      duration_ms: 1.2635
+      ...
+    # Subtest: boss completion is consumed once and cannot leak into later pooled-enemy waves
+    ok 9 - boss completion is consumed once and cannot leak into later pooled-enemy waves
+      ---
+      duration_ms: 1.0791
+      ...
+    # Subtest: splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure
+    ok 10 - splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure
+      ---
+      duration_ms: 20.7299
+      ...
+    # Subtest: a full fruit pool resumes queued wave spawns as soon as one slot is released
+    ok 11 - a full fruit pool resumes queued wave spawns as soon as one slot is released
+      ---
+      duration_ms: 17.6833
+      ...
+    # Subtest: explosive fruit hits damage the tower more in later waves
+    ok 12 - explosive fruit hits damage the tower more in later waves
+      ---
+      duration_ms: 13.8623
+      ...
+    # Subtest: brood bosses trigger a single halfway phase and release runners
+    ok 13 - brood bosses trigger a single halfway phase and release runners
+      ---
+      duration_ms: 8.5431
+      ...
+    1..13
+ok 3 - combat polish regressions
+  ---
+  duration_ms: 374.9457
+  type: 'suite'
+  ...
+# Subtest: upgraded towers start every solo mode at full health
+ok 4 - upgraded towers start every solo mode at full health
+  ---
+  duration_ms: 6.1657
+  ...
+# Subtest: tower range is shown only after selection and tower HP updates the ground bar
+ok 5 - tower range is shown only after selection and tower HP updates the ground bar
+  ---
+  duration_ms: 428.6243
+  ...
+# Subtest: combat HUD retains health text without duplicating the arena health rail
+ok 6 - combat HUD retains health text without duplicating the arena health rail
+  ---
+  duration_ms: 2.1417
+  ...
+# Subtest: shared number motion recognises currency, progress, and score displays
+ok 7 - shared number motion recognises currency, progress, and score displays
+  ---
+  duration_ms: 3.7893
+  ...
+# Subtest: shared number motion counts every standalone value in composite progress labels
+ok 8 - shared number motion counts every standalone value in composite progress labels
+  ---
+  duration_ms: 1.1797
+  ...
+# Subtest: shared number motion ignores digits embedded in identifiers without lookbehind regex support
+ok 9 - shared number motion ignores digits embedded in identifiers without lookbehind regex support
+  ---
+  duration_ms: 0.421
+  ...
+# Subtest: recharge remains bounded and resumes the correct point after a snapshot
+ok 10 - recharge remains bounded and resumes the correct point after a snapshot
+  ---
+  duration_ms: 2.209
+  ...
+# Subtest: powers preserve their icon and node as cooldown and affordability change
+ok 11 - powers preserve their icon and node as cooldown and affordability change
+  ---
+  duration_ms: 2.9104
+  ...
+# Subtest: persistent power refresh does not accelerate the recharge animation
+ok 12 - persistent power refresh does not accelerate the recharge animation
+  ---
+  duration_ms: 1.1714
+  ...
+1..12
+# tests 27
+# suites 2
+# pass 27
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1245.6447
