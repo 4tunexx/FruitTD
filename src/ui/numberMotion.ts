@@ -144,9 +144,11 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
     if (previous?.rendered === text) return;
     const tokens = parseCountValues(text);
     if (!tokens.length) {
-      if (previous?.frame) cancelAnimationFrame(previous.frame);
-      parent.classList.remove('ftd-number-counting', 'ftd-number-bump');
-      values.delete(node);
+      if (previous) {
+        if (previous.frame) cancelAnimationFrame(previous.frame);
+        parent.classList.remove('ftd-number-counting', 'ftd-number-bump');
+        values.delete(node);
+      }
       return;
     }
     const now = performance.now();
@@ -188,13 +190,13 @@ export function installNumberMotion(root: HTMLElement = document.body): () => vo
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'characterData') scan(mutation.target);
-      else if (mutation.type === 'attributes') {
-        const el = mutation.target as Element;
-        if (!el.classList.contains('ftd-number-bump')) scan(el);
-      } else mutation.addedNodes.forEach(scan);
+      else if (mutation.type === 'attributes') scan(mutation.target);
+      else mutation.addedNodes.forEach(scan);
     }
   });
-  observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden'] });
+  // Watching class changes here feeds our own animation classes back into the
+  // observer, starving the first paint on large mobile screens.
+  observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden'] });
   requestAnimationFrame(() => { if (!stopped) scan(root); });
   return () => {
     stopped = true;
