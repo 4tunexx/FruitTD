@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  CanvasTexture,
   CylinderGeometry,
   Group,
   Mesh,
@@ -8,6 +9,9 @@ import {
   PlaneGeometry,
   RingGeometry,
   SphereGeometry,
+  RepeatWrapping,
+  SRGBColorSpace,
+  Texture,
   Vector3,
 } from 'three';
 import { fruitAtlas } from './atlas';
@@ -56,6 +60,7 @@ interface Shot {
 
 const _aim = new Vector3();
 const MAX_SHOTS = 36;
+const wallSkinTextures = new Map<string, Texture>();
 
 export class WallBase {
   readonly group = new Group();
@@ -67,6 +72,7 @@ export class WallBase {
   private readonly rangeRing: Mesh;
   private readonly keepMesh: Mesh;
   private readonly towerHpFill: Mesh;
+  private wallSkinPath = '';
   private readonly towerHome = new Vector3(0, 1.15, WALL_Z);
   private rangeRequested = false;
   private hitTimer = 0;
@@ -168,8 +174,35 @@ export class WallBase {
     this.refreshRange();
   }
 
-  applyWallSkin(hex: number): void {
-    (this.wallMesh.material as MeshLambertMaterial).color.setHex(hex);
+  applyWallSkin(hex: number, texturePath = ''): void {
+    const material = this.wallMesh.material as MeshLambertMaterial;
+    material.color.setHex(hex);
+    this.wallSkinPath = texturePath;
+    if (!texturePath) {
+      material.map = null;
+      material.needsUpdate = true;
+      return;
+    }
+    const applyTexture = (texture: Texture) => {
+      if (this.wallSkinPath !== texturePath) return;
+      material.map = texture;
+      material.color.setHex(0xffffff);
+      material.needsUpdate = true;
+    };
+    const cached = wallSkinTextures.get(texturePath);
+    if (cached) { applyTexture(cached); return; }
+    const image = new Image();
+    image.onload = () => {
+      const texture = new CanvasTexture(image);
+      texture.colorSpace = SRGBColorSpace;
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.repeat.set(8, 1);
+      wallSkinTextures.set(texturePath, texture);
+      applyTexture(texture);
+    };
+    image.onerror = () => console.warn('Tower skin texture failed to load:', texturePath);
+    image.src = texturePath;
   }
 
   applySkins(): void {

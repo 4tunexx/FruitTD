@@ -37,6 +37,8 @@ export interface CatalogItem {
   color: string;
   /** Secondary glow colour (#rrggbb). */
   glowColor: string;
+  /** Optional image used to preview visual equipment in the shop and inventory. */
+  previewImage?: string;
   /** Starter items are always owned and can never be sold. */
   starter: boolean;
   /** Gameplay modifiers, shown on the card so value is visible (§8). */
@@ -118,6 +120,7 @@ function wallToItem(wall: (typeof WALL_SKINS)[number]): CatalogItem {
     slot: 'wall',
     color: hex,
     glowColor: hex,
+    previewImage: wall.texture,
     starter: isStarterItem(wall.id),
     stats: [],
   };

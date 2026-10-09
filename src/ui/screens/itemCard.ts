@@ -56,6 +56,11 @@ export function slicerPreview(item: CatalogItem): HTMLElement {
 
 function swatch(item: CatalogItem): HTMLElement {
   if (item.category === 'slicers') return slicerPreview(item);
+  if (item.previewImage) {
+    const preview = el('div', { class: 'ftd-item-card__swatch ftd-item-card__swatch--image', 'aria-label': `${item.name} tower appearance` });
+    preview.style.backgroundImage = `url("${item.previewImage}")`;
+    return preview;
+  }
   const node = el('div', { class: 'ftd-item-card__swatch' }, [
     el('span', { class: 'ftd-item-card__swatch-mark', 'aria-hidden': 'true' }, [lucideIcon(item.category === 'walls' ? 'Shield' : item.category === 'heroes' ? 'Swords' : 'Sparkles', '', 42)]),
   ]);

@@ -1334,3 +1334,21 @@ export function installMediaStudio(): void {
   );
   pushEventLog('Creator Hub ready');
 }
+
+/** Load a generated single-frame enemy or boss into the same editor state as an uploaded sheet. */
+export function importStudioImageSample(entityKey: string, label: string, dataUrl: string): void {
+  if (!/^[a-z][a-z0-9-]{1,63}$/.test(entityKey) || !dataUrl.startsWith('data:image/')) return;
+  store.entities[entityKey] = {
+    sheetDataUrl: dataUrl, cols: 1, rows: 1, frameW: 0, frameH: 0,
+    clips: { idle_down: { startFrame: 0, frameCount: 1 }, walk_down: { startFrame: 0, frameCount: 1 } },
+    label,
+  };
+  store.selectedEntity = entityKey;
+  saveStudioStore(store);
+  fillEntitySelect();
+  const select = $('studio-entity') as HTMLSelectElement | null;
+  if (select) select.value = entityKey;
+  if (installed) void onEntityChange();
+  renderEntityRail();
+  setStatus(`${label} sample loaded. Publish Creator media to share it with the game.`);
+}

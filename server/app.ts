@@ -17,6 +17,7 @@ import { getDb } from './db';
 import { rateLimit } from './rateLimit';
 import { safeInput } from './validation';
 import { pvpRouter } from './routes/pvp';
+import { adminMapsRouter, mapsRouter } from './routes/maps';
 
 export function createApp() {
   const app = express();
@@ -66,6 +67,8 @@ export function createApp() {
   app.use('/api/daily', rateLimit(20, 60_000), dailyRouter);
   app.use('/api/steam', steamRouter);
   app.use('/api/profile', profileRouter);
+  app.use('/api/maps', mapsRouter);
+  app.use('/api/admin/maps', rateLimit(30, 60_000), adminMapsRouter);
   app.use('/api/items', rateLimit(60, 60_000), itemsRouter);
   app.use('/api/admin', rateLimit(30, 60_000), adminRouter);
   app.use('/api/badges', badgesRouter);

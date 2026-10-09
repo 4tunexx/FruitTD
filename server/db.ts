@@ -132,6 +132,8 @@ export async function getDb(): Promise<Db> {
     await db.collection('run_tokens').createIndex({ tokenHash: 1 }, { unique: true });
     await db.collection('run_tokens').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection('admin_config').createIndex({ configKey: 1 }, { unique: true });
+    await db.collection('battle_maps').createIndex({ id: 1 }, { unique: true });
+    await db.collection('battle_maps').createIndex({ mode: 1, published: 1 });
     await db.collection('coop_matches').createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
     await db.collection('coop_matches').createIndex({ id: 1 }, { unique: true });
     await db.collection('badges').createIndex({ userId: 1, badgeId: 1 }, { unique: true });

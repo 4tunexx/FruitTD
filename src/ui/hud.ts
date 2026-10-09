@@ -1107,6 +1107,8 @@ export class Hud {
     this.abilityFunds = state.superJuice;
     const juicePct = Math.min(100, state.superJuice);
     this.superFill.style.setProperty('--juice', String(juicePct));
+    const juiceTrack = document.getElementById('super-bar-track');
+    juiceTrack?.setAttribute('aria-valuenow', String(Math.round(juicePct)));
     this.superFill.classList.toggle('is-full', juicePct >= 100);
     this.superFill.classList.toggle('is-low', juicePct > 0 && juicePct < 28);
     const wave = document.getElementById('super-wave');

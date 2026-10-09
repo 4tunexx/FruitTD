@@ -41,6 +41,8 @@ async function getDb() {
     await db.collection("run_tokens").createIndex({ tokenHash: 1 }, { unique: true });
     await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
+    await db.collection("battle_maps").createIndex({ id: 1 }, { unique: true });
+    await db.collection("battle_maps").createIndex({ mode: 1, published: 1 });
     await db.collection("coop_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
     await db.collection("coop_matches").createIndex({ id: 1 }, { unique: true });
     await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
@@ -323,6 +325,8 @@ function emptySkills() {
 }
 
 // src/game/world.ts
+var ARENA_W = 22;
+var ARENA_D = 66;
 var SIM_DT = 1 / 60;
 var IMPACT_FREEZE = 1 / 60;
 var WALL_Z = -9.2;
@@ -489,9 +493,9 @@ function defaultSave() {
   };
 }
 var WALL_SKINS = [
-  { id: "wall-brick", name: "Brick wall", kind: "wall", cost: 0, sellValue: 0, color: 10698034, blurb: "Default clay bricks." },
-  { id: "wall-stone", name: "Stone wall", kind: "wall", cost: 200, sellValue: 70, color: 9146265, blurb: "Cool grey stone." },
-  { id: "wall-night", name: "Night wall", kind: "wall", cost: 280, sellValue: 95, color: 2831184, blurb: "Dark midnight fort." }
+  { id: "wall-brick", name: "Ashbrick Bastion", kind: "wall", cost: 0, sellValue: 0, color: 16777215, texture: "/assets/towers/wall-ashbrick.webp", blurb: "The starter red-brick barricade. Your hero stands on the center keep." },
+  { id: "wall-stone", name: "Scrapline Steel", kind: "wall", cost: 200, sellValue: 70, color: 16777215, texture: "/assets/towers/wall-scrapsteel.webp", blurb: "Bolted salvage armor built around the same center keep." },
+  { id: "wall-night", name: "Ashglass Concrete", kind: "wall", cost: 280, sellValue: 95, color: 16777215, texture: "/assets/towers/wall-ashglass.webp", blurb: "Cracked concrete, copper braces, and restrained toxic seams." }
 ];
 
 // server/claimWallet.ts
@@ -1447,14 +1451,14 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   const before = /* @__PURE__ */ new Map();
   for (const player of match.players) {
     player.fruts += config.incomePerSecond * dt;
-    for (const unit of player.attackers) {
-      before.set(unit.id, unit.progress);
-      unit.fighting = false;
-      delete unit.fightTargetId;
-      if (unit.hp <= 0) continue;
-      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(unit.progress)))];
-      const slowed = unit.progress >= 0 && player.towers.some((tower) => tower.type === "vortex" && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex, tower.level).range);
-      unit.progress += config.attacks[unit.type].speed * dt * Math.max(1, (path.length - 1) / 13) * Math.min(slowed ? 0.6 : 1, now < (unit.slowUntil ?? 0) ? unit.slowMultiplier ?? 0.45 : 1);
+    for (const unit2 of player.attackers) {
+      before.set(unit2.id, unit2.progress);
+      unit2.fighting = false;
+      delete unit2.fightTargetId;
+      if (unit2.hp <= 0) continue;
+      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(unit2.progress)))];
+      const slowed = unit2.progress >= 0 && player.towers.some((tower) => tower.type === "vortex" && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex, tower.level).range);
+      unit2.progress += config.attacks[unit2.type].speed * dt * Math.max(1, (path.length - 1) / 13) * Math.min(slowed ? 0.6 : 1, now < (unit2.slowUntil ?? 0) ? unit2.slowMultiplier ?? 0.45 : 1);
     }
   }
   const [a, b] = match.players;
@@ -1474,16 +1478,16 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
     }
   }
   const damage = /* @__PURE__ */ new Map();
-  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit of team.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length)) {
-    const target = enemy.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length && Math.abs(unit.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit.progress + x.progress + 1) - Math.abs(unit.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
+  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit2 of team.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length)) {
+    const target = enemy.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length && Math.abs(unit2.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit2.progress + x.progress + 1) - Math.abs(unit2.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
     if (!target) continue;
-    unit.fighting = true;
-    unit.fightTargetId = target.id;
-    unit.lastClashAt = Math.floor(now / 300) * 300;
-    const hit = config.attacks[unit.type].wallDamage * 0.45 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
+    unit2.fighting = true;
+    unit2.fightTargetId = target.id;
+    unit2.lastClashAt = Math.floor(now / 300) * 300;
+    const hit = config.attacks[unit2.type].wallDamage * 0.45 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
     damage.set(target.id, (damage.get(target.id) ?? 0) + hit);
   }
-  for (const player of match.players) for (const unit of player.attackers) unit.hp -= damage.get(unit.id) ?? 0;
+  for (const player of match.players) for (const unit2 of player.attackers) unit2.hp -= damage.get(unit2.id) ?? 0;
   for (const player of match.players) {
     const shoot = (cell, stats, lastFiredAt, type = "main", level = 1) => {
       if (now - lastFiredAt < stats.cooldownMs) return false;
@@ -5309,6 +5313,222 @@ pvpRouter.post("/match/:id/token", async (req2, res) => {
   }
 });
 
+// server/routes/maps.ts
+import { Router as Router15 } from "express";
+
+// src/game/battleMaps.ts
+var baseWorld = { width: ARENA_W, depth: ARENA_D, columns: 11, rows: 66 };
+var standardRoute = () => ({
+  id: "main-route",
+  name: "Main route",
+  width: 4.5,
+  points: [{ x: 0.5, y: 0.03 }, { x: 0.5, y: 0.2 }, { x: 0.5, y: 0.38 }, { x: 0.5, y: 0.52 }, { x: 0.5, y: 0.614 }]
+});
+var entity = (id, kind, x, y, width, height = width, extra = {}) => ({
+  id,
+  kind,
+  x,
+  y,
+  width,
+  height,
+  rotation: 0,
+  visible: true,
+  asset: "",
+  collision: kind === "solid" ? "solid" : kind === "hazard" || kind === "pit" ? "trigger" : "none",
+  damage: kind === "hazard" || kind === "pit" ? 1 : 0,
+  slow: 0,
+  label: id,
+  ...extra
+});
+function standardMap(mode, name, background) {
+  return {
+    schemaVersion: 1,
+    id: `sample-${mode}`,
+    mode,
+    name,
+    background,
+    world: { ...baseWorld },
+    routes: [standardRoute()],
+    spawns: [{ id: "north-gate", routeId: "main-route", x: 0.5, y: 0.035, enabled: true, label: "Top spawn" }],
+    entities: [
+      entity("left-lantern", "light", 0.16, 0.43, 0.08, 0.08, { collision: "none", damage: 0, label: "Path light" }),
+      entity("right-ruin", "prop", 0.84, 0.62, 0.14, 0.1, { collision: "none", label: "Ruin prop" }),
+      entity("rock-blocker", "solid", 0.15, 0.73, 0.1, 0.07, { asset: "/assets/maps/samples/sample-rock.svg", label: "Solid rock sample" }),
+      entity("pit-hazard", "pit", 0.83, 0.3, 0.12, 0.08, { asset: "/assets/maps/samples/sample-pit.svg", label: "Pit sample" }),
+      ...PADS.filter((pad) => !pad.main).map((pad, i) => entity(
+        `tower-slot-${i + 1}`,
+        "turret-slot",
+        pad.x / ARENA_W + 0.5,
+        0.5 - (pad.z - WALL_Z) / ARENA_D,
+        0.05,
+        0.04,
+        { collision: "none", damage: 0, visible: true, label: `Tower slot ${i + 1}` }
+      ))
+    ],
+    tower: { x: 0.5, y: 0.5 - WALL_Z / ARENA_D },
+    published: true,
+    revision: 1
+  };
+}
+var DEFAULT_BATTLE_MAPS = {
+  casual: standardMap("casual", "Ashen Road", "/assets/maps/samples/casual-fallen-orchard.webp"),
+  horde: standardMap("horde", "Scrapline", "/assets/maps/samples/horde-night-harvest.webp"),
+  campaign: standardMap("campaign", "Ruined Causeway", "/assets/maps/samples/campaign-old-orchard.webp"),
+  coop: {
+    ...standardMap("coop", "Broken Junction", "/assets/maps/samples/coop-shared-grove.webp"),
+    routes: [
+      { id: "west-route", name: "West approach", width: 3.2, points: [{ x: 0.22, y: 0.03 }, { x: 0.33, y: 0.2 }, { x: 0.5, y: 0.42 }, { x: 0.5, y: 0.614 }] },
+      { id: "east-route", name: "East approach", width: 3.2, points: [{ x: 0.78, y: 0.03 }, { x: 0.67, y: 0.2 }, { x: 0.5, y: 0.42 }, { x: 0.5, y: 0.614 }] }
+    ],
+    spawns: [
+      { id: "west-gate", routeId: "west-route", x: 0.22, y: 0.03, enabled: true, label: "West spawn" },
+      { id: "east-gate", routeId: "east-route", x: 0.78, y: 0.03, enabled: true, label: "East spawn" }
+    ]
+  },
+  pvp: {
+    ...standardMap("pvp", "Twin Wastes", "/assets/maps/samples/pvp-twin-pass.webp"),
+    tower: { x: 0.5, y: 0.94 },
+    opponentTower: { x: 0.5, y: 0.06 },
+    routes: [{ id: "duel-route", name: "Duel route", width: 4.5, points: [{ x: 0.5, y: 0.94 }, { x: 0.38, y: 0.72 }, { x: 0.62, y: 0.5 }, { x: 0.38, y: 0.28 }, { x: 0.5, y: 0.06 }] }],
+    spawns: [{ id: "opponent-gate", routeId: "duel-route", x: 0.5, y: 0.06, enabled: true, label: "Opponent side" }]
+  }
+};
+var modes = /* @__PURE__ */ new Set(["casual", "horde", "campaign", "coop", "pvp"]);
+var kinds = /* @__PURE__ */ new Set(["prop", "solid", "hazard", "pit", "light", "spawn", "turret-slot"]);
+var safeAsset = (value) => typeof value === "string" && value.length <= 12e5 && (value === "" || value.startsWith("/") || /^data:image\/(png|webp|jpeg);base64,/.test(value));
+var unit = (value, fallback = 0.5) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;
+function normalizeBattleMap(raw, fallbackMode = "casual") {
+  const row = raw && typeof raw === "object" ? raw : {};
+  const mode = modes.has(row.mode) ? row.mode : fallbackMode;
+  const fallback = DEFAULT_BATTLE_MAPS[mode];
+  const routes = Array.isArray(row.routes) ? row.routes.slice(0, 12).map((r, i) => ({
+    id: typeof r?.id === "string" ? r.id.slice(0, 64) : `route-${i + 1}`,
+    name: typeof r?.name === "string" ? r.name.slice(0, 64) : `Route ${i + 1}`,
+    width: Number.isFinite(Number(r?.width)) ? Math.max(0.5, Math.min(12, Number(r?.width))) : 4,
+    points: Array.isArray(r?.points) ? r.points.slice(0, 256).map((p) => ({ x: unit(p?.x), y: unit(p?.y) })) : []
+  })) : fallback.routes;
+  const routeIds = new Set(routes.map((r) => r.id));
+  const spawns = Array.isArray(row.spawns) ? row.spawns.slice(0, 32).map((s, i) => ({
+    id: typeof s?.id === "string" ? s.id.slice(0, 64) : `spawn-${i + 1}`,
+    routeId: routeIds.has(s?.routeId || "") ? s.routeId : routes[0]?.id || "main-route",
+    x: unit(s?.x),
+    y: unit(s?.y, 0.03),
+    enabled: s?.enabled !== false,
+    label: typeof s?.label === "string" ? s.label.slice(0, 80) : `Spawn ${i + 1}`
+  })) : fallback.spawns;
+  const entities = Array.isArray(row.entities) ? row.entities.slice(0, 256).filter((e) => e && kinds.has(e.kind)).map((e, i) => ({
+    id: typeof e.id === "string" ? e.id.slice(0, 64) : `entity-${i + 1}`,
+    kind: e.kind,
+    x: unit(e.x),
+    y: unit(e.y),
+    width: Number.isFinite(Number(e.width)) ? Math.max(5e-3, Math.min(1, Number(e.width))) : 0.05,
+    height: Number.isFinite(Number(e.height)) ? Math.max(5e-3, Math.min(1, Number(e.height))) : 0.05,
+    rotation: Number.isFinite(Number(e.rotation)) ? Math.max(-360, Math.min(360, Number(e.rotation))) : 0,
+    visible: e.visible !== false,
+    asset: safeAsset(e.asset) ? e.asset : "",
+    collision: e.collision === "solid" || e.collision === "trigger" ? e.collision : "none",
+    damage: Number.isFinite(Number(e.damage)) ? Math.max(0, Math.min(1e3, Number(e.damage))) : 0,
+    slow: Number.isFinite(Number(e.slow)) ? Math.max(0, Math.min(1, Number(e.slow))) : 0,
+    label: typeof e.label === "string" ? e.label.slice(0, 80) : `Entity ${i + 1}`
+  })) : fallback.entities;
+  const point = (p, def) => p && typeof p === "object" ? { x: unit(p.x, def.x), y: unit(p.y, def.y) } : def;
+  const bg = safeAsset(row.background) && row.background ? row.background : fallback.background;
+  const width = ARENA_W;
+  const depth = ARENA_D;
+  return {
+    schemaVersion: 1,
+    id: typeof row.id === "string" && /^[a-z0-9_-]{1,80}$/i.test(row.id) ? row.id : fallback.id,
+    mode,
+    name: typeof row.name === "string" && row.name.trim() ? row.name.trim().slice(0, 80) : fallback.name,
+    background: bg,
+    ...safeAsset(row.nightBackground) && row.nightBackground ? { nightBackground: row.nightBackground } : {},
+    world: { width, depth, columns: Math.max(4, Math.min(64, Math.floor(Number(row.world?.columns) || fallback.world.columns))), rows: Math.max(8, Math.min(256, Math.floor(Number(row.world?.rows) || fallback.world.rows))) },
+    routes,
+    spawns,
+    entities,
+    tower: point(row.tower, fallback.tower),
+    ...mode === "pvp" ? { opponentTower: point(row.opponentTower, fallback.opponentTower) } : {},
+    published: row.published !== false,
+    revision: Number.isSafeInteger(row.revision) && Number(row.revision) > 0 ? Number(row.revision) : 1
+  };
+}
+
+// server/routes/maps.ts
+var MODES = /* @__PURE__ */ new Set(["casual", "horde", "campaign", "coop", "pvp"]);
+var mapsRouter = Router15();
+var adminMapsRouter = Router15();
+function validAdmin(user) {
+  return Boolean(process.env.ADMIN_STEAM_ID && user?.steamId === process.env.ADMIN_STEAM_ID);
+}
+function mapError(map) {
+  if (!map.routes.length) return "Add at least one enemy route.";
+  const routeIds = new Set(map.routes.map((route2) => route2.id));
+  if (!map.spawns.some((spawn) => spawn.enabled)) return "Enable at least one spawn point.";
+  if (map.spawns.some((spawn) => !routeIds.has(spawn.routeId))) return "Every spawn must connect to a saved route.";
+  if (map.routes.some((route2) => route2.points.length < 2)) return "Each route needs at least two points.";
+  if (map.mode !== "pvp" && map.spawns.some((spawn) => spawn.y > 0.2)) return "Standard-mode spawns must be at the top of the map.";
+  if (map.mode === "pvp" && !map.opponentTower) return "PvP needs both tower anchors.";
+  return null;
+}
+mapsRouter.get("/:mode", async (req2, res) => {
+  const mode = req2.params.mode;
+  if (!MODES.has(mode)) return res.status(404).json({ success: false, error: "Map mode not found." });
+  try {
+    const col = await getCollection("battle_maps");
+    const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 } });
+    return res.json({ success: true, map: map || DEFAULT_BATTLE_MAPS[mode] });
+  } catch (error2) {
+    console.error("Battle map read failed:", error2);
+    return res.status(503).json({ success: false, error: "Battle map service is unavailable." });
+  }
+});
+adminMapsRouter.get("/", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!validAdmin(user)) return res.status(403).json({ success: false, error: "Admin access required." });
+  try {
+    const col = await getCollection("battle_maps");
+    await col.bulkWrite(Object.values(DEFAULT_BATTLE_MAPS).map((map) => ({
+      updateOne: { filter: { id: map.id }, update: { $setOnInsert: { ...map, updatedAt: /* @__PURE__ */ new Date() } }, upsert: true }
+    })));
+    const maps = await col.find({}, { projection: { _id: 0 } }).sort({ mode: 1, id: 1 }).toArray();
+    return res.json({ success: true, maps });
+  } catch (error2) {
+    console.error("Admin battle map read failed:", error2);
+    return res.status(503).json({ success: false, error: "Could not load maps from MongoDB." });
+  }
+});
+adminMapsRouter.post("/", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!validAdmin(user)) return res.status(403).json({ success: false, error: "Admin access required." });
+  try {
+    const raw = req2.body?.map;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return res.status(400).json({ success: false, error: "Map data is required." });
+    if (Buffer.byteLength(JSON.stringify(raw), "utf8") > 35e5) return res.status(413).json({ success: false, error: "Map is too large. Optimize uploaded images before saving." });
+    const mode = MODES.has(raw.mode) ? raw.mode : "casual";
+    const map = normalizeBattleMap(raw, mode);
+    const error2 = mapError(map);
+    if (error2) return res.status(400).json({ success: false, error: error2 });
+    const col = await getCollection("battle_maps");
+    const existing = await col.findOne({ id: map.id });
+    const expected = Number(req2.body?.expectedRevision);
+    if (existing && (!Number.isSafeInteger(expected) || expected !== existing.revision)) {
+      return res.status(409).json({ success: false, error: "This map changed in another admin session. Reload it before saving.", currentRevision: existing.revision });
+    }
+    map.revision = existing ? existing.revision + 1 : 1;
+    const document = { ...map, updatedAt: /* @__PURE__ */ new Date() };
+    if (existing) {
+      const result = await col.replaceOne({ id: map.id, revision: existing.revision }, document);
+      if (!result.matchedCount) return res.status(409).json({ success: false, error: "This map changed while you were saving. Reload and try again." });
+    } else {
+      await col.insertOne(document);
+    }
+    return res.json({ success: true, map: document });
+  } catch (error2) {
+    console.error("Admin battle map save failed:", error2);
+    return res.status(500).json({ success: false, error: "Could not save the map to MongoDB." });
+  }
+});
+
 // server/app.ts
 function createApp() {
   const app2 = express();
@@ -5349,6 +5569,8 @@ function createApp() {
   app2.use("/api/daily", rateLimit(20, 6e4), dailyRouter);
   app2.use("/api/steam", steamRouter);
   app2.use("/api/profile", profileRouter);
+  app2.use("/api/maps", mapsRouter);
+  app2.use("/api/admin/maps", rateLimit(30, 6e4), adminMapsRouter);
   app2.use("/api/items", rateLimit(60, 6e4), itemsRouter);
   app2.use("/api/admin", rateLimit(30, 6e4), adminRouter);
   app2.use("/api/badges", badgesRouter);

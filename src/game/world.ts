@@ -1,5 +1,6 @@
 export const ARENA_W = 22;
-export const ARENA_D = 28;
+// Keep the original camera start, but give authored maps a longer northbound field.
+export const ARENA_D = 66;
 export const MAX_LIVES = 15;
 export const MAX_TOWER_LEVEL = 10;
 export const PARTICLE_CAP = 180;

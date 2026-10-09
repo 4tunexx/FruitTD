@@ -10,6 +10,8 @@ import { startMatchWithOptionalMedia } from './game/matchStartup';
 import { GameRenderer } from './engine/renderer';
 import { fruitAtlas } from './game/atlas';
 import { Field } from './game/field';
+import { defaultMapForMode, normalizeBattleMap, type BattleMapMode } from './game/battleMaps';
+import { fetchPublishedBattleMap } from './services/battleMaps';
 import { FRUIT_DEFS, FruitField, fruitFamily, type Fruit } from './game/fruits';
 import { HEROES, MAX_HERO_LEVEL, heroDef, heroHitRadius, heroSlashDamage, heroXpToLevel, type HeroId } from './game/heroes';
 import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
@@ -192,6 +194,20 @@ if (save.mode === 'ranked' || save.mode === 'arena') {
   writeSave(save);
 }
 state.mode = save.mode;
+function loadBattleMap(mode: GameMode): void {
+  if (!['casual', 'horde', 'campaign', 'coop'].includes(mode)) return;
+  const mapMode = mode as BattleMapMode;
+  const fallback = defaultMapForMode(mapMode, state.level);
+  field.applyBattleMap(fallback);
+  fruits.setBattleMap(fallback);
+  void fetchPublishedBattleMap(mapMode).then((published) => {
+    if (!published || state.mode !== mode || state.running) return;
+    const map = normalizeBattleMap(published, mapMode);
+    field.applyBattleMap(map);
+    fruits.setBattleMap(map);
+  });
+}
+loadBattleMap(state.mode);
 combos.setPlayer(save.nickname, save.avatar);
 
 setComboFocusHandler(({ intensity }) => {
@@ -440,6 +456,7 @@ function setMode(id: GameMode): void {
   }
   state.mode = id;
   save.mode = id;
+  loadBattleMap(id);
   persist();
   hud.mountModes(id);
   sfx.select();
@@ -636,7 +653,8 @@ function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
 
 function wallSkinApply(): void {
   const skinId = isUnequippedSkin(save.wallSkin) ? '' : save.wallSkin;
-  wall.applyWallSkin(WALL_SKINS.find((s) => s.id === skinId)?.color ?? 0x9a4034);
+  const skin = WALL_SKINS.find((s) => s.id === skinId);
+  wall.applyWallSkin(skin?.color ?? 0xa33d32, skin?.texture ?? '');
 }
 
 function buySkill(id: SkillId): void {
@@ -839,6 +857,8 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
     detonatePulpPopper(fruits, fruit, (other) => killFruit(other, swipe, 1.1, chainDepth + 1));
   }
 }
+
+fruits.onEnvironmentKill = (fruit) => killFruit(fruit, new Vector3(0, 0.2, 1), 0.8);
 
 function finishCampaignStage(): void {
   const cleared = state.level;

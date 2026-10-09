@@ -609,6 +609,7 @@
   height: 74px;
   border-radius: calc(var(--ftd-radius-card) * 0.7);
 }
+.ftd-item-card__swatch--image { background-size: cover; background-position: center; border: 1px solid color-mix(in srgb, var(--ftd-color-primary) 35%, transparent); }
 
 .ftd-item-card__name { margin: 0; font-weight: 900; font-size: 1.02rem; }
 

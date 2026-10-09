@@ -239,7 +239,7 @@ export class GameRenderer {
 
   pan(dx: number, dz: number): void {
     this.panX = Math.max(-11, Math.min(11, this.panX + dx));
-    this.panZ = Math.max(-5, Math.min(16, this.panZ + dz));
+    this.panZ = Math.max(-5, Math.min(44, this.panZ + dz));
   }
 
   zoom(delta: number): void {

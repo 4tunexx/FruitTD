@@ -37,9 +37,10 @@ import { openDesignMode } from './design/designMode';
 import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
 import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campaign';
+import { installBattleMapEditor } from './admin/battleMapEditor';
 
-type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'sprites' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
-const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'sprites', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
+type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'maps' | 'sprites' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
+const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'maps', 'sprites', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
 let sliderOutputId = 0;
 
 function syncRangeOutput(input: HTMLInputElement | null): void {
@@ -95,6 +96,7 @@ export class AdminController {
     installMediaStudio();
     installCreatorWaveBoard();
     installCreatorSlicerVfx();
+    installBattleMapEditor();
   }
 
   close(): void {

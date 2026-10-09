@@ -44,6 +44,63 @@ describe('combat polish regressions', () => {
     assert.equal(fruit.outline.visible, false);
   });
 
+  it('published map routes spawn enemies at the top and guide them to the leak line', async () => {
+    installStorageShim();
+    const [{ FruitField }, { createState }, { defaultMapForMode }] = await Promise.all([
+      import('./fruits'), import('./state'), import('./battleMaps'),
+    ]);
+    const field = new FruitField(() => undefined);
+    const map = defaultMapForMode('casual');
+    field.setBattleMap(map);
+    const fruit = field.spawn('lemon')!;
+    assert.ok(fruit.group.position.z > 20, 'authored spawn should be at the far top edge');
+    assert.ok(fruit.routePoints && fruit.routePoints.length >= 2);
+
+    const state = createState();
+    let leaks = 0;
+    for (let step = 0; step < 500 && fruit.alive; step++) field.update(.1, state, () => { leaks++; });
+    assert.equal(fruit.alive, false, 'enemy should reach the route endpoint');
+    assert.equal(leaks, 1, 'route completion should use the normal leak callback once');
+  });
+
+  it('solid map entities divert enemies around the authored footprint', async () => {
+    installStorageShim();
+    const [{ FruitField }, { createState }, { defaultMapForMode }] = await Promise.all([
+      import('./fruits'), import('./state'), import('./battleMaps'),
+    ]);
+    const field = new FruitField(() => undefined);
+    const map = defaultMapForMode('casual');
+    map.entities.push({ id:'roadblock', kind:'solid', x:.5, y:.3, width:.18, height:.1, rotation:0, visible:false, asset:'', collision:'solid', damage:0, slow:0, label:'Road block' });
+    field.setBattleMap(map);
+    const fruit = field.spawn('lemon')!;
+    const state = createState();
+    let leaks = 0;
+    let movedAround = false;
+    for (let step = 0; step < 700 && fruit.alive; step++) {
+      field.update(.1, state, () => { leaks++; });
+      movedAround ||= Math.abs(fruit.group.position.x) > 2;
+    }
+    assert.equal(movedAround, true, 'a hidden solid footprint should still shape the route');
+    assert.equal(leaks, 1, 'the detour should rejoin the authored route');
+  });
+
+  it('pit entities remove enemies through the environment kill callback', async () => {
+    installStorageShim();
+    const [{ FruitField }, { createState }, { defaultMapForMode }] = await Promise.all([
+      import('./fruits'), import('./state'), import('./battleMaps'),
+    ]);
+    const field = new FruitField(() => undefined);
+    const map = defaultMapForMode('casual');
+    map.entities.push({ id:'test-pit', kind:'pit', x:.5, y:.14, width:.4, height:.2, rotation:0, visible:true, asset:'', collision:'trigger', damage:0, slow:0, label:'Test pit' });
+    field.setBattleMap(map);
+    let environmentKills = 0;
+    field.onEnvironmentKill = () => { environmentKills++; };
+    const fruit = field.spawn('lemon')!;
+    for (let step = 0; step < 100 && fruit.alive; step++) field.update(.1, createState(), () => undefined);
+    assert.equal(fruit.alive, false);
+    assert.equal(environmentKills, 1);
+  });
+
   it('trail geometry updates GPU-backed positions and resets cleanly', async () => {
     installStorageShim();
     const { BladeTrail } = await import('./trail');

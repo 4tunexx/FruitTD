@@ -337,7 +337,7 @@ export function heroLevelFromSave(data: SaveData, id: HeroId): number { return h
 export function canBuySkill(data: SaveData, id: SkillId): boolean { const def=SKILLS.find((s)=>s.id===id); return data.skillPoints>0 && (data.skills[id]??0)<(def?.max??3); }
 
 export const WALL_SKINS = [
-  { id:'wall-brick', name:'Brick wall', kind:'wall' as const, cost:0, sellValue:0, color:0xa33d32, blurb:'Default clay bricks.' },
-  { id:'wall-stone', name:'Stone wall', kind:'wall' as const, cost:200, sellValue:70, color:0x8b8f99, blurb:'Cool grey stone.' },
-  { id:'wall-night', name:'Night wall', kind:'wall' as const, cost:280, sellValue:95, color:0x2b3350, blurb:'Dark midnight fort.' },
+  { id:'wall-brick', name:'Ashbrick Bastion', kind:'wall' as const, cost:0, sellValue:0, color:0xffffff, texture:'/assets/towers/wall-ashbrick.webp', blurb:'The starter red-brick barricade. Your hero stands on the center keep.' },
+  { id:'wall-stone', name:'Scrapline Steel', kind:'wall' as const, cost:200, sellValue:70, color:0xffffff, texture:'/assets/towers/wall-scrapsteel.webp', blurb:'Bolted salvage armor built around the same center keep.' },
+  { id:'wall-night', name:'Ashglass Concrete', kind:'wall' as const, cost:280, sellValue:95, color:0xffffff, texture:'/assets/towers/wall-ashglass.webp', blurb:'Cracked concrete, copper braces, and restrained toxic seams.' },
 ];

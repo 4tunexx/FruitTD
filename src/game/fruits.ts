@@ -7,6 +7,7 @@ import type { Slash } from '../input/blade';
 import type { SpawnItem } from './waves';
 import { dangerousLeakMultiplier, ENEMY_RULES, type EnemyKind } from './enemies';
 import { getAdminTexture } from './adminTextureLoader';
+import { mapPointToWorld, type BattleMap } from './battleMaps';
 import {
   createStudioAnimState,
   resetStudioAnimState,
@@ -52,6 +53,11 @@ export interface Fruit {
   spawnSerial?: number;
   /** Studio clip playback; inactive when no sheet/walk clip is saved. */
   studio: StudioAnimState;
+  routePoints?: Array<{ x: number; z: number }>;
+  routeIndex?: number;
+  routeDetours?: Set<string>;
+  environmentCooldown?: number;
+  environmentSlow?: number;
 }
 
 const BODY_GEO = new SphereGeometry(1, 18, 14);
@@ -196,9 +202,11 @@ export class FruitField {
   private activeState: GameState | null = null;
   private serial = 0;
   private readonly retired = new Set<Fruit>();
-  private readonly pendingChildren: Array<{ x: number; y: number; z: number; offset: number }> = [];
+  private readonly pendingChildren: Array<{ x: number; y: number; z: number; offset: number; routePoints?: Array<{ x: number; z: number }> }> = [];
+  private battleMap: BattleMap | null = null;
   onSpawn: ((fruit: Fruit) => void) | null = null;
   onBossPhase: ((fruit: Fruit) => void) | null = null;
+  onEnvironmentKill: ((fruit: Fruit) => void) | null = null;
 
   constructor(private readonly sceneAdd: (group: Group) => void) {
     for (let i = 0; i < 64; i++) {
@@ -207,6 +215,8 @@ export class FruitField {
       this.sceneAdd(fruit.group);
     }
   }
+
+  setBattleMap(map: BattleMap | null): void { this.battleMap = map; }
 
   get aliveCount(): number { return this.fruits.reduce((n, f) => n + (f.alive ? 1 : 0), 0); }
   get queueLength(): number { return this.queue.length; }
@@ -233,13 +243,18 @@ export class FruitField {
     idle.spawnSerial = ++this.serial;
     const def = FRUIT_DEFS[kind];
     const enemy = ENEMY_RULES[enemyKind] || ENEMY_RULES.normal;
-    const gate = (Math.random() * 5) | 0;
-    let x = 0; let z = ARENA_D / 2 - 0.4;
-    if (gate === 0) { x = -2.4 + Math.random() * 4.8; z = ARENA_D / 2 - 0.3; }
-    else if (gate === 1) { x = -5.2 + Math.random() * 2; z = ARENA_D / 2 - 0.6; }
-    else if (gate === 2) { x = 3.2 + Math.random() * 2; z = ARENA_D / 2 - 0.6; }
-    else if (gate === 3) { x = -ARENA_W / 2 + 0.4; z = 1.5 + Math.random() * 4.5; }
-    else { x = ARENA_W / 2 - 0.4; z = 1.5 + Math.random() * 4.5; }
+    let x = (Math.random() - .5) * 4.8; let z = ARENA_D / 2 - 0.4;
+    let routePoints: Array<{ x: number; z: number }> | undefined;
+    if (this.battleMap) {
+      const spawns = this.battleMap.spawns.filter((spawn) => spawn.enabled && spawn.y <= .2);
+      const spawn = spawns[(Math.random() * spawns.length) | 0];
+      if (spawn) {
+        const position = mapPointToWorld({ x: spawn.x, y: spawn.y }, this.battleMap);
+        x = position.x + (Math.random() - .5) * .7; z = position.z;
+        const route = this.battleMap.routes.find((candidate) => candidate.id === spawn.routeId);
+        if (route && route.points.length > 1) routePoints = route.points.map((point) => mapPointToWorld(point, this.battleMap!));
+      }
+    }
 
     idle.outline.visible = boss;
     idle.alive = true; idle.kind = kind; idle.enemyKind = enemyKind; idle.boss = boss;
@@ -248,6 +263,8 @@ export class FruitField {
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.powerSlowLeft = 0; idle.powerSlowMultiplier = 1; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false; idle.bossEnraged = false;
     idle.splitChild = false;
+    idle.routePoints = routePoints; idle.routeIndex = routePoints ? 1 : undefined;
+    idle.routeDetours = new Set(); idle.environmentCooldown = 0; idle.environmentSlow = 0;
     resetStudioAnimState(idle.studio, enemyKind, { boss, fruitKind: kind, bossStage });
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.hazardRing.visible = idle.enemyKind === 'explosive' || idle.enemyKind === 'chainburst';
@@ -286,7 +303,7 @@ export class FruitField {
     if (fruit.boss && !fruit.bossEnraged && fruit.hp > 0 && fruit.hp <= fruit.maxHp / 2) {
       fruit.bossEnraged = true;
       // Brood bosses release two smaller runners midway through the fight.
-      if (fruit.enemyKind === 'splitter') this.spawnSplitChildren(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z);
+      if (fruit.enemyKind === 'splitter') this.spawnSplitChildren(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.routePoints?.slice(fruit.routeIndex ?? 1));
       this.onBossPhase?.(fruit);
     }
     const pos = {
@@ -314,7 +331,7 @@ export class FruitField {
     fruit.hazardRing.visible = false;
     fruit.armorRing.visible = false;
     fruit.group.visible = false;
-    if (wasSplitter && split) this.spawnSplitChildren(x, y, z);
+    if (wasSplitter && split) this.spawnSplitChildren(x, y, z, fruit.routePoints?.slice(fruit.routeIndex ?? 1));
   }
 
   /**
@@ -323,21 +340,24 @@ export class FruitField {
    * no infinite recursion — and (b) keeps them out of wave accounting so a
    * perfect wave stays correctly detectable.
    */
-  private spawnSplitChildren(x: number, y: number, z: number): void {
+  private spawnSplitChildren(x: number, y: number, z: number, routePoints?: Array<{ x: number; z: number }>): void {
     for (const offset of [-0.7, 0.7]) {
-      this.pendingChildren.push({ x, y, z, offset });
+      this.pendingChildren.push({ x, y, z, offset, routePoints });
     }
     this.flushSplitChildren();
   }
 
   private flushSplitChildren(): void {
     while (this.pendingChildren.length) {
-      const { x, y, z, offset } = this.pendingChildren[0];
+      const { x, y, z, offset, routePoints } = this.pendingChildren[0];
       const child = this.spawn('strawberry', false, 'normal');
       if (!child) break;
       this.pendingChildren.shift();
       child.splitChild = true;
       child.group.position.set(x + offset, y + 0.15, z - 0.15);
+      child.routePoints = routePoints && routePoints.length > 1 ? routePoints : undefined;
+      child.routeIndex = child.routePoints ? 1 : undefined;
+      child.routeDetours = new Set(); child.environmentCooldown = 0; child.environmentSlow = 0;
       child.radius *= 0.72;
       child.hp = Math.max(1, Math.round(child.hp * 0.7));
       child.maxHp = child.hp;
@@ -364,17 +384,83 @@ export class FruitField {
     for (const fruit of this.fruits) {
       if (!fruit.alive) continue;
       fruit.bob += dt * (fruit.boss ? (fruit.enemyKind === 'swift' ? 4.8 : fruit.enemyKind === 'armored' ? 2.15 : 2.8) : 3);
-      const dx = -fruit.group.position.x * 0.12; const dz = LEAK_Z - fruit.group.position.z; const dist = Math.hypot(dx, dz) || 0.0001;
+      const route = fruit.routePoints;
+      const map = this.battleMap;
+      if (route?.length) {
+        while ((fruit.routeIndex ?? 1) < route.length - 1) {
+          const point = route[fruit.routeIndex ?? 1]!;
+          if (Math.hypot(point.x - fruit.group.position.x, point.z - fruit.group.position.z) > .42) break;
+          fruit.routeIndex = (fruit.routeIndex ?? 1) + 1;
+        }
+      }
+      let goal = route?.[(fruit.routeIndex ?? 1)];
+      // Route around authored solid rectangles before steering toward the next node.
+      if (route && goal && map) {
+        for (const obstacle of map.entities) {
+          if (obstacle.kind !== 'solid' || obstacle.collision !== 'solid' || fruit.routeDetours?.has(obstacle.id)) continue;
+          const center = mapPointToWorld({ x: obstacle.x, y: obstacle.y }, map);
+          const angle = obstacle.rotation * Math.PI / 180; const c = Math.cos(angle); const s = Math.sin(angle);
+          const toLocal = (x: number, z: number) => ({ x: (x - center.x) * c + (z - center.z) * s, z: -(x - center.x) * s + (z - center.z) * c });
+          const start = toLocal(fruit.group.position.x, fruit.group.position.z); const end = toLocal(goal.x, goal.z);
+          const halfX = obstacle.width * map.world.width / 2 + fruit.radius * .65;
+          const halfZ = obstacle.height * map.world.depth / 2 + fruit.radius * .65;
+          const dx = end.x - start.x; const dz = end.z - start.z;
+          let tMin = 0; let tMax = 1; let crosses = true;
+          for (const [origin, delta, half] of [[start.x, dx, halfX], [start.z, dz, halfZ]] as const) {
+            if (Math.abs(delta) < 1e-6) { if (Math.abs(origin) > half) crosses = false; continue; }
+            const a = (-half - origin) / delta; const b = (half - origin) / delta;
+            tMin = Math.max(tMin, Math.min(a, b)); tMax = Math.min(tMax, Math.max(a, b));
+          }
+          if (!crosses || tMin > tMax) continue;
+          const left = -halfX - .25; const right = halfX + .25;
+          const entryZ = dz <= 0 ? halfZ + .25 : -halfZ - .25; const exitZ = -entryZ;
+          const side = Math.abs(start.x - left) + Math.abs(end.x - left) <= Math.abs(start.x - right) + Math.abs(end.x - right) ? left : right;
+          const toWorld = (x: number, z: number) => ({ x: center.x + x * c - z * s, z: center.z + x * s + z * c });
+          route.splice(fruit.routeIndex ?? 1, 0, toWorld(side, entryZ), toWorld(side, exitZ));
+          fruit.routeDetours?.add(obstacle.id);
+          goal = route[fruit.routeIndex ?? 1];
+        }
+      }
+      const dx = goal ? goal.x - fruit.group.position.x : -fruit.group.position.x * 0.12;
+      const dz = goal ? goal.z - fruit.group.position.z : LEAK_Z - fruit.group.position.z;
+      const dist = Math.hypot(dx, dz) || 0.0001;
       fruit.powerSlowLeft = Math.max(0, (fruit.powerSlowLeft ?? 0) - dt); fruit.brittle = Math.max(0, fruit.brittle - dt); fruit.impulseX *= 0.88; fruit.impulseZ *= 0.88;
       const enemy = ENEMY_RULES[fruit.enemyKind] || ENEMY_RULES.normal;
-      const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * 0.32 * rules.speedMul * (fruit.boss ? 0.58 * (fruit.bossEnraged ? 1.4 : 1) : 1) * Math.min(fruit.brittle > 0 ? .48 : 1, (fruit.powerSlowLeft ?? 0) > 0 ? fruit.powerSlowMultiplier ?? .45 : 1);
+      const speed = FRUIT_DEFS[fruit.kind].speed * enemy.speedMultiplier * (route ? .48 : .32) * rules.speedMul * (fruit.boss ? 0.58 * (fruit.bossEnraged ? 1.4 : 1) : 1) * Math.min(fruit.brittle > 0 ? .48 : 1, (fruit.powerSlowLeft ?? 0) > 0 ? fruit.powerSlowMultiplier ?? .45 : 1) * (1 - (fruit.environmentSlow ?? 0));
       fruit.dodgeX *= 0.86; fruit.dodgeZ *= 0.86;
       const moveX = (dx / dist) * speed + fruit.dodgeX + fruit.impulseX;
       const moveZ = (dz / dist) * speed + fruit.dodgeZ + fruit.impulseZ;
       fruit.group.position.x += moveX * dt;
       fruit.group.position.z += moveZ * dt;
       fruit.group.position.x = Math.max(-hw, Math.min(hw, fruit.group.position.x)); fruit.group.position.z = Math.min(top, fruit.group.position.z);
-      if (fruit.group.position.z <= LEAK_Z) { this.kill(fruit, false); onLeak(fruit); continue; }
+      let environmentalSlow = 0;
+      fruit.environmentCooldown = Math.max(0, (fruit.environmentCooldown ?? 0) - dt);
+      if (map) {
+        for (const entity of map.entities) {
+          if (entity.collision === 'none' || entity.kind === 'solid') continue;
+          const center = mapPointToWorld({ x: entity.x, y: entity.y }, map);
+          const angle = entity.rotation * Math.PI / 180; const c = Math.cos(angle); const s = Math.sin(angle);
+          const dx = fruit.group.position.x - center.x; const dz = fruit.group.position.z - center.z;
+          const localX = dx * c + dz * s; const localZ = -dx * s + dz * c;
+          const inside = Math.abs(localX) <= entity.width * map.world.width / 2 + fruit.radius * .45
+            && Math.abs(localZ) <= entity.height * map.world.depth / 2 + fruit.radius * .45;
+          if (!inside) continue;
+          environmentalSlow = Math.max(environmentalSlow, entity.slow);
+          if (entity.kind === 'pit') {
+            if (this.hurt(fruit, fruit.hp, 'turret')) this.onEnvironmentKill?.(fruit);
+            break;
+          }
+          if (entity.kind === 'hazard' && fruit.environmentCooldown === 0) {
+            fruit.environmentCooldown = .75;
+            if (this.hurt(fruit, Math.max(1, entity.damage), 'turret')) { this.onEnvironmentKill?.(fruit); break; }
+          }
+        }
+      }
+      if (!fruit.alive) continue;
+      fruit.environmentSlow = environmentalSlow;
+      const finalPoint = route?.[route.length - 1];
+      const reachedRouteEnd = finalPoint && (fruit.routeIndex ?? 1) >= route!.length - 1 && Math.hypot(finalPoint.x - fruit.group.position.x, finalPoint.z - fruit.group.position.z) <= .5;
+      if (reachedRouteEnd || (!route && fruit.group.position.z <= LEAK_Z)) { this.kill(fruit, false); onLeak(fruit); continue; }
       fruit.squash = Math.max(0, fruit.squash - dt);
       const squash = fruit.squash > 0 ? 1 - fruit.squash * 1.4 : 1;
       const def = FRUIT_DEFS[fruit.kind];

@@ -160,6 +160,15 @@ test('a new player owns starter gear and nothing else', () => {
   assert.equal(owned.length, 2, `unexpected starting inventory: ${owned.join(', ')}`);
 });
 
+test('tower wall catalog has one textured default and two textured shop skins', () => {
+  const save = freshSave();
+  const walls = allCatalogItems().filter((item) => item.category === 'walls');
+  assert.equal(walls.length, 3);
+  assert.ok(walls.every((item) => item.previewImage?.startsWith('/assets/towers/')));
+  assert.equal(shopItems(save, 'walls').length, 2);
+  assert.equal(walls.find((item) => item.id === 'wall-brick')?.price, 0);
+});
+
 /* ───────────── Equip state (§7) ───────────── */
 
 test('equipped state is reported per slot', () => {

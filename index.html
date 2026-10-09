@@ -142,7 +142,7 @@
         <!-- Super juice bar (left side) -->
         <div id="super-wrap" role="group" aria-label="Juice charge">
           <button id="btn-super" disabled>SUPER</button>
-          <div id="super-bar-track">
+          <div id="super-bar-track" role="progressbar" aria-label="Super juice charge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div id="super-fill" class="super-liquid" aria-hidden="true">
               <div class="super-liquid__body"></div>
               <div class="super-liquid__shine"></div>
@@ -988,6 +988,7 @@
               <button class="admin-tab-btn" data-tab="badges">Badges</button>
               <button class="admin-tab-btn" data-tab="ranks">Monthly Ranks</button>
               <button class="admin-tab-btn" data-tab="slicers">Slicers</button>
+              <button class="admin-tab-btn" data-tab="maps">Map Editor</button>
               <button class="admin-tab-btn" data-tab="sprites">Creator</button>
               <button class="admin-tab-btn" data-tab="branding">Menus & Titles</button>
               <button class="admin-tab-btn" data-tab="landscape">Landscape Editor</button>
@@ -1054,6 +1055,11 @@
                 <button type="button" id="btn-admin-add-slicer" class="admin-btn-action">+ Add Slicer</button>
               </div>
               <div id="admin-slicers-list" class="admin-catalog-list"></div>
+            </div>
+
+            <div id="admin-tab-maps" class="admin-panel-tab hidden">
+              <p class="text-xs text-slate-400 mb-3">Author mode maps in normalized coordinates. Background images stay aligned with routes and gameplay entities at every screen size. Saved maps are shared through MongoDB.</p>
+              <div id="admin-map-studio"></div>
             </div>
 
 
