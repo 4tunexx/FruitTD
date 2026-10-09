@@ -412,7 +412,7 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
 #screen-hub.ftd-hub::before {
   z-index:0;
   background:linear-gradient(105deg,#17181b48 0%,#17181b24 48%,#17181b52 100%),url('../assets/orchard-siege-menu.webp') 62% center/cover no-repeat;
-  filter:blur(12px) brightness(.82) saturate(1.08);
+  filter:blur(24px) brightness(.82) saturate(1.08);
 }
 #screen-hub.ftd-hub { isolation:isolate; background:transparent !important; }
 #screen-hub.ftd-hub :is(.ftd-hub__main,.ftd-hub__sub:not(.is-empty)) {
@@ -889,12 +889,11 @@ html[data-ftd-motion='reduced'] #screen-hub #page-quests .quests-subtabs .subtab
 html[data-ftd-motion='reduced'] #screen-hub #page-quests .claim-btn:not(:disabled)::after,
 html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: none !important; }
 
-/* The glass and blurred full-screen artwork above are intended for PC GPUs.
-   Avoid expensive live filters and repeated backdrop composition on phones. */
+/* Keep the logged-in dashboard artwork softly blurred on mobile too. */
 @media (max-width: 900px) {
   #screen-hub.ftd-hub::before {
-    filter: none;
-    transform: none;
+    filter: blur(18px) brightness(.82) saturate(1.08);
+    transform: scale(1.08);
     background-image: linear-gradient(105deg, #17181b80, #17181b52 48%, #17181b88), url('../assets/orchard-siege-menu.webp');
   }
   #screen-hub.ftd-hub :is(.ftd-hub__main, .ftd-hub__sub:not(.is-empty)) {
