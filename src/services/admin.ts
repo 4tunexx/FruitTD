@@ -230,6 +230,9 @@ export async function fetchAdminConfig(): Promise<AdminConfig | null> {
     const res = await fetch('/api/admin/config');
     if (!res.ok) return null;
     const data = await res.json();
+    // The API deliberately returns defaults with HTTP 200 while MongoDB is
+    // unavailable. Do not present that fallback as the live shared config.
+    if (data?.offline === true) return null;
     return data?.config ? mergeAdminConfig(data.config) : null;
   } catch (err) {
     console.error('Error fetching admin config:', err);

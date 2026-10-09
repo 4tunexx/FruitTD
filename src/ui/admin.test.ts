@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { installDomStub, resetDom } from './domStub.test-helper';
 installDomStub();
 import { AdminController } from './admin';
-import { DEFAULT_ADMIN_CONFIG } from '../services/admin';
+import { DEFAULT_ADMIN_CONFIG, fetchAdminConfig } from '../services/admin';
 
 function workspace() {
   resetDom();
@@ -67,4 +67,18 @@ test('an older admin leaderboard response cannot overwrite a newer refresh', asy
     assert.match(root.querySelector('#admin-lb-table')!.textContent!, /Current/);
     assert.doesNotMatch(root.querySelector('#admin-lb-table')!.textContent!, /Stale/);
   } finally { globalThis.fetch = priorFetch; resetDom(); }
+});
+
+test('admin config fallback is not reported as live when MongoDB is offline', async () => {
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    success: true,
+    offline: true,
+    config: structuredClone(DEFAULT_ADMIN_CONFIG),
+  }));
+  try {
+    assert.equal(await fetchAdminConfig(), null);
+  } finally {
+    globalThis.fetch = priorFetch;
+  }
 });
