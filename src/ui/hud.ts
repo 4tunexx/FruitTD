@@ -58,7 +58,7 @@ import { bootMenuParallax, syncMenuParallax } from './menuParallax';
 import { navigation } from '../game/navigation';
 import { getHeroXpState } from '../game/progression';
 import { getAllHeroStatuses } from '../game/progression/heroStatus';
-import { rankFromScore } from '../game/requirements';
+import { rankFromScore } from '../game/rankSeason';
 import type { AdminController } from './admin';
 import type { Sfx } from '../audio/sfx';
 import { isUserAdmin } from '../services/admin';

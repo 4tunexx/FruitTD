@@ -1,7 +1,7 @@
 import { getPublishedCreatorMedia, publishedCreatorRevision } from './creatorMedia';
 /**
  * Runtime bridge: Creator Hub / Media Studio sheets/clips → live fruit textures + event hooks.
- * Pure loaders/helpers come from adminMediaStudio; no DOM install code is invoked here.
+ * Runtime data helpers are kept separate from the admin editor UI.
  */
 import { CanvasTexture, LinearFilter, SRGBColorSpace } from 'three';
 import { subscribeStudioRuntimeInvalidation } from './studioRuntimeSignals';
@@ -12,13 +12,15 @@ import {
   frameRect,
   loadStudioStore,
   normalizeEvents,
-  type ClipDef,
-  type EntityStudioData,
-  type FxPreset,
-  type StudioDirection,
-  type StudioEventHook,
-  type StudioHookKind,
-  type StudioState,
+} from './creatorMediaModel';
+import type {
+  ClipDef,
+  EntityStudioData,
+  FxPreset,
+  StudioDirection,
+  StudioEventHook,
+  StudioHookKind,
+  StudioState,
 } from '../ui/adminMediaStudio';
 import type { EnemyKind } from './enemies';
 export const TOWER_STUDIO_KEY = 'tower-main';

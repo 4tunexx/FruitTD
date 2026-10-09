@@ -185,7 +185,7 @@ test('home shows separate daily and main mission progress meters', () => {
   assert.ok(panel!.querySelector('.ftd-mission-progress__row--main'));
 });
 
-test('legacy Missions moves into the hub and returns to its original host while Ranked is now dedicated PvP', () => {
+test('legacy Missions moves into the hub and returns to its original host while Ranked is now dedicated PvP', async () => {
   resetHub();
   resetDom();
   const world = document.createElement('div');
@@ -212,6 +212,7 @@ test('legacy Missions moves into the hub and returns to its original host while 
   assert.equal(root.querySelector('#page-quests'), quests);
   switchHubTab(root, defaultSave(), 'ARENA');
   assert.equal(quests.parentElement, world);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   assert.match(root.textContent!, /ARENA/);
   assert.equal(root.querySelector('#page-leaderboard'), null, 'the solo leaderboard is kept out of the PvP rating screen');
   switchHubTab(root, defaultSave(), 'MAIN_MENU');

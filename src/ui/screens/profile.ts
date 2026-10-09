@@ -13,7 +13,7 @@ import { heroDef, MAX_HERO_LEVEL } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
 import { getTowerXpState } from '../../game/towerProgression';
 import { MAX_TOWER_LEVEL } from '../../game/world';
-import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/requirements';
+import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/rankSeason';
 import type { SaveData } from '../../game/save';
 
 export interface ProfileStats {

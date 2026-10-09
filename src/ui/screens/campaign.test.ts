@@ -112,6 +112,7 @@ test('hub keeps launch beside the map after moving boss intel to its side panel'
   const root = document.createElement('div');
   const save = defaultSave(); save.campaignProgress = { unlocked: 3, cleared: [1, 2] };
   renderHub(root, save, 'CAMPAIGN', { onPlay() {} });
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   const main = root.querySelector('.ftd-hub__main')!;
   const sub = root.querySelector('.ftd-hub__sub')!;
   assert.ok(main.querySelector('[data-testid="campaign-start-stage"]'));

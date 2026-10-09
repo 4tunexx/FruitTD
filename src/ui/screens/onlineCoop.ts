@@ -4,7 +4,7 @@ import { heroAbility } from '../../game/heroAbilities';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { LoadingIndicator } from '../components/loading';
-import { PvpBattlefield } from './pvpBattlefield';
+import type { PvpBattlefield } from './pvpBattlefield';
 import type { CoopMatch, CoopConfig, CoopCommand } from '../../game/onlineCoop';
 import type { PvpConfig } from '../../game/pvp';
 import { turretDef, type TurretKind } from '../../game/turrets';
@@ -25,8 +25,8 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  heading.querySelector('button')?.addEventListener('click',()=>openScreen('MAIN_MENU'));
  host.append(heading);
  const notice=el('p',{role:'status',class:'ftd-pvp__intro'});const body=el('div');host.append(notice,body);
- let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let selected='guillotine';let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
- const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();client?.close();client=null;connectedRoom='';};
+ let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let sceneLoadingId='';let selected='guillotine';let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
+ const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();scene=null;sceneId='';client?.close();client=null;connectedRoom='';};
  const canAttachRoom=(id:string)=>Boolean(room&&room.id===id&&room.status!=='complete');
  const attach=async()=>{if(!room||room.status==='complete'||attaching||connectedRoom===room.id)return;attaching=true;const id=room.id;
   let candidate:Realtime|null=null;
@@ -65,7 +65,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   }
   const own=room.players.find(p=>p.userId===yourId);if(!own)return;
   if(room.status==='waiting'){const inviteName=el('input',{class:'admin-input',placeholder:'Friend username','aria-label':'Friend username to invite','maxlength':24}) as HTMLInputElement;body.append(el('h3',{text:`ROOM ${room.id.toUpperCase()}`}),LoadingIndicator('Waiting for your teammate…'),el('p',{text:'Share this code with a friend. Public rooms also accept the next available player.'}),GameButton({label:'Copy room code',variant:'outline',onClick:()=>{void navigator.clipboard.writeText(room!.id).then(()=>notice.textContent='Room code copied.').catch(()=>notice.textContent='Select and copy the room code above.');}}),el('div',{class:'ftd-coop-online-actions'},[inviteName,GameButton({label:'Invite friend',tone:'primary',onClick:()=>{if(!inviteName.value.trim()){notice.textContent='Enter a friend username first.';return;}void send(`/${room!.id}/invite`,{username:inviteName.value.trim()});}})]),GameButton({label:'Delete room',variant:'outline',onClick:()=>command({type:'leave'})}));return;}
-  if(room.status==='complete'){scene?.dispose();scene=null;client?.close();client=null;connectedRoom='';
+  if(room.status==='complete'){scene?.dispose();scene=null;sceneId='';client?.close();client=null;connectedRoom='';
    if(room.completedWaves||room.kills)recordRun({id:`coop:${room.id}`,mode:'coop',score:room.score,wave:room.wave,combo:0,kills:room.kills,strokes:0,hits:0,completed:room.reason!=='left',date:Date.now()});
    const coins=room.completedWaves?Math.min(coop.rewardCoinCap,room.kills*coop.coinsPerKill+room.completedWaves*coop.coinsPerWave):0;
    body.append(el('h3',{text:room.reason==='wall'?'WALL BREACHED':'TEAM RUN ENDED'}),el('p',{text:`${room.completedWaves} waves · ${room.kills} fruit · ${room.score} score`}),el('p',{text:`Each account earns ${coins} coins · ${Math.floor(room.completedWaves/coop.gemsEveryWaves)} gems. Server settlement applies XP and team achievements.`}),GameButton({label:'Back to Co-op lobby',tone:'primary',onClick:()=>void send(`/${room!.id}/ack`,{})}));return;
@@ -73,7 +73,8 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   void attach();
   const other=room.players.find(p=>p.userId!==yourId);
   const snapshot={id:room.id,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStroke:other?.lastStroke,players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y}))}]};
-  if(!scene||sceneId!==room.id){scene?.dispose();scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneId=room.id;}
+  if(sceneId!==room.id){scene?.dispose();scene=null;sceneId=room.id;sceneLoadingId=room.id;const loadingRoom=room.id;void import('./pvpBattlefield').then(({PvpBattlefield})=>{if(disposed||!body.isConnected||room?.id!==loadingRoom||room.status==='complete'){if(sceneLoadingId===loadingRoom)sceneLoadingId='';return;}scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneLoadingId='';render();}).catch(error=>{if(sceneLoadingId===loadingRoom)sceneLoadingId='';if(!disposed&&room?.id===loadingRoom)notice.textContent=error instanceof Error?`Battlefield could not start: ${error.message}`:'Battlefield could not start.';});}
+  if(!scene){body.append(LoadingIndicator('Loading Co-op battlefield…'));return;}
   scene.update(snapshot,balance);scene.element.dataset.tower=selected;
   body.append(el('div',{class:'ftd-pvp__matchbar'},[el('strong',{text:`WAVE ${room.wave}`}),el('span',{text:`Wall ${room.wallHealth}/${balance.wallHealth} · ${Math.floor(room.fruts)} shared Fruts · ${room.score} score`}),el('span',{text:room.players.map(p=>`${p.name} · ${p.hero}`).join(' + ')}),GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})})]));
   const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]);

@@ -764,6 +764,21 @@ function normalizeCreatorMedia(raw) {
   return { version: 2, entities, selectedEntity: typeof row.selectedEntity === "string" && entities[row.selectedEntity] ? row.selectedEntity : Object.keys(entities)[0] || "enemy-normal" };
 }
 
+// src/game/rankSeason.ts
+var DEFAULT_RANK_TIERS = [
+  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "Shield", rewardCoins: 100 },
+  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "Medal", rewardCoins: 250, rewardGems: 5 },
+  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "Trophy", rewardCoins: 500, rewardGems: 10 },
+  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "BadgeCheck", rewardCoins: 750, rewardGems: 15 },
+  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "Diamond", rewardCoins: 1500, rewardGems: 30 },
+  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "Crown", rewardCoins: 2500, rewardGems: 60 },
+  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "Flame", rewardCoins: 5e3, rewardGems: 100 }
+];
+function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
+  const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
+  return sorted.find((tier) => score >= tier.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
+}
+
 // src/game/requirements.ts
 var REQUIREMENT_TYPES = [
   { id: "coop_team_run", category: "social", label: "Complete six online Co-op waves", hint: "Verified by the online match server", event: "coop_result", progress: "increment", valueField: "count" },
@@ -870,19 +885,6 @@ function currentMonthKey(date = /* @__PURE__ */ new Date()) {
 }
 function monthlyLeaderboardMode(date = /* @__PURE__ */ new Date()) {
   return `monthly-${currentMonthKey(date)}`;
-}
-var DEFAULT_RANK_TIERS = [
-  { id: "bronze", title: "Bronze", minScore: 0, color: "#cd7f32", icon: "Shield", rewardCoins: 100 },
-  { id: "silver", title: "Silver", minScore: 1500, color: "#c0c0c0", icon: "Medal", rewardCoins: 250, rewardGems: 5 },
-  { id: "gold", title: "Gold", minScore: 4e3, color: "#f5c542", icon: "Trophy", rewardCoins: 500, rewardGems: 10 },
-  { id: "platinum", title: "Platinum", minScore: 8e3, color: "#7dd3fc", icon: "BadgeCheck", rewardCoins: 750, rewardGems: 15 },
-  { id: "diamond", title: "Diamond", minScore: 15e3, color: "#67e8f9", icon: "Diamond", rewardCoins: 1500, rewardGems: 30 },
-  { id: "master", title: "Master", minScore: 25e3, color: "#c084fc", icon: "Crown", rewardCoins: 2500, rewardGems: 60 },
-  { id: "grandmaster", title: "Grandmaster", minScore: 4e4, color: "#fb7185", icon: "Flame", rewardCoins: 5e3, rewardGems: 100 }
-];
-function rankFromScore(score, tiers = DEFAULT_RANK_TIERS) {
-  const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
-  return sorted.find((t) => score >= t.minScore) ?? sorted[sorted.length - 1] ?? DEFAULT_RANK_TIERS[0];
 }
 function mergeRewardDefaults(items, defaults3) {
   const byId = new Map(defaults3.map((item) => [item.id, item]));

@@ -33,7 +33,7 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { getTowerXpState } from '../../game/towerProgression';
-import { currentSeasonLabel } from '../../game/requirements';
+import { currentSeasonLabel } from '../../game/rankSeason';
 import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves, createElement } from 'lucide';
 import { getTowerXpState as getMainTowerXpState } from '../../game/towerProgression';
 import type { GameMode, SaveData } from '../../game/save';

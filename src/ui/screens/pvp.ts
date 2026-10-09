@@ -9,7 +9,7 @@ import { heroAbility } from '../../game/heroAbilities';
 import { PVP_MAX_TOWER_LEVEL, pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, pvpTowerStats, pvpTowerRole, pvpMainUpgradeCost, pvpReleaseCost, PVP_CAPTURE_CAPACITY, type PvpConfig, type PvpQueue } from '../../game/pvp';
 import type { Realtime as AblyRealtime } from 'ably';
 import { socialApi } from '../../services/social';
-import { PvpBattlefield } from './pvpBattlefield';
+import type { PvpBattlefield } from './pvpBattlefield';
 import { turretDef, type TurretKind } from '../../game/turrets';
 import { LoadingIndicator } from '../components/loading';
 
@@ -73,6 +73,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let friendsError = false;
   let battlefield: BattlefieldView | null = null;
   let battlefieldId = '';
+  let battlefieldLoadingId = '';
   let busy = false;
   let refreshing = false;
   let attachingRealtime = false;
@@ -287,24 +288,49 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       if (current?.status === 'active') void send(`/match/${current.id}/command`, { sequence: current.yourSequence + 1, command });
     };
     if (!battlefield || battlefieldId !== match.id) {
-      battlefield?.dispose(); selectedCell = null;
-      try {
-        const create = options.createBattlefield || ((view, config, command, select) => new PvpBattlefield(view, config, command, select));
-        battlefield = create(match, sceneConfig, issue, (cell) => {
-          const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
-          if (!current || !player) return;
-          const tower = player.towers.find(item => item.cell === cell);
-          if (tower) { selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
-          else {
-            selectedCell = cell;
-            const cost = status.config?.towers[selectedTower]?.cost;
-            if (cost !== undefined && player.fruts >= cost) issue({ type: 'build', tower: selectedTower, cell });
-            else { actionError = 'More Fruts needed for this tower.'; render(); }
-          }
-        });
-        battlefieldId = match.id;
-      } catch (error) {
-        body.append(label(error instanceof Error ? `Battlefield could not start: ${error.message}` : 'Battlefield could not start.', 'ftd-pvp__error'));
+      battlefield?.dispose(); selectedCell = null; battlefield = null; battlefieldId = '';
+      const select = (cell: number) => {
+        const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
+        if (!current || !player) return;
+        const tower = player.towers.find(item => item.cell === cell);
+        if (tower) { selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
+        else {
+          selectedCell = cell;
+          const cost = status.config?.towers[selectedTower]?.cost;
+          if (cost !== undefined && player.fruts >= cost) issue({ type: 'build', tower: selectedTower, cell });
+          else { actionError = 'More Fruts needed for this tower.'; render(); }
+        }
+      };
+      if (options.createBattlefield) {
+        try {
+          battlefield = options.createBattlefield(match, sceneConfig, issue, select);
+          battlefieldId = match.id;
+        } catch (error) {
+          body.append(label(error instanceof Error ? `Battlefield could not start: ${error.message}` : 'Battlefield could not start.', 'ftd-pvp__error'));
+          return;
+        }
+      } else {
+        const loadingId = match.id;
+        body.append(LoadingIndicator('Loading Arena battlefield…'));
+        if (battlefieldLoadingId !== loadingId) {
+          battlefieldLoadingId = loadingId;
+          void import('./pvpBattlefield').then(({ PvpBattlefield }) => {
+            battlefieldLoadingId = '';
+            const current = status.match;
+            if (disposed || !main.isConnected || current?.id !== loadingId || current.status !== 'active') {
+              if (!disposed && main.isConnected) render();
+              return;
+            }
+            battlefield = new PvpBattlefield(current, sceneConfig, issue, select);
+            battlefieldId = loadingId;
+            render();
+          }).catch((error) => {
+            battlefieldLoadingId = '';
+            if (disposed || !main.isConnected || status.match?.id !== loadingId) return;
+            actionError = error instanceof Error ? `Battlefield could not start: ${error.message}` : 'Battlefield could not start.';
+            render();
+          });
+        }
         return;
       }
     }

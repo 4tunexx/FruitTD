@@ -2,14 +2,10 @@ import { Newspaper, Settings, Map, Users, MessageCircle, Bell, ListChecks, Troph
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { back, openScreen } from './registry';
-import { renderNews } from './news';
-import { renderSettings } from './settings';
-import { renderCampaign } from './campaign';
 import type { HubTab } from './hub';
 import type { NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
-import { renderPvpHub } from './pvp';
-import { renderLeaderboards } from './leaderboards';
+import { LoadingIndicator } from '../components/loading';
 
 function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>): void {
   const actions = el('div', { class: 'ftd-hub-context__actions' }, links.map(({ label, open }) => GameButton({ label, variant: 'outline', block: true, onClick: open })));
@@ -23,6 +19,34 @@ function context(root: HTMLElement, eyebrow: string, title: string, body: string
 
 function route(label: string, id: NavState) { return { label, open: () => openScreen(id) }; }
 
+function renderLazyPage<T extends object>(
+  root: HTMLElement,
+  label: string,
+  load: () => Promise<T>,
+  render: (page: HTMLElement, module: T) => void,
+  className = '',
+): void {
+  const page = el('div', className ? { class: className } : {});
+  root.appendChild(page);
+  page.appendChild(LoadingIndicator(`Loading ${label}…`));
+  void load().then((module) => {
+    if (page.parentElement) render(page, module);
+  }).catch(() => {
+    if (page.parentElement) page.replaceChildren(el('p', { role: 'alert', text: `${label} could not load. Open it again to retry.` }));
+  });
+}
+
+function renderPvpTab(root: HTMLElement, queue: 'arena' | 'ranked'): void {
+  const page = el('div');
+  root.appendChild(page);
+  page.appendChild(LoadingIndicator(queue === 'ranked' ? 'Loading Ranked…' : 'Loading Arena…'));
+  void import('./pvp').then(({ renderPvpHub }) => {
+    if (page.isConnected) renderPvpHub(page, queue);
+  }).catch(() => {
+    if (page.isConnected) page.replaceChildren(el('p', { role: 'alert', text: 'Arena could not load. Return to the tab and try again.' }));
+  });
+}
+
 export interface MenuHubActions {
   onOpenDaily: () => void;
   onToggleSound: () => void;
@@ -33,23 +57,24 @@ export interface MenuHubActions {
 
 export function menuHubTabs(actions: MenuHubActions): HubTab[] {
   const simple: HubTab[] = [
-    { id: 'LEADERBOARD', label: 'Leaderboard', icon: Trophy, renderMain: renderLeaderboards, renderSub: root => context(root, 'THE LEADERBOARDS', 'Choose your challenge', 'Ranked uses Arena FR points. Casual and Co-op use high scores. Horde rewards the highest wave. Coins and gems show current balances.', [route('Your statistics', 'PROFILE'), route('Play Ranked', 'RANKED')]) },
+    { id: 'LEADERBOARD', label: 'Leaderboard', icon: Trophy, renderMain: (root) => renderLazyPage(root, 'leaderboards', () => import('./leaderboards'), (page, module) => module.renderLeaderboards(page)), renderSub: root => context(root, 'THE LEADERBOARDS', 'Choose your challenge', 'Ranked uses Arena FR points. Casual and Co-op use high scores. Horde rewards the highest wave. Coins and gems show current balances.', [route('Your statistics', 'PROFILE'), route('Play Ranked', 'RANKED')]) },
     { id: 'NEWS', label: 'News', icon: Newspaper, renderMain: (root, save) => {
-      const page = el('div', { class: 'ftd-hub-embedded' }); root.appendChild(page);
-      renderNews(page, save, actions.onOpenDaily);
+      renderLazyPage(root, 'news', () => import('./news'), (page, module) => module.renderNews(page, save, actions.onOpenDaily), 'ftd-hub-embedded');
     }, renderSub: (root, save) => context(root, 'YOUR NEXT MOVE', 'Field orders', `${save.campaignProgress.cleared.length} campaign stages cleared.`, [
       { label: 'Claim daily bonus', open: actions.onOpenDaily }, route('Browse campaign', 'CAMPAIGN'), route('Open community', 'SOCIAL'),
     ]) },
     { id: 'SETTINGS', label: 'Settings', icon: Settings, renderMain: (root, save) => {
-      const page = el('div', { class: 'ftd-hub-embedded' }); root.appendChild(page);
-      renderSettings(page, save, actions);
+      renderLazyPage(root, 'settings', () => import('./settings'), (page, module) => module.renderSettings(page, save, actions), 'ftd-hub-embedded');
     }, renderSub: (root, save) => context(root, 'ACCOUNT', save.nickname || 'Slicer', 'Manage your profile and return to the game whenever you are ready.', [
       route('Open profile', 'PROFILE'), route('Return home', 'MAIN_MENU'),
     ]) },
     { id: 'CAMPAIGN', label: 'Campaign', icon: Map, renderMain: (root, save) => {
-      const page = el('div');
-      root.appendChild(page);
-      renderCampaign(page, save, actions.onStartCampaign);
+      renderLazyPage(root, 'campaign', () => import('./campaign'), (page, module) => {
+        module.renderCampaign(page, save, actions.onStartCampaign);
+        const boss = page.querySelector<HTMLElement>('.ftd-boss-reveal');
+        const side = page.closest('.ftd-hub')?.querySelector('.ftd-hub__sub');
+        if (boss && side) side.appendChild(boss);
+      });
     }, renderSub: (root) => {
       const boss = root.closest('.ftd-hub')?.querySelector('.ftd-hub__main')?.querySelector<HTMLElement>('.ftd-boss-reveal');
       if (boss) root.appendChild(boss);
@@ -77,8 +102,8 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
     { id: 'BADGES', label: 'Badges', page: 'quests', subtab: 'badges', icon: Medal },
   ];
   const pvp: HubTab[] = [
-    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpHub(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Community', 'SOCIAL')]) },
-    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpHub(root, 'arena'), renderSub: (root) => context(root, 'NORMAL OR RANKED', 'Arena siege', 'Build turrets, upgrade defences, and send attacks. Equal stats, equipped appearances, and the same Rally power. Normal keeps your rank; Ranked changes FR.', [route('Community', 'SOCIAL')]) },
+    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpTab(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Community', 'SOCIAL')]) },
+    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpTab(root, 'arena'), renderSub: (root) => context(root, 'NORMAL OR RANKED', 'Arena siege', 'Build turrets, upgrade defences, and send attacks. Equal stats, equipped appearances, and the same Rally power. Normal keeps your rank; Ranked changes FR.', [route('Community', 'SOCIAL')]) },
   ];
   return [...simple, ...pvp, ...legacy.map(({ id, label, page, subtab, icon }): HubTab => ({
     id, label, icon,
