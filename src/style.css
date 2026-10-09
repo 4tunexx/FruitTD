@@ -6604,7 +6604,6 @@ body.is-playing .match-parallax,
   pointer-events: none;
   /* Soften the full-screen artwork while keeping the menu content crisp. */
   backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   background:
     linear-gradient(112deg, transparent 0 47%, rgba(176, 255, 88, 0.07) 47.1% 47.25%, transparent 47.35% 100%),
     repeating-linear-gradient(90deg, transparent 0 10.5rem, rgba(188, 228, 197, 0.035) 10.55rem 10.65rem);
