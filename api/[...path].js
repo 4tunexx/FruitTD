@@ -5360,9 +5360,17 @@ function createApp() {
 var app = createApp();
 function normalizeApiUrl(req2) {
   const raw = req2.url || "/";
-  const qIndex = raw.indexOf("?");
-  const pathOnly = qIndex >= 0 ? raw.slice(0, qIndex) : raw;
-  const query = qIndex >= 0 ? raw.slice(qIndex) : "";
+  const requestTarget = raw.startsWith("/") ? raw : (() => {
+    try {
+      const parsed = new URL(raw, "https://fruit-td.invalid");
+      return `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return "/";
+    }
+  })();
+  const qIndex = requestTarget.indexOf("?");
+  const pathOnly = qIndex >= 0 ? requestTarget.slice(0, qIndex) : requestTarget;
+  const query = qIndex >= 0 ? requestTarget.slice(qIndex) : "";
   if (pathOnly === "/api" || pathOnly.startsWith("/api/")) return;
   const nextPath = pathOnly.startsWith("/") ? `/api${pathOnly}` : `/api/${pathOnly}`;
   req2.url = `${nextPath}${query}`;
@@ -5372,5 +5380,6 @@ function handler(req2, res) {
   return app(req2, res);
 }
 export {
-  handler as default
+  handler as default,
+  normalizeApiUrl
 };
