@@ -326,11 +326,12 @@ function emptySkills() {
 
 // src/game/world.ts
 var ARENA_W = 22;
-var ARENA_D = 66;
+var ARENA_D = 132;
 var SIM_DT = 1 / 60;
 var IMPACT_FREEZE = 1 / 60;
 var WALL_Z = -9.2;
 var EXTRA_Z = -7.85;
+var LEAK_Z = -7.5;
 function buildPads() {
   return [
     { x: -6.2, z: WALL_Z, main: false, floor: false },
@@ -5317,13 +5318,22 @@ pvpRouter.post("/match/:id/token", async (req2, res) => {
 import { Router as Router15 } from "express";
 
 // src/game/battleMaps.ts
-var baseWorld = { width: ARENA_W, depth: ARENA_D, columns: 11, rows: 66 };
-var standardRoute = () => ({
-  id: "main-route",
-  name: "Main route",
-  width: 4.5,
-  points: [{ x: 0.5, y: 0.03 }, { x: 0.5, y: 0.2 }, { x: 0.5, y: 0.38 }, { x: 0.5, y: 0.52 }, { x: 0.5, y: 0.614 }]
-});
+var baseWorld = { width: ARENA_W, depth: ARENA_D, columns: 11, rows: 132 };
+var routeEndY = 0.5 - LEAK_Z / ARENA_D;
+var topGateY = 0.025;
+var laneRoutes = [
+  { id: "west-outer", xs: [0.12, 0.18, 0.31, 0.42, 0.5] },
+  { id: "west-inner", xs: [0.31, 0.38, 0.26, 0.42, 0.5] },
+  { id: "center", xs: [0.5, 0.44, 0.56, 0.48, 0.5] },
+  { id: "east-inner", xs: [0.69, 0.62, 0.77, 0.58, 0.5] },
+  { id: "east-outer", xs: [0.88, 0.82, 0.67, 0.56, 0.5] }
+];
+var standardRoutes = () => laneRoutes.map((lane) => ({
+  id: lane.id,
+  name: lane.id.replace("-", " "),
+  width: 5,
+  points: lane.xs.map((x, i) => ({ x, y: [0.025, 0.18, 0.34, 0.47, routeEndY][i] }))
+}));
 var entity = (id, kind, x, y, width, height = width, extra = {}) => ({
   id,
   kind,
@@ -5348,8 +5358,15 @@ function standardMap(mode, name, background) {
     name,
     background,
     world: { ...baseWorld },
-    routes: [standardRoute()],
-    spawns: [{ id: "north-gate", routeId: "main-route", x: 0.5, y: 0.035, enabled: true, label: "Top spawn" }],
+    routes: standardRoutes(),
+    spawns: laneRoutes.map((lane, i) => ({
+      id: `${lane.id}-gate`,
+      routeId: lane.id,
+      x: lane.xs[0],
+      y: 0.025,
+      enabled: true,
+      label: `${["West", "West-center", "Center", "East-center", "East"][i]} top spawn`
+    })),
     entities: [
       entity("left-lantern", "light", 0.16, 0.43, 0.08, 0.08, { collision: "none", damage: 0, label: "Path light" }),
       entity("right-ruin", "prop", 0.84, 0.62, 0.14, 0.1, { collision: "none", label: "Ruin prop" }),
@@ -5377,12 +5394,12 @@ var DEFAULT_BATTLE_MAPS = {
   coop: {
     ...standardMap("coop", "Broken Junction", "/assets/maps/samples/coop-shared-grove.webp"),
     routes: [
-      { id: "west-route", name: "West approach", width: 3.2, points: [{ x: 0.22, y: 0.03 }, { x: 0.33, y: 0.2 }, { x: 0.5, y: 0.42 }, { x: 0.5, y: 0.614 }] },
-      { id: "east-route", name: "East approach", width: 3.2, points: [{ x: 0.78, y: 0.03 }, { x: 0.67, y: 0.2 }, { x: 0.5, y: 0.42 }, { x: 0.5, y: 0.614 }] }
+      { id: "west-route", name: "West approach", width: 5, points: [{ x: 0.18, y: 0.025 }, { x: 0.3, y: 0.2 }, { x: 0.22, y: 0.38 }, { x: 0.5, y: routeEndY }] },
+      { id: "east-route", name: "East approach", width: 5, points: [{ x: 0.82, y: 0.025 }, { x: 0.7, y: 0.2 }, { x: 0.78, y: 0.38 }, { x: 0.5, y: routeEndY }] }
     ],
     spawns: [
-      { id: "west-gate", routeId: "west-route", x: 0.22, y: 0.03, enabled: true, label: "West spawn" },
-      { id: "east-gate", routeId: "east-route", x: 0.78, y: 0.03, enabled: true, label: "East spawn" }
+      { id: "west-gate", routeId: "west-route", x: 0.18, y: 0.025, enabled: true, label: "West spawn" },
+      { id: "east-gate", routeId: "east-route", x: 0.82, y: 0.025, enabled: true, label: "East spawn" }
     ]
   },
   pvp: {
@@ -5401,18 +5418,26 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
   const row = raw && typeof raw === "object" ? raw : {};
   const mode = modes.has(row.mode) ? row.mode : fallbackMode;
   const fallback = DEFAULT_BATTLE_MAPS[mode];
+  const storedDepth = Number.isFinite(Number(row.world?.depth)) ? Math.max(1, Number(row.world?.depth)) : ARENA_D;
+  const migrateY = (value, fallbackY = 0.5) => {
+    const y = Math.max(topGateY, unit(value, fallbackY));
+    if (storedDepth >= ARENA_D) return y;
+    const oldEnd = 0.5 - LEAK_Z / storedDepth;
+    const ratio = (routeEndY - topGateY) / Math.max(1e-3, oldEnd - topGateY);
+    return Math.max(0, Math.min(1, topGateY + (y - topGateY) * ratio));
+  };
   const routes = Array.isArray(row.routes) ? row.routes.slice(0, 12).map((r, i) => ({
     id: typeof r?.id === "string" ? r.id.slice(0, 64) : `route-${i + 1}`,
     name: typeof r?.name === "string" ? r.name.slice(0, 64) : `Route ${i + 1}`,
     width: Number.isFinite(Number(r?.width)) ? Math.max(0.5, Math.min(12, Number(r?.width))) : 4,
-    points: Array.isArray(r?.points) ? r.points.slice(0, 256).map((p) => ({ x: unit(p?.x), y: unit(p?.y) })) : []
+    points: Array.isArray(r?.points) ? r.points.slice(0, 256).map((p) => ({ x: unit(p?.x), y: migrateY(p?.y) })) : []
   })) : fallback.routes;
   const routeIds = new Set(routes.map((r) => r.id));
   const spawns = Array.isArray(row.spawns) ? row.spawns.slice(0, 32).map((s, i) => ({
     id: typeof s?.id === "string" ? s.id.slice(0, 64) : `spawn-${i + 1}`,
     routeId: routeIds.has(s?.routeId || "") ? s.routeId : routes[0]?.id || "main-route",
     x: unit(s?.x),
-    y: unit(s?.y, 0.03),
+    y: migrateY(s?.y, topGateY),
     enabled: s?.enabled !== false,
     label: typeof s?.label === "string" ? s.label.slice(0, 80) : `Spawn ${i + 1}`
   })) : fallback.spawns;
@@ -5420,7 +5445,7 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
     id: typeof e.id === "string" ? e.id.slice(0, 64) : `entity-${i + 1}`,
     kind: e.kind,
     x: unit(e.x),
-    y: unit(e.y),
+    y: migrateY(e.y),
     width: Number.isFinite(Number(e.width)) ? Math.max(5e-3, Math.min(1, Number(e.width))) : 0.05,
     height: Number.isFinite(Number(e.height)) ? Math.max(5e-3, Math.min(1, Number(e.height))) : 0.05,
     rotation: Number.isFinite(Number(e.rotation)) ? Math.max(-360, Math.min(360, Number(e.rotation))) : 0,
@@ -5435,6 +5460,8 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
   const bg = safeAsset(row.background) && row.background ? row.background : fallback.background;
   const width = ARENA_W;
   const depth = ARENA_D;
+  const storedRows = Math.floor(Number(row.world?.rows) || fallback.world.rows);
+  const rows = storedDepth < ARENA_D ? Math.round(storedRows * ARENA_D / storedDepth) : storedRows;
   return {
     schemaVersion: 1,
     id: typeof row.id === "string" && /^[a-z0-9_-]{1,80}$/i.test(row.id) ? row.id : fallback.id,
@@ -5442,12 +5469,12 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
     name: typeof row.name === "string" && row.name.trim() ? row.name.trim().slice(0, 80) : fallback.name,
     background: bg,
     ...safeAsset(row.nightBackground) && row.nightBackground ? { nightBackground: row.nightBackground } : {},
-    world: { width, depth, columns: Math.max(4, Math.min(64, Math.floor(Number(row.world?.columns) || fallback.world.columns))), rows: Math.max(8, Math.min(256, Math.floor(Number(row.world?.rows) || fallback.world.rows))) },
+    world: { width, depth, columns: Math.max(4, Math.min(64, Math.floor(Number(row.world?.columns) || fallback.world.columns))), rows: Math.max(8, Math.min(256, rows)) },
     routes,
     spawns,
     entities,
-    tower: point(row.tower, fallback.tower),
-    ...mode === "pvp" ? { opponentTower: point(row.opponentTower, fallback.opponentTower) } : {},
+    tower: row.tower && storedDepth < ARENA_D ? { ...point(row.tower, fallback.tower), y: migrateY(row.tower.y, fallback.tower.y) } : point(row.tower, fallback.tower),
+    ...mode === "pvp" ? { opponentTower: row.opponentTower && storedDepth < ARENA_D ? { ...point(row.opponentTower, fallback.opponentTower), y: migrateY(row.opponentTower.y, fallback.opponentTower.y) } : point(row.opponentTower, fallback.opponentTower) } : {},
     published: row.published !== false,
     revision: Number.isSafeInteger(row.revision) && Number(row.revision) > 0 ? Number(row.revision) : 1
   };

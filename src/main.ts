@@ -408,6 +408,7 @@ function applyCloudSave(remote: Record<string, any> | null): void {
   syncTowerProgression(save.towerXp, save.towerLifetimeXp);
   writeSave(save);
   hud.refreshAbilityBar(save);
+  wallSkinApply();
   state.hero = save.hero;
   state.heroXp = save.xp[save.hero] ?? 0;
   state.heroLevel = heroXpToLevel(state.heroXp);
@@ -653,9 +654,12 @@ function buyVIP(tier: 'bronze' | 'silver' | 'gold'): void {
 
 function wallSkinApply(): void {
   const skinId = isUnequippedSkin(save.wallSkin) ? '' : save.wallSkin;
-  const skin = WALL_SKINS.find((s) => s.id === skinId);
+  const skin = WALL_SKINS.find((s) => s.id === skinId) || WALL_SKINS[0];
   wall.applyWallSkin(skin?.color ?? 0xa33d32, skin?.texture ?? '');
 }
+// Apply the saved default/owned texture at boot too; previously skins only
+// appeared after buying or equipping an item during the same session.
+wallSkinApply();
 
 function buySkill(id: SkillId): void {
   if (getAuthToken()) {

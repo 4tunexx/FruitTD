@@ -243,16 +243,30 @@ export class FruitField {
     idle.spawnSerial = ++this.serial;
     const def = FRUIT_DEFS[kind];
     const enemy = ENEMY_RULES[enemyKind] || ENEMY_RULES.normal;
-    let x = (Math.random() - .5) * 4.8; let z = ARENA_D / 2 - 0.4;
+    let x = (Math.random() - .5) * (ARENA_W - 2); let z = ARENA_D / 2 - 0.4;
     let routePoints: Array<{ x: number; z: number }> | undefined;
     if (this.battleMap) {
       const spawns = this.battleMap.spawns.filter((spawn) => spawn.enabled && spawn.y <= .2);
       const spawn = spawns[(Math.random() * spawns.length) | 0];
       if (spawn) {
         const position = mapPointToWorld({ x: spawn.x, y: spawn.y }, this.battleMap);
-        x = position.x + (Math.random() - .5) * .7; z = position.z;
+        x = position.x; z = position.z;
         const route = this.battleMap.routes.find((candidate) => candidate.id === spawn.routeId);
-        if (route && route.points.length > 1) routePoints = route.points.map((point) => mapPointToWorld(point, this.battleMap!));
+        if (route && route.points.length > 1) {
+          // Give each fruit its own lane within the authored route width. The
+          // offset fades near the keep, so waves spread across the battlefield
+          // and then converge on the same defense line instead of stacking.
+          const laneWidth = Math.max(route.width, this.battleMap.routes.length === 1 ? ARENA_W * .72 : 0);
+          const laneOffset = (Math.random() - .5) * laneWidth;
+          routePoints = route.points.map((point, index) => {
+            const world = mapPointToWorld(point, this.battleMap!);
+            const progress = index / Math.max(1, route.points.length - 1);
+            world.x += laneOffset * Math.sin(Math.PI * progress);
+            return world;
+          });
+          const spawnSpread = this.battleMap.routes.length === 1 ? ARENA_W * .72 : Math.min(1.2, route.width * .35);
+          x += (Math.random() - .5) * spawnSpread;
+        }
       }
     }
 

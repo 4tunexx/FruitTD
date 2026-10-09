@@ -69,7 +69,7 @@ export class GameRenderer {
 
     const aspect = window.innerWidth / window.innerHeight;
     const viewW = this.viewH * aspect;
-    this.camera = new OrthographicCamera(-viewW / 2, viewW / 2, this.viewH / 2, -this.viewH / 2, 0.1, 90);
+    this.camera = new OrthographicCamera(-viewW / 2, viewW / 2, this.viewH / 2, -this.viewH / 2, 0.1, 220);
     this.camera.up.set(0, 1, 0);
     this.camera.position.copy(this.cameraBase);
     this.camera.lookAt(0, 0.2, this.lookZ);
@@ -222,7 +222,10 @@ export class GameRenderer {
     // for the compact top HUD. Keep landscape/desktop composition unchanged.
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
-    Object.assign(this.camera, arenaFrustum(w, h, this.viewH));
+    const aspect = w / Math.max(1, h);
+    // The doubled north approach must fit from the spawn edge to the keep in
+    // portrait play; landscape keeps its current tighter desktop framing.
+    Object.assign(this.camera, arenaFrustum(w, h, this.viewH * (aspect < .82 ? 1.4 : 1)));
     // Keep a fixed cinematic pitch. Re-aiming the camera to fit the wall was
     // flattening the world and changing the input projection on every resize.
     this.lookZ = 1.5;
@@ -232,7 +235,10 @@ export class GameRenderer {
     this.camera.updateMatrixWorld(true);
     // Shift the lens, not its pitch, so the keep remains at the bottom on phones.
     const wall = new Vector3(0, .15, -10.6).project(this.camera);
-    const shift = (wall.y - (1 - 2 * .88)) * (this.camera.top - this.camera.bottom) / 2;
+    // Portrait play keeps the full-width keep and its health rail close to the
+    // bottom safe edge. Desktop framing keeps the existing cinematic margin.
+    const wallTargetY = w / h < .82 ? .94 : .88;
+    const shift = (wall.y - (1 - 2 * wallTargetY)) * (this.camera.top - this.camera.bottom) / 2;
     this.camera.top += shift; this.camera.bottom += shift;
     this.camera.updateProjectionMatrix();
   }

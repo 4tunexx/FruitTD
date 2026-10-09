@@ -58,7 +58,7 @@ describe('combat polish regressions', () => {
 
     const state = createState();
     let leaks = 0;
-    for (let step = 0; step < 500 && fruit.alive; step++) field.update(.1, state, () => { leaks++; });
+    for (let step = 0; step < 1_400 && fruit.alive; step++) field.update(.1, state, () => { leaks++; });
     assert.equal(fruit.alive, false, 'enemy should reach the route endpoint');
     assert.equal(leaks, 1, 'route completion should use the normal leak callback once');
   });
@@ -72,11 +72,14 @@ describe('combat polish regressions', () => {
     const map = defaultMapForMode('casual');
     map.entities.push({ id:'roadblock', kind:'solid', x:.5, y:.3, width:.18, height:.1, rotation:0, visible:false, asset:'', collision:'solid', damage:0, slow:0, label:'Road block' });
     field.setBattleMap(map);
+    const random = Math.random;
+    Math.random = () => .5;
     const fruit = field.spawn('lemon')!;
+    Math.random = random;
     const state = createState();
     let leaks = 0;
     let movedAround = false;
-    for (let step = 0; step < 700 && fruit.alive; step++) {
+    for (let step = 0; step < 1_400 && fruit.alive; step++) {
       field.update(.1, state, () => { leaks++; });
       movedAround ||= Math.abs(fruit.group.position.x) > 2;
     }
@@ -91,7 +94,7 @@ describe('combat polish regressions', () => {
     ]);
     const field = new FruitField(() => undefined);
     const map = defaultMapForMode('casual');
-    map.entities.push({ id:'test-pit', kind:'pit', x:.5, y:.14, width:.4, height:.2, rotation:0, visible:true, asset:'', collision:'trigger', damage:0, slow:0, label:'Test pit' });
+    map.entities.push({ id:'test-pit', kind:'pit', x:.5, y:.14, width:1, height:.2, rotation:0, visible:true, asset:'', collision:'trigger', damage:0, slow:0, label:'Test pit' });
     field.setBattleMap(map);
     let environmentKills = 0;
     field.onEnvironmentKill = () => { environmentKills++; };
