@@ -653,6 +653,8 @@ export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState):
   const tab = tabs.get(next);
   if (!tab) return;
 
+  applyHubChromeMode(root);
+
   syncHeader(root, save);
 
   const order = [...tabs.keys()];
@@ -678,6 +680,7 @@ export function refreshHub(root: HTMLElement, save: SaveData, active: NavState):
   lastHubSave = save;
   const tab = tabs.get(active);
   if (!tab) return;
+  applyHubChromeMode(root);
   syncHeader(root, save);
   root.classList.toggle('is-home', active === HUB_HOME);
   root.classList.toggle('is-campaign', active === 'CAMPAIGN');

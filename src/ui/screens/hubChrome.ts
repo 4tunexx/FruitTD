@@ -14,7 +14,8 @@ export function setHubChromeMode(mode: HubChromeMode): void {
 }
 
 function desktopChromeEnabled(): boolean {
-  return typeof window === 'undefined' || window.innerWidth >= 901;
+  return typeof window === 'undefined' ||
+    (typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 901px)').matches : window.innerWidth >= 901);
 }
 
 export function applyHubChromeMode(root: HTMLElement, mode = getHubChromeMode()): void {

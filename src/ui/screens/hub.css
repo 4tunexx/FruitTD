@@ -837,7 +837,12 @@
 }
 
 @media (max-width: 900px) {
-  #screen-hub.ftd-hub { height: 100dvh; max-height: 100%; min-height: 0; }
+  #screen-hub.ftd-hub { position: fixed; inset: 0; height: auto; max-height: none; min-height: 0; }
+  #screen-hub.ftd-hub .ftd-hub__header,
+  #screen-hub.ftd-hub .ftd-hub__footer {
+    opacity: 1 !important; visibility: visible !important;
+    transform: none !important; animation: none !important;
+  }
   .ftd-hub__body { touch-action: pan-y; padding-bottom: 16px; }
   .ftd-hub__main, .ftd-hub__sub { min-height: 0; }
   .ftd-hub .ftd-campaign__launch { width: 100%; justify-content: center; min-height: 54px; margin: 0 auto 14px; position: sticky; top: 0; z-index: 6; }
@@ -1648,7 +1653,10 @@
   .ftd-hub-currency .ftd-currency { min-height: 0; padding: 0; gap: 2px; font-size: 0.72rem; white-space: nowrap; }
   .ftd-hub-currency .ftd-currency__icon svg { width: 15px; height: 15px; }
   .ftd-hub-actions { display: block; flex: 4 1 0; width: auto; min-width: 0; }
-  .ftd-hub-actions .ftd-hub-utils { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: stretch; width: 100%; gap: 2px; }
+  .ftd-hub-actions .ftd-hub-utils {
+    display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: stretch;
+    width: 100%; gap: 2px; padding: 0; overflow: visible;
+  }
   .ftd-hub-utility {
     box-sizing: border-box; flex: 1 1 0; width: auto; min-width: 0; height: 44px; min-height: 44px;
     padding: 3px; border-color: #766344; background: #292a2de8;

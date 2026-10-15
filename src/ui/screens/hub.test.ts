@@ -742,6 +742,34 @@ test('BACK from a hub tab returns to the home tab (PLAY stage)', () => {
   assert.match(hub.innerHTML, /PLAY stage/);
 });
 
+test('BACK restores mobile header and dock after a stale hidden chrome state', () => {
+  const previousWidth = window.innerWidth;
+  window.innerWidth = 390;
+  try {
+    bootHub(richSave());
+    const hub = document.getElementById('screen-hub')!;
+    const header = hub.querySelector<HTMLElement>('.ftd-hub__header')!;
+    const footer = hub.querySelector<HTMLElement>('.ftd-hub__footer')!;
+    hub.classList.add('is-chrome-auto-hidden');
+    header.inert = true;
+    footer.inert = true;
+    header.setAttribute('aria-hidden', 'true');
+    footer.setAttribute('aria-hidden', 'true');
+    navigation.open('SHOP');
+    navigation.back();
+    assert.equal(navigation.state, 'MAIN_MENU');
+    assert.equal(hub.classList.contains('is-chrome-auto-hidden'), false);
+    for (const panel of [header, footer]) {
+      assert.equal(panel.inert, false);
+      assert.equal(panel.getAttribute('aria-hidden'), 'false');
+    }
+    assert.equal(hub.querySelector('.ftd-hub__header'), header);
+    assert.equal(hub.querySelector('.ftd-hub__footer'), footer);
+  } finally {
+    window.innerWidth = previousWidth;
+  }
+});
+
 test('switching hub tabs never touches the legacy hud-start dashboard', () => {
   bootHub(richSave());
   const gate = document.getElementById('hud-start')!;
