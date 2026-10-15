@@ -750,12 +750,12 @@ function normalizeCreatorMedia(raw) {
   for (const [key, value] of Object.entries(row.entities)) {
     if (!/^[a-z][a-z0-9-]{1,63}$/.test(key) || !value || typeof value !== "object") throw new Error("Invalid Creator entity.");
     const sheet = value.sheetDataUrl;
-    if (sheet && (typeof sheet !== "string" || sheet.length > 1e6 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(sheet))) throw new Error("Sprite sheets must be PNG, JPEG or WebP images under 1 MB.");
+    if (sheet && (typeof sheet !== "string" || sheet.length > 14e5 || !/^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/api\/media\/[a-f0-9]{24})$/i.test(sheet))) throw new Error("Sprite sheets must be a saved Admin image or PNG, JPEG, WebP data under 1 MB.");
     const cols = Math.floor(number(value.cols, 1, 1, 64));
     const rows = Math.floor(number(value.rows, 1, 1, 64));
     const clips = {};
     for (const [clip, definition] of Object.entries(value.clips || {})) {
-      if (!/^(idle|walk|run|hit|death)_(down|left|right|up)$/.test(clip) || !definition || typeof definition !== "object") continue;
+      if (!/^(?:idle|hit|death|(?:walk|run)_(?:down|left|right|up))$/.test(clip) || !definition || typeof definition !== "object") continue;
       const startFrame = Math.floor(number(definition.startFrame, 0, 0, cols * rows - 1));
       clips[clip] = { startFrame, frameCount: Math.floor(number(definition.frameCount, 1, 1, cols * rows - startFrame)), ...definition.fps ? { fps: number(definition.fps, 10, 1, 60) } : {}, ...["none", "juice-burst", "spark", "dark-pulse", "screen-shake"].includes(definition.fx || "") ? { fx: definition.fx } : {} };
     }
@@ -2999,7 +2999,7 @@ adminRouter.post("/config", async (req2, res) => {
     return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
   }
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
+    const { dailyRewards, vipTiers, menuConfig, landscapeConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
     if (req2.body.creatorMedia !== void 0) {
       try {
         normalizeCreatorMedia(req2.body.creatorMedia);
@@ -3018,6 +3018,7 @@ adminRouter.post("/config", async (req2, res) => {
       dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG2.dailyRewards,
       vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG2.vipTiers,
       menuConfig: menuConfig ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig)) : normalizeMenuConfig(existing?.menuConfig),
+      landscapeConfig: landscapeConfig && typeof landscapeConfig === "object" && !Array.isArray(landscapeConfig) ? landscapeConfig : existing?.landscapeConfig,
       gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG2.gameplayConfig,
       pvpConfig: normalizePvpConfig(req2.body.pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
@@ -5507,7 +5508,7 @@ mapsRouter.get("/:mode", async (req2, res) => {
   if (!MODES.has(mode)) return res.status(404).json({ success: false, error: "Map mode not found." });
   try {
     const col = await getCollection("battle_maps");
-    const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 } });
+    const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 }, sort: { updatedAt: -1, id: 1 } });
     return res.json({ success: true, map: map || DEFAULT_BATTLE_MAPS[mode] });
   } catch (error2) {
     console.error("Battle map read failed:", error2);
@@ -5561,6 +5562,53 @@ adminMapsRouter.post("/", async (req2, res) => {
   }
 });
 
+// server/routes/media.ts
+import { Router as Router16 } from "express";
+import { ObjectId as ObjectId2 } from "mongodb";
+var mediaRouter = Router16();
+var adminMediaRouter = Router16();
+var MAX_IMAGE_BYTES = 1e6;
+var TYPES = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp" };
+function decodeSpriteImage(value) {
+  if (typeof value !== "string") return null;
+  const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match || match[2].length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 4) return null;
+  const bytes = Buffer.from(match[2], "base64");
+  if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || bytes.toString("base64") !== match[2]) return null;
+  const type = match[1];
+  const valid = type === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) : type === "jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes.at(-2) === 255 && bytes.at(-1) === 217 : bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP";
+  return valid ? { contentType: TYPES[type], bytes } : null;
+}
+adminMediaRouter.post("/", async (req2, res) => {
+  const user = await resolveRequestUser(req2);
+  if (!process.env.ADMIN_STEAM_ID || user?.steamId !== process.env.ADMIN_STEAM_ID) return res.status(403).json({ success: false, error: "Admin access required." });
+  const image = decodeSpriteImage(req2.body?.image);
+  if (!image) return res.status(400).json({ success: false, error: "Upload a PNG, JPEG or WebP image under 1 MB." });
+  try {
+    const col = await getCollection("media_assets");
+    const result = await col.insertOne({ contentType: image.contentType, bytes: image.bytes, createdAt: /* @__PURE__ */ new Date() });
+    return res.json({ success: true, url: `/api/media/${result.insertedId.toHexString()}` });
+  } catch (error2) {
+    console.error("Media upload failed:", error2);
+    return res.status(503).json({ success: false, error: "Media storage is unavailable." });
+  }
+});
+mediaRouter.get("/:id", async (req2, res) => {
+  if (!/^[a-f0-9]{24}$/i.test(req2.params.id)) return res.status(404).end();
+  try {
+    const col = await getCollection("media_assets");
+    const image = await col.findOne({ _id: new ObjectId2(req2.params.id) });
+    if (!image || !Object.values(TYPES).includes(image.contentType)) return res.status(404).end();
+    res.set("Content-Type", image.contentType);
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    return res.send(Buffer.isBuffer(image.bytes) ? image.bytes : Buffer.from(image.bytes.buffer));
+  } catch (error2) {
+    console.error("Media read failed:", error2);
+    return res.status(503).end();
+  }
+});
+
 // server/app.ts
 function createApp() {
   const app2 = express();
@@ -5602,6 +5650,8 @@ function createApp() {
   app2.use("/api/steam", steamRouter);
   app2.use("/api/profile", profileRouter);
   app2.use("/api/maps", mapsRouter);
+  app2.use("/api/media", rateLimit(180, 6e4), mediaRouter);
+  app2.use("/api/admin/media", rateLimit(30, 6e4), adminMediaRouter);
   app2.use("/api/admin/maps", rateLimit(30, 6e4), adminMapsRouter);
   app2.use("/api/items", rateLimit(60, 6e4), itemsRouter);
   app2.use("/api/admin", rateLimit(30, 6e4), adminRouter);

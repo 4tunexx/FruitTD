@@ -1,20 +1,20 @@
-import { ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, RingGeometry, SphereGeometry } from 'three';
+import { DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RingGeometry } from 'three';
 
 function makeActor(color: number, trim: number): Group {
   const actor = new Group();
-  const body = new Mesh(new CylinderGeometry(0.26, 0.34, 0.7, 8), new MeshLambertMaterial({ color }));
+  const body = new Mesh(new PlaneGeometry(0.6, 0.8), new MeshLambertMaterial({ color, side: DoubleSide }));
   body.position.y = 0.62;
-  const head = new Mesh(new SphereGeometry(0.23, 10, 8), new MeshLambertMaterial({ color: 0xf4d9b3 }));
+  const head = new Mesh(new PlaneGeometry(0.46, 0.46), new MeshLambertMaterial({ color: 0xf4d9b3, side: DoubleSide }));
   head.position.y = 1.17;
-  const hood = new Mesh(new ConeGeometry(0.28, 0.32, 8), new MeshLambertMaterial({ color: trim }));
+  const hood = new Mesh(new PlaneGeometry(0.56, 0.32), new MeshLambertMaterial({ color: trim, side: DoubleSide }));
   hood.position.y = 1.42;
-  const leftArm = new Mesh(new CylinderGeometry(0.075, 0.095, 0.54, 6), new MeshLambertMaterial({ color }));
+  const leftArm = new Mesh(new PlaneGeometry(0.15, 0.54), new MeshLambertMaterial({ color, side: DoubleSide }));
   leftArm.position.set(-0.34, 0.76, 0);
   leftArm.rotation.z = -0.4;
   const rightArm = leftArm.clone();
   rightArm.position.x = 0.34;
   rightArm.rotation.z = 0.4;
-  const blade = new Mesh(new ConeGeometry(0.07, 0.78, 6), new MeshBasicMaterial({ color: trim }));
+  const blade = new Mesh(new PlaneGeometry(0.14, 0.78), new MeshBasicMaterial({ color: trim, side: DoubleSide }));
   blade.position.set(0.49, 0.85, 0);
   blade.rotation.z = -0.72;
   const marker = new Mesh(new RingGeometry(0.37, 0.45, 24), new MeshBasicMaterial({ color: trim, side: 2, transparent: true, opacity: 0.8 }));

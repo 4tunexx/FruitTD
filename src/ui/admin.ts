@@ -1,6 +1,6 @@
 import { normalizeCoopConfig } from '../game/onlineCoop';
 import { renderConfigForm } from './admin/configForm';
-import { loadStudioStore } from './adminMediaStudio';
+import { currentStudioDraft, loadPublishedStudioDraft, loadStudioStore } from './adminMediaStudio';
 import { renderPvpEditor, disposePvpEditor } from './admin/pvpEditor';
 import { beginLoading } from './components/loading';
 import {
@@ -93,7 +93,8 @@ export class AdminController {
     try { await this.loadConfig(); } finally { endLoading(); }
     this.renderActiveTab();
     installSpriteUploads();
-    installMediaStudio();
+    const localDraft = loadStudioStore();
+    installMediaStudio(Object.keys(localDraft.entities).length ? undefined : this.config?.creatorMedia ?? undefined);
     installCreatorWaveBoard();
     installCreatorSlicerVfx();
     installBattleMapEditor();
@@ -150,18 +151,29 @@ export class AdminController {
     // DESIGN tab → shared theme system (no second design system)
     document.getElementById('btn-admin-open-design')?.addEventListener('click', () => openDesignMode());
 
+    document.getElementById('studio-load-published')?.addEventListener('click', () => {
+      if (!this.config?.creatorMedia) { GameToast('No published sprite pack is available yet.', 'warning'); return; }
+      try {
+        loadPublishedStudioDraft(this.config.creatorMedia);
+        GameToast('Published sprite pack loaded into the editor.', 'success');
+      } catch (error) {
+        GameToast(error instanceof Error ? error.message : 'Could not load the published pack.', 'danger');
+      }
+    });
+
     document.getElementById('studio-publish')?.addEventListener('click', async () => {
       if (!this.config) return;
-      document.getElementById('studio-save')?.click();
       const button = document.getElementById('studio-publish') as HTMLButtonElement;
       button.disabled = true;
       const host = document.getElementById('studio-status')!;
       const endLoading = beginLoading(host, 'Publishing animations…');
       try {
-        const media = loadStudioStore(); const result = await saveAdminConfig({ creatorMedia: media });
+        const media = currentStudioDraft(); const result = await saveAdminConfig({ creatorMedia: media });
         if (!result.success) { GameToast(result.error || 'Could not publish animations.', 'danger'); return; }
         this.config.creatorMedia = media; setLiveConfig(this.config);
         host.textContent = 'Published. Players receive these animations with the game configuration.';
+      } catch (error) {
+        GameToast(error instanceof Error ? error.message : 'Could not publish animations.', 'danger');
       } finally { endLoading(); button.disabled = false; }
     });
 
@@ -897,16 +909,26 @@ export class AdminController {
     if (status) { status.textContent = `Chapter ${chapter} saved to MongoDB.`; status.className = 'admin-status-ok'; }
   }
 
-  private saveContent(type: 'fruits' | 'enemies' | 'waves'): void {
+  private async saveContent(type: 'fruits' | 'enemies' | 'waves'): Promise<void> {
     const textarea = document.getElementById(`admin-${type}-json`) as HTMLTextAreaElement | null;
     if (!textarea) return;
     
     try {
       const data = JSON.parse(textarea.value);
+      if (type !== 'fruits' && this.config) {
+        if (type === 'enemies' && !Array.isArray(data)) throw new Error('Enemies must be a JSON array.');
+        if (type === 'waves' && (!data || typeof data !== 'object' || Array.isArray(data))) throw new Error('Waves must be a JSON object.');
+        const updated = { ...this.config, [type]: data };
+        const result = await saveAdminConfig({ [type]: data });
+        if (!result.success) throw new Error(result.error || 'Could not publish content.');
+        this.config = updated;
+        setLiveConfig(updated);
+        this.onConfigSaved?.(updated);
+      }
       localStorage.setItem(`admin-${type}-config`, JSON.stringify(data));
       const statusEl = document.getElementById('admin-save-status');
       if (statusEl) {
-        statusEl.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} config saved to localStorage.`;
+        statusEl.textContent = type === 'fruits' ? 'Fruit JSON saved on this device only.' : `${type.charAt(0).toUpperCase() + type.slice(1)} config published to MongoDB.`;
         statusEl.className = 'admin-status-ok';
       }
     } catch (e: any) {
@@ -955,12 +977,10 @@ export class AdminController {
       if (stored) fruitsTextarea.value = stored;
     }
     if (enemiesTextarea) {
-      const stored = localStorage.getItem('admin-enemies-config');
-      if (stored) enemiesTextarea.value = stored;
+      enemiesTextarea.value = JSON.stringify(this.config?.enemies ?? [], null, 2);
     }
     if (wavesTextarea) {
-      const stored = localStorage.getItem('admin-waves-config');
-      if (stored) wavesTextarea.value = stored;
+      wavesTextarea.value = JSON.stringify(this.config?.waves ?? { version: 1, levels: {} }, null, 2);
     }
   }
 

@@ -1,14 +1,12 @@
 import {
-  BoxGeometry,
   CanvasTexture,
-  CylinderGeometry,
+  DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
   RingGeometry,
-  SphereGeometry,
   RepeatWrapping,
   SRGBColorSpace,
   Texture,
@@ -85,22 +83,22 @@ export class WallBase {
 
   constructor() {
     this.wallMesh = new Mesh(
-      new BoxGeometry(ARENA_W - 2, 1.15, 2.1),
-      new MeshLambertMaterial({ color: 0x9a4034 }),
+      new PlaneGeometry(ARENA_W - 2, 1.15),
+      new MeshLambertMaterial({ color: 0x9a4034, side: DoubleSide, transparent: true }),
     );
     this.wallMesh.position.set(0, 0.52, (WALL_Z + EXTRA_Z) / 2);
     this.group.add(this.wallMesh);
 
     const lip = new Mesh(
-      new BoxGeometry(ARENA_W - 1.8, 0.14, 0.2),
+      new PlaneGeometry(ARENA_W - 1.8, 0.14),
       new MeshLambertMaterial({ color: 0xe6c98a }),
     );
     lip.position.set(0, 1.12, EXTRA_Z + 0.55);
     this.group.add(lip);
 
-    const keepMat = new MeshLambertMaterial({ color: 0x6e3128 });
+    const keepMat = new MeshLambertMaterial({ color: 0x6e3128, side: DoubleSide, transparent: true });
     this.keepMesh = new Mesh(
-      new CylinderGeometry(1.05, 1.2, 2.1, 10),
+      new PlaneGeometry(2.1, 2.1),
       keepMat,
     );
     this.keepMesh.position.set(0, 1.15, WALL_Z);
@@ -136,15 +134,6 @@ export class WallBase {
       fitHealthRail();
       window.addEventListener('resize', fitHealthRail);
     }
-    for (let i = 0; i < 6; i++) {
-      const merlon = new Mesh(new BoxGeometry(0.32, 0.38, 0.28), new MeshLambertMaterial({ color: 0x5a271f }));
-      const a = (i / 6) * Math.PI * 2;
-      merlon.position.set(Math.sin(a) * 0.95, 2.25, WALL_Z + Math.cos(a) * 0.55);
-      this.group.add(merlon);
-    }
-    const crown = new Mesh(new CylinderGeometry(0.42, 0.5, 0.28, 10), new MeshLambertMaterial({ color: 0xe8d7a8 }));
-    crown.position.set(0, 2.35, WALL_Z);
-    this.group.add(crown);
 
     this.rangeRing = new Mesh(
       new RingGeometry(0.7, 0.92, 40),
@@ -157,15 +146,9 @@ export class WallBase {
 
     for (let i = 0; i < PADS.length; i++) {
       const def = PADS[i];
-      const rim = new Mesh(
-        new CylinderGeometry(def.main ? 0.82 : 0.52, def.main ? 0.82 : 0.52, 0.12, 12),
-        new MeshLambertMaterial({ color: 0x3f2a20 }),
-      );
-      rim.position.set(def.x, def.main ? 2.15 : 1.02, def.z);
-      this.group.add(rim);
       const pad = new Mesh(
-        new CylinderGeometry(def.main ? 0.7 : 0.42, def.main ? 0.7 : 0.42, 0.1, 12),
-        new MeshLambertMaterial({ color: def.main ? 0xf3f4f6 : 0xd6c4a0 }),
+        new PlaneGeometry(def.main ? 1.4 : 0.84, def.main ? 0.4 : 0.3),
+        new MeshLambertMaterial({ color: def.main ? 0xf3f4f6 : 0xd6c4a0, side: DoubleSide }),
       );
       pad.position.set(def.x, def.main ? 2.24 : 1.1, def.z);
       this.group.add(pad);
@@ -200,7 +183,8 @@ export class WallBase {
     material.color.setHex(hex);
     this.wallSkinPath = texturePath;
     if (!texturePath) {
-      material.map = null;
+      material.map = sampleStudioTexture('tower-wall', 'idle');
+      if (material.map) material.color.setHex(0xffffff);
       material.needsUpdate = true;
       return;
     }
@@ -326,6 +310,11 @@ export class WallBase {
 
   /** Subtle idle/walk advance for Creator tower + hero packs. */
   private tickStudioSkins(dt: number): void {
+    if (!this.wallSkinPath) {
+      const wallSheet = sampleStudioTexture('tower-wall', 'idle');
+      const material = this.wallMesh.material as MeshLambertMaterial;
+      if (wallSheet && material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
+    }
     const main = this.slots[MAIN_INDEX]?.head;
     if (main && this.towerStudio.active) {
       const tex = updateStudioAnim(this.towerStudio, dt, 0, 0);
@@ -577,13 +566,13 @@ export class WallBase {
   }
 
   private makeHead(col: number, row: number, radius: number): Mesh {
-    const mat = new MeshLambertMaterial({ color: 0xffffff });
+    const mat = new MeshLambertMaterial({ color: 0xffffff, side: DoubleSide, transparent: true });
     const map = fruitAtlas.tile(col, row);
     if (map) {
       mat.map = map;
       mat.needsUpdate = true;
     }
-    return new Mesh(new SphereGeometry(radius, 14, 10), mat);
+    return new Mesh(new PlaneGeometry(radius * 2, radius * 2), mat);
   }
 
   private resizeHead(slot: Slot): void {
@@ -598,7 +587,7 @@ export class WallBase {
       if (old) this.group.remove(old.mesh);
     }
     const mesh = new Mesh(
-      new SphereGeometry(0.14, 8, 8),
+      new PlaneGeometry(0.28, 0.28),
       new MeshBasicMaterial({ color: hex, transparent: true, opacity: 1, depthWrite: false }),
     );
     mesh.position.set(x, 1.45, z);

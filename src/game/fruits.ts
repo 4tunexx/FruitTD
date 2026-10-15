@@ -1,4 +1,4 @@
-import { BackSide, BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, Vector3 } from 'three';
+import { DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
 import { ARENA_D, ARENA_W, LEAK_Z } from './world';
 import { modeRules } from './modes';
@@ -60,10 +60,11 @@ export interface Fruit {
   environmentSlow?: number;
 }
 
-const BODY_GEO = new SphereGeometry(1, 18, 14);
+// Flat billboard placeholders can be replaced by uploaded enemy and boss sheets.
+const BODY_GEO = new PlaneGeometry(2, 2);
 const BAR_GEO = new PlaneGeometry(1, 1);
-const HAZARD_GEO = new SphereGeometry(1.2, 16, 12);
-const ARMOR_GEO = new BoxGeometry(1.4, 0.2, 1.4);
+const HAZARD_GEO = new PlaneGeometry(2.4, 2.4);
+const ARMOR_GEO = new PlaneGeometry(2.2, 2.2);
 
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
@@ -90,8 +91,9 @@ function layoutHp(fruit: Fruit, t: number): void {
 }
 
 function makeFruit(): Fruit {
-  const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff }));
-  const outline = new Mesh(BODY_GEO, new MeshBasicMaterial({ color: 0x080b07, side: BackSide }));
+  const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff, transparent: true, side: DoubleSide, depthWrite: false }));
+  const outline = new Mesh(BODY_GEO, new MeshBasicMaterial({ color: 0x080b07, side: DoubleSide, transparent: true, depthWrite: false }));
+  outline.position.z = 0.02;
   outline.scale.setScalar(1.075);
   outline.visible = false;
   const hpBackMat = new MeshBasicMaterial({ color: 0x140f0c, depthWrite: false, depthTest: false });
@@ -102,12 +104,12 @@ function makeFruit(): Fruit {
   hpBar.renderOrder = 81;
   
   // Visual hazard indicator for explosive enemies
-  const hazardMat = new MeshBasicMaterial({ color: 0xff3b30, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false });
+  const hazardMat = new MeshBasicMaterial({ color: 0xff3b30, wireframe: true, side: DoubleSide, transparent: true, opacity: 0.6, depthWrite: false });
   const hazardRing = new Mesh(HAZARD_GEO, hazardMat);
   hazardRing.visible = false;
 
   // Visual armor plating indicator
-  const armorMat = new MeshLambertMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.75 });
+  const armorMat = new MeshLambertMaterial({ color: 0x94a3b8, transparent: true, side: DoubleSide, opacity: 0.3, depthWrite: false });
   const armorRing = new Mesh(ARMOR_GEO, armorMat);
   armorRing.visible = false;
 
@@ -486,7 +488,7 @@ export class FruitField {
       );
       const stride = Math.sin(fruit.bob);
       fruit.group.position.y = (fruit.boss ? 1.05 : 0.62) + stride * (fruit.boss ? (fruit.enemyKind === 'armored' ? 0.12 : 0.09) : 0.06);
-      fruit.body.rotation.y += fruit.spin.y * dt;
+      // Keep the uploaded frame facing the camera instead of rotating a flat sheet edge-on.
       // Boss gait reads differently at a glance: armored lumbers, swift darts,
       // and brood bosses sway. Keep the collision body anchored to its lane.
       fruit.group.rotation.set(0, 0, fruit.boss ? stride * (fruit.enemyKind === 'swift' ? 0.15 : fruit.enemyKind === 'splitter' ? 0.11 : 0.065) : 0);
@@ -498,7 +500,7 @@ export class FruitField {
         (fruit.hazardRing.material as MeshBasicMaterial).opacity = 0.45 + Math.sin(state.elapsed * 8) * 0.25;
       }
       if (fruit.armorRing.visible) {
-        fruit.armorRing.rotation.y += dt * 1.8;
+        (fruit.armorRing.material as MeshLambertMaterial).opacity = 0.2 + Math.sin(state.elapsed * 4) * 0.08;
       }
 
       layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));

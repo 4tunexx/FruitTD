@@ -8,6 +8,7 @@ import {
   directionFromVelocity,
   enemyKindToStudioKey,
   fireStudioEvent,
+  getStudioEntityData,
   heroIdToStudioKey,
   invalidateStudioRuntimeCache,
   resolveFruitStudioKey,
@@ -16,6 +17,17 @@ import {
   STUDIO_DEFAULT_FPS,
   TOWER_STUDIO_KEY,
 } from './studioRuntime';
+import { setPublishedCreatorMedia } from './creatorMedia';
+
+test('published sprite data wins over a stale local draft', (t) => {
+  const previous = globalThis.localStorage;
+  t.after(() => { (globalThis as any).localStorage = previous; setPublishedCreatorMedia(null); invalidateStudioRuntimeCache(); });
+  (globalThis as any).localStorage = { getItem: (key: string) => key === 'fruittd-creator-v2'
+    ? JSON.stringify({ version: 2, entities: { 'tower-main': { sheetDataUrl: 'data:image/png;base64,YQ==', cols: 1, rows: 1, clips: { idle: { startFrame: 0, frameCount: 1 } } } } }) : null };
+  const shared = '/api/media/507f1f77bcf86cd799439011';
+  setPublishedCreatorMedia({ entities: { 'tower-main': { sheetDataUrl: shared, cols: 1, rows: 1, clips: { idle: { startFrame: 0, frameCount: 1 } } } } });
+  assert.equal(getStudioEntityData('tower-main')?.sheetDataUrl, shared);
+});
 
 test('enemyKindToStudioKey maps all enemy kinds', () => {
   assert.equal(enemyKindToStudioKey('normal'), 'enemy-normal');

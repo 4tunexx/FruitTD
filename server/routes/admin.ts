@@ -56,6 +56,7 @@ export interface AdminConfigDoc {
     logoImage?: string;
     faviconImage?: string;
   };
+  landscapeConfig?: Record<string, unknown>;
   gameplayConfig: {
     startMoney: number;
     startLives: number;
@@ -294,7 +295,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
   }
 
   try {
-    const { dailyRewards, vipTiers, menuConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req.body;
+    const { dailyRewards, vipTiers, menuConfig, landscapeConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req.body;
     if (req.body.creatorMedia !== undefined) {
       try { normalizeCreatorMedia(req.body.creatorMedia); }
       catch (error) { return res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Invalid Creator media.' }); }
@@ -313,6 +314,8 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       menuConfig: menuConfig
         ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig))
         : normalizeMenuConfig(existing?.menuConfig),
+      landscapeConfig: landscapeConfig && typeof landscapeConfig === 'object' && !Array.isArray(landscapeConfig)
+        ? landscapeConfig : existing?.landscapeConfig,
         gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG.gameplayConfig,
         pvpConfig: normalizePvpConfig((req.body as any).pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
       missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),

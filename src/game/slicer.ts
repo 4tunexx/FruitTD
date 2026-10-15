@@ -1,9 +1,10 @@
 import {
   CircleGeometry,
+  DoubleSide,
   Group,
   Mesh,
   MeshLambertMaterial,
-  SphereGeometry,
+  PlaneGeometry,
   Vector3,
 } from 'three';
 import { fruitAtlas } from './atlas';
@@ -26,13 +27,15 @@ export interface Half {
   spawnSerial?: number;
 }
 
-const TEMPLATE = new SphereGeometry(1, 20, 14);
+const TEMPLATE = new PlaneGeometry(2, 2, 8, 8);
 const TEMPLATE_POS = TEMPLATE.attributes.position.array.slice() as Float32Array;
 const CAP_GEO = new CircleGeometry(1, 28);
 
 function makeHalf(): Half {
   const shellMat = new MeshLambertMaterial({
     color: 0xffffff,
+    side: DoubleSide,
+    transparent: true,
   });
   const capMat = new MeshLambertMaterial({
     color: 0xffee44,
@@ -174,8 +177,7 @@ export class SliceDebris {
       half.life -= dt;
       half.vel.y -= 18 * dt;
       half.group.position.addScaledVector(half.vel, dt);
-      half.group.rotation.x += half.torque.x * dt;
-      half.group.rotation.y += half.torque.y * dt;
+      // Flat fragments tumble in screen space so a sprite never turns edge-on.
       half.group.rotation.z += half.torque.z * dt;
 
       const p = half.group.position;

@@ -1,4 +1,4 @@
-import { BoxGeometry, CanvasTexture, CircleGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
+import { CanvasTexture, Group, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
 
 const textures = new Map<string, Texture>();
 /** Small original ink textures: generated once, shared by both battle renderers. */
@@ -27,23 +27,5 @@ export function battleTexture(kind: 'ground' | 'stone'): Texture | null {
   const texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;texture.wrapS=texture.wrapT=RepeatWrapping;texture.repeat.set(kind==='ground'?5:3,kind==='ground'?8:2);textures.set(kind,texture);return texture;
 }
 
-/** Ruined orchard masonry and amber beacons leave the playable lane clear. */
-export function battleScenery(width: number, length: number, centerZ=0): Group {
-  const group=new Group();
-  const stone=new MeshLambertMaterial({color:0x6b7768,flatShading:true,map:battleTexture('stone')});
-  const dark=new MeshLambertMaterial({color:0x263b35,flatShading:true});
-  const amber=new MeshBasicMaterial({color:0xffca57});
-  const shadowMaterial=new MeshBasicMaterial({color:0x071511,transparent:true,opacity:.3,depthWrite:false});
-  for(const side of [-1,1]) for(let i=0;i<4;i++){
-    const x=side*(width/2+.4),z=centerZ-length*.36+i*length*.24;
-    const ruin=new Group();ruin.position.set(x,0,z);
-    const foot=new Mesh(new CylinderGeometry(.62,.86,.32,6),dark);foot.position.y=.16;ruin.add(foot);
-    const column=new Mesh(new BoxGeometry(.65,1.35,.65),stone);column.position.y=.9;column.rotation.y=.15*side;ruin.add(column);
-    const cap=new Mesh(new ConeGeometry(.55,.35,4),dark);cap.position.y=1.75;cap.rotation.y=Math.PI/4;ruin.add(cap);
-    const lamp=new Mesh(new BoxGeometry(.36,.22,.7),amber);lamp.position.y=1.35;ruin.add(lamp);
-    const shadow=new Mesh(new CircleGeometry(1.05,12),shadowMaterial);shadow.rotation.x=-Math.PI/2;shadow.position.set(.2,.03,.3);ruin.add(shadow);
-    for(let j=0;j<2;j++){const rock=new Mesh(new ConeGeometry(.4+j*.12,.5+j*.25,5),stone);rock.position.set(side*(.7+j*.45),.25,j*.45);rock.rotation.z=side*.3;ruin.add(rock);}
-    group.add(ruin);
-  }
-  return group;
-}
+/** Empty scenery group until the authored map supplies its own artwork. */
+export function battleScenery(_width: number, _length: number, _centerZ=0): Group { return new Group(); }

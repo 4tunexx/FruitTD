@@ -6,14 +6,9 @@ import {
   Fog,
   OrthographicCamera,
   Scene,
-  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ARENA_W } from '../game/world';
 
 const CLEAR = new Color(0x4a5f3e);
@@ -42,7 +37,6 @@ export class GameRenderer {
   private blastKick = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private lookZ = 0;
-  private readonly composer: EffectComposer;
   private readonly ambientLight = new AmbientLight(0xe8f4dc, 0.92);
   private readonly keyLight = new DirectionalLight(0xfff4d8, 0.85);
 
@@ -93,19 +87,6 @@ export class GameRenderer {
       if (Number.isFinite(config.ambientLight)) this.ambientLight.intensity = Math.max(.1, Math.min(1.5, Number(config.ambientLight)));
       if (Number.isFinite(config.sunLight)) this.keyLight.intensity = Math.max(.1, Math.min(1.5, Number(config.sunLight)));
     });
-
-    // Post-processing: Bloom → Output
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    const bloom = new UnrealBloomPass(
-      new Vector2(window.innerWidth, window.innerHeight),
-      0.38,  // strength
-      0.55,  // radius
-      0.72,  // threshold — only very bright emissive bits glow
-    );
-    bloom.enabled = !isMobile && !isLowMemory;
-    this.composer.addPass(bloom);
-    this.composer.addPass(new OutputPass());
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -222,7 +203,6 @@ export class GameRenderer {
     // Portrait phones need the wall lower in the playable viewport, with room
     // for the compact top HUD. Keep landscape/desktop composition unchanged.
     this.renderer.setSize(w, h, false);
-    this.composer.setSize(w, h);
     // Fit the full tower width and compact approach at every screen ratio.
     const portrait = w / Math.max(1, h) < .82;
     this.cameraBase.set(0, portrait ? 32 : 26, portrait ? -24 : -32);
@@ -300,6 +280,6 @@ export class GameRenderer {
   }
 
   render(): void {
-    this.composer.render();
+    this.renderer.render(this.scene, this.camera);
   }
 }

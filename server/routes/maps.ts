@@ -28,7 +28,7 @@ mapsRouter.get('/:mode', async (req, res) => {
   if (!MODES.has(mode)) return res.status(404).json({ success: false, error: 'Map mode not found.' });
   try {
     const col = await getCollection<StoredBattleMap>('battle_maps');
-    const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 } });
+    const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 }, sort: { updatedAt: -1, id: 1 } });
     return res.json({ success: true, map: map || DEFAULT_BATTLE_MAPS[mode] });
   } catch (error) {
     console.error('Battle map read failed:', error);

@@ -71,7 +71,7 @@ import { updateTowerChip } from './ui/towerChip';
 import { installGameScreens, openScreen, refreshCurrentScreen } from './ui/screens';
 import { canSellItem } from './game/catalog';
 import { initThemeSystem } from './ui/theme';
-import { installDesignMode } from './ui/design/designMode';
+import { installDesignModeLauncher } from './ui/design/designLauncher';
 import {
   BOSS_OVERLORD_STUDIO_KEY,
   bossStudioKey,
@@ -296,7 +296,7 @@ function towerDamageBonus(): number {
 
 initAchievementsCache();
 installHudToggles();
-installDesignMode();
+installDesignModeLauncher();
 void loadLiveConfig().then(() => {
   applyEquippedBlade();
   hud.mountShop(save);

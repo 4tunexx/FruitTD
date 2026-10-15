@@ -152,7 +152,9 @@ function refreshStoreCache(): Record<string, EntityStudioData> {
     if (sig === cachedStoreSig) return cachedEntities;
     cachedStoreSig = sig;
     const store = loadStudioStore();
-    cachedEntities = { ...getPublishedCreatorMedia()?.entities, ...store.entities };
+    // A published pack wins over a draft kept on this browser. Draft-only
+    // entities remain available for the Creator preview before publication.
+    cachedEntities = { ...store.entities, ...getPublishedCreatorMedia()?.entities };
     return cachedEntities;
   } catch {
     cachedEntities = {};

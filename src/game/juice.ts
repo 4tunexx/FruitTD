@@ -1,7 +1,7 @@
 import {
   Color,
   DynamicDrawUsage,
-  IcosahedronGeometry,
+  PlaneGeometry,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
@@ -94,7 +94,7 @@ export class JuiceSystem {
   private dirty = true;
 
   constructor() {
-    const geo = new IcosahedronGeometry(0.055, 0);
+    const geo = new PlaneGeometry(0.11, 0.11);
     const mat = new MeshBasicMaterial({
       color: 0xffffff,
       toneMapped: false,

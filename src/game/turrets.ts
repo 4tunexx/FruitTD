@@ -1,16 +1,8 @@
-import {
-  BoxGeometry,
-  CylinderGeometry,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  MeshLambertMaterial,
-  SphereGeometry,
-  TorusGeometry,
-} from 'three';
+import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import type { Fruit } from './fruits';
 import type { JuiceBank, JuiceSystem } from './juice';
 import type { PadDef } from './world';
+import { sampleStudioTexture } from './studioRuntime';
 
 export type TurretKind = 'guillotine' | 'vortex' | 'laser' | 'railgun' | 'sprinkler' | 'blender';
 
@@ -93,74 +85,15 @@ export class TurretRig {
   private readonly slug: Mesh | null = null;
   private slugZ = 0;
   private slugLive = 0;
+  private readonly placeholder: Mesh;
 
   constructor(kind: TurretKind) {
     this.kind = kind;
-    if (kind === 'guillotine') {
-      const post = new Mesh(new BoxGeometry(0.18, 1.15, 0.18), new MeshLambertMaterial({ color: 0x2a1a0a }));
-      post.position.y = 0.62;
-      this.blade = new Mesh(new BoxGeometry(0.95, 0.07, 0.28), new MeshLambertMaterial({ color: 0xff6622, emissive: 0xff3300, emissiveIntensity: 0.6 }));
-      this.blade.position.set(0.42, 0.85, 0);
-      this.group.add(post, this.blade);
-    } else if (kind === 'vortex') {
-      const base = new Mesh(new CylinderGeometry(0.55, 0.7, 0.22, 12), new MeshLambertMaterial({ color: 0x4a5560 }));
-      base.position.y = 0.12;
-      this.spin = new Group();
-      const ring = new Mesh(new TorusGeometry(0.48, 0.07, 8, 16), new MeshLambertMaterial({ color: 0x6ec6c0 }));
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = 0.55;
-      const cone = new Mesh(new CylinderGeometry(0.08, 0.42, 1.1, 10, 1, true), new MeshLambertMaterial({ color: 0x8fd4cf, transparent: true, opacity: 0.55 }));
-      cone.position.y = 0.7;
-      this.spin.add(ring, cone);
-      this.group.add(base, this.spin);
-    } else if (kind === 'laser') {
-      const body = new Mesh(new BoxGeometry(0.7, 0.55, 0.7), new MeshLambertMaterial({ color: 0x6b5a2a }));
-      body.position.y = 0.4;
-      const lens = new Mesh(new SphereGeometry(0.28, 12, 10), new MeshLambertMaterial({ color: 0xffee55 }));
-      lens.position.set(0, 0.72, 0.2);
-      this.beam = new Mesh(
-        new CylinderGeometry(0.06, 0.06, 9.2, 8),
-        new MeshBasicMaterial({ color: 0xffee44, transparent: true, opacity: 0.55 }),
-      );
-      this.beam.rotation.x = Math.PI / 2;
-      this.beam.position.set(0, 0.72, 4.7);
-      this.beam.visible = false;
-      this.group.add(body, lens, this.beam);
-    } else if (kind === 'railgun') {
-      const mount = new Mesh(new BoxGeometry(0.55, 0.35, 0.55), new MeshLambertMaterial({ color: 0x5a2a36 }));
-      mount.position.y = 0.28;
-      const barrelA = new Mesh(new CylinderGeometry(0.07, 0.09, 1.8, 8), new MeshLambertMaterial({ color: 0xd48aa0 }));
-      const barrelB = barrelA.clone();
-      barrelA.rotation.x = Math.PI / 2;
-      barrelB.rotation.x = Math.PI / 2;
-      barrelA.position.set(-0.12, 0.55, 0.7);
-      barrelB.position.set(0.12, 0.55, 0.7);
-      this.slug = new Mesh(new SphereGeometry(0.12, 8, 8), new MeshBasicMaterial({ color: 0xff77aa }));
-      this.slug.visible = false;
-      this.group.add(mount, barrelA, barrelB, this.slug);
-    } else if (kind === 'sprinkler') {
-      const base = new Mesh(new CylinderGeometry(0.28, 0.38, 0.3, 10), new MeshLambertMaterial({ color: 0xb86a20 }));
-      base.position.y = 0.16;
-      this.spin = new Group();
-      this.spin.position.y = 0.4;
-      for (let i = 0; i < 4; i++) {
-        const arm = new Mesh(new BoxGeometry(0.12, 0.08, 0.7), new MeshLambertMaterial({ color: 0xff8a2a }));
-        arm.rotation.y = (i * Math.PI) / 2;
-        arm.position.set(Math.sin((i * Math.PI) / 2) * 0.25, 0, Math.cos((i * Math.PI) / 2) * 0.25);
-        this.spin.add(arm);
-      }
-      this.group.add(base, this.spin);
-    } else {
-      const pit = new Mesh(new CylinderGeometry(0.62, 0.62, 0.28, 14), new MeshLambertMaterial({ color: 0x3a2a2a }));
-      pit.position.y = 0.08;
-      const spikes = new Mesh(new CylinderGeometry(0.5, 0.5, 0.32, 8), new MeshLambertMaterial({ color: 0x888888 }));
-      spikes.position.y = 0.1;
-      this.lid = new Mesh(new CylinderGeometry(0.6, 0.6, 0.08, 14), new MeshLambertMaterial({ color: 0x5a4a38 }));
-      this.lid.position.y = 0.24;
-      this.lever = new Mesh(new BoxGeometry(0.08, 0.45, 0.08), new MeshLambertMaterial({ color: 0xaa5533 }));
-      this.lever.position.set(0.72, 0.35, 0);
-      this.group.add(pit, spikes, this.lid, this.lever);
-    }
+    const colors: Record<TurretKind, number> = { guillotine: 0xff6622, vortex: 0x6ec6c0, laser: 0xffee55, railgun: 0xd48aa0, sprinkler: 0xff8a2a, blender: 0x888888 };
+    const placeholder = new Mesh(new PlaneGeometry(0.9, 1.1), new MeshBasicMaterial({ color: colors[kind], side: DoubleSide, transparent: true, opacity: 0.9 }));
+    placeholder.position.y = 0.6;
+    this.group.add(placeholder);
+    this.placeholder = placeholder;
   }
 
   setOpen(open: boolean): void {
@@ -169,7 +102,16 @@ export class TurretRig {
     if (this.lever) this.lever.rotation.z = open ? 0.7 : 0;
   }
 
+  refreshAppearance(): void {
+    const texture = sampleStudioTexture(`tower-${this.kind}`);
+    if (texture) {
+      const material = this.placeholder.material as MeshBasicMaterial;
+      if (material.map !== texture) { material.map = texture; material.color.setHex(0xffffff); material.needsUpdate = true; }
+    }
+  }
+
   tick(x: number, z: number, level: number, ctx: TurretTick): boolean {
+    this.refreshAppearance();
     const { dt, fruits, juice, bank, onHit } = ctx;
     this.phase += dt;
     this.cooldown = Math.max(0, this.cooldown - dt);

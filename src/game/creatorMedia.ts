@@ -13,11 +13,11 @@ export function normalizeCreatorMedia(raw: unknown): MediaStudioStore | null {
   for (const [key, value] of Object.entries(row.entities)) {
     if (!/^[a-z][a-z0-9-]{1,63}$/.test(key) || !value || typeof value !== 'object') throw new Error('Invalid Creator entity.');
     const sheet = value.sheetDataUrl;
-    if (sheet && (typeof sheet !== 'string' || sheet.length > 1_000_000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(sheet))) throw new Error('Sprite sheets must be PNG, JPEG or WebP images under 1 MB.');
+    if (sheet && (typeof sheet !== 'string' || sheet.length > 1_400_000 || !(/^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/api\/media\/[a-f0-9]{24})$/i.test(sheet)))) throw new Error('Sprite sheets must be a saved Admin image or PNG, JPEG, WebP data under 1 MB.');
     const cols = Math.floor(number(value.cols, 1, 1, 64)); const rows = Math.floor(number(value.rows, 1, 1, 64));
     const clips: EntityStudioData['clips'] = {};
     for (const [clip, definition] of Object.entries(value.clips || {})) {
-      if (!/^(idle|walk|run|hit|death)_(down|left|right|up)$/.test(clip) || !definition || typeof definition !== 'object') continue;
+      if (!/^(?:idle|hit|death|(?:walk|run)_(?:down|left|right|up))$/.test(clip) || !definition || typeof definition !== 'object') continue;
       const startFrame = Math.floor(number(definition.startFrame, 0, 0, cols * rows - 1));
       clips[clip] = { startFrame, frameCount: Math.floor(number(definition.frameCount, 1, 1, cols * rows - startFrame)), ...(definition.fps ? { fps: number(definition.fps, 10, 1, 60) } : {}), ...( ['none','juice-burst','spark','dark-pulse','screen-shake'].includes(definition.fx || '') ? { fx: definition.fx } : {}) };
     }

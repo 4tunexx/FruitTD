@@ -5,6 +5,7 @@
  */
 import { notifyStudioRuntimeChanged } from '../game/studioRuntimeSignals';
 import { loadSoundBank, saveSoundBank, SOUND_BANK_SLOTS, type SoundBankStore } from '../game/studioSoundBank';
+import { getAuthToken } from '../services/auth';
 
 export { loadSoundBank, saveSoundBank, SOUND_BANK_SLOTS, SOUND_BANK_STORAGE_KEY } from '../game/studioSoundBank';
 export type { SoundBankStore } from '../game/studioSoundBank';
@@ -65,6 +66,8 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'enemy-splitter', label: 'Pod-Spawner (enemy-splitter)' },
   { key: 'enemy-swift', label: 'Juice-Runner (enemy-swift)' },
   { key: 'tower-main', label: 'Main Tower (tower-main)' },
+  { key: 'tower-wall', label: 'Full-width Defense Wall (tower-wall)' },
+  ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: `${kind} tower` })),
   { key: 'hero-jiju', label: 'Master Jiju (hero-jiju)' },
   { key: 'hero-topfu', label: 'Topfu (hero-topfu)' },
   { key: 'hero-lagen', label: 'Lagen (hero-lagen)' },
@@ -898,6 +901,19 @@ function persistAll(): void {
   renderEntityRail();
 }
 
+/** Read the current editor draft without depending on localStorage quota. */
+export function currentStudioDraft(): MediaStudioStore {
+  readEventInputsIntoEntity();
+  const label = ($('studio-entity-label') as HTMLInputElement | null)?.value.trim();
+  if (label) currentEntity().label = label;
+  else delete currentEntity().label;
+  return migrateStoreToV2(store);
+}
+
+export function loadPublishedStudioDraft(published: MediaStudioStore): void {
+  installMediaStudio(published);
+}
+
 function exportSelectedFrame(): void {
   if (!sheetImg) {
     setStatus('No sheet loaded', false);
@@ -1191,17 +1207,44 @@ function bindControls(): void {
 
   $('studio-sheet-upload')?.addEventListener('change', (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1_000_000) {
+      setStatus('Use a PNG, JPEG or WebP sheet under 1 MB.', false); return;
+    }
+    const entityKey = store.selectedEntity;
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
-      currentEntity().sheetDataUrl = dataUrl;
-      await loadSheetImage(dataUrl);
-      selectedFrame = 0;
-      drawSheet();
-      drawPreviewFrame(0);
-      renderEntityRail();
-      setStatus(`Sheet loaded (~${approxDataUrlKb(dataUrl)} KB). Remember localStorage ~5MB limit.`);
+      try {
+        const token = getAuthToken();
+        const response = await fetch('/api/admin/media', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ image: dataUrl }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.url) throw new Error(result.error || 'Image upload failed.');
+        const url = result.url as string;
+        if (!store.entities[entityKey]) store.entities[entityKey] = emptyEntityData();
+        store.entities[entityKey].sheetDataUrl = url;
+        // The image is already stored remotely. Keep its small URL in the
+        // editor draft so a refresh before Publish does not lose the upload.
+        let draftSaved = true;
+        try { saveStudioStore(store); } catch { draftSaved = false; }
+        if (store.selectedEntity !== entityKey) {
+          setStatus(draftSaved ? `Uploaded ${entityKey}. Select it to preview.` : `Uploaded ${entityKey}, but local draft storage is full. Publish before reloading.`, draftSaved);
+          return;
+        }
+        await loadSheetImage(url);
+        selectedFrame = 0;
+        drawSheet();
+        drawPreviewFrame(0);
+        renderEntityRail();
+        setStatus(draftSaved
+          ? 'Sheet uploaded and draft saved. Publish the pack to show it to players.'
+          : 'Sheet uploaded, but local draft storage is full. Publish before reloading.', draftSaved);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Image upload failed.', false);
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -1299,9 +1342,9 @@ function bindControls(): void {
   bindTimeline();
 }
 
-export function installMediaStudio(): void {
+export function installMediaStudio(published?: MediaStudioStore): void {
   if (!$('admin-media-studio')) return;
-  store = loadStudioStore();
+  store = published ? migrateStoreToV2(published) : loadStudioStore();
   soundStore = loadSoundBank();
   fillSfxSelects();
   if (!installed) {
@@ -1340,7 +1383,7 @@ export function importStudioImageSample(entityKey: string, label: string, dataUr
   if (!/^[a-z][a-z0-9-]{1,63}$/.test(entityKey) || !dataUrl.startsWith('data:image/')) return;
   store.entities[entityKey] = {
     sheetDataUrl: dataUrl, cols: 1, rows: 1, frameW: 0, frameH: 0,
-    clips: { idle_down: { startFrame: 0, frameCount: 1 }, walk_down: { startFrame: 0, frameCount: 1 } },
+    clips: { idle: { startFrame: 0, frameCount: 1 }, walk_down: { startFrame: 0, frameCount: 1 } },
     label,
   };
   store.selectedEntity = entityKey;
