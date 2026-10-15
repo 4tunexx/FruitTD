@@ -58,6 +58,10 @@ export interface AdminConfigDoc {
     backgroundImage?: string;
     logoImage?: string;
     faviconImage?: string;
+    panelBackgrounds?: Record<string, string>;
+    authLogoImage?: string;
+    loadingImage?: string;
+    loadingBackgroundImage?: string;
   };
   landscapeConfig?: Record<string, unknown>;
   gameplayConfig: {
@@ -152,7 +156,7 @@ export function normalizeMenuConfig(
   const asset = (value: unknown, previous = '') => {
     if (value === undefined) return previous;
     if (typeof value !== 'string' || !value) return '';
-    if (/^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048) return value;
+    if (/^https:\/\/[^\s"'()\\]+$/i.test(value) && value.length <= 2048) return value;
     if (/^\/api\/media\/[a-f0-9]{24}$/i.test(value)) return value;
     if (/^data:image\/(?:png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 900_000) return value;
     return '';
@@ -171,6 +175,14 @@ export function normalizeMenuConfig(
     backgroundImage: asset(row.backgroundImage, fallback.backgroundImage),
     logoImage: asset(row.logoImage, fallback.logoImage),
     faviconImage: asset(row.faviconImage, fallback.faviconImage),
+    authLogoImage: asset(row.authLogoImage, fallback.authLogoImage),
+    loadingImage: asset(row.loadingImage, fallback.loadingImage),
+    loadingBackgroundImage: asset(row.loadingBackgroundImage, fallback.loadingBackgroundImage),
+    panelBackgrounds: Object.fromEntries(
+      ['MAIN_MENU', 'casual', 'horde', 'campaign', 'coop', 'arena', 'HEROES', 'INVENTORY', 'SHOP', 'PROFILE', 'CO_OP', 'CAMPAIGN', 'ARENA', 'MISSIONS', 'LEADERBOARD'].map((key) => [
+        key, asset((row.panelBackgrounds as Record<string, unknown> | undefined)?.[key], fallback.panelBackgrounds?.[key]),
+      ]),
+    ),
   };
 }
 
@@ -222,6 +234,10 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
     backgroundImage: '',
     logoImage: '',
     faviconImage: '',
+    panelBackgrounds: {},
+    authLogoImage: '',
+    loadingImage: '',
+    loadingBackgroundImage: '',
   },
   gameplayConfig: {
     startMoney: 140,

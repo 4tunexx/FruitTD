@@ -6,18 +6,20 @@ import { resolveRequestUser } from '../auth';
 export const mediaRouter = Router();
 export const adminMediaRouter = Router();
 const MAX_IMAGE_BYTES = 1_000_000;
-const TYPES: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
+const MAX_GIF_BYTES = 2_500_000;
+const TYPES: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
 
 export function decodeSpriteImage(value: unknown): { contentType: string; bytes: Buffer } | null {
   if (typeof value !== 'string') return null;
-  const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
-  if (!match || match[2].length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 4) return null;
+  const match = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match || match[2].length > Math.ceil((match[1] === 'gif' ? MAX_GIF_BYTES : MAX_IMAGE_BYTES) / 3) * 4 + 4) return null;
   const bytes = Buffer.from(match[2], 'base64');
-  if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || bytes.toString('base64') !== match[2]) return null;
+  if (!bytes.length || bytes.length > (match[1] === 'gif' ? MAX_GIF_BYTES : MAX_IMAGE_BYTES) || bytes.toString('base64') !== match[2]) return null;
   const type = match[1];
   const valid = type === 'png' ? bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
     : type === 'jpeg' ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9
-    : bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP';
+    : type === 'webp' ? bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
+    : ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString());
   return valid ? { contentType: TYPES[type], bytes } : null;
 }
 
@@ -27,7 +29,7 @@ adminMediaRouter.post('/', async (req, res) => {
   const user = await resolveRequestUser(req);
   if (!process.env.ADMIN_STEAM_ID || user?.steamId !== process.env.ADMIN_STEAM_ID) return res.status(403).json({ success: false, error: 'Admin access required.' });
   const image = decodeSpriteImage(req.body?.image);
-  if (!image) return res.status(400).json({ success: false, error: 'Upload a PNG, JPEG or WebP image under 1 MB.' });
+  if (!image) return res.status(400).json({ success: false, error: 'Upload a PNG, JPEG or WebP under 1 MB, or a GIF under 2.5 MB.' });
   try {
     const col = await getCollection<MediaDoc>('media_assets');
     const result = await col.insertOne({ contentType: image.contentType, bytes: image.bytes, createdAt: new Date() });

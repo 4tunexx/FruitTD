@@ -30,6 +30,7 @@ import { bindArenaRating } from '../../services/pvpRating';
 import type { SaveData } from '../../game/save';
 import { navigation, type NavState } from '../../game/navigation';
 import { getAuthToken } from '../../services/auth';
+import { applyPanelOneAppearance } from '../../services/liveConfig';
 import { socialApi } from '../../services/social';
 import { animateNumbersIn } from '../numberMotion';
 import { applyHubChromeMode, bindHubChromeReveal } from './hubChrome';
@@ -605,6 +606,7 @@ export function renderHub(root: HTMLElement, save: SaveData, active: NavState, o
   root.classList.add('ftd-hub');
   root.classList.toggle('is-home', active === HUB_HOME);
   root.classList.toggle('is-campaign', active === 'CAMPAIGN');
+  applyPanelOneAppearance(root, active);
 
   root.appendChild(buildHeader(save, opts, root));
   if (getAuthToken()) {
@@ -660,6 +662,7 @@ export function switchHubTab(root: HTMLElement, save: SaveData, next: NavState):
   const order = [...tabs.keys()];
   root.classList.toggle('is-home', next === HUB_HOME);
   root.classList.toggle('is-campaign', next === 'CAMPAIGN');
+  applyPanelOneAppearance(root, next);
   const prevIndex = lastActive ? order.indexOf(lastActive) : -1;
   const nextIndex = order.indexOf(next);
   const direction: 'forward' | 'back' = nextIndex >= prevIndex ? 'forward' : 'back';
@@ -684,6 +687,7 @@ export function refreshHub(root: HTMLElement, save: SaveData, active: NavState):
   syncHeader(root, save);
   root.classList.toggle('is-home', active === HUB_HOME);
   root.classList.toggle('is-campaign', active === 'CAMPAIGN');
+  applyPanelOneAppearance(root, active, active === HUB_HOME ? root.dataset.panelMode || '' : '');
   paintTab(root, tab, save, 'none');
   lastActive = active;
 }

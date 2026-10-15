@@ -29,6 +29,22 @@ test('admin branding keeps safe logo, background and favicon assets', () => {
   assert.equal(partial.storyText, config.storyText);
 });
 
+test('panel, auth and loading artwork survive publishing with unsafe URLs removed', () => {
+  const image = '/api/media/0123456789abcdef01234567';
+  const config = normalizeMenuConfig({
+    panelBackgrounds: { MAIN_MENU: image, horde: 'javascript:alert(1)', HEROES: image, unknown: image },
+    authLogoImage: image, loadingImage: image, loadingBackgroundImage: image,
+  });
+  assert.equal(config.panelBackgrounds?.MAIN_MENU, image);
+  assert.equal(config.panelBackgrounds?.HEROES, image);
+  assert.equal(config.panelBackgrounds?.horde, '');
+  assert.equal(config.panelBackgrounds?.unknown, undefined);
+  assert.equal(config.authLogoImage, image);
+  assert.equal(config.loadingImage, image);
+  assert.equal(config.loadingBackgroundImage, image);
+  assert.equal(normalizeMenuConfig({ title: 'Update' }, config).panelBackgrounds?.MAIN_MENU, image);
+});
+
 test('admin accepts all generated campaign bosses and optimized reveal images', () => {
   const roster = Array.from({ length: 100 }, (_, index) => defaultCampaignBoss(index + 1));
   roster[99].revealImage = `data:image/webp;base64,${'A'.repeat(29_900)}`;

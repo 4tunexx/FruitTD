@@ -61,6 +61,11 @@ export interface AdminConfig {
     logoImage?: string;
     /** Optional favicon / app icon URL (wired to #app-favicon). */
     faviconImage?: string;
+    /** Panel 1 artwork by destination or selected Home mode. */
+    panelBackgrounds?: Record<string, string>;
+    authLogoImage?: string;
+    loadingImage?: string;
+    loadingBackgroundImage?: string;
   };
   landscapeConfig: {
     locationName: string; skyColor: string; outerGroundColor: string; groundColor: string; groundGlowColor: string; foliageColor: string;
@@ -116,6 +121,10 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     backgroundImage: '',
     logoImage: '',
     faviconImage: '',
+    panelBackgrounds: {},
+    authLogoImage: '',
+    loadingImage: '',
+    loadingBackgroundImage: '',
   },
   landscapeConfig: {
     locationName: 'Fallen Orchard', skyColor: '#4a5f3e', outerGroundColor: '#5a8a42', groundColor: '#6fa052',

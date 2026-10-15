@@ -19,6 +19,19 @@ export function getLiveConfig(): AdminConfig {
   return cached;
 }
 
+function imageValue(url = ''): string {
+  return url.trim() ? `url("${url.trim().replace(/"/g, '\\"')}")` : 'none';
+}
+
+/** Keep the selected hub page and Home mode's artwork in sync with published branding. */
+export function applyPanelOneAppearance(root: HTMLElement, page: string, mode = '', config: AdminConfig = cached): void {
+  root.dataset.panelPage = page;
+  root.dataset.panelMode = mode;
+  const images = config.menuConfig.panelBackgrounds || {};
+  root.style.setProperty('--panel-one-image', imageValue((mode && page === 'MAIN_MENU' ? images[mode] : '') || images[page]));
+  root.classList.toggle('has-panel-one-image', !!((mode && page === 'MAIN_MENU' ? images[mode] : '') || images[page]));
+}
+
 function applyFavicon(href: string): void {
   const link =
     (document.getElementById('app-favicon') as HTMLLinkElement | null) ||
@@ -54,6 +67,9 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
   const backgroundImage = (config.menuConfig.backgroundImage || '').trim();
   const logoImage = (config.menuConfig.logoImage || '').trim();
   const faviconImage = (config.menuConfig.faviconImage || '').trim();
+  const authLogoImage = (config.menuConfig.authLogoImage || logoImage).trim();
+  const loadingImage = (config.menuConfig.loadingImage || '').trim();
+  const loadingBackgroundImage = (config.menuConfig.loadingBackgroundImage || '').trim();
   const eyebrowEl = document.getElementById('menu-eyebrow');
   const titleEl = document.getElementById('menu-title');
   const subtitleEl = document.getElementById('menu-subtitle');
@@ -82,6 +98,14 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
   document.documentElement.style.setProperty('--menu-logo-image', logoValue);
   document.documentElement.setAttribute('data-menu-bg', backgroundImage ? 'custom' : 'default');
   document.documentElement.setAttribute('data-menu-logo', logoImage ? 'custom' : 'default');
+  document.documentElement.style.setProperty('--auth-logo-image', imageValue(authLogoImage));
+  document.documentElement.style.setProperty('--loading-image', imageValue(loadingImage));
+  document.documentElement.style.setProperty('--loading-background-image', imageValue(loadingBackgroundImage));
+  document.documentElement.classList.toggle('has-auth-logo-image', !!authLogoImage);
+  document.documentElement.classList.toggle('has-loading-image', !!loadingImage);
+  document.documentElement.classList.toggle('has-loading-background-image', !!loadingBackgroundImage);
+  const hub = document.getElementById('screen-hub');
+  if (hub) applyPanelOneAppearance(hub, hub.dataset.panelPage || 'MAIN_MENU', hub.dataset.panelMode || '', config);
 
   document.querySelectorAll<HTMLElement>('[data-branding="menu"]').forEach((el) => {
     el.style.setProperty('--menu-bg-image', bgValue);

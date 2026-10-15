@@ -1593,7 +1593,11 @@ var DEFAULT_ADMIN_CONFIG = {
     themeColor: "#ffca28",
     backgroundImage: "",
     logoImage: "",
-    faviconImage: ""
+    faviconImage: "",
+    panelBackgrounds: {},
+    authLogoImage: "",
+    loadingImage: "",
+    loadingBackgroundImage: ""
   },
   landscapeConfig: {
     locationName: "Fallen Orchard",
@@ -2873,7 +2877,7 @@ function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG2.menuConfig)
   const asset = (value, previous = "") => {
     if (value === void 0) return previous;
     if (typeof value !== "string" || !value) return "";
-    if (/^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048) return value;
+    if (/^https:\/\/[^\s"'()\\]+$/i.test(value) && value.length <= 2048) return value;
     if (/^\/api\/media\/[a-f0-9]{24}$/i.test(value)) return value;
     if (/^data:image\/(?:png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 9e5) return value;
     return "";
@@ -2890,7 +2894,16 @@ function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG2.menuConfig)
     themeColor,
     backgroundImage: asset(row.backgroundImage, fallback.backgroundImage),
     logoImage: asset(row.logoImage, fallback.logoImage),
-    faviconImage: asset(row.faviconImage, fallback.faviconImage)
+    faviconImage: asset(row.faviconImage, fallback.faviconImage),
+    authLogoImage: asset(row.authLogoImage, fallback.authLogoImage),
+    loadingImage: asset(row.loadingImage, fallback.loadingImage),
+    loadingBackgroundImage: asset(row.loadingBackgroundImage, fallback.loadingBackgroundImage),
+    panelBackgrounds: Object.fromEntries(
+      ["MAIN_MENU", "casual", "horde", "campaign", "coop", "arena", "HEROES", "INVENTORY", "SHOP", "PROFILE", "CO_OP", "CAMPAIGN", "ARENA", "MISSIONS", "LEADERBOARD"].map((key) => [
+        key,
+        asset(row.panelBackgrounds?.[key], fallback.panelBackgrounds?.[key])
+      ])
+    )
   };
 }
 function normalizeGameplayConfig(input) {
@@ -2939,7 +2952,11 @@ var DEFAULT_ADMIN_CONFIG2 = {
     themeColor: "#a3e635",
     backgroundImage: "",
     logoImage: "",
-    faviconImage: ""
+    faviconImage: "",
+    panelBackgrounds: {},
+    authLogoImage: "",
+    loadingImage: "",
+    loadingBackgroundImage: ""
   },
   gameplayConfig: {
     startMoney: 140,
@@ -5582,22 +5599,23 @@ import { ObjectId as ObjectId2 } from "mongodb";
 var mediaRouter = Router16();
 var adminMediaRouter = Router16();
 var MAX_IMAGE_BYTES = 1e6;
-var TYPES = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp" };
+var MAX_GIF_BYTES = 25e5;
+var TYPES = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
 function decodeSpriteImage(value) {
   if (typeof value !== "string") return null;
-  const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
-  if (!match || match[2].length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 4) return null;
+  const match = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match || match[2].length > Math.ceil((match[1] === "gif" ? MAX_GIF_BYTES : MAX_IMAGE_BYTES) / 3) * 4 + 4) return null;
   const bytes = Buffer.from(match[2], "base64");
-  if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || bytes.toString("base64") !== match[2]) return null;
+  if (!bytes.length || bytes.length > (match[1] === "gif" ? MAX_GIF_BYTES : MAX_IMAGE_BYTES) || bytes.toString("base64") !== match[2]) return null;
   const type = match[1];
-  const valid = type === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) : type === "jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes.at(-2) === 255 && bytes.at(-1) === 217 : bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP";
+  const valid = type === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) : type === "jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes.at(-2) === 255 && bytes.at(-1) === 217 : type === "webp" ? bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP" : ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString());
   return valid ? { contentType: TYPES[type], bytes } : null;
 }
 adminMediaRouter.post("/", async (req2, res) => {
   const user = await resolveRequestUser(req2);
   if (!process.env.ADMIN_STEAM_ID || user?.steamId !== process.env.ADMIN_STEAM_ID) return res.status(403).json({ success: false, error: "Admin access required." });
   const image = decodeSpriteImage(req2.body?.image);
-  if (!image) return res.status(400).json({ success: false, error: "Upload a PNG, JPEG or WebP image under 1 MB." });
+  if (!image) return res.status(400).json({ success: false, error: "Upload a PNG, JPEG or WebP under 1 MB, or a GIF under 2.5 MB." });
   try {
     const col = await getCollection("media_assets");
     const result = await col.insertOne({ contentType: image.contentType, bytes: image.bytes, createdAt: /* @__PURE__ */ new Date() });

@@ -9,6 +9,9 @@ test('sprite media accepts image signatures and rejects disguised content', () =
   assert.equal(decodeSpriteImage(`data:image/png;base64,${png.toString('base64')}`)?.contentType, 'image/png');
   assert.equal(decodeSpriteImage('data:image/png;base64,PHNjcmlwdD4='), null);
   assert.equal(decodeSpriteImage('data:image/svg+xml;base64,PHN2Zz4='), null);
+  const gif = Buffer.from('GIF89a\u0001\u0000\u0001\u0000');
+  assert.equal(decodeSpriteImage(`data:image/gif;base64,${gif.toString('base64')}`)?.contentType, 'image/gif');
+  assert.equal(decodeSpriteImage('data:image/gif;base64,PHNjcmlwdD4='), null);
 });
 
 test('sprite upload needs an authenticated admin', async (t) => {

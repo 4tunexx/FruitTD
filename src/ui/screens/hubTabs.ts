@@ -46,6 +46,7 @@ import { HUB_HOME } from './hub';
 import { fetchDailyBonusStatus, fetchMissions } from '../../services/api';
 import { fetchAchievements } from '../../services/api';
 import { getAuthToken } from '../../services/auth';
+import { applyPanelOneAppearance } from '../../services/liveConfig';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
@@ -695,7 +696,11 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
     else homeSub(root, save);
   };
   const selectMode = (mode: GameMode, mainRoot: HTMLElement, save: SaveData) => {
+    const previousIndex = HOME_MODES.findIndex((entry) => entry.id === selectedMode);
+    const nextIndex = HOME_MODES.findIndex((entry) => entry.id === mode);
     selectedMode = mode;
+    const hub = mainRoot.closest<HTMLElement>('#screen-hub');
+    if (hub) applyPanelOneAppearance(hub, HUB_HOME, mode);
     onMode?.(mode);
     const activeMain = currentMain ?? mainRoot;
     for (const button of activeMain.querySelectorAll<HTMLButtonElement>('.ftd-mode-card')) {
@@ -706,13 +711,21 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
     const hint = activeMain.querySelector<HTMLElement>('[data-testid="mode-selection-hint"]');
     if (hint) hint.textContent = `${modeRules(mode).name.toUpperCase()} SELECTED · REVIEW THE BRIEFING BELOW`;
     if (currentSub) renderSub(currentSub, currentSave ?? save);
+    const animClass = nextIndex < previousIndex ? 'is-mode-sliding-back' : 'is-mode-sliding-forward';
+    for (const panel of [activeMain.querySelector('.ftd-outpost-art'), activeMain.querySelector('.ftd-playcard__content'), currentSub?.querySelector('.ftd-home-mode-detail')]) {
+      if (!(panel instanceof HTMLElement)) continue;
+      panel.classList.remove('is-mode-sliding-forward', 'is-mode-sliding-back');
+      void panel.offsetWidth;
+      panel.classList.add(animClass);
+      panel.addEventListener('animationend', () => panel.classList.remove(animClass), { once: true });
+    }
   };
 
   return {
     id: HUB_HOME,
     label: 'Home',
     icon: Home,
-    renderMain: (root, save) => { currentMain = root; homeMain(() => selectedMode, selectMode, launchSelectedMode)(root, save); },
+    renderMain: (root, save) => { currentMain = root; const hub = root.closest<HTMLElement>('#screen-hub'); if (hub) applyPanelOneAppearance(hub, HUB_HOME, selectedMode || ''); homeMain(() => selectedMode, selectMode, launchSelectedMode)(root, save); },
     renderSub,
     onHome: () => { selectedMode = null; },
   };

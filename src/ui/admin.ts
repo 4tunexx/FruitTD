@@ -583,11 +583,19 @@ export class AdminController {
       menuConfig.faviconImage || ''
     );
 
-    type BrandField = 'backgroundImage' | 'logoImage' | 'faviconImage';
-    const urlInputs: Record<BrandField, HTMLInputElement | null> = {
+    type BrandAssetField = 'backgroundImage' | 'logoImage' | 'faviconImage' | 'authLogoImage' | 'loadingImage' | 'loadingBackgroundImage';
+    type BrandField = BrandAssetField | `panel:${string}`;
+    const urlInputs: Record<string, HTMLInputElement | null> = {
       backgroundImage: inBg,
       logoImage: inLogo,
       faviconImage: inFavicon,
+    };
+    const setBrandValue = (field: BrandField, value: string) => {
+      if (!this.config) return;
+      if (field.startsWith('panel:')) {
+        this.config.menuConfig.panelBackgrounds ||= {};
+        this.config.menuConfig.panelBackgrounds[field.slice(6)] = value;
+      } else this.config.menuConfig[field as BrandAssetField] = value;
     };
 
     const syncPreview = () => {
@@ -605,8 +613,8 @@ export class AdminController {
       input.addEventListener('change', () => {
         const file = input.files?.[0];
         if (!file || !this.config) return;
-        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1_000_000) {
-          GameToast('Choose a PNG, JPEG, or WebP image under 1 MB.', 'warning');
+        if (!['image/png', 'image/jpeg', 'image/webp', ...(field === 'loadingImage' ? ['image/gif'] : [])].includes(file.type) || file.size > (file.type === 'image/gif' ? 2_500_000 : 1_000_000)) {
+          GameToast('Choose a PNG, JPEG or WebP under 1 MB' + (field === 'loadingImage' ? ', or a GIF under 2.5 MB.' : '.'), 'warning');
           return;
         }
         const reader = new FileReader();
@@ -623,7 +631,7 @@ export class AdminController {
             const result = await response.json();
             if (!response.ok || !result.url) throw new Error(result.error || 'Image upload failed.');
             if (!this.config) return;
-            this.config.menuConfig[field] = result.url;
+            setBrandValue(field, result.url);
             const urlInput = urlInputs[field];
             if (urlInput) urlInput.value = result.url;
             applyMenuAppearance(this.config);
@@ -648,7 +656,7 @@ export class AdminController {
         if (!this.config) return;
         const value = input.value.trim();
         if (value.endsWith('…')) return; // truncated data-URL preview
-        this.config.menuConfig[field] = value;
+        setBrandValue(field, value);
         applyMenuAppearance(this.config);
         syncPreview();
       });
@@ -656,6 +664,63 @@ export class AdminController {
     wireUrl(inBg, 'backgroundImage');
     wireUrl(inLogo, 'logoImage');
     wireUrl(inFavicon, 'faviconImage');
+
+    const artwork = document.getElementById('admin-panel-artwork');
+    const extra = document.getElementById('admin-extra-branding');
+    const slots: Array<{ field: BrandField; label: string; group: HTMLElement | null; gif?: boolean }> = [
+      ...([
+        ['MAIN_MENU', 'Home'], ['casual', 'Home · Casual'], ['horde', 'Home · Horde'],
+        ['campaign', 'Home · Campaign'], ['coop', 'Home · Co-op'], ['arena', 'Home · Arena'],
+        ['HEROES', 'Heroes'], ['INVENTORY', 'Inventory'], ['SHOP', 'Shop'], ['PROFILE', 'Profile'],
+        ['CO_OP', 'Co-op page'], ['CAMPAIGN', 'Campaign page'], ['ARENA', 'Arena page'],
+        ['MISSIONS', 'Missions'], ['LEADERBOARD', 'Rankings'],
+      ] as const).map(([key, label]) => ({ field: `panel:${key}` as BrandField, label, group: artwork })),
+      { field: 'authLogoImage', label: 'Login / register / Steam logo', group: extra },
+      { field: 'loadingImage', label: 'Loading animation or image', group: extra, gif: true },
+      { field: 'loadingBackgroundImage', label: 'Loading screen background', group: extra },
+    ];
+    artwork?.replaceChildren();
+    extra?.replaceChildren();
+    for (const { field, label, group, gif } of slots) {
+      if (!group) continue;
+      const value = field.startsWith('panel:')
+        ? menuConfig.panelBackgrounds?.[field.slice(6)] || ''
+        : menuConfig[field as BrandAssetField] || '';
+      const row = document.createElement('div');
+      row.className = 'admin-artwork-row';
+      const heading = document.createElement('strong');
+      heading.textContent = label;
+      const preview = document.createElement('img');
+      preview.alt = `${label} preview`;
+      const updatePreview = (url: string) => { preview.hidden = !url; if (url) preview.src = url; else preview.removeAttribute('src'); };
+      updatePreview(value);
+      const url = document.createElement('input');
+      url.type = 'url';
+      url.className = 'admin-input';
+      url.placeholder = 'https://… or leave blank';
+      url.setAttribute('aria-label', `${label} image URL`);
+      url.value = value;
+      const upload = document.createElement('input');
+      upload.type = 'file';
+      upload.className = 'admin-input';
+      upload.accept = 'image/png,image/jpeg,image/webp' + (gif ? ',image/gif' : '');
+      upload.setAttribute('aria-label', `Upload ${label} image`);
+      urlInputs[field] = url;
+      row.append(heading, preview, url, upload);
+      group.appendChild(row);
+      wireUpload(upload, field);
+      wireUrl(url, field);
+      url.addEventListener('change', () => updatePreview(url.value.trim()));
+      upload.addEventListener('change', () => {
+        const file = upload.files?.[0];
+        if (file && file.size <= (file.type === 'image/gif' ? 2_500_000 : 1_000_000)) {
+          const temp = URL.createObjectURL(file);
+          preview.src = temp;
+          preview.hidden = false;
+          preview.onload = () => URL.revokeObjectURL(temp);
+        }
+      });
+    }
   }
 
   private refreshBrandingPreview(bg: string, logo: string, favicon = ''): void {

@@ -1696,6 +1696,10 @@
                   <span>Upload Logo</span>
                   <input id="admin-upload-logo-image" type="file" accept="image/png,image/jpeg,image/webp" class="admin-input" data-branding-upload="logoImage" />
                 </label>
+                <p class="text-xs text-slate-400">Panel 1 artwork: leave a slot empty to keep the current default. Each Home mode can have its own image; the Home image is its fallback.</p>
+                <div id="admin-panel-artwork" class="admin-panel-artwork"></div>
+                <p class="text-xs text-slate-400">Auth logo falls back to the landing logo. Loading animation accepts an animated GIF under 2.5 MB, or PNG, JPEG and WebP under 1 MB; the default remains until an upload is saved.</p>
+                <div id="admin-extra-branding" class="admin-panel-artwork"></div>
                 <div class="admin-branding-preview" data-branding-preview style="margin-top:0.5rem;padding:0.75rem;border-radius:0.5rem;border:1px dashed rgba(148,163,184,0.35);min-height:4rem;background-size:cover;background-position:center;display:flex;gap:0.75rem;align-items:center;">
                   <img id="admin-favicon-preview" alt="Favicon preview" style="width:32px;height:32px;object-fit:contain;display:none;border-radius:6px;background:rgba(0,0,0,0.35);" />
                   <img id="admin-logo-preview" alt="Logo preview" style="max-height:48px;display:none;" />

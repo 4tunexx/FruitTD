@@ -4,6 +4,20 @@ import { installDomStub, resetDom } from './domStub.test-helper';
 installDomStub();
 import { AdminController } from './admin';
 import { DEFAULT_ADMIN_CONFIG, fetchAdminConfig } from '../services/admin';
+import { applyPanelOneAppearance } from '../services/liveConfig';
+
+test('Panel 1 uses each Home mode image and restores the page image on navigation', () => {
+  resetDom();
+  const root = document.createElement('div');
+  const config = structuredClone(DEFAULT_ADMIN_CONFIG);
+  config.menuConfig.panelBackgrounds = { MAIN_MENU: '/api/media/0123456789abcdef01234567', horde: '/api/media/abcdef0123456789abcdef01', HEROES: '/api/media/111111111111111111111111' };
+  applyPanelOneAppearance(root, 'MAIN_MENU', 'horde', config);
+  assert.match((root.style as any)['--panel-one-image'], /abcdef0123456789abcdef01/);
+  applyPanelOneAppearance(root, 'MAIN_MENU', 'casual', config);
+  assert.match((root.style as any)['--panel-one-image'], /0123456789abcdef01234567/);
+  applyPanelOneAppearance(root, 'HEROES', '', config);
+  assert.match((root.style as any)['--panel-one-image'], /111111111111111111111111/);
+});
 
 function workspace() {
   resetDom();
@@ -15,6 +29,9 @@ function workspace() {
   }
   for (const id of ['eyebrow', 'title', 'subtitle', 'story', 'title-eyebrow', 'logo-caption', 'announcement', 'theme', 'money', 'lives', 'scoremul', 'supermul']) {
     const input = document.createElement(id === 'title' || id === 'story' ? 'textarea' : 'input'); input.id = `admin-in-${id}`; root.appendChild(input);
+  }
+  for (const id of ['admin-panel-artwork', 'admin-extra-branding']) {
+    const section = document.createElement('div'); section.id = id; root.appendChild(section);
   }
   const table = document.createElement('div'); table.id = 'admin-lb-table'; root.appendChild(table);
   document.body.appendChild(root);
@@ -45,6 +62,21 @@ test('admin title and economy drafts survive switching tabs before publishing', 
   assert.equal(local.config.menuConfig.storyText, story.value);
   assert.equal(local.config.menuConfig.logoCaption, logoCaption.value);
   assert.equal(local.config.gameplayConfig.startMoney, 350);
+});
+
+test('admin artwork URL edits persist in the draft across branding rerenders', () => {
+  const { root, local } = workspace();
+  const inputs = Array.from(root.querySelector<HTMLElement>('#admin-panel-artwork')!.querySelectorAll<HTMLInputElement>('input')).filter((input) => input.type === 'url');
+  assert.equal(inputs.length, 15);
+  inputs[2]!.value = 'https://cdn.example.com/horde.webp';
+  inputs[2]!.dispatchEvent({ type: 'change' } as Event);
+  const extras = Array.from(root.querySelector<HTMLElement>('#admin-extra-branding')!.querySelectorAll<HTMLInputElement>('input')).filter((input) => input.type === 'url');
+  extras[0]!.value = 'https://cdn.example.com/auth.webp';
+  extras[0]!.dispatchEvent({ type: 'change' } as Event);
+  assert.equal(local.config.menuConfig.panelBackgrounds.horde, inputs[2]!.value);
+  assert.equal(local.config.menuConfig.authLogoImage, extras[0]!.value);
+  local.renderBrandingEditor();
+  assert.equal(Array.from(root.querySelector<HTMLElement>('#admin-panel-artwork')!.querySelectorAll<HTMLInputElement>('input')).filter((input) => input.type === 'url')[2]!.value, inputs[2]!.value);
 });
 
 test('admin leaderboard renders untrusted player names as text', async () => {
