@@ -947,6 +947,69 @@ html[data-ftd-motion='reduced'] #screen-hub #page-quests .quests-subtabs .subtab
 html[data-ftd-motion='reduced'] #screen-hub #page-quests .claim-btn:not(:disabled)::after,
 html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: none !important; }
 
+/* One inset for every hub destination; legacy pages use the panel's inset
+   instead of carrying a second, inconsistent page margin. */
+#screen-hub:not(.is-home):not(.is-pvp-battle) .ftd-hub__main > .ftd-hub-panel-content,
+#screen-hub:not(.is-pvp-battle) .ftd-hub__sub > .ftd-hub-panel-content {
+  padding: clamp(14px, 2vw, 24px) !important;
+  padding-bottom: clamp(34px, 4vh, 58px) !important;
+}
+#screen-hub .menu-page[data-hub-legacy='true'] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#screen-hub #page-quests .quests-subcontent { box-sizing: border-box; width: 100%; min-width: 0; }
+#screen-hub #page-quests .rank-tiers-list { min-width: 0; gap: 10px; }
+#screen-hub #page-quests .rank-tier-row {
+  box-sizing: border-box;
+  width: 100%;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 14px;
+}
+#screen-hub #page-quests .rank-tier-row > strong { min-width: 0; overflow-wrap: anywhere; }
+#screen-hub #page-quests .rank-tier-row > span:nth-child(3) { text-align: right; white-space: nowrap; }
+#screen-hub #page-quests .rank-tier-row > .rank-prize-btn {
+  grid-column: 2 / -1;
+  justify-self: start;
+  width: auto;
+  max-width: 100%;
+  min-height: 38px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  #screen-hub:not(.is-home):not(.is-pvp-battle) .ftd-hub__main > .ftd-hub-panel-content,
+  #screen-hub:not(.is-pvp-battle) .ftd-hub__sub > .ftd-hub-panel-content {
+    padding: clamp(12px, 3.5vw, 18px) !important;
+    padding-bottom: 36px !important;
+  }
+  #screen-hub #page-quests .quests-subtabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 0 12px;
+  }
+  #screen-hub #page-quests .quests-subtabs .subtab {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px;
+    font-size: clamp(.68rem, 3vw, .8rem);
+    line-height: 1.2;
+    text-align: center;
+  }
+  #screen-hub #page-quests :is(.mission-card, .ach-card, .badge-card, .rank-current-card, .rank-tier-row) { padding: 12px; }
+  #screen-hub #page-quests :is(.mission-title, .ach-title, .ach-desc, .mission-desc, .reward-badge) { overflow-wrap: anywhere; }
+}
+
 /* Keep the logged-in dashboard artwork softly blurred on mobile too. */
 @media (max-width: 900px) {
   #screen-hub.ftd-hub::before {

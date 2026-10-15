@@ -1382,6 +1382,15 @@ export class Hud {
             entering.addEventListener('animationend', () => entering.classList.remove(animation), { once: true });
           }
         });
+        // The quests tab bar is sticky. A new tab must start at its first card,
+        // otherwise the previous tab's scroll position cuts across the header.
+        const hub = btn.closest('#screen-hub');
+        const page = btn.closest<HTMLElement>('#page-quests');
+        if (page) page.scrollTop = 0;
+        const main = hub?.querySelector<HTMLElement>('.ftd-hub__main');
+        const body = hub?.querySelector<HTMLElement>('.ftd-hub__body');
+        if (main) main.scrollTop = 0;
+        if (body) body.scrollTop = 0;
       });
     });
   }
