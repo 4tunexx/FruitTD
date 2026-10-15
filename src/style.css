@@ -6783,8 +6783,7 @@ body.is-playing .match-parallax,
   100% { opacity: 0; transform: translate(-50%, -180%) scale(0.96); }
 }
 
-.title-logo::after {
-  content: 'SLICE. HOLD THE WALL.';
+.title-logo__caption {
   display: block;
   margin-top: 1.2rem;
   color: rgba(235, 247, 238, 0.76);
@@ -6883,10 +6882,56 @@ body.is-playing .match-parallax,
   .title-logo:hover { transform: rotate(-2deg) scale(1.02); }
   .title-logo__fruit { font-size: clamp(2.7rem, 14vw, 4.3rem); }
   .title-logo__td { font-size: clamp(3.4rem, 17vw, 5.5rem); }
-  .title-logo::after { font-size: 0.58rem; margin-top: 0.7rem; letter-spacing: 0.17em; }
+  .title-logo__caption { font-size: 0.58rem; margin-top: 0.7rem; letter-spacing: 0.17em; }
   .title-tip-panel { display: none; }
   #title-screen .title-lore-panel { display: none; }
   #title-screen .title-btn { min-height: 2.85rem; }
+}
+
+/* The opening briefing gets the title screen to itself until the player advances. */
+#title-screen.title-intro #title-menu,
+#title-screen.title-intro .title-signin-bar { display: none !important; }
+#title-screen.title-intro .title-lore-panel { display: block; }
+#title-screen .title-lore-heading { display: none; }
+#title-screen.title-intro .title-lore-heading {
+  display: block;
+  margin: 0 0 0.75rem;
+  color: #ffca28;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+#title-screen.title-intro .title-tagline {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.65;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+#title-screen .title-intro-prompt { display: none; }
+#title-screen.title-intro .title-intro-prompt.is-ready {
+  display: block;
+  margin: 1.2rem 0 0;
+  color: #ffca28;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  animation: title-caret 1.5s ease-in-out infinite;
+}
+#title-screen[data-logo-custom="1"] .title-logo {
+  width: min(80vw, 30rem);
+  min-height: clamp(7rem, 24vw, 14rem);
+  background: var(--menu-logo-image) center / contain no-repeat;
+}
+#title-screen[data-logo-custom="1"] .title-logo > span { display: none; }
+@media (max-width: 720px) {
+  #title-screen.title-intro { touch-action: pan-y; }
+  #title-screen.title-intro #title-layout { align-content: center; overflow-y: auto; }
+  #title-screen.title-intro #title-inner.bl-panel--title {
+    width: min(100%, 27rem);
+    padding: clamp(1.1rem, 4vw, 1.6rem);
+  }
+  #title-screen.title-intro .title-lore-panel { margin: 0.7rem 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6900,6 +6945,7 @@ body.is-playing .match-parallax,
     }
   }
   .title-tagline.is-typing::after { animation: none; }
+  #title-screen.title-intro .title-intro-prompt.is-ready { animation: none; }
   .title-logo.is-sliced,
   .title-slice-trail,
   .title-slice-bonus,

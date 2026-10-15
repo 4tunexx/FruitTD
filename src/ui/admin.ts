@@ -16,7 +16,8 @@ import {
 } from '../services/admin';
 import { getUserId } from '../services/api';
 import { DEFAULT_CAMPAIGN_STORIES } from '../game/campaignStory';
-import { setLiveConfig, writeLocalBranding, applyMenuAppearance } from '../services/liveConfig';
+import { setLiveConfig, applyMenuAppearance } from '../services/liveConfig';
+import { getAuthToken } from '../services/auth';
 import {
   addAchievement,
   addBadge,
@@ -545,6 +546,9 @@ export class AdminController {
     const inEyebrow = document.getElementById('admin-in-eyebrow') as HTMLInputElement | null;
     const inTitle = document.getElementById('admin-in-title') as HTMLTextAreaElement | null;
     const inSubtitle = document.getElementById('admin-in-subtitle') as HTMLInputElement | null;
+    const inStory = document.getElementById('admin-in-story') as HTMLTextAreaElement | null;
+    const inTitleEyebrow = document.getElementById('admin-in-title-eyebrow') as HTMLInputElement | null;
+    const inLogoCaption = document.getElementById('admin-in-logo-caption') as HTMLInputElement | null;
     const inAnnouncement = document.getElementById('admin-in-announcement') as HTMLInputElement | null;
     const inTheme = document.getElementById('admin-in-theme') as HTMLInputElement | null;
     const inBg = document.getElementById('admin-in-bg-image') as HTMLInputElement | null;
@@ -557,11 +561,17 @@ export class AdminController {
     if (inEyebrow) inEyebrow.value = menuConfig.eyebrow;
     if (inTitle) inTitle.value = menuConfig.title;
     if (inSubtitle) inSubtitle.value = menuConfig.subtitle;
+    if (inStory) inStory.value = menuConfig.storyText;
+    if (inTitleEyebrow) inTitleEyebrow.value = menuConfig.titleEyebrow;
+    if (inLogoCaption) inLogoCaption.value = menuConfig.logoCaption;
     if (inAnnouncement) inAnnouncement.value = menuConfig.announcement;
     if (inTheme) inTheme.value = menuConfig.themeColor || '#ffca28';
     this.bindDraftInput(inEyebrow, value => { if (this.config) this.config.menuConfig.eyebrow = value; });
     this.bindDraftInput(inTitle, value => { if (this.config) this.config.menuConfig.title = value; });
     this.bindDraftInput(inSubtitle, value => { if (this.config) this.config.menuConfig.subtitle = value; });
+    this.bindDraftInput(inStory, value => { if (this.config) this.config.menuConfig.storyText = value; });
+    this.bindDraftInput(inTitleEyebrow, value => { if (this.config) this.config.menuConfig.titleEyebrow = value; });
+    this.bindDraftInput(inLogoCaption, value => { if (this.config) this.config.menuConfig.logoCaption = value; });
     this.bindDraftInput(inAnnouncement, value => { if (this.config) this.config.menuConfig.announcement = value; });
     this.bindDraftInput(inTheme, value => { if (this.config) this.config.menuConfig.themeColor = value; });
     if (inBg) inBg.value = menuConfig.backgroundImage || '';
@@ -595,17 +605,35 @@ export class AdminController {
       input.addEventListener('change', () => {
         const file = input.files?.[0];
         if (!file || !this.config) return;
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1_000_000) {
+          GameToast('Choose a PNG, JPEG, or WebP image under 1 MB.', 'warning');
+          return;
+        }
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           const dataUrl = String(reader.result || '');
           if (!dataUrl) return;
-          this.config!.menuConfig[field] = dataUrl;
-          const urlInput = urlInputs[field];
-          if (urlInput) urlInput.value = dataUrl.slice(0, 120) + (dataUrl.length > 120 ? '…' : '');
-          writeLocalBranding({ [field]: dataUrl });
-          applyMenuAppearance(this.config!);
-          syncPreview();
+          try {
+            const token = getAuthToken();
+            const response = await fetch('/api/admin/media', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              body: JSON.stringify({ image: dataUrl }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.url) throw new Error(result.error || 'Image upload failed.');
+            if (!this.config) return;
+            this.config.menuConfig[field] = result.url;
+            const urlInput = urlInputs[field];
+            if (urlInput) urlInput.value = result.url;
+            applyMenuAppearance(this.config);
+            syncPreview();
+            GameToast('Image uploaded. Save to MongoDB Atlas to publish it for everyone.', 'success');
+          } catch (error) {
+            GameToast(error instanceof Error ? error.message : 'Image upload failed.', 'danger');
+          }
         };
+        reader.onerror = () => GameToast('Could not read the image.', 'danger');
         reader.readAsDataURL(file);
       });
     };
@@ -621,7 +649,6 @@ export class AdminController {
         const value = input.value.trim();
         if (value.endsWith('…')) return; // truncated data-URL preview
         this.config.menuConfig[field] = value;
-        writeLocalBranding({ [field]: value });
         applyMenuAppearance(this.config);
         syncPreview();
       });
@@ -785,12 +812,18 @@ export class AdminController {
     const inEyebrow = document.getElementById('admin-in-eyebrow') as HTMLInputElement | null;
     const inTitle = document.getElementById('admin-in-title') as HTMLTextAreaElement | null;
     const inSubtitle = document.getElementById('admin-in-subtitle') as HTMLInputElement | null;
+    const inStory = document.getElementById('admin-in-story') as HTMLTextAreaElement | null;
+    const inTitleEyebrow = document.getElementById('admin-in-title-eyebrow') as HTMLInputElement | null;
+    const inLogoCaption = document.getElementById('admin-in-logo-caption') as HTMLInputElement | null;
     const inAnnouncement = document.getElementById('admin-in-announcement') as HTMLInputElement | null;
     const inTheme = document.getElementById('admin-in-theme') as HTMLInputElement | null;
 
     if (inEyebrow) this.config.menuConfig.eyebrow = inEyebrow.value;
     if (inTitle) this.config.menuConfig.title = inTitle.value;
     if (inSubtitle) this.config.menuConfig.subtitle = inSubtitle.value;
+    if (inStory) this.config.menuConfig.storyText = inStory.value;
+    if (inTitleEyebrow) this.config.menuConfig.titleEyebrow = inTitleEyebrow.value;
+    if (inLogoCaption) this.config.menuConfig.logoCaption = inLogoCaption.value;
     if (inAnnouncement) this.config.menuConfig.announcement = inAnnouncement.value;
     if (inTheme) this.config.menuConfig.themeColor = inTheme.value;
 
@@ -798,21 +831,15 @@ export class AdminController {
     const inLogo = document.getElementById('admin-in-logo-image') as HTMLInputElement | null;
     const inFavicon = document.getElementById('admin-in-favicon') as HTMLInputElement | null;
     // Prefer already-set data URLs from uploads; URL inputs only overwrite when they look like real URLs (not truncated preview).
-    if (inBg && inBg.value && !inBg.value.endsWith('…') && !inBg.value.startsWith('data:')) {
+    if (inBg && !inBg.value.endsWith('…') && !inBg.value.startsWith('data:')) {
       this.config.menuConfig.backgroundImage = inBg.value.trim();
     }
-    if (inLogo && inLogo.value && !inLogo.value.endsWith('…') && !inLogo.value.startsWith('data:')) {
+    if (inLogo && !inLogo.value.endsWith('…') && !inLogo.value.startsWith('data:')) {
       this.config.menuConfig.logoImage = inLogo.value.trim();
     }
-    if (inFavicon && inFavicon.value && !inFavicon.value.endsWith('…') && !inFavicon.value.startsWith('data:')) {
+    if (inFavicon && !inFavicon.value.endsWith('…') && !inFavicon.value.startsWith('data:')) {
       this.config.menuConfig.faviconImage = inFavicon.value.trim();
     }
-    writeLocalBranding({
-      backgroundImage: this.config.menuConfig.backgroundImage || '',
-      logoImage: this.config.menuConfig.logoImage || '',
-      faviconImage: this.config.menuConfig.faviconImage || '',
-    });
-
     const inMoney = document.getElementById('admin-in-money') as HTMLInputElement | null;
     const inLives = document.getElementById('admin-in-lives') as HTMLInputElement | null;
     const inScoreMul = document.getElementById('admin-in-scoremul') as HTMLInputElement | null;

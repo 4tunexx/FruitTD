@@ -283,7 +283,7 @@
         </div>
 
         <!-- ════════════════════════ TITLE SCREEN ════════════════════════ -->
-        <div id="title-screen" data-menu-surface="title" data-branding="menu">
+        <div id="title-screen" class="title-intro" data-menu-surface="title" data-branding="menu">
           <!-- Atmospheric layers -->
           <div class="bl-scanlines" aria-hidden="true"></div>
           <div class="bl-noise" aria-hidden="true"></div>
@@ -298,12 +298,15 @@
             <!-- LEFT: Glass panel with lore + menu -->
             <div id="title-inner" class="bl-panel bl-panel--title">
               <!-- Eyebrow -->
-              <p class="title-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
+              <p id="title-eyebrow" class="title-eyebrow">YEAR 2147 · FRUIT APOCALYPSE</p>
 
               <!-- Lore snippet -->
               <div class="title-lore-panel">
+                <p class="title-lore-heading">WORLD BRIEFING</p>
                 <p class="title-tagline">Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.</p>
               </div>
+
+              <p id="title-intro-prompt" class="title-intro-prompt" role="status">Press any key or tap to continue</p>
 
               <!-- Menu buttons — chunky Borderlands bevel buttons -->
               <nav id="title-menu" class="title-menu" aria-label="Main menu">
@@ -341,6 +344,7 @@
               <h1 class="title-logo" aria-label="Fruit TD — Slice. Hold the Wall.">
                 <span class="title-logo__fruit">FRUIT</span>
                 <span class="title-logo__td">TD</span>
+                <span id="title-logo-caption" class="title-logo__caption">SLICE. HOLD THE WALL.</span>
               </h1>
 
               <!-- Tower mascot placeholder (SVG inline art) -->
@@ -1647,6 +1651,18 @@
                   <input id="admin-in-subtitle" type="text" class="admin-input" />
                 </label>
                 <label>
+                  <span>Opening Story (shown before the title buttons)</span>
+                  <textarea id="admin-in-story" rows="5" maxlength="1000" class="admin-input"></textarea>
+                </label>
+                <label>
+                  <span>Title Screen Year Line</span>
+                  <input id="admin-in-title-eyebrow" type="text" maxlength="120" class="admin-input" />
+                </label>
+                <label>
+                  <span>Title Logo Slogan</span>
+                  <input id="admin-in-logo-caption" type="text" maxlength="120" class="admin-input" />
+                </label>
+                <label>
                   <span>Player Live Announcement Banner</span>
                   <input id="admin-in-announcement" type="text" class="admin-input" />
                 </label>
@@ -1655,14 +1671,14 @@
                   <input id="admin-in-theme" type="color" class="admin-input admin-color" value="#ffca28" />
                 </label>
                 <hr class="admin-divider" style="border-color:rgba(148,163,184,0.2);margin:0.75rem 0;" />
-                <p class="text-xs text-slate-400 mb-2">Favicon, landing logo &amp; menu background (CSS vars <code>--menu-bg-image</code> / <code>--menu-logo-image</code>). URL or upload → menuConfig + localStorage. Favicon updates <code>#app-favicon</code> live.</p>
+                <p class="text-xs text-slate-400 mb-2">Upload PNG, JPEG, or WebP images under 1 MB, then Save to MongoDB Atlas to publish the title logo, background, and favicon.</p>
                 <label>
                   <span>Favicon URL</span>
                   <input id="admin-in-favicon" type="url" class="admin-input" placeholder="https://… or leave blank" data-branding-field="faviconImage" />
                 </label>
                 <label>
                   <span>Upload Favicon</span>
-                  <input id="admin-upload-favicon" type="file" accept="image/*,.ico" class="admin-input" data-branding-upload="faviconImage" />
+                  <input id="admin-upload-favicon" type="file" accept="image/png,image/jpeg,image/webp" class="admin-input" data-branding-upload="faviconImage" />
                 </label>
                 <label>
                   <span>Menu Background Image URL</span>
@@ -1670,7 +1686,7 @@
                 </label>
                 <label>
                   <span>Upload Background</span>
-                  <input id="admin-upload-bg-image" type="file" accept="image/*" class="admin-input" data-branding-upload="backgroundImage" />
+                  <input id="admin-upload-bg-image" type="file" accept="image/png,image/jpeg,image/webp" class="admin-input" data-branding-upload="backgroundImage" />
                 </label>
                 <label>
                   <span>Landing Logo Image URL</span>
@@ -1678,7 +1694,7 @@
                 </label>
                 <label>
                   <span>Upload Logo</span>
-                  <input id="admin-upload-logo-image" type="file" accept="image/*" class="admin-input" data-branding-upload="logoImage" />
+                  <input id="admin-upload-logo-image" type="file" accept="image/png,image/jpeg,image/webp" class="admin-input" data-branding-upload="logoImage" />
                 </label>
                 <div class="admin-branding-preview" data-branding-preview style="margin-top:0.5rem;padding:0.75rem;border-radius:0.5rem;border:1px dashed rgba(148,163,184,0.35);min-height:4rem;background-size:cover;background-position:center;display:flex;gap:0.75rem;align-items:center;">
                   <img id="admin-favicon-preview" alt="Favicon preview" style="width:32px;height:32px;object-fit:contain;display:none;border-radius:6px;background:rgba(0,0,0,0.35);" />

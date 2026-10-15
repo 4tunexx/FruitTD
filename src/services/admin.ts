@@ -50,6 +50,9 @@ export interface AdminConfig {
     eyebrow: string;
     title: string;
     subtitle: string;
+    storyText: string;
+    titleEyebrow: string;
+    logoCaption: string;
     announcement: string;
     themeColor: string;
     /** Optional CSS background-image URL for menus (title + dashboard). */
@@ -105,6 +108,9 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     eyebrow: 'FRUIT TD · HOLD THE WALL',
     title: 'Slice.\nHold the Wall.',
     subtitle: 'Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.',
+    storyText: 'Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.',
+    titleEyebrow: 'YEAR 2147 · FRUIT APOCALYPSE',
+    logoCaption: 'SLICE. HOLD THE WALL.',
     announcement: 'WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.',
     themeColor: '#ffca28',
     backgroundImage: '',

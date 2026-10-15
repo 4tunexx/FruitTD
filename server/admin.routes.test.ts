@@ -8,13 +8,17 @@ import { defaultCampaignBoss } from '../src/game/campaign';
 
 test('admin branding keeps safe logo, background and favicon assets', () => {
   const background = 'https://cdn.example.com/menu.webp';
-  const logo = 'data:image/webp;base64,AAAA';
+  const logo = '/api/media/0123456789abcdef01234567';
   const config = normalizeMenuConfig({
-    eyebrow: 'Briefing', title: 'Fruit TD', subtitle: 'Hold the wall', announcement: 'Live',
+    eyebrow: 'Briefing', title: 'Fruit TD', subtitle: 'Hold the wall', storyText: 'The orchard fell. Defend the wall.',
+    titleEyebrow: 'YEAR 2148', logoCaption: 'HOLD THE ORCHARD', announcement: 'Live',
     themeColor: '#a3e635', backgroundImage: background, logoImage: logo, faviconImage: 'javascript:alert(1)',
   });
   assert.equal(config.backgroundImage, background);
   assert.equal(config.logoImage, logo);
+  assert.equal(config.storyText, 'The orchard fell. Defend the wall.');
+  assert.equal(config.titleEyebrow, 'YEAR 2148');
+  assert.equal(config.logoCaption, 'HOLD THE ORCHARD');
   assert.equal(config.faviconImage, '');
   assert.equal(config.themeColor, '#a3e635');
 
@@ -22,6 +26,7 @@ test('admin branding keeps safe logo, background and favicon assets', () => {
   assert.equal(partial.title, 'New title');
   assert.equal(partial.backgroundImage, background);
   assert.equal(partial.logoImage, logo);
+  assert.equal(partial.storyText, config.storyText);
 });
 
 test('admin accepts all generated campaign bosses and optimized reveal images', () => {

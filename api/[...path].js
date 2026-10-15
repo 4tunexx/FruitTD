@@ -1586,6 +1586,9 @@ var DEFAULT_ADMIN_CONFIG = {
     eyebrow: "FRUIT TD \xB7 HOLD THE WALL",
     title: "Slice.\nHold the Wall.",
     subtitle: "Chem flooded the world with fruit. Then the fruit woke up. Build towers. Defend the wall.",
+    storyText: "Food crisis. Lab chem made fruit endless \u2014 then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.",
+    titleEyebrow: "YEAR 2147 \xB7 FRUIT APOCALYPSE",
+    logoCaption: "SLICE. HOLD THE WALL.",
     announcement: "WALL BRIEFING: Daily supply drop is live. Ranked ladder is hot. Guest assist ready in Co-op.",
     themeColor: "#ffca28",
     backgroundImage: "",
@@ -2871,6 +2874,7 @@ function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG2.menuConfig)
     if (value === void 0) return previous;
     if (typeof value !== "string" || !value) return "";
     if (/^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048) return value;
+    if (/^\/api\/media\/[a-f0-9]{24}$/i.test(value)) return value;
     if (/^data:image\/(?:png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 9e5) return value;
     return "";
   };
@@ -2879,6 +2883,9 @@ function normalizeMenuConfig(input, fallback = DEFAULT_ADMIN_CONFIG2.menuConfig)
     eyebrow: text(row.eyebrow, fallback.eyebrow, 120),
     title: text(row.title, fallback.title, 160),
     subtitle: text(row.subtitle, fallback.subtitle, 500),
+    storyText: text(row.storyText, fallback.storyText, 1e3),
+    titleEyebrow: text(row.titleEyebrow, fallback.titleEyebrow, 120),
+    logoCaption: text(row.logoCaption, fallback.logoCaption, 120),
     announcement: text(row.announcement, fallback.announcement, 500),
     themeColor,
     backgroundImage: asset(row.backgroundImage, fallback.backgroundImage),
@@ -2925,6 +2932,9 @@ var DEFAULT_ADMIN_CONFIG2 = {
     eyebrow: "FRUIT TD \xB7 LIVE ONLINE",
     title: "Slice.\nHold the Wall.",
     subtitle: "High-speed tower defense with fruit-slashing action.",
+    storyText: "Food crisis. Lab chem made fruit endless \u2014 then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.",
+    titleEyebrow: "YEAR 2147 \xB7 FRUIT APOCALYPSE",
+    logoCaption: "SLICE. HOLD THE WALL.",
     announcement: "Welcome Slicers! Daily bonus is live. Climb the Global Leaderboard!",
     themeColor: "#a3e635",
     backgroundImage: "",

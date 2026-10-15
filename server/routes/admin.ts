@@ -50,6 +50,9 @@ export interface AdminConfigDoc {
     eyebrow: string;
     title: string;
     subtitle: string;
+    storyText: string;
+    titleEyebrow: string;
+    logoCaption: string;
     announcement: string;
     themeColor: string;
     backgroundImage?: string;
@@ -150,6 +153,7 @@ export function normalizeMenuConfig(
     if (value === undefined) return previous;
     if (typeof value !== 'string' || !value) return '';
     if (/^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048) return value;
+    if (/^\/api\/media\/[a-f0-9]{24}$/i.test(value)) return value;
     if (/^data:image\/(?:png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 900_000) return value;
     return '';
   };
@@ -159,6 +163,9 @@ export function normalizeMenuConfig(
     eyebrow: text(row.eyebrow, fallback.eyebrow, 120),
     title: text(row.title, fallback.title, 160),
     subtitle: text(row.subtitle, fallback.subtitle, 500),
+    storyText: text(row.storyText, fallback.storyText, 1000),
+    titleEyebrow: text(row.titleEyebrow, fallback.titleEyebrow, 120),
+    logoCaption: text(row.logoCaption, fallback.logoCaption, 120),
     announcement: text(row.announcement, fallback.announcement, 500),
     themeColor,
     backgroundImage: asset(row.backgroundImage, fallback.backgroundImage),
@@ -207,6 +214,9 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
     eyebrow: 'FRUIT TD · LIVE ONLINE',
     title: 'Slice.\nHold the Wall.',
     subtitle: 'High-speed tower defense with fruit-slashing action.',
+    storyText: 'Food crisis. Lab chem made fruit endless — then it grew teeth. Orchards turned undead. Survivors raise towers, sharpen blades, and hold the wall against the juice-born horde.',
+    titleEyebrow: 'YEAR 2147 · FRUIT APOCALYPSE',
+    logoCaption: 'SLICE. HOLD THE WALL.',
     announcement: 'Welcome Slicers! Daily bonus is live. Climb the Global Leaderboard!',
     themeColor: '#a3e635',
     backgroundImage: '',

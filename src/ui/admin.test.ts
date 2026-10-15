@@ -13,8 +13,8 @@ function workspace() {
     const button = document.createElement('button'); button.className = 'admin-tab-btn'; button.setAttribute('data-tab', tab); root.appendChild(button);
     const panel = document.createElement('div'); panel.id = `admin-tab-${tab}`; panel.className = 'admin-panel-tab'; root.appendChild(panel);
   }
-  for (const id of ['eyebrow', 'title', 'subtitle', 'announcement', 'theme', 'money', 'lives', 'scoremul', 'supermul']) {
-    const input = document.createElement(id === 'title' ? 'textarea' : 'input'); input.id = `admin-in-${id}`; root.appendChild(input);
+  for (const id of ['eyebrow', 'title', 'subtitle', 'story', 'title-eyebrow', 'logo-caption', 'announcement', 'theme', 'money', 'lives', 'scoremul', 'supermul']) {
+    const input = document.createElement(id === 'title' || id === 'story' ? 'textarea' : 'input'); input.id = `admin-in-${id}`; root.appendChild(input);
   }
   const table = document.createElement('div'); table.id = 'admin-lb-table'; root.appendChild(table);
   document.body.appendChild(root);
@@ -29,8 +29,12 @@ function workspace() {
 test('admin title and economy drafts survive switching tabs before publishing', () => {
   const { root, local } = workspace();
   const title = root.querySelector<HTMLTextAreaElement>('#admin-in-title')!;
+  const story = root.querySelector<HTMLTextAreaElement>('#admin-in-story')!;
+  const logoCaption = root.querySelector<HTMLInputElement>('#admin-in-logo-caption')!;
   const money = root.querySelector<HTMLInputElement>('#admin-in-money')!;
   title.value = 'OUTPOST\nLAST STAND'; title.dispatchEvent({ type: 'input' } as Event);
+  story.value = 'A new orchard story.'; story.dispatchEvent({ type: 'input' } as Event);
+  logoCaption.value = 'DEFEND THE ORCHARD'; logoCaption.dispatchEvent({ type: 'input' } as Event);
   root.querySelector<HTMLButtonElement>('[data-tab="economy"]')!.click();
   money.value = '350'; money.dispatchEvent({ type: 'input' } as Event);
   root.querySelector<HTMLButtonElement>('[data-tab="branding"]')!.click();
@@ -38,6 +42,8 @@ test('admin title and economy drafts survive switching tabs before publishing', 
   root.querySelector<HTMLButtonElement>('[data-tab="economy"]')!.click();
   assert.equal(money.value, '350');
   assert.equal(local.config.menuConfig.title, title.value);
+  assert.equal(local.config.menuConfig.storyText, story.value);
+  assert.equal(local.config.menuConfig.logoCaption, logoCaption.value);
   assert.equal(local.config.gameplayConfig.startMoney, 350);
 });
 

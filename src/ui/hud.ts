@@ -126,7 +126,8 @@ export class Hud {
   private juiceLastChangeMs = 0;
   private adminController: AdminController | null = null;
   private titleStoryTimer: number | null = null;
-  private readonly titleStory = document.querySelector<HTMLElement>('.title-tagline')?.textContent?.trim() ?? '';
+  private readonly fallbackTitleStory = document.querySelector<HTMLElement>('.title-tagline')?.textContent?.trim() ?? '';
+  private titleIntroReady = false;
   private modalPointer: { id: number; x: number; y: number; modal: HTMLElement } | null = null;
   private titleSlicePointer: { id: number; x: number; y: number; logoHit: boolean } | null = null;
   private titleSliceCount = 0;
@@ -183,7 +184,10 @@ export class Hud {
       document.getElementById('app')?.classList.toggle('is-playing', inMatch);
       syncMenuParallax();
     });
-    void loadLiveConfig().then(() => this.refreshMonthlyRank());
+    void loadLiveConfig().then(() => {
+      if (document.getElementById('title-screen')?.classList.contains('title-intro')) this.playTitleStory();
+      return this.refreshMonthlyRank();
+    });
   }
 
   private setSidebarOpen(open: boolean): void {
@@ -354,30 +358,66 @@ export class Hud {
   private setTitleVisible(open: boolean): void {
     const title = document.getElementById('title-screen');
     title?.classList.toggle('hidden', !open);
-    if (open) this.playTitleStory();
+    if (open) {
+      title?.classList.add('title-intro');
+      this.playTitleStory();
+    } else if (this.titleStoryTimer !== null) {
+      window.clearTimeout(this.titleStoryTimer);
+      this.titleStoryTimer = null;
+    }
   }
 
   /** Replays the world briefing each time the player returns to the title. */
   private playTitleStory(): void {
     const story = document.querySelector<HTMLElement>('.title-tagline');
-    if (!story || !this.titleStory) return;
+    if (!story) return;
+    const text = getLiveConfig().menuConfig.storyText || this.fallbackTitleStory;
     if (this.titleStoryTimer !== null) window.clearTimeout(this.titleStoryTimer);
+    this.titleIntroReady = false;
+    document.getElementById('title-intro-prompt')?.classList.remove('is-ready');
     story.textContent = '';
     story.classList.remove('is-typing');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      story.textContent = text;
+      this.titleIntroReady = true;
+      document.getElementById('title-intro-prompt')?.classList.add('is-ready');
+      return;
+    }
     void story.offsetWidth;
     story.classList.add('is-typing');
 
     let index = 0;
     const writeNext = () => {
-      story.textContent = this.titleStory.slice(0, index++);
-      if (index <= this.titleStory.length) {
+      story.textContent = text.slice(0, ++index);
+      if (index < text.length) {
         this.titleStoryTimer = window.setTimeout(writeNext, 12);
       } else {
         this.titleStoryTimer = null;
         story.classList.remove('is-typing');
+        this.titleIntroReady = true;
+        document.getElementById('title-intro-prompt')?.classList.add('is-ready');
       }
     };
     writeNext();
+  }
+
+  private advanceTitleIntro(): void {
+    const title = document.getElementById('title-screen');
+    if (!title?.classList.contains('title-intro')) return;
+    if (!this.titleIntroReady) {
+      if (this.titleStoryTimer !== null) window.clearTimeout(this.titleStoryTimer);
+      this.titleStoryTimer = null;
+      const story = document.querySelector<HTMLElement>('.title-tagline');
+      if (story) {
+        story.textContent = getLiveConfig().menuConfig.storyText || this.fallbackTitleStory;
+        story.classList.remove('is-typing');
+      }
+      this.titleIntroReady = true;
+      document.getElementById('title-intro-prompt')?.classList.add('is-ready');
+      return;
+    }
+    title.classList.remove('title-intro');
+    document.getElementById('title-intro-prompt')?.classList.remove('is-ready');
   }
 
   private refreshTitleButtons(): void {
@@ -403,6 +443,18 @@ export class Hud {
   private initTitleScreen(): void {
     const title = document.getElementById('title-screen');
     const logo = document.querySelector<HTMLElement>('.title-logo');
+    title?.addEventListener('pointerdown', (event) => {
+      if (!title.classList.contains('title-intro')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.advanceTitleIntro();
+    }, true);
+    window.addEventListener('keydown', (event) => {
+      if (!title || title.classList.contains('hidden') || !title.classList.contains('title-intro') || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.advanceTitleIntro();
+    }, true);
     const titleButtons = document.querySelectorAll<HTMLButtonElement>('#title-menu .title-btn');
     for (const button of titleButtons) {
       button.addEventListener('pointerenter', () => this.sfx?.cursorMove());

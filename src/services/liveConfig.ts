@@ -19,30 +19,6 @@ export function getLiveConfig(): AdminConfig {
   return cached;
 }
 
-const BRANDING_LS_KEY = 'fruit-td-menu-branding-v1';
-
-type LocalBranding = {
-  backgroundImage?: string;
-  logoImage?: string;
-  faviconImage?: string;
-};
-
-function readLocalBranding(): LocalBranding {
-  try {
-    const raw = localStorage.getItem(BRANDING_LS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as LocalBranding;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-export function writeLocalBranding(partial: LocalBranding): void {
-  const cur = { ...readLocalBranding(), ...partial };
-  localStorage.setItem(BRANDING_LS_KEY, JSON.stringify(cur));
-}
-
 function applyFavicon(href: string): void {
   const link =
     (document.getElementById('app-favicon') as HTMLLinkElement | null) ||
@@ -75,10 +51,9 @@ function applyFavicon(href: string): void {
 
 export function applyMenuAppearance(config: AdminConfig = cached): void {
   const { eyebrow, title, subtitle, announcement, themeColor } = config.menuConfig;
-  const localBrand = readLocalBranding();
-  const backgroundImage = (localBrand.backgroundImage || config.menuConfig.backgroundImage || '').trim();
-  const logoImage = (localBrand.logoImage || config.menuConfig.logoImage || '').trim();
-  const faviconImage = (localBrand.faviconImage || config.menuConfig.faviconImage || '').trim();
+  const backgroundImage = (config.menuConfig.backgroundImage || '').trim();
+  const logoImage = (config.menuConfig.logoImage || '').trim();
+  const faviconImage = (config.menuConfig.faviconImage || '').trim();
   const eyebrowEl = document.getElementById('menu-eyebrow');
   const titleEl = document.getElementById('menu-title');
   const subtitleEl = document.getElementById('menu-subtitle');
@@ -91,6 +66,11 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
     announceEl.textContent = announcement;
     announceEl.classList.toggle('hidden', !announcement.trim());
   }
+  const titleEyebrowEl = document.getElementById('title-eyebrow');
+  const logoCaptionEl = document.getElementById('title-logo-caption');
+  if (titleEyebrowEl) titleEyebrowEl.textContent = config.menuConfig.titleEyebrow;
+  if (logoCaptionEl) logoCaptionEl.textContent = config.menuConfig.logoCaption;
+  document.querySelector('.title-logo')?.setAttribute('aria-label', `Fruit TD — ${config.menuConfig.logoCaption}`);
   if (themeColor) {
     document.documentElement.style.setProperty('--lime', themeColor);
     document.documentElement.style.setProperty('--border-glow', `${themeColor}66`);
