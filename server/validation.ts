@@ -9,6 +9,14 @@ export function safeInput(value: unknown, depth = 0): boolean {
     !['__proto__', 'prototype', 'constructor'].includes(key) && safeInput(child, depth + 1));
 }
 
+/** Steam OpenID uses dotted protocol keys in its signed callback query. */
+export function safeSteamCallbackQuery(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, child]) =>
+    (key === 'mode' || key === 'linkToken' || /^openid\.[a-z_]+$/.test(key)) &&
+    typeof child === 'string');
+}
+
 export function validId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,120}$/.test(value);
 }

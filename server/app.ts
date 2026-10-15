@@ -15,7 +15,7 @@ import { itemsRouter } from './routes/items';
 import { authRouter } from './routes/auth';
 import { getDb } from './db';
 import { rateLimit } from './rateLimit';
-import { safeInput } from './validation';
+import { safeInput, safeSteamCallbackQuery } from './validation';
 import { pvpRouter } from './routes/pvp';
 import { adminMapsRouter, mapsRouter } from './routes/maps';
 import { adminMediaRouter, mediaRouter } from './routes/media';
@@ -36,7 +36,8 @@ export function createApp() {
   app.use(express.json({ limit: '4mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use((req, res, next) => {
-    if (!safeInput(req.body) || !safeInput(req.query)) {
+    const callbackQuery = req.method === 'GET' && req.path === '/api/steam/callback';
+    if (!safeInput(req.body) || !(callbackQuery ? safeSteamCallbackQuery(req.query) : safeInput(req.query))) {
       res.status(400).json({ success: false, error: 'Invalid request fields' });
       return;
     }

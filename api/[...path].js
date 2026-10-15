@@ -2026,6 +2026,10 @@ function safeInput(value, depth = 0) {
   if (value === null || typeof value !== "object") return true;
   return Object.entries(value).every(([key, child]) => !key.startsWith("$") && !key.includes(".") && !["__proto__", "prototype", "constructor"].includes(key) && safeInput(child, depth + 1));
 }
+function safeSteamCallbackQuery(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, child]) => (key === "mode" || key === "linkToken" || /^openid\.[a-z_]+$/.test(key)) && typeof child === "string");
+}
 function validId(value) {
   return typeof value === "string" && /^[a-zA-Z0-9_-]{1,120}$/.test(value);
 }
@@ -5620,7 +5624,8 @@ function createApp() {
   app2.use(express.json({ limit: "4mb" }));
   app2.use(express.urlencoded({ extended: true }));
   app2.use((req2, res, next) => {
-    if (!safeInput(req2.body) || !safeInput(req2.query)) {
+    const callbackQuery = req2.method === "GET" && req2.path === "/api/steam/callback";
+    if (!safeInput(req2.body) || !(callbackQuery ? safeSteamCallbackQuery(req2.query) : safeInput(req2.query))) {
       res.status(400).json({ success: false, error: "Invalid request fields" });
       return;
     }
