@@ -231,8 +231,7 @@ html[data-ftd-motion='reduced'] .ftd-score-chart__plot i { animation:none; }
 }
 @media(max-width:600px) {
   .ftd-hub { padding-left:8px; padding-right:8px; }
-  #screen-hub .ftd-hub-utils { justify-content:flex-start; overflow:visible; padding:0; }
-  #screen-hub .ftd-hub-utils > button { flex-shrink:1; }
+  #screen-hub .ftd-hub-utils { overflow:visible; padding:0; }
   .ftd-hub.is-home .ftd-playcard { min-height:650px; grid-template-rows:410px auto; }
   .ftd-outpost-art { bottom:235px; }
   .ftd-duel-card { max-width:none; flex:1 0 85px; }

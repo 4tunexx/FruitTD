@@ -1654,14 +1654,14 @@
   .ftd-hub-currency .ftd-currency__icon svg { width: 15px; height: 15px; }
   .ftd-hub-actions { display: block; flex: 4 1 0; width: auto; min-width: 0; }
   .ftd-hub-actions .ftd-hub-utils {
-    display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: stretch;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: stretch;
     width: 100%; gap: 2px; padding: 0; overflow: visible;
   }
   .ftd-hub-utility {
-    box-sizing: border-box; flex: 1 1 0; width: auto; min-width: 0; height: 44px; min-height: 44px;
+    box-sizing: border-box; width: 100%; min-width: 0; height: 44px; min-height: 44px;
     padding: 3px; border-color: #766344; background: #292a2de8;
   }
-  .ftd-hub-community-slot { display: block; position: relative; flex: 1 1 0; min-width: 0; z-index: 4; }
+  .ftd-hub-community-slot { display: block; position: relative; width: 100%; min-width: 0; z-index: 4; }
   .ftd-hub-community-slot .ftd-hub-utility { position: absolute; top: 0; right: 0; width: 100%; white-space: nowrap; }
   .ftd-hub-notifications .ftd-hub-social__count:not([hidden]) {
     box-sizing: border-box; top: 3px; right: 3px; min-width: 15px; height: 15px;
