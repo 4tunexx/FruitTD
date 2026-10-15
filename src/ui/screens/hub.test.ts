@@ -123,8 +123,33 @@ test('notifications and messages open compact dropdowns, dismiss outside, and li
     const button = root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`);
     assert.ok(button, `${testId} should be visible`);
     button.click();
+    if (testId === 'nav-social' || testId === 'nav-avatar-profile') {
+      assert.equal(navigation.state, 'MAIN_MENU', 'first tap expands the compact header control');
+      assert.equal(button.getAttribute('aria-expanded'), 'true');
+      button.click();
+    }
     assert.equal(navigation.state, destination);
   }
+});
+
+test('compact header expansion closes on outside touch without moving another control', () => {
+  resetHub();
+  navigation.reset('MAIN_MENU');
+  registerHubTab(homeHubTab(() => undefined));
+  const root = host();
+  renderHub(root, defaultSave(), 'MAIN_MENU', { onPlay: () => undefined });
+  const profile = root.querySelector<HTMLButtonElement>('[data-testid="nav-avatar-profile"]')!;
+  const community = root.querySelector<HTMLButtonElement>('[data-testid="nav-social"]')!;
+  assert.ok(profile.parentElement?.classList.contains('ftd-hub-identity-slot'));
+  assert.ok(community.parentElement?.classList.contains('ftd-hub-community-slot'));
+  profile.click();
+  assert.equal(profile.getAttribute('aria-expanded'), 'true');
+  community.click();
+  assert.equal(profile.getAttribute('aria-expanded'), 'false');
+  assert.equal(community.getAttribute('aria-expanded'), 'true');
+  document.dispatchEvent({ type: 'pointerdown', target: document.body } as unknown as Event);
+  assert.equal(community.getAttribute('aria-expanded'), 'false');
+  assert.equal(navigation.state, 'MAIN_MENU');
 });
 
 test('mode cards only select and Panel 2 supplies the launch action', () => {

@@ -257,7 +257,7 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     ]),
   ]);
   bindArenaRating(identity.querySelector<HTMLElement>('.ftd-hub-identity__rank'));
-  identity.addEventListener('click', () => openScreen('PROFILE'));
+  const identitySlot = el('div', { class: 'ftd-hub-identity-slot' }, [identity]);
 
   const currency = buildCurrency(save);
 
@@ -277,7 +277,8 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
     'data-testid': 'nav-more',
   }, [icon(Ellipsis, 'ftd-hub-social__icon')]);
   const menu = el('div', { id: 'hub-more-menu', class: 'ftd-hub-more-menu', role: isDesktop() ? 'group' : 'menu', 'aria-label': 'Game actions', hidden: !isDesktop(), 'data-testid': 'hub-more-menu' });
-  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, community, more]);
+  const communitySlot = el('div', { class: 'ftd-hub-community-slot' }, [community]);
+  const utils = el('div', { class: 'ftd-hub-utils' }, [notifications, messages, communitySlot, more]);
   const actionsRow = el('div', { class: 'ftd-hub-actions' }, [utils, menu]);
   const actions: Array<{ label: string; testId: string; run: () => void; className?: string }> = [
     { label: 'News', testId: 'nav-news', run: () => openScreen('NEWS') },
@@ -364,30 +365,57 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
   });
   notifications.addEventListener('click', () => openSocialPreview('notifications', notifications));
   messages.addEventListener('click', () => openSocialPreview('messages', messages));
-  community.addEventListener('click', () => openScreen('SOCIAL'));
-  const header = el('header', { class: 'ftd-hub__header' }, [logo, identity, currency, actionsRow]);
+  let expanded: HTMLElement | null = null;
+  const collapse = () => {
+    expanded?.classList.remove('is-expanded');
+    expanded?.setAttribute('aria-expanded', 'false');
+    expanded = null;
+  };
+  const openCompactControl = (button: HTMLElement, destination: 'PROFILE' | 'SOCIAL') => {
+    if (isDesktop() || expanded === button) {
+      collapse();
+      openScreen(destination);
+      return;
+    }
+    collapse();
+    closeMenu();
+    closeSocialPreview?.();
+    expanded = button;
+    button.classList.add('is-expanded');
+    button.setAttribute('aria-expanded', 'true');
+  };
+  identity.setAttribute('aria-expanded', 'false');
+  community.setAttribute('aria-expanded', 'false');
+  identity.addEventListener('click', () => openCompactControl(identity, 'PROFILE'));
+  community.addEventListener('click', () => openCompactControl(community, 'SOCIAL'));
+  const header = el('header', { class: 'ftd-hub__header' }, [logo, identitySlot, currency, actionsRow]);
   header.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (menuOpen && !target.closest('.ftd-hub-more') && !target.closest('.ftd-hub-more-menu')) closeMenu();
+    if (expanded && target !== expanded && !expanded.contains?.(target)) collapse();
   });
   const dismissMenu = (event: Event) => {
     const target = event.target as HTMLElement | null;
     if (menuOpen && target && !header.contains(target) && !menu.contains(target)) closeMenu();
+    if (expanded && target && target !== expanded && !expanded.contains?.(target)) collapse();
   };
   const repositionMenu = () => {
     updateMenuPresentation();
+    if (isDesktop()) collapse();
     if (menuOpen) setMenuOpen(true);
   };
   document.addEventListener('pointerdown', dismissMenu);
   document.addEventListener('keydown', dismissOnEscape);
   window.addEventListener('resize', repositionMenu);
   desktopActions?.addEventListener?.('change', updateMenuPresentation);
-  const stopNavigation = navigation.onChange(closeMenu);
+  const stopNavigation = navigation.onChange(() => { closeMenu(); collapse(); });
   function dismissOnEscape(event: KeyboardEvent) {
     if (menuOpen && event.key === 'Escape') { closeMenu(); more.focus(); }
+    if (expanded && event.key === 'Escape') { const button = expanded; collapse(); button.focus(); }
   }
   removeMenuDismiss = () => {
     closeMenu();
+    collapse();
     document.removeEventListener('pointerdown', dismissMenu);
     document.removeEventListener('keydown', dismissOnEscape);
     window.removeEventListener('resize', repositionMenu);

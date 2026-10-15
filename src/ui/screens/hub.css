@@ -1610,6 +1610,47 @@
   .ftd-hub-utility--community span { display: none; }
 }
 
+/* Reserve each control's compact footprint; the expanded card floats above its neighbours. */
+.ftd-hub-identity-slot, .ftd-hub-community-slot { display: contents; }
+@media (max-width: 900px) {
+  .ftd-hub__header {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
+  }
+  .ftd-hub-logo { display: none; }
+  .ftd-hub-identity-slot { display: block; position: relative; flex: 0 0 40px; width: 40px; height: 40px; z-index: 3; }
+  .ftd-hub-identity {
+    position: absolute; left: 0; top: 0; z-index: 2;
+    width: 40px; height: 40px; min-height: 40px; padding: 3px;
+    gap: 8px; overflow: hidden; white-space: nowrap;
+  }
+  .ftd-hub-identity__avatar { flex: 0 0 32px; width: 32px; height: 32px; }
+  .ftd-hub-identity__text { display: none; }
+  .ftd-hub-identity.is-expanded {
+    width: min(260px, calc(100vw - 20px)); padding-right: 10px;
+    background: #1b1d1fee; box-shadow: 4px 6px 20px #000b;
+  }
+  .ftd-hub-identity.is-expanded .ftd-hub-identity__text { display: block; }
+  .ftd-hub-currency { flex: 0 1 auto; min-width: 0; gap: 1px; }
+  .ftd-hub-currency__button { min-width: 0; min-height: 40px; padding: 1px 2px; }
+  .ftd-hub-currency .ftd-currency { min-height: 0; padding: 0; gap: 2px; font-size: 0.72rem; white-space: nowrap; }
+  .ftd-hub-currency .ftd-currency__icon svg { width: 15px; height: 15px; }
+  .ftd-hub-actions { display: block; flex: 0 0 auto; width: auto; min-width: 0; }
+  .ftd-hub-actions .ftd-hub-utils { display: flex; flex: 0 0 auto; flex-wrap: nowrap; width: auto; gap: 2px; }
+  .ftd-hub-utility { width: 38px; min-width: 38px; height: 40px; min-height: 40px; padding: 3px; }
+  .ftd-hub-community-slot { display: block; position: relative; flex: 0 0 38px; width: 38px; height: 40px; z-index: 4; }
+  .ftd-hub-community-slot .ftd-hub-utility { position: absolute; top: 0; right: 0; white-space: nowrap; }
+  .ftd-hub-utility--community span { display: none; }
+  .ftd-hub-utility--community.is-expanded {
+    width: 160px; gap: 8px; padding: 3px 10px;
+    background: #252629f5; border-color: #e6b638; box-shadow: 4px 6px 20px #000b;
+  }
+  .ftd-hub-utility--community.is-expanded span { display: inline; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ftd-hub.is-arriving :is(.ftd-hub__header, .ftd-hub__main, .ftd-hub__sub, .ftd-hub__footer) { animation: none !important; }
   #screen-hub :is(.ftd-catbar__tab.is-active,.ftd-duel-tabs button.is-active,.ftd-stage.is-selected)::after { animation:none !important; }
