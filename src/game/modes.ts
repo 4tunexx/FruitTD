@@ -24,7 +24,7 @@ export const MODE_INFO: ModeRules[] = [
   {
     id: 'casual',
     name: 'Casual',
-    blurb: 'Softer fruit, 18 lives, extra cash. Tips if you are new.',
+    blurb: 'Softer fruit, 18 lives, extra Fruts from combat. Tips if you are new.',
     lives: 18,
     startMoney: 0,
     yellow: 12,

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { planWave, planBossWave, wavesPerLevel } from './waves';
 import { MODE_INFO } from './modes';
+import { frutsForEvent, fruitLoot } from './matchEconomy';
+import { TURRETS } from './turrets';
+import { getLiveWavesConfig, setLiveWavesConfig } from './creatorWaves';
 
 test('every selectable mode generates a playable opening wave', () => {
   for (const mode of MODE_INFO) {
@@ -13,6 +16,43 @@ test('every selectable mode generates a playable opening wave', () => {
   }
   assert.equal(planWave(1, 'horde', 1, 1, 5).boss, false);
   assert.ok(planWave(1, 'arena', 1, 1, 5).gap < planWave(1, 'casual', 1, 1, 5).gap);
+});
+
+test('every solo opening provides a safe path to a turret before bomb enemies', () => {
+  const cheapest = Math.min(...TURRETS.map((tower) => tower.cost));
+  for (const mode of MODE_INFO) {
+    let fruts = 0;
+    let kills = 0;
+    for (const wave of [1, 2]) {
+      const plan = planWave(wave, mode.id, 1, wave, wavesPerLevel(1, mode.id));
+      assert.ok(plan.items.every((item) => item.enemy !== 'explosive' && item.kind !== 'bomb'), `${mode.id} wave ${wave} is safe without a turret`);
+      // Conservative opening: slice 60% of each wave, allow the others to leak.
+      const sliced = Math.floor(plan.items.length * .6);
+      for (let i = 0; i < sliced; i++) {
+        fruts += frutsForEvent({ type: 'fruit_sliced' }, mode.currencyMul);
+        fruts += fruitLoot(++kills).fruts;
+      }
+      fruts += frutsForEvent({ type: 'wave_cleared', wave }, mode.currencyMul);
+    }
+    assert.ok(fruts >= cheapest, `${mode.id}: ${fruts} Fruts must afford a defence costing ${cheapest}`);
+  }
+});
+
+test('admin-authored bombs cannot block a zero-Frut opening', () => {
+  const previous = getLiveWavesConfig();
+  setLiveWavesConfig({ version: 1, levels: {
+    '1': { level: 1, wavesCount: 5, waves: [
+      { spawns: [{ fruit: 'bomb', enemy: 'explosive', count: 3 }] },
+      { spawns: [{ fruit: 'bomb', enemy: 'explosive', count: 3 }] },
+      { spawns: [{ fruit: 'bomb', enemy: 'explosive', count: 3 }] },
+    ] },
+  } });
+  try {
+    for (const wave of [1, 2]) {
+      assert.ok(planWave(wave, 'arena', 1, wave, 5).items.every((item) => item.kind !== 'bomb' && item.enemy !== 'explosive'));
+    }
+    assert.ok(planWave(3, 'arena', 1, 3, 5).items.some((item) => item.enemy === 'explosive'));
+  } finally { setLiveWavesConfig(previous); }
 });
 
 test('late Casual and Horde waves retain ordinary targets instead of becoming all bombs', () => {

@@ -1807,7 +1807,7 @@ function simulate(dt: number): void {
 
     // Perfect wave: every fruit killed (no leaks that wave)
     const perfect = isPerfectWave(state);
-    award({ type: 'wave_cleared', wave: state.wave });
+    if (state.waveKilled > 0) award({ type: 'wave_cleared', wave: state.wave });
     if (perfect) {
       const perfectResult = award({ type: 'perfect_wave', wave: state.wave });
       toast(state, `Perfect wave! +${perfectResult.scoreGained}`, 1.4);

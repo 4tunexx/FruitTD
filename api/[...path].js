@@ -608,7 +608,7 @@ function appendPowerCast(casts, cast) {
 }
 
 // src/game/onlineCoop.ts
-var DEFAULT_COOP_CONFIG = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 10, rewardCoinCap: 3e3, bladeDamage: 35, bladeRadius: 0.65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: 0.35, fruitSpeedMultiplier: 0.65 };
+var DEFAULT_COOP_CONFIG = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 25, rewardCoinCap: 3e3, bladeDamage: 35, bladeRadius: 0.65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: 0.35, fruitSpeedMultiplier: 0.65 };
 function normalizeCoopConfig(raw) {
   const row = raw && typeof raw === "object" ? raw : {};
   return Object.fromEntries(Object.entries(DEFAULT_COOP_CONFIG).map(([key, fallback]) => {

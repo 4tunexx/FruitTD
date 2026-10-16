@@ -15,7 +15,7 @@ and larger online features remain explicitly tracked below.
 ### Implemented foundations
 
 - Hero progression to **Level 100**, persistent XP and combat perks
-- Main Tower progression to **Level 10** with milestone rewards
+- Main Tower progression to **Level 10 within each run**, with run-scoped milestones
 - Five enemy kinds, splitter behavior, volatile tower damage and boss waves
 - Slice combat, combos, danger feedback, turrets, wall and game-over flow
 - Dashboard, shop, inventory, profile, VIP, daily, auth and admin menus
@@ -24,6 +24,8 @@ and larger online features remain explicitly tracked below.
 - Session-gated leaderboard and cloud-save writes with server-side caps
 - Progression, save, creator and admin-route tests
 - Automated checks for tests, typechecking and production builds
+
+The current earning and spending rules, opening budgets and remaining balance risks are in [the economy review](docs/ECONOMY_REVIEW.md).
 
 ### Remaining work
 

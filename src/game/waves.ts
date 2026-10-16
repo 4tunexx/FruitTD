@@ -111,18 +111,29 @@ export function wavesPerLevel(level: number, mode?: GameMode): number {
 
 export function planWave(wave: number, mode: GameMode, level: number, waveInLevel: number, totalWavesInLevel: number): WavePlan {
   const authored = tryAuthoredPlanWave(wave, mode, level, waveInLevel, totalWavesInLevel, overrideSources());
-  if (authored) return mode === 'horde'
-    ? { ...authored, boss: false, items: authored.items.map((item) => ({ ...item, boss: false, bossStage: undefined })) }
-    : authored;
+  if (authored) {
+    // Creator waves are editable, but an opening bomb would require a turret
+    // before the player has earned enough Fruts to buy one.
+    const opening = wave <= 2
+      ? { ...authored, items: authored.items.map((item) => item.kind === 'bomb' || item.enemy === 'explosive'
+        ? { ...item, kind: 'lemon' as const, enemy: 'normal' as const } : item) }
+      : authored;
+    return mode === 'horde'
+      ? { ...opening, boss: false, items: opening.items.map((item) => ({ ...item, boss: false, bossStage: undefined })) }
+      : opening;
+  }
 
   const rules = modeRules(mode);
   const w = Math.max(1, wave + rules.waveOffset);
   const items: SpawnItem[] = [];
 
-  if (w === 1) {
+  // The first two waves teach blade combat and fund a first defence. Arena's
+  // difficulty offset still affects speed/health, but must not spawn a
+  // turret-only Chem-Burst before the player can afford any turret.
+  if (wave === 1) {
     add(items, 'lemon', 4);
     add(items, 'orange', 3);
-  } else if (w === 2) {
+  } else if (wave === 2) {
     add(items, 'lemon', 3);
     add(items, 'banana', 3);
     add(items, 'strawberry', 3);
@@ -142,7 +153,7 @@ export function planWave(wave: number, mode: GameMode, level: number, waveInLeve
     items.push(...mix(w, count));
   }
 
-  if (w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
+  if (wave >= 3 && w >= 4 && !items.some((item) => item.enemy === 'explosive')) {
     const special = enemyRule('explosive');
     const index = Math.min(items.length - 1, Math.floor(w * 0.7));
     if (items[index]) {
