@@ -1,0 +1,2193 @@
+[
+  {
+    "id": "rune-01-01",
+    "sheet": "rune",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-01-01.png"
+  },
+  {
+    "id": "rune-01-02",
+    "sheet": "rune",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-01-02.png"
+  },
+  {
+    "id": "rune-01-03",
+    "sheet": "rune",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-01-03.png"
+  },
+  {
+    "id": "rune-01-04",
+    "sheet": "rune",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-01-04.png"
+  },
+  {
+    "id": "rune-01-05",
+    "sheet": "rune",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-01-05.png"
+  },
+  {
+    "id": "rune-01-06",
+    "sheet": "rune",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-01-06.png"
+  },
+  {
+    "id": "rune-02-01",
+    "sheet": "rune",
+    "row": 2,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-02-01.png"
+  },
+  {
+    "id": "rune-02-02",
+    "sheet": "rune",
+    "row": 2,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-02-02.png"
+  },
+  {
+    "id": "rune-02-03",
+    "sheet": "rune",
+    "row": 2,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-02-03.png"
+  },
+  {
+    "id": "rune-02-04",
+    "sheet": "rune",
+    "row": 2,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-02-04.png"
+  },
+  {
+    "id": "rune-02-05",
+    "sheet": "rune",
+    "row": 2,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-02-05.png"
+  },
+  {
+    "id": "rune-02-06",
+    "sheet": "rune",
+    "row": 2,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-02-06.png"
+  },
+  {
+    "id": "rune-03-01",
+    "sheet": "rune",
+    "row": 3,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-03-01.png"
+  },
+  {
+    "id": "rune-03-02",
+    "sheet": "rune",
+    "row": 3,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-03-02.png"
+  },
+  {
+    "id": "rune-03-03",
+    "sheet": "rune",
+    "row": 3,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-03-03.png"
+  },
+  {
+    "id": "rune-03-04",
+    "sheet": "rune",
+    "row": 3,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-03-04.png"
+  },
+  {
+    "id": "rune-03-05",
+    "sheet": "rune",
+    "row": 3,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-03-05.png"
+  },
+  {
+    "id": "rune-03-06",
+    "sheet": "rune",
+    "row": 3,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-03-06.png"
+  },
+  {
+    "id": "rune-04-01",
+    "sheet": "rune",
+    "row": 4,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-04-01.png"
+  },
+  {
+    "id": "rune-04-02",
+    "sheet": "rune",
+    "row": 4,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-04-02.png"
+  },
+  {
+    "id": "rune-04-03",
+    "sheet": "rune",
+    "row": 4,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-04-03.png"
+  },
+  {
+    "id": "rune-04-04",
+    "sheet": "rune",
+    "row": 4,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-04-04.png"
+  },
+  {
+    "id": "rune-04-05",
+    "sheet": "rune",
+    "row": 4,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-04-05.png"
+  },
+  {
+    "id": "rune-04-06",
+    "sheet": "rune",
+    "row": 4,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-04-06.png"
+  },
+  {
+    "id": "rune-05-01",
+    "sheet": "rune",
+    "row": 5,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-05-01.png"
+  },
+  {
+    "id": "rune-05-02",
+    "sheet": "rune",
+    "row": 5,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-05-02.png"
+  },
+  {
+    "id": "rune-05-03",
+    "sheet": "rune",
+    "row": 5,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-05-03.png"
+  },
+  {
+    "id": "rune-05-04",
+    "sheet": "rune",
+    "row": 5,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-05-04.png"
+  },
+  {
+    "id": "rune-05-05",
+    "sheet": "rune",
+    "row": 5,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-05-05.png"
+  },
+  {
+    "id": "rune-05-06",
+    "sheet": "rune",
+    "row": 5,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-05-06.png"
+  },
+  {
+    "id": "rune-06-01",
+    "sheet": "rune",
+    "row": 6,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-06-01.png"
+  },
+  {
+    "id": "rune-06-02",
+    "sheet": "rune",
+    "row": 6,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-06-02.png"
+  },
+  {
+    "id": "rune-06-03",
+    "sheet": "rune",
+    "row": 6,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-06-03.png"
+  },
+  {
+    "id": "rune-06-04",
+    "sheet": "rune",
+    "row": 6,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-06-04.png"
+  },
+  {
+    "id": "rune-06-05",
+    "sheet": "rune",
+    "row": 6,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-06-05.png"
+  },
+  {
+    "id": "rune-06-06",
+    "sheet": "rune",
+    "row": 6,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-06-06.png"
+  },
+  {
+    "id": "rune-07-01",
+    "sheet": "rune",
+    "row": 7,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-07-01.png"
+  },
+  {
+    "id": "rune-07-02",
+    "sheet": "rune",
+    "row": 7,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-07-02.png"
+  },
+  {
+    "id": "rune-07-03",
+    "sheet": "rune",
+    "row": 7,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-07-03.png"
+  },
+  {
+    "id": "rune-07-04",
+    "sheet": "rune",
+    "row": 7,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-07-04.png"
+  },
+  {
+    "id": "rune-07-05",
+    "sheet": "rune",
+    "row": 7,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-07-05.png"
+  },
+  {
+    "id": "rune-07-06",
+    "sheet": "rune",
+    "row": 7,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-07-06.png"
+  },
+  {
+    "id": "rune-08-01",
+    "sheet": "rune",
+    "row": 8,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-08-01.png"
+  },
+  {
+    "id": "rune-08-02",
+    "sheet": "rune",
+    "row": 8,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-08-02.png"
+  },
+  {
+    "id": "rune-08-03",
+    "sheet": "rune",
+    "row": 8,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-08-03.png"
+  },
+  {
+    "id": "rune-08-04",
+    "sheet": "rune",
+    "row": 8,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-08-04.png"
+  },
+  {
+    "id": "rune-08-05",
+    "sheet": "rune",
+    "row": 8,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-08-05.png"
+  },
+  {
+    "id": "rune-08-06",
+    "sheet": "rune",
+    "row": 8,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-08-06.png"
+  },
+  {
+    "id": "rune-09-01",
+    "sheet": "rune",
+    "row": 9,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-09-01.png"
+  },
+  {
+    "id": "rune-09-02",
+    "sheet": "rune",
+    "row": 9,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-09-02.png"
+  },
+  {
+    "id": "rune-09-03",
+    "sheet": "rune",
+    "row": 9,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-09-03.png"
+  },
+  {
+    "id": "rune-09-04",
+    "sheet": "rune",
+    "row": 9,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-09-04.png"
+  },
+  {
+    "id": "rune-09-05",
+    "sheet": "rune",
+    "row": 9,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-09-05.png"
+  },
+  {
+    "id": "rune-09-06",
+    "sheet": "rune",
+    "row": 9,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-09-06.png"
+  },
+  {
+    "id": "rune-10-01",
+    "sheet": "rune",
+    "row": 10,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-10-01.png"
+  },
+  {
+    "id": "rune-10-02",
+    "sheet": "rune",
+    "row": 10,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-10-02.png"
+  },
+  {
+    "id": "rune-10-03",
+    "sheet": "rune",
+    "row": 10,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-10-03.png"
+  },
+  {
+    "id": "rune-10-04",
+    "sheet": "rune",
+    "row": 10,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-10-04.png"
+  },
+  {
+    "id": "rune-10-05",
+    "sheet": "rune",
+    "row": 10,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-10-05.png"
+  },
+  {
+    "id": "rune-10-06",
+    "sheet": "rune",
+    "row": 10,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-10-06.png"
+  },
+  {
+    "id": "rune-11-01",
+    "sheet": "rune",
+    "row": 11,
+    "column": 1,
+    "path": "/assets/icons/extracted/rune-11-01.png"
+  },
+  {
+    "id": "rune-11-02",
+    "sheet": "rune",
+    "row": 11,
+    "column": 2,
+    "path": "/assets/icons/extracted/rune-11-02.png"
+  },
+  {
+    "id": "rune-11-03",
+    "sheet": "rune",
+    "row": 11,
+    "column": 3,
+    "path": "/assets/icons/extracted/rune-11-03.png"
+  },
+  {
+    "id": "rune-11-04",
+    "sheet": "rune",
+    "row": 11,
+    "column": 4,
+    "path": "/assets/icons/extracted/rune-11-04.png"
+  },
+  {
+    "id": "rune-11-05",
+    "sheet": "rune",
+    "row": 11,
+    "column": 5,
+    "path": "/assets/icons/extracted/rune-11-05.png"
+  },
+  {
+    "id": "rune-11-06",
+    "sheet": "rune",
+    "row": 11,
+    "column": 6,
+    "path": "/assets/icons/extracted/rune-11-06.png"
+  },
+  {
+    "id": "creative-01-01",
+    "sheet": "creative",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-01-01.png"
+  },
+  {
+    "id": "creative-01-02",
+    "sheet": "creative",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-01-02.png"
+  },
+  {
+    "id": "creative-01-03",
+    "sheet": "creative",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-01-03.png"
+  },
+  {
+    "id": "creative-01-04",
+    "sheet": "creative",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-01-04.png"
+  },
+  {
+    "id": "creative-01-05",
+    "sheet": "creative",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-01-05.png"
+  },
+  {
+    "id": "creative-01-06",
+    "sheet": "creative",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-01-06.png"
+  },
+  {
+    "id": "creative-01-07",
+    "sheet": "creative",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-01-07.png"
+  },
+  {
+    "id": "creative-01-08",
+    "sheet": "creative",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-01-08.png"
+  },
+  {
+    "id": "creative-01-09",
+    "sheet": "creative",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-01-09.png"
+  },
+  {
+    "id": "creative-01-10",
+    "sheet": "creative",
+    "row": 1,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-01-10.png"
+  },
+  {
+    "id": "creative-02-01",
+    "sheet": "creative",
+    "row": 2,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-02-01.png"
+  },
+  {
+    "id": "creative-02-02",
+    "sheet": "creative",
+    "row": 2,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-02-02.png"
+  },
+  {
+    "id": "creative-02-03",
+    "sheet": "creative",
+    "row": 2,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-02-03.png"
+  },
+  {
+    "id": "creative-02-04",
+    "sheet": "creative",
+    "row": 2,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-02-04.png"
+  },
+  {
+    "id": "creative-02-05",
+    "sheet": "creative",
+    "row": 2,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-02-05.png"
+  },
+  {
+    "id": "creative-02-06",
+    "sheet": "creative",
+    "row": 2,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-02-06.png"
+  },
+  {
+    "id": "creative-02-07",
+    "sheet": "creative",
+    "row": 2,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-02-07.png"
+  },
+  {
+    "id": "creative-02-08",
+    "sheet": "creative",
+    "row": 2,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-02-08.png"
+  },
+  {
+    "id": "creative-02-09",
+    "sheet": "creative",
+    "row": 2,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-02-09.png"
+  },
+  {
+    "id": "creative-02-10",
+    "sheet": "creative",
+    "row": 2,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-02-10.png"
+  },
+  {
+    "id": "creative-03-01",
+    "sheet": "creative",
+    "row": 3,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-03-01.png"
+  },
+  {
+    "id": "creative-03-02",
+    "sheet": "creative",
+    "row": 3,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-03-02.png"
+  },
+  {
+    "id": "creative-03-03",
+    "sheet": "creative",
+    "row": 3,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-03-03.png"
+  },
+  {
+    "id": "creative-03-04",
+    "sheet": "creative",
+    "row": 3,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-03-04.png"
+  },
+  {
+    "id": "creative-03-05",
+    "sheet": "creative",
+    "row": 3,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-03-05.png"
+  },
+  {
+    "id": "creative-03-06",
+    "sheet": "creative",
+    "row": 3,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-03-06.png"
+  },
+  {
+    "id": "creative-03-07",
+    "sheet": "creative",
+    "row": 3,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-03-07.png"
+  },
+  {
+    "id": "creative-03-08",
+    "sheet": "creative",
+    "row": 3,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-03-08.png"
+  },
+  {
+    "id": "creative-03-09",
+    "sheet": "creative",
+    "row": 3,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-03-09.png"
+  },
+  {
+    "id": "creative-03-10",
+    "sheet": "creative",
+    "row": 3,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-03-10.png"
+  },
+  {
+    "id": "creative-04-01",
+    "sheet": "creative",
+    "row": 4,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-04-01.png"
+  },
+  {
+    "id": "creative-04-02",
+    "sheet": "creative",
+    "row": 4,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-04-02.png"
+  },
+  {
+    "id": "creative-04-03",
+    "sheet": "creative",
+    "row": 4,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-04-03.png"
+  },
+  {
+    "id": "creative-04-04",
+    "sheet": "creative",
+    "row": 4,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-04-04.png"
+  },
+  {
+    "id": "creative-04-05",
+    "sheet": "creative",
+    "row": 4,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-04-05.png"
+  },
+  {
+    "id": "creative-04-06",
+    "sheet": "creative",
+    "row": 4,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-04-06.png"
+  },
+  {
+    "id": "creative-04-07",
+    "sheet": "creative",
+    "row": 4,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-04-07.png"
+  },
+  {
+    "id": "creative-04-08",
+    "sheet": "creative",
+    "row": 4,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-04-08.png"
+  },
+  {
+    "id": "creative-04-09",
+    "sheet": "creative",
+    "row": 4,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-04-09.png"
+  },
+  {
+    "id": "creative-04-10",
+    "sheet": "creative",
+    "row": 4,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-04-10.png"
+  },
+  {
+    "id": "creative-05-01",
+    "sheet": "creative",
+    "row": 5,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-05-01.png"
+  },
+  {
+    "id": "creative-05-02",
+    "sheet": "creative",
+    "row": 5,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-05-02.png"
+  },
+  {
+    "id": "creative-05-03",
+    "sheet": "creative",
+    "row": 5,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-05-03.png"
+  },
+  {
+    "id": "creative-05-04",
+    "sheet": "creative",
+    "row": 5,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-05-04.png"
+  },
+  {
+    "id": "creative-05-05",
+    "sheet": "creative",
+    "row": 5,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-05-05.png"
+  },
+  {
+    "id": "creative-05-06",
+    "sheet": "creative",
+    "row": 5,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-05-06.png"
+  },
+  {
+    "id": "creative-05-07",
+    "sheet": "creative",
+    "row": 5,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-05-07.png"
+  },
+  {
+    "id": "creative-05-08",
+    "sheet": "creative",
+    "row": 5,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-05-08.png"
+  },
+  {
+    "id": "creative-05-09",
+    "sheet": "creative",
+    "row": 5,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-05-09.png"
+  },
+  {
+    "id": "creative-05-10",
+    "sheet": "creative",
+    "row": 5,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-05-10.png"
+  },
+  {
+    "id": "creative-06-01",
+    "sheet": "creative",
+    "row": 6,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-06-01.png"
+  },
+  {
+    "id": "creative-06-02",
+    "sheet": "creative",
+    "row": 6,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-06-02.png"
+  },
+  {
+    "id": "creative-06-03",
+    "sheet": "creative",
+    "row": 6,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-06-03.png"
+  },
+  {
+    "id": "creative-06-04",
+    "sheet": "creative",
+    "row": 6,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-06-04.png"
+  },
+  {
+    "id": "creative-06-05",
+    "sheet": "creative",
+    "row": 6,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-06-05.png"
+  },
+  {
+    "id": "creative-06-06",
+    "sheet": "creative",
+    "row": 6,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-06-06.png"
+  },
+  {
+    "id": "creative-06-07",
+    "sheet": "creative",
+    "row": 6,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-06-07.png"
+  },
+  {
+    "id": "creative-06-08",
+    "sheet": "creative",
+    "row": 6,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-06-08.png"
+  },
+  {
+    "id": "creative-06-09",
+    "sheet": "creative",
+    "row": 6,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-06-09.png"
+  },
+  {
+    "id": "creative-06-10",
+    "sheet": "creative",
+    "row": 6,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-06-10.png"
+  },
+  {
+    "id": "creative-07-01",
+    "sheet": "creative",
+    "row": 7,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-07-01.png"
+  },
+  {
+    "id": "creative-07-02",
+    "sheet": "creative",
+    "row": 7,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-07-02.png"
+  },
+  {
+    "id": "creative-07-03",
+    "sheet": "creative",
+    "row": 7,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-07-03.png"
+  },
+  {
+    "id": "creative-07-04",
+    "sheet": "creative",
+    "row": 7,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-07-04.png"
+  },
+  {
+    "id": "creative-07-05",
+    "sheet": "creative",
+    "row": 7,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-07-05.png"
+  },
+  {
+    "id": "creative-07-06",
+    "sheet": "creative",
+    "row": 7,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-07-06.png"
+  },
+  {
+    "id": "creative-07-07",
+    "sheet": "creative",
+    "row": 7,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-07-07.png"
+  },
+  {
+    "id": "creative-07-08",
+    "sheet": "creative",
+    "row": 7,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-07-08.png"
+  },
+  {
+    "id": "creative-07-09",
+    "sheet": "creative",
+    "row": 7,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-07-09.png"
+  },
+  {
+    "id": "creative-07-10",
+    "sheet": "creative",
+    "row": 7,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-07-10.png"
+  },
+  {
+    "id": "creative-08-01",
+    "sheet": "creative",
+    "row": 8,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-08-01.png"
+  },
+  {
+    "id": "creative-08-02",
+    "sheet": "creative",
+    "row": 8,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-08-02.png"
+  },
+  {
+    "id": "creative-08-03",
+    "sheet": "creative",
+    "row": 8,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-08-03.png"
+  },
+  {
+    "id": "creative-08-04",
+    "sheet": "creative",
+    "row": 8,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-08-04.png"
+  },
+  {
+    "id": "creative-08-05",
+    "sheet": "creative",
+    "row": 8,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-08-05.png"
+  },
+  {
+    "id": "creative-08-06",
+    "sheet": "creative",
+    "row": 8,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-08-06.png"
+  },
+  {
+    "id": "creative-08-07",
+    "sheet": "creative",
+    "row": 8,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-08-07.png"
+  },
+  {
+    "id": "creative-08-08",
+    "sheet": "creative",
+    "row": 8,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-08-08.png"
+  },
+  {
+    "id": "creative-08-09",
+    "sheet": "creative",
+    "row": 8,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-08-09.png"
+  },
+  {
+    "id": "creative-08-10",
+    "sheet": "creative",
+    "row": 8,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-08-10.png"
+  },
+  {
+    "id": "creative-09-01",
+    "sheet": "creative",
+    "row": 9,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-09-01.png"
+  },
+  {
+    "id": "creative-09-02",
+    "sheet": "creative",
+    "row": 9,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-09-02.png"
+  },
+  {
+    "id": "creative-09-03",
+    "sheet": "creative",
+    "row": 9,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-09-03.png"
+  },
+  {
+    "id": "creative-09-04",
+    "sheet": "creative",
+    "row": 9,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-09-04.png"
+  },
+  {
+    "id": "creative-09-05",
+    "sheet": "creative",
+    "row": 9,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-09-05.png"
+  },
+  {
+    "id": "creative-09-06",
+    "sheet": "creative",
+    "row": 9,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-09-06.png"
+  },
+  {
+    "id": "creative-09-07",
+    "sheet": "creative",
+    "row": 9,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-09-07.png"
+  },
+  {
+    "id": "creative-09-08",
+    "sheet": "creative",
+    "row": 9,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-09-08.png"
+  },
+  {
+    "id": "creative-09-09",
+    "sheet": "creative",
+    "row": 9,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-09-09.png"
+  },
+  {
+    "id": "creative-09-10",
+    "sheet": "creative",
+    "row": 9,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-09-10.png"
+  },
+  {
+    "id": "creative-10-01",
+    "sheet": "creative",
+    "row": 10,
+    "column": 1,
+    "path": "/assets/icons/extracted/creative-10-01.png"
+  },
+  {
+    "id": "creative-10-02",
+    "sheet": "creative",
+    "row": 10,
+    "column": 2,
+    "path": "/assets/icons/extracted/creative-10-02.png"
+  },
+  {
+    "id": "creative-10-03",
+    "sheet": "creative",
+    "row": 10,
+    "column": 3,
+    "path": "/assets/icons/extracted/creative-10-03.png"
+  },
+  {
+    "id": "creative-10-04",
+    "sheet": "creative",
+    "row": 10,
+    "column": 4,
+    "path": "/assets/icons/extracted/creative-10-04.png"
+  },
+  {
+    "id": "creative-10-05",
+    "sheet": "creative",
+    "row": 10,
+    "column": 5,
+    "path": "/assets/icons/extracted/creative-10-05.png"
+  },
+  {
+    "id": "creative-10-06",
+    "sheet": "creative",
+    "row": 10,
+    "column": 6,
+    "path": "/assets/icons/extracted/creative-10-06.png"
+  },
+  {
+    "id": "creative-10-07",
+    "sheet": "creative",
+    "row": 10,
+    "column": 7,
+    "path": "/assets/icons/extracted/creative-10-07.png"
+  },
+  {
+    "id": "creative-10-08",
+    "sheet": "creative",
+    "row": 10,
+    "column": 8,
+    "path": "/assets/icons/extracted/creative-10-08.png"
+  },
+  {
+    "id": "creative-10-09",
+    "sheet": "creative",
+    "row": 10,
+    "column": 9,
+    "path": "/assets/icons/extracted/creative-10-09.png"
+  },
+  {
+    "id": "creative-10-10",
+    "sheet": "creative",
+    "row": 10,
+    "column": 10,
+    "path": "/assets/icons/extracted/creative-10-10.png"
+  },
+  {
+    "id": "skill-01-01",
+    "sheet": "skill",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/skill-01-01.png"
+  },
+  {
+    "id": "skill-01-02",
+    "sheet": "skill",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/skill-01-02.png"
+  },
+  {
+    "id": "skill-01-03",
+    "sheet": "skill",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/skill-01-03.png"
+  },
+  {
+    "id": "skill-01-04",
+    "sheet": "skill",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/skill-01-04.png"
+  },
+  {
+    "id": "skill-01-05",
+    "sheet": "skill",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/skill-01-05.png"
+  },
+  {
+    "id": "skill-01-06",
+    "sheet": "skill",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/skill-01-06.png"
+  },
+  {
+    "id": "skill-01-07",
+    "sheet": "skill",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/skill-01-07.png"
+  },
+  {
+    "id": "skill-01-08",
+    "sheet": "skill",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/skill-01-08.png"
+  },
+  {
+    "id": "skill-01-09",
+    "sheet": "skill",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/skill-01-09.png"
+  },
+  {
+    "id": "skill-01-10",
+    "sheet": "skill",
+    "row": 1,
+    "column": 10,
+    "path": "/assets/icons/extracted/skill-01-10.png"
+  },
+  {
+    "id": "skill-02-01",
+    "sheet": "skill",
+    "row": 2,
+    "column": 1,
+    "path": "/assets/icons/extracted/skill-02-01.png"
+  },
+  {
+    "id": "skill-02-02",
+    "sheet": "skill",
+    "row": 2,
+    "column": 2,
+    "path": "/assets/icons/extracted/skill-02-02.png"
+  },
+  {
+    "id": "skill-02-03",
+    "sheet": "skill",
+    "row": 2,
+    "column": 3,
+    "path": "/assets/icons/extracted/skill-02-03.png"
+  },
+  {
+    "id": "skill-02-04",
+    "sheet": "skill",
+    "row": 2,
+    "column": 4,
+    "path": "/assets/icons/extracted/skill-02-04.png"
+  },
+  {
+    "id": "skill-02-05",
+    "sheet": "skill",
+    "row": 2,
+    "column": 5,
+    "path": "/assets/icons/extracted/skill-02-05.png"
+  },
+  {
+    "id": "skill-02-06",
+    "sheet": "skill",
+    "row": 2,
+    "column": 6,
+    "path": "/assets/icons/extracted/skill-02-06.png"
+  },
+  {
+    "id": "skill-02-07",
+    "sheet": "skill",
+    "row": 2,
+    "column": 7,
+    "path": "/assets/icons/extracted/skill-02-07.png"
+  },
+  {
+    "id": "skill-02-08",
+    "sheet": "skill",
+    "row": 2,
+    "column": 8,
+    "path": "/assets/icons/extracted/skill-02-08.png"
+  },
+  {
+    "id": "skill-02-09",
+    "sheet": "skill",
+    "row": 2,
+    "column": 9,
+    "path": "/assets/icons/extracted/skill-02-09.png"
+  },
+  {
+    "id": "skill-02-10",
+    "sheet": "skill",
+    "row": 2,
+    "column": 10,
+    "path": "/assets/icons/extracted/skill-02-10.png"
+  },
+  {
+    "id": "skill-03-01",
+    "sheet": "skill",
+    "row": 3,
+    "column": 1,
+    "path": "/assets/icons/extracted/skill-03-01.png"
+  },
+  {
+    "id": "skill-03-02",
+    "sheet": "skill",
+    "row": 3,
+    "column": 2,
+    "path": "/assets/icons/extracted/skill-03-02.png"
+  },
+  {
+    "id": "skill-03-03",
+    "sheet": "skill",
+    "row": 3,
+    "column": 3,
+    "path": "/assets/icons/extracted/skill-03-03.png"
+  },
+  {
+    "id": "skill-03-04",
+    "sheet": "skill",
+    "row": 3,
+    "column": 4,
+    "path": "/assets/icons/extracted/skill-03-04.png"
+  },
+  {
+    "id": "skill-03-05",
+    "sheet": "skill",
+    "row": 3,
+    "column": 5,
+    "path": "/assets/icons/extracted/skill-03-05.png"
+  },
+  {
+    "id": "skill-03-06",
+    "sheet": "skill",
+    "row": 3,
+    "column": 6,
+    "path": "/assets/icons/extracted/skill-03-06.png"
+  },
+  {
+    "id": "skill-03-07",
+    "sheet": "skill",
+    "row": 3,
+    "column": 7,
+    "path": "/assets/icons/extracted/skill-03-07.png"
+  },
+  {
+    "id": "skill-03-08",
+    "sheet": "skill",
+    "row": 3,
+    "column": 8,
+    "path": "/assets/icons/extracted/skill-03-08.png"
+  },
+  {
+    "id": "skill-03-09",
+    "sheet": "skill",
+    "row": 3,
+    "column": 9,
+    "path": "/assets/icons/extracted/skill-03-09.png"
+  },
+  {
+    "id": "skill-03-10",
+    "sheet": "skill",
+    "row": 3,
+    "column": 10,
+    "path": "/assets/icons/extracted/skill-03-10.png"
+  },
+  {
+    "id": "hero-01-01",
+    "sheet": "hero",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/hero-01-01.png"
+  },
+  {
+    "id": "hero-01-02",
+    "sheet": "hero",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/hero-01-02.png"
+  },
+  {
+    "id": "hero-01-03",
+    "sheet": "hero",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/hero-01-03.png"
+  },
+  {
+    "id": "hero-01-04",
+    "sheet": "hero",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/hero-01-04.png"
+  },
+  {
+    "id": "hero-01-05",
+    "sheet": "hero",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/hero-01-05.png"
+  },
+  {
+    "id": "hero-01-06",
+    "sheet": "hero",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/hero-01-06.png"
+  },
+  {
+    "id": "hero-01-07",
+    "sheet": "hero",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/hero-01-07.png"
+  },
+  {
+    "id": "hero-01-08",
+    "sheet": "hero",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/hero-01-08.png"
+  },
+  {
+    "id": "hero-01-09",
+    "sheet": "hero",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/hero-01-09.png"
+  },
+  {
+    "id": "hero-01-10",
+    "sheet": "hero",
+    "row": 1,
+    "column": 10,
+    "path": "/assets/icons/extracted/hero-01-10.png"
+  },
+  {
+    "id": "quest-01-01",
+    "sheet": "quest",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/quest-01-01.png"
+  },
+  {
+    "id": "quest-01-02",
+    "sheet": "quest",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/quest-01-02.png"
+  },
+  {
+    "id": "quest-01-03",
+    "sheet": "quest",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/quest-01-03.png"
+  },
+  {
+    "id": "quest-01-04",
+    "sheet": "quest",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/quest-01-04.png"
+  },
+  {
+    "id": "quest-01-05",
+    "sheet": "quest",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/quest-01-05.png"
+  },
+  {
+    "id": "quest-01-06",
+    "sheet": "quest",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/quest-01-06.png"
+  },
+  {
+    "id": "quest-01-07",
+    "sheet": "quest",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/quest-01-07.png"
+  },
+  {
+    "id": "quest-01-08",
+    "sheet": "quest",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/quest-01-08.png"
+  },
+  {
+    "id": "quest-01-09",
+    "sheet": "quest",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/quest-01-09.png"
+  },
+  {
+    "id": "mode-01-01",
+    "sheet": "mode",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/mode-01-01.png"
+  },
+  {
+    "id": "mode-01-02",
+    "sheet": "mode",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/mode-01-02.png"
+  },
+  {
+    "id": "mode-01-03",
+    "sheet": "mode",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/mode-01-03.png"
+  },
+  {
+    "id": "mode-01-04",
+    "sheet": "mode",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/mode-01-04.png"
+  },
+  {
+    "id": "mode-01-05",
+    "sheet": "mode",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/mode-01-05.png"
+  },
+  {
+    "id": "misc-01-01",
+    "sheet": "misc",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/misc-01-01.png"
+  },
+  {
+    "id": "misc-01-02",
+    "sheet": "misc",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/misc-01-02.png"
+  },
+  {
+    "id": "misc-01-03",
+    "sheet": "misc",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/misc-01-03.png"
+  },
+  {
+    "id": "misc-01-04",
+    "sheet": "misc",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/misc-01-04.png"
+  },
+  {
+    "id": "misc-01-05",
+    "sheet": "misc",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/misc-01-05.png"
+  },
+  {
+    "id": "misc-02-01",
+    "sheet": "misc",
+    "row": 2,
+    "column": 1,
+    "path": "/assets/icons/extracted/misc-02-01.png"
+  },
+  {
+    "id": "misc-02-02",
+    "sheet": "misc",
+    "row": 2,
+    "column": 2,
+    "path": "/assets/icons/extracted/misc-02-02.png"
+  },
+  {
+    "id": "misc-02-03",
+    "sheet": "misc",
+    "row": 2,
+    "column": 3,
+    "path": "/assets/icons/extracted/misc-02-03.png"
+  },
+  {
+    "id": "misc-02-04",
+    "sheet": "misc",
+    "row": 2,
+    "column": 4,
+    "path": "/assets/icons/extracted/misc-02-04.png"
+  },
+  {
+    "id": "misc-02-05",
+    "sheet": "misc",
+    "row": 2,
+    "column": 5,
+    "path": "/assets/icons/extracted/misc-02-05.png"
+  },
+  {
+    "id": "misc-02-06",
+    "sheet": "misc",
+    "row": 2,
+    "column": 6,
+    "path": "/assets/icons/extracted/misc-02-06.png"
+  },
+  {
+    "id": "misc-02-07",
+    "sheet": "misc",
+    "row": 2,
+    "column": 7,
+    "path": "/assets/icons/extracted/misc-02-07.png"
+  },
+  {
+    "id": "misc-02-08",
+    "sheet": "misc",
+    "row": 2,
+    "column": 8,
+    "path": "/assets/icons/extracted/misc-02-08.png"
+  },
+  {
+    "id": "misc-02-09",
+    "sheet": "misc",
+    "row": 2,
+    "column": 9,
+    "path": "/assets/icons/extracted/misc-02-09.png"
+  },
+  {
+    "id": "misc-02-10",
+    "sheet": "misc",
+    "row": 2,
+    "column": 10,
+    "path": "/assets/icons/extracted/misc-02-10.png"
+  },
+  {
+    "id": "misc-02-11",
+    "sheet": "misc",
+    "row": 2,
+    "column": 11,
+    "path": "/assets/icons/extracted/misc-02-11.png"
+  },
+  {
+    "id": "misc-02-12",
+    "sheet": "misc",
+    "row": 2,
+    "column": 12,
+    "path": "/assets/icons/extracted/misc-02-12.png"
+  },
+  {
+    "id": "stat-01-01",
+    "sheet": "stat",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/stat-01-01.png"
+  },
+  {
+    "id": "stat-01-02",
+    "sheet": "stat",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/stat-01-02.png"
+  },
+  {
+    "id": "stat-01-03",
+    "sheet": "stat",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/stat-01-03.png"
+  },
+  {
+    "id": "stat-01-04",
+    "sheet": "stat",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/stat-01-04.png"
+  },
+  {
+    "id": "stat-01-05",
+    "sheet": "stat",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/stat-01-05.png"
+  },
+  {
+    "id": "stat-01-06",
+    "sheet": "stat",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/stat-01-06.png"
+  },
+  {
+    "id": "stat-01-07",
+    "sheet": "stat",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/stat-01-07.png"
+  },
+  {
+    "id": "stat-01-08",
+    "sheet": "stat",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/stat-01-08.png"
+  },
+  {
+    "id": "stat-01-09",
+    "sheet": "stat",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/stat-01-09.png"
+  },
+  {
+    "id": "stat-02-01",
+    "sheet": "stat",
+    "row": 2,
+    "column": 1,
+    "path": "/assets/icons/extracted/stat-02-01.png"
+  },
+  {
+    "id": "stat-02-02",
+    "sheet": "stat",
+    "row": 2,
+    "column": 2,
+    "path": "/assets/icons/extracted/stat-02-02.png"
+  },
+  {
+    "id": "stat-02-03",
+    "sheet": "stat",
+    "row": 2,
+    "column": 3,
+    "path": "/assets/icons/extracted/stat-02-03.png"
+  },
+  {
+    "id": "stat-02-04",
+    "sheet": "stat",
+    "row": 2,
+    "column": 4,
+    "path": "/assets/icons/extracted/stat-02-04.png"
+  },
+  {
+    "id": "stat-02-05",
+    "sheet": "stat",
+    "row": 2,
+    "column": 5,
+    "path": "/assets/icons/extracted/stat-02-05.png"
+  },
+  {
+    "id": "stat-02-06",
+    "sheet": "stat",
+    "row": 2,
+    "column": 6,
+    "path": "/assets/icons/extracted/stat-02-06.png"
+  },
+  {
+    "id": "stat-02-07",
+    "sheet": "stat",
+    "row": 2,
+    "column": 7,
+    "path": "/assets/icons/extracted/stat-02-07.png"
+  },
+  {
+    "id": "stat-02-08",
+    "sheet": "stat",
+    "row": 2,
+    "column": 8,
+    "path": "/assets/icons/extracted/stat-02-08.png"
+  },
+  {
+    "id": "stat-02-09",
+    "sheet": "stat",
+    "row": 2,
+    "column": 9,
+    "path": "/assets/icons/extracted/stat-02-09.png"
+  },
+  {
+    "id": "emote-01-01",
+    "sheet": "emote",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/emote-01-01.png"
+  },
+  {
+    "id": "emote-01-02",
+    "sheet": "emote",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/emote-01-02.png"
+  },
+  {
+    "id": "emote-01-03",
+    "sheet": "emote",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/emote-01-03.png"
+  },
+  {
+    "id": "emote-01-04",
+    "sheet": "emote",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/emote-01-04.png"
+  },
+  {
+    "id": "emote-01-05",
+    "sheet": "emote",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/emote-01-05.png"
+  },
+  {
+    "id": "emote-01-06",
+    "sheet": "emote",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/emote-01-06.png"
+  },
+  {
+    "id": "emote-01-07",
+    "sheet": "emote",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/emote-01-07.png"
+  },
+  {
+    "id": "emote-01-08",
+    "sheet": "emote",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/emote-01-08.png"
+  },
+  {
+    "id": "emote-01-09",
+    "sheet": "emote",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/emote-01-09.png"
+  },
+  {
+    "id": "emote-01-10",
+    "sheet": "emote",
+    "row": 1,
+    "column": 10,
+    "path": "/assets/icons/extracted/emote-01-10.png"
+  },
+  {
+    "id": "emote-02-01",
+    "sheet": "emote",
+    "row": 2,
+    "column": 1,
+    "path": "/assets/icons/extracted/emote-02-01.png"
+  },
+  {
+    "id": "emote-02-02",
+    "sheet": "emote",
+    "row": 2,
+    "column": 2,
+    "path": "/assets/icons/extracted/emote-02-02.png"
+  },
+  {
+    "id": "emote-02-03",
+    "sheet": "emote",
+    "row": 2,
+    "column": 3,
+    "path": "/assets/icons/extracted/emote-02-03.png"
+  },
+  {
+    "id": "emote-02-04",
+    "sheet": "emote",
+    "row": 2,
+    "column": 4,
+    "path": "/assets/icons/extracted/emote-02-04.png"
+  },
+  {
+    "id": "emote-02-05",
+    "sheet": "emote",
+    "row": 2,
+    "column": 5,
+    "path": "/assets/icons/extracted/emote-02-05.png"
+  },
+  {
+    "id": "emote-02-06",
+    "sheet": "emote",
+    "row": 2,
+    "column": 6,
+    "path": "/assets/icons/extracted/emote-02-06.png"
+  },
+  {
+    "id": "emote-02-07",
+    "sheet": "emote",
+    "row": 2,
+    "column": 7,
+    "path": "/assets/icons/extracted/emote-02-07.png"
+  },
+  {
+    "id": "emote-02-08",
+    "sheet": "emote",
+    "row": 2,
+    "column": 8,
+    "path": "/assets/icons/extracted/emote-02-08.png"
+  },
+  {
+    "id": "emote-02-09",
+    "sheet": "emote",
+    "row": 2,
+    "column": 9,
+    "path": "/assets/icons/extracted/emote-02-09.png"
+  },
+  {
+    "id": "emote-02-10",
+    "sheet": "emote",
+    "row": 2,
+    "column": 10,
+    "path": "/assets/icons/extracted/emote-02-10.png"
+  },
+  {
+    "id": "emote-03-01",
+    "sheet": "emote",
+    "row": 3,
+    "column": 1,
+    "path": "/assets/icons/extracted/emote-03-01.png"
+  },
+  {
+    "id": "emote-03-02",
+    "sheet": "emote",
+    "row": 3,
+    "column": 2,
+    "path": "/assets/icons/extracted/emote-03-02.png"
+  },
+  {
+    "id": "emote-03-03",
+    "sheet": "emote",
+    "row": 3,
+    "column": 3,
+    "path": "/assets/icons/extracted/emote-03-03.png"
+  },
+  {
+    "id": "emote-03-04",
+    "sheet": "emote",
+    "row": 3,
+    "column": 4,
+    "path": "/assets/icons/extracted/emote-03-04.png"
+  },
+  {
+    "id": "emote-03-05",
+    "sheet": "emote",
+    "row": 3,
+    "column": 5,
+    "path": "/assets/icons/extracted/emote-03-05.png"
+  },
+  {
+    "id": "lobby-01-01",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/lobby-01-01.png"
+  },
+  {
+    "id": "lobby-01-02",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/lobby-01-02.png"
+  },
+  {
+    "id": "lobby-01-03",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/lobby-01-03.png"
+  },
+  {
+    "id": "lobby-01-04",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/lobby-01-04.png"
+  },
+  {
+    "id": "lobby-01-05",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/lobby-01-05.png"
+  },
+  {
+    "id": "lobby-01-06",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/lobby-01-06.png"
+  },
+  {
+    "id": "lobby-01-07",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/lobby-01-07.png"
+  },
+  {
+    "id": "lobby-01-08",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/lobby-01-08.png"
+  },
+  {
+    "id": "lobby-01-09",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/lobby-01-09.png"
+  },
+  {
+    "id": "lobby-01-10",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 10,
+    "path": "/assets/icons/extracted/lobby-01-10.png"
+  },
+  {
+    "id": "lobby-01-11",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 11,
+    "path": "/assets/icons/extracted/lobby-01-11.png"
+  },
+  {
+    "id": "lobby-01-12",
+    "sheet": "lobby",
+    "row": 1,
+    "column": 12,
+    "path": "/assets/icons/extracted/lobby-01-12.png"
+  },
+  {
+    "id": "weapon-01-01",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/weapon-01-01.png"
+  },
+  {
+    "id": "weapon-01-02",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/weapon-01-02.png"
+  },
+  {
+    "id": "weapon-01-03",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/weapon-01-03.png"
+  },
+  {
+    "id": "weapon-01-04",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/weapon-01-04.png"
+  },
+  {
+    "id": "weapon-01-05",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/weapon-01-05.png"
+  },
+  {
+    "id": "weapon-01-06",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/weapon-01-06.png"
+  },
+  {
+    "id": "weapon-01-07",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/weapon-01-07.png"
+  },
+  {
+    "id": "weapon-01-08",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/weapon-01-08.png"
+  },
+  {
+    "id": "weapon-01-09",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 9,
+    "path": "/assets/icons/extracted/weapon-01-09.png"
+  },
+  {
+    "id": "weapon-01-10",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 10,
+    "path": "/assets/icons/extracted/weapon-01-10.png"
+  },
+  {
+    "id": "weapon-01-11",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 11,
+    "path": "/assets/icons/extracted/weapon-01-11.png"
+  },
+  {
+    "id": "weapon-01-12",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 12,
+    "path": "/assets/icons/extracted/weapon-01-12.png"
+  },
+  {
+    "id": "weapon-01-13",
+    "sheet": "weapon",
+    "row": 1,
+    "column": 13,
+    "path": "/assets/icons/extracted/weapon-01-13.png"
+  },
+  {
+    "id": "core-01-01",
+    "sheet": "core",
+    "row": 1,
+    "column": 1,
+    "path": "/assets/icons/extracted/core-01-01.png"
+  },
+  {
+    "id": "core-01-02",
+    "sheet": "core",
+    "row": 1,
+    "column": 2,
+    "path": "/assets/icons/extracted/core-01-02.png"
+  },
+  {
+    "id": "core-01-03",
+    "sheet": "core",
+    "row": 1,
+    "column": 3,
+    "path": "/assets/icons/extracted/core-01-03.png"
+  },
+  {
+    "id": "core-01-04",
+    "sheet": "core",
+    "row": 1,
+    "column": 4,
+    "path": "/assets/icons/extracted/core-01-04.png"
+  },
+  {
+    "id": "core-01-05",
+    "sheet": "core",
+    "row": 1,
+    "column": 5,
+    "path": "/assets/icons/extracted/core-01-05.png"
+  },
+  {
+    "id": "core-01-06",
+    "sheet": "core",
+    "row": 1,
+    "column": 6,
+    "path": "/assets/icons/extracted/core-01-06.png"
+  },
+  {
+    "id": "core-01-07",
+    "sheet": "core",
+    "row": 1,
+    "column": 7,
+    "path": "/assets/icons/extracted/core-01-07.png"
+  },
+  {
+    "id": "core-01-08",
+    "sheet": "core",
+    "row": 1,
+    "column": 8,
+    "path": "/assets/icons/extracted/core-01-08.png"
+  }
+]

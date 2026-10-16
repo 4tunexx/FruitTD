@@ -7,6 +7,8 @@ import {
   Sparkles, Sword, Swords, Target, Tornado, TowerControl, Trophy, UserRound, UsersRound,
   User, UserPlus, Users, Volume2, VolumeX, Waves, X, Zap, createElement, type IconNode,
 } from 'lucide';
+import { GAME_GLYPHS } from './gameGlyphs';
+import { ICON_ASSETS, extractedIcon } from './extractedIcons';
 
 const ICONS: Record<string, IconNode> = {
   AlertTriangle, Apple, ArrowLeft, ArrowUpCircle, Backpack, BadgeCheck, Banana, Bell, Bomb, BrainCircuit, CalendarCheck,
@@ -20,14 +22,16 @@ const ICONS: Record<string, IconNode> = {
 
 /** Render only icons shipped with the application. Admin supplied names fall back safely. */
 export function lucideIcon(name: string | null | undefined, className = '', size = 20): SVGElement | HTMLElement {
-  const node = ICONS[name || ''] ?? BadgeCheck;
+  const asset = ICON_ASSETS[name || ''];
+  if (asset) return extractedIcon(asset, className, size);
+  const node = GAME_GLYPHS[name || ''] ?? ICONS[name || ''] ?? BadgeCheck;
   if (typeof document.createElementNS !== 'function') {
     const fallback = document.createElement('span');
     fallback.className = className;
     fallback.setAttribute('aria-hidden', 'true');
     return fallback;
   }
-  return createElement(node, { class: className, width: size, height: size, 'aria-hidden': 'true' });
+  return createElement(node, { class: `${className}${GAME_GLYPHS[name || ''] ? ' ftd-game-glyph' : ''}`.trim(), width: size, height: size, 'aria-hidden': 'true' });
 }
 
 export function mountLucideIcon(host: Element | null, name: string | null | undefined, size = 20): void {

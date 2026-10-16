@@ -1,4 +1,6 @@
 import { heroArt } from '../heroArt';
+import { lucideIcon } from '../lucideIcon';
+import { insigniaBadge, openInsigniaVault } from '../insigniaVault';
 import { bindArenaRating } from '../../services/pvpRating';
 import { renderHeroPowerTree } from './heroPowerTree';
 import { renderModeStats } from './modeStats';
@@ -33,7 +35,7 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { currentSeasonLabel } from '../../game/rankSeason';
-import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves, createElement } from 'lucide';
+import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves } from 'lucide';
 import type { GameMode, SaveData } from '../../game/save';
 import { modeRules } from '../../game/modes';
 import type { HeroScreenCallbacks } from './heroes';
@@ -434,6 +436,7 @@ function profileMain(getStats: () => ProfileStats) {
         GameButton({ label: 'Badges', variant: 'outline', onClick: () => openScreen('BADGES') }),
         GameButton({ label: 'Rankings', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
         GameButton({ label: 'Settings', variant: 'outline', onClick: () => openScreen('SETTINGS') }),
+        GameButton({ label: 'Insignia vault', variant: 'outline', icon: 'Crown', onClick: openInsigniaVault }),
       ]),
     );
   };
@@ -446,6 +449,7 @@ function profileSub(root: HTMLElement, save: SaveData): void {
 
   const banner = el('div', { class: 'ftd-profile-banner' }, [
     el('img', { class: 'ftd-profile-banner__avatar', src: save.avatar || '', alt: `${save.nickname || 'Slicer'} avatar` }),
+    insigniaBadge('ftd-profile-banner__insignia', 42),
     el('div', { class: 'ftd-profile-banner__text' }, [
       el('h2', { class: 'ftd-profile-banner__name', text: save.nickname || 'Slicer' }),
       el('div', { class: 'ftd-profile-banner__badges' }, [
@@ -519,9 +523,8 @@ export function coopHubTab(onStart?: () => void): HubTab {
  * Panel 1 is the PLAY call-to-action; Panel 2 is the active-hero loadout. This
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
-function modeGlyph(node: typeof Swords): HTMLElement | SVGElement {
-  if (typeof document.createElementNS !== 'function') return el('span', { class: 'ftd-mode-card__icon', text: '✦', 'aria-hidden': 'true' });
-  return createElement(node, { class: 'ftd-mode-card__icon', width: 23, height: 23, 'aria-hidden': 'true' });
+function modeGlyph(mode: GameMode): HTMLElement | SVGElement {
+  return lucideIcon(({ casual: 'Shield', horde: 'Skull', campaign: 'Map', coop: 'Users', arena: 'Swords' } as Record<string, string>)[mode] || 'Target', 'ftd-mode-card__icon', 23);
 }
 
 const HOME_MODES: Array<{ id: GameMode; name: string; note: string; icon: typeof Swords; testId: string }> = [
@@ -565,7 +568,7 @@ function homeMain(getSelected: () => GameMode | null, onSelect: (mode: GameMode,
         'aria-pressed': String(active),
         'data-mode-id': mode.id,
         'data-testid': mode.testId,
-      }, [modeGlyph(mode.icon), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: mode.name }), el('small', { text: mode.note })])]);
+      }, [modeGlyph(mode.id), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: mode.name }), el('small', { text: mode.note })])]);
       button.addEventListener('click', () => onSelect(mode.id, root, save));
       grid.appendChild(button);
     }

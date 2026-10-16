@@ -27,6 +27,28 @@ export interface ButtonOptions {
   children?: Child[];
 }
 
+function actionGlyph(label: string): string {
+  const value = label.toLowerCase();
+  if (/back|return|cancel|close|leave/.test(value)) return 'ArrowLeft';
+  if (/play|battle|start|launch|quick match|find .*match/.test(value)) return 'Swords';
+  if (/upgrade|level|improve/.test(value)) return 'ChevronsUp';
+  if (/build|tower|turret|defen|keep/.test(value)) return 'TowerControl';
+  if (/attack|send|rally|slice/.test(value)) return 'Target';
+  if (/shop|buy|purchase|gear/.test(value)) return 'ShoppingBag';
+  if (/claim|reward|prize|daily/.test(value)) return 'Gift';
+  if (/equip|hero|fighter/.test(value)) return 'Shield';
+  if (/friend|community|invite|challenge|co-op/.test(value)) return 'Users';
+  if (/mission|campaign|quest/.test(value)) return 'Map';
+  if (/rank|leader|achievement|badge/.test(value)) return 'Trophy';
+  if (/setting|option|configure/.test(value)) return 'Settings';
+  if (/message|mail/.test(value)) return 'Mail';
+  if (/notification|alert/.test(value)) return 'Bell';
+  if (/save|confirm|accept|\bok\b|continue/.test(value)) return 'BadgeCheck';
+  if (/sell|coin|frut/.test(value)) return 'Coins';
+  if (/map|campaign|stage|mission/.test(value)) return 'Map';
+  return 'ChevronRight';
+}
+
 export function GameButton(opts: ButtonOptions = {}): HTMLButtonElement {
   const btn = el('button', {
     type: opts.type ?? 'button',
@@ -41,7 +63,10 @@ export function GameButton(opts: ButtonOptions = {}): HTMLButtonElement {
     ),
     disabled: opts.disabled,
   });
-  if (opts.icon) btn.appendChild(el('span', { class: 'ftd-btn__icon', 'aria-hidden': 'true', text: opts.icon }));
+  const buttonIcon = opts.icon || actionGlyph(opts.label || '');
+  if (buttonIcon) btn.appendChild(el('span', { class: 'ftd-btn__icon', 'aria-hidden': 'true' }, [
+    /^[A-Za-z]+$/.test(buttonIcon) ? lucideIcon(buttonIcon, '', opts.size === 'sm' ? 15 : 18) : buttonIcon,
+  ]));
   if (opts.label) btn.appendChild(el('span', { class: 'ftd-btn__label', text: opts.label }));
   if (opts.children) opts.children.forEach((c) => c && btn.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
   if (opts.onClick) btn.addEventListener('click', opts.onClick);

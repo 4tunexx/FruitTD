@@ -1,0 +1,396 @@
+/* FruitTD command skin: original icon silhouettes and the graphite/amber
+   instrument-panel language used in the supplied UI references. */
+:root {
+  --ftd-command-ink: #111318;
+  --ftd-command-surface: #23252a;
+  --ftd-command-amber: #ffac22;
+  --ftd-command-hot: #ffdc55;
+  --ftd-command-line: #8e6838;
+  --ftd-command-text: #fff1d3;
+}
+
+.ftd-extracted-icon { display: inline-grid; place-items: center; flex: 0 0 auto; vertical-align: middle; }
+.ftd-asset-glyph {
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+  vertical-align: middle;
+  background: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.ftd-asset-glyph--core { background: none; object-fit: contain; }
+.ftd-hero-perk__glyph { margin-right: 8px; color: #ffd268; }
+.ftd-hub-identity__insignia,.ftd-profile-banner__insignia {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #ffe38b;
+  border: 1px solid #d49b3e;
+  background: radial-gradient(circle at 45% 35%, #6d4425, #1a1b20 74%);
+  clip-path: polygon(50% 0,100% 24%,100% 76%,50% 100%,0 76%,0 24%);
+}
+.ftd-hub-identity__insignia { width: 32px; height: 32px; }
+.ftd-profile-banner__insignia { width: 62px; height: 62px; }
+
+.ftd-insignia-vault { display: grid; gap: 14px; color: #f8ead2; }
+.ftd-insignia-vault__preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid #98713c;
+  background: linear-gradient(110deg, #3c3027, #202227);
+}
+.ftd-insignia-vault__selected { color: #ffd263; }
+.ftd-insignia-vault__count { margin: 0; color: #ffcb5a; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.ftd-insignia-vault__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ftd-insignia-vault__tab {
+  min-height: 36px;
+  padding: 6px 10px;
+  color: #f1d6a6;
+  border: 1px solid #715a3b;
+  background: #25272b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+.ftd-insignia-vault__tab:hover,.ftd-insignia-vault__tab.is-active {
+  color: #231609;
+  border-color: #ffe78f;
+  background: linear-gradient(115deg,#ffe370,#f9a325);
+}
+.ftd-insignia-vault__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(62px,1fr));
+  gap: 7px;
+  max-height: min(46vh,500px);
+  overflow: auto;
+  padding: 3px;
+}
+.ftd-insignia-vault__item {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  color: #ffda81;
+  border: 1px solid #80633e;
+  background: linear-gradient(145deg,#333438,#17191d);
+  cursor: pointer;
+  clip-path: polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.ftd-insignia-vault__item:hover,.ftd-insignia-vault__item:focus-visible,.ftd-insignia-vault__item.is-selected {
+  color: #fff6d5;
+  border-color: #ffdf6c;
+  background: linear-gradient(145deg,#764c27,#35241b);
+  box-shadow: inset 0 0 0 2px #ffcf4b,0 0 14px #f59c3688;
+}
+.ftd-catbar__tab { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.ftd-catbar__tab .ftd-extracted-icon { color: #ffd274; }
+.ftd-catbar__tab.is-active .ftd-extracted-icon { color: inherit; }
+
+#screen-hub.ftd-hub {
+  background: radial-gradient(ellipse at 52% -30%, #7e3d1e55, transparent 55%), #141519;
+}
+#screen-hub.ftd-hub :is(.ftd-hub__main,.ftd-hub__sub:not(.is-empty)) {
+  border: 1px solid #8b693e !important;
+  background:
+    linear-gradient(135deg, #ffb13e13 0 1px, transparent 1px 20px),
+    linear-gradient(150deg, #303035ee, #17191de9 68%) !important;
+  box-shadow: inset 0 2px #e5ba6b2e, inset 0 0 0 5px #1113189c, 0 14px 35px #0008 !important;
+}
+#screen-hub.ftd-hub :is(.ftd-hub__main,.ftd-hub__sub:not(.is-empty))::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  width: min(110px, 24%);
+  height: 3px;
+  background: linear-gradient(90deg, #ffc84d, #f2791d, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+#screen-hub .ftd-hub__main :is(.ftd-hub-page-heading,.ftd-hub-catalog-heading,.ftd-pvp__heading,.ftd-hub-legacy__header,.ftd-social__header,.ftd-campaign__header,.ftd-screen__header) {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #ac7332 !important;
+  background: linear-gradient(94deg, #3c2f25, #28272b 58%, #1c1e22) !important;
+  box-shadow: inset 0 3px #ffbd4b38, 0 5px #0d0e10 !important;
+}
+#screen-hub .ftd-hub__main :is(.ftd-hub-page-heading,.ftd-hub-catalog-heading,.ftd-pvp__heading,.ftd-hub-legacy__header,.ftd-social__header,.ftd-campaign__header,.ftd-screen__header)::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: clamp(75px, 18%, 190px);
+  height: 4px;
+  background: linear-gradient(90deg, #ffb226, #ed7621 75%, transparent);
+  pointer-events: none;
+}
+
+#screen-hub .ftd-hub__footer .ftd-hub-tab {
+  border: 1px solid #735a3c;
+  background: linear-gradient(140deg, #343437, #191b1f);
+  box-shadow: inset 0 1px #f4ddb124, 0 4px #08090b;
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active,
+#screen-hub .ftd-hub__footer .ftd-hub-tab[aria-selected='true'] {
+  border-color: #ffe394;
+  background: linear-gradient(140deg, #ffdf63, #f6961c 75%);
+  box-shadow: inset 0 2px #fff1b9, 0 4px #8e4514, 0 0 20px #f7922440;
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab__icon {
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  color: #ffd375;
+  background: #1a1a1d;
+  border: 1px solid #a47b40;
+  clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  filter: drop-shadow(0 2px 1px #0008);
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon {
+  color: #2c1c0c;
+  background: #ffe698;
+  border-color: #633c19;
+}
+
+.ftd-screen:not(#screen-hub) {
+  background: radial-gradient(ellipse at 55% -20%, #85401f50, transparent 55%), #141519;
+}
+.ftd-screen:not(#screen-hub) .ftd-screen__header {
+  position: relative;
+  padding: 12px 16px;
+  border: 1px solid #9b703b;
+  background: linear-gradient(95deg, #3b3029, #1d1f23 70%);
+  box-shadow: inset 0 2px #ffd57c2e, 0 5px #0d0e10;
+}
+.ftd-screen:not(#screen-hub) .ftd-screen__header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(150px, 25%);
+  height: 4px;
+  background: linear-gradient(90deg, #ffca4c, #ee8020, transparent);
+  pointer-events: none;
+}
+.ftd-screen:not(#screen-hub) .ftd-screen__title {
+  color: #ffd361;
+  font-weight: 950;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+#screen-hub .ftd-mode-card__icon,
+#screen-hub .ftd-item-card__icon .ftd-game-glyph,
+#screen-hub .ftd-hub-sub-card .ftd-game-glyph {
+  color: #ffd35c;
+  filter: drop-shadow(0 2px 0 #08090a) drop-shadow(0 0 6px #ffa42855);
+}
+#screen-hub .ftd-mode-card {
+  position: relative;
+  border-color: #8e724c !important;
+  background: linear-gradient(145deg, #393a3d, #202226) !important;
+  box-shadow: inset 0 1px #ffecbc21, 0 4px #0a0b0d !important;
+}
+#screen-hub .ftd-mode-card:hover,
+#screen-hub .ftd-mode-card:focus-visible {
+  border-color: #ffd15a !important;
+  background: linear-gradient(145deg, #503b28, #262629) !important;
+}
+#screen-hub .ftd-mode-card.is-active {
+  border-color: #ffe58a !important;
+  background: linear-gradient(145deg, #ffe073, #f69b25) !important;
+}
+#screen-hub .ftd-mode-card.is-active .ftd-mode-card__icon {
+  color: #2b1d0d;
+  filter: none;
+}
+
+#screen-hub .ftd-hub-context {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #8e6838;
+  background: linear-gradient(165deg, #353034, #191b1e 75%);
+  box-shadow: inset 0 1px #ffe29e2d, 0 6px #0c0d10;
+}
+#screen-hub .ftd-hub-context::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 58px;
+  height: 4px;
+  background: #ffae28;
+  box-shadow: 0 0 15px #ff9b2c8a;
+}
+#screen-hub .ftd-hub-context__emblem {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 12px;
+  color: #ffd15e;
+  border: 2px solid #c98b30;
+  background: radial-gradient(circle at 50% 45%, #73431e, #1a1b1e 72%);
+  clip-path: polygon(50% 0,100% 24%,100% 76%,50% 100%,0 76%,0 24%);
+  filter: drop-shadow(0 2px 5px #000);
+}
+#screen-hub .ftd-hub-context__emblem svg { width: 28px; height: 28px; }
+
+#screen-hub .ftd-pvp__heading--briefing {
+  min-height: 0 !important;
+  padding: 13px 16px !important;
+  background: linear-gradient(105deg, #302c2c, #1d2023) !important;
+}
+#screen-hub .ftd-pvp__heading--briefing h2 {
+  margin: 2px 0 4px;
+  color: #ffce58;
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  line-height: 1.1;
+  font-weight: 950;
+  letter-spacing: .08em;
+}
+#screen-hub .ftd-pvp__heading--briefing .ftd-pvp__intro { margin: 0; }
+
+#screen-hub :is(.ftd-item-card,.ftd-hero-tile,.ftd-profile-banner,.ftd-settings-card,.ftd-mission-progress),
+#screen-hub .ftd-pvp:not(.is-battle) :is(.ftd-pvp__queue,.ftd-pvp__draft,.ftd-pvp__challenge,.ftd-pvp__bot-start) {
+  position: relative;
+  border-color: #7e6444 !important;
+  background: linear-gradient(150deg, #34353a, #1e2024 75%) !important;
+  box-shadow: inset 0 1px #f8e2b31a, 0 4px #101113 !important;
+}
+#screen-hub .ftd-item-card:hover,
+#screen-hub .ftd-hero-tile:hover { border-color: #e5a739 !important; }
+
+#screen-hub .ftd-btn,
+.ftd-pvp .ftd-btn {
+  position: relative;
+  min-height: 38px;
+  gap: 9px;
+  border-radius: 0;
+  clip-path: polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));
+  box-shadow: inset 0 1px #fff4c54d, 0 3px #0d0e10;
+  font-weight: 900;
+  letter-spacing: .045em;
+}
+#screen-hub .ftd-btn__icon,
+.ftd-pvp .ftd-btn__icon,
+.ftd-screen .ftd-btn__icon,
+.ftd-surface .ftd-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid currentColor;
+  background: #17191b32;
+  clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+}
+#screen-hub .ftd-btn__icon svg,
+.ftd-pvp .ftd-btn__icon svg,
+.ftd-screen .ftd-btn__icon svg,
+.ftd-surface .ftd-btn__icon svg { width: 15px; height: 15px; }
+#screen-hub .ftd-btn--solid.ftd-tone-primary,
+.ftd-pvp .ftd-btn--solid.ftd-tone-primary {
+  color: #22170a;
+  border-color: #ffed9d;
+  background: linear-gradient(115deg, #ffe46b 0, #ffb629 52%, #f17d19 100%);
+}
+#screen-hub .ftd-btn:hover:not(:disabled),
+.ftd-pvp .ftd-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-2px); }
+
+.ftd-pvp.is-battle .ftd-duel-hud {
+  border-bottom: 3px solid #e29b29;
+  background: linear-gradient(95deg, #22332d, #11191a 50%, #35251f) !important;
+  box-shadow: 0 5px 20px #0009;
+}
+.ftd-pvp.is-battle .ftd-duel-dock {
+  border-top: 3px solid #e4a330;
+  background: linear-gradient(#30302d, #151719 64%) !important;
+  box-shadow: inset 0 2px #ffdd8740, 0 -8px 26px #0009;
+}
+.ftd-pvp .ftd-duel-icon-button,
+.ftd-pvp .ftd-duel-card {
+  border-radius: 0;
+  clip-path: polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));
+}
+.ftd-pvp .ftd-duel-icon-button {
+  border-color: #946c39;
+  background: linear-gradient(145deg, #393939, #1d2022);
+  box-shadow: inset 0 1px #fff0c33b, 0 3px #08090b;
+}
+.ftd-pvp .ftd-duel-icon-button svg,
+.ftd-pvp .ftd-duel-card .ftd-duel-card__art { color: #ffd578; filter: drop-shadow(0 1px #08090b); }
+.ftd-pvp .ftd-duel-icon-button.is-active,
+.ftd-pvp .ftd-duel-card.is-selected {
+  color: #201709;
+  border-color: #ffefab;
+  background: linear-gradient(140deg, #ffe471, #f59b23);
+  box-shadow: inset 0 1px #fff6ca, 0 0 14px #ffae2a63;
+}
+.ftd-pvp .ftd-duel-icon-button.is-active svg,
+.ftd-pvp .ftd-duel-card.is-selected .ftd-duel-card__art { color: #2b1b0b; }
+.ftd-pvp .ftd-duel-card { border-color: #926d42; background: linear-gradient(145deg, #363738, #1a1c1e); }
+.ftd-pvp .ftd-duel-card.is-attack { border-color: #bf6945; background: linear-gradient(145deg, #42302a, #201b1b); }
+
+body[data-ftd-screen='PLAY'] .turret-btn,
+body[data-ftd-screen='PLAY'] .hero-ability-slot {
+  border-radius: 0;
+  border-color: #bd8736;
+  background: linear-gradient(140deg, #3e3b31, #191c1e 75%);
+  box-shadow: inset 0 1px #ffe7a03d, 0 3px #080a0a;
+  clip-path: polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));
+}
+body[data-ftd-screen='PLAY'] .turret-btn { display:flex; align-items:center; gap:7px; text-align:left; }
+body[data-ftd-screen='PLAY'] .turret-btn__glyph { flex:0 0 20px; color:#ffcc58; filter:drop-shadow(0 1px #000); }
+body[data-ftd-screen='PLAY'] .turret-btn:hover:not(:disabled),
+body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b; box-shadow:inset 0 1px #fff2b8,0 0 13px #ffb52b66; }
+
+.ftd-surface:not(.ftd-surface--fullscreen) .ftd-surface__card,
+:is(#hud-pause,#hud-gameover) .modal-card {
+  position: relative;
+  border: 1px solid #ad7c37;
+  background: linear-gradient(150deg, #353337, #1b1c20 68%);
+  box-shadow: inset 0 2px #ffcf7036, inset 0 0 0 5px #101215, 0 22px 50px #000b;
+}
+.ftd-surface:not(.ftd-surface--fullscreen) .ftd-surface__card::before,
+:is(#hud-pause,#hud-gameover) .modal-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 18px;
+  width: min(140px, 32%);
+  height: 4px;
+  background: linear-gradient(90deg, #ffdc63, #ee8220, transparent);
+  pointer-events: none;
+}
+.ftd-surface__title { color: #ffd260; text-transform: uppercase; letter-spacing: .045em; }
+.ftd-surface__close,.ftd-surface__back {
+  border: 1px solid #90703f;
+  border-radius: 0;
+  background: #252528;
+  color: #ffd375;
+}
+.ftd-toast {
+  border-left: 3px solid #ffba36;
+  border-radius: 0;
+  background: linear-gradient(100deg, #382f29, #1e2023 68%);
+  box-shadow: inset 0 1px #ffdf9d38, 0 5px 20px #0009;
+}
+
+@media (max-width: 760px) {
+  #screen-hub .ftd-btn__icon { width: 18px; height: 18px; flex-basis: 18px; }
+  #screen-hub .ftd-btn__icon svg { width: 12px; height: 12px; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab__icon { width: 22px; height: 22px; }
+  .ftd-pvp .ftd-duel-icon-button { min-width: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-hub .ftd-btn,
+  #screen-hub .ftd-mode-card,
+  .ftd-pvp .ftd-duel-icon-button { transition: none !important; }
+}

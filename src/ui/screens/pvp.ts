@@ -80,8 +80,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let disposed = false;
   let realtimeMatchId = '';
   let clashShownMatchId = '';
-  const heading = el('header', { class: 'ftd-pvp__heading' }, [
-    el('div', {}, [label('TOWER SIEGE · NORMAL OR RANKED', 'ftd-pvp__eyebrow'), el('h1', { text: 'ARENA' }), label('Three minutes. Build, upgrade, capture and counterattack. No slicing. Destroy the rival wall; at timeout, the higher wall percentage wins.', 'ftd-pvp__intro')]),
+  const inHub = Boolean(root.closest('.ftd-hub-panel-content'));
+  const heading = el('header', { class: `ftd-pvp__heading${inHub ? ' ftd-pvp__heading--briefing' : ''}` }, [
+    el('div', {}, [label('TOWER SIEGE · NORMAL OR RANKED', 'ftd-pvp__eyebrow'), el(inHub ? 'h2' : 'h1', { text: inHub ? 'SIEGE BRIEFING' : 'ARENA' }), label('Three minutes. Build, upgrade, capture and counterattack. No slicing. Destroy the rival wall; at timeout, the higher wall percentage wins.', 'ftd-pvp__intro')]),
     el('div', { class: 'ftd-pvp__rating', 'data-pvp-rating': '' }, [label('RATING', 'ftd-pvp__eyebrow'), el('strong', { text: 'Loading…' })]),
   ]);
   main.appendChild(heading);

@@ -6,10 +6,13 @@ import type { HubTab } from './hub';
 import type { NavState } from '../../game/navigation';
 import type { SaveData } from '../../game/save';
 import { LoadingIndicator } from '../components/loading';
+import { lucideIcon } from '../lucideIcon';
 
 function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>): void {
   const actions = el('div', { class: 'ftd-hub-context__actions' }, links.map(({ label, open }) => GameButton({ label, variant: 'outline', block: true, onClick: open })));
+  const emblem = /arena|ranked/i.test(title) ? 'Swords' : /leader|rank/i.test(title) ? 'Trophy' : /account|profile/i.test(title) ? 'Shield' : /orders|campaign/i.test(title) ? 'Map' : 'Target';
   root.appendChild(el('aside', { class: 'ftd-hub-context ftd-hub-context--entering' }, [
+    el('span', { class: 'ftd-hub-context__emblem', 'aria-hidden': 'true' }, [lucideIcon(emblem, '', 28)]),
     el('p', { class: 'ftd-hub-context__eyebrow', text: eyebrow }),
     el('h2', { text: title }),
     el('p', { text: body }),

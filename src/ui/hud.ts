@@ -1,6 +1,7 @@
 import type { JuiceBank } from '../game/juice';
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../game/heroes';
 import { getTowerXpState } from '../game/towerProgression';
+import { lucideIcon } from './lucideIcon';
 import { HERO_PERKS } from '../game/heroProgression';
 import { getAvailableHeroPerkPoints, upgradeHeroPerk } from '../game/heroPerkSave';
 import { MODE_INFO, modeRules } from '../game/modes';
@@ -157,6 +158,7 @@ export class Hud {
       btn.type = 'button';
       btn.dataset.turret = def.kind;
       btn.className = 'turret-btn';
+      btn.append(lucideIcon(({ guillotine: 'Swords', vortex: 'Tornado', laser: 'Zap', railgun: 'Target', sprinkler: 'Droplets', blender: 'Scissors', catcher: 'Shield' } as Record<string, string>)[def.kind] || 'TowerControl', 'turret-btn__glyph', 20), document.createElement('span'));
       btn.addEventListener('click', () => this.onPlace?.(def.kind));
       this.shop.appendChild(btn);
     }
@@ -1219,7 +1221,8 @@ export class Hud {
         const affordable = state.currency >= def.cost;
         const fits = canPlaceTurret(kind, pad);
         btn.disabled = !fits || !affordable;
-        btn.textContent = `${def.name}  ${def.cost} F${fits ? '' : '  (floor only)'}${!affordable && fits ? '  insufficient' : ''}`;
+        const caption = btn.querySelector('span');
+        if (caption) caption.textContent = `${def.name}  ${def.cost} F${fits ? '' : '  (floor only)'}${!affordable && fits ? '  insufficient' : ''}`;
       }
     }
 

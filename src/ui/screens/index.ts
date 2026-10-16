@@ -10,6 +10,7 @@ import './screens.css';
 import './hub.css';
 import './campaign.css';
 import '../apocalypse.css';
+import './gameSkin.css';
 import { registerScreen, installScreenRouter, installNavLinks, installEscHandler } from './registry';
 import { renderHub, switchHubTab, refreshHub, animateHubEntrance, registerHubTab, resetHub, type HubOptions } from './hub';
 import { homeHubTab, heroesHubTab, inventoryHubTab, shopHubTab, profileHubTab, coopHubTab } from './hubTabs';

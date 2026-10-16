@@ -10,6 +10,7 @@ import { el, clear } from '../components/dom';
 import { GameButton, GameCurrency } from '../components/primitives';
 import { back, home } from './registry';
 import type { SaveData } from '../../game/save';
+import { lucideIcon } from '../lucideIcon';
 
 export interface ScreenShellOptions {
   title: string;
@@ -78,13 +79,13 @@ export function categoryTabs(
 ): HTMLElement {
   const bar = el('div', { class: 'ftd-catbar', role: 'tablist' });
   for (const id of categories) {
+    const icon = ({ all: 'Sparkles', slicers: 'Scissors', walls: 'Shield', effects: 'Zap', cosmetics: 'Gem', heroes: 'Swords', special: 'Crown' } as Record<string, string>)[id] || 'Target';
     const tab = el('button', {
       class: `ftd-catbar__tab${id === active ? ' is-active' : ''}`,
-      text: labels[id] ?? id,
       type: 'button',
       role: 'tab',
       'aria-selected': String(id === active),
-    });
+    }, [lucideIcon(icon, '', 17), el('span', { text: labels[id] ?? id })]);
     tab.addEventListener('click', () => onChange(id));
     bar.appendChild(tab);
   }

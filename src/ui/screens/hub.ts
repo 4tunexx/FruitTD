@@ -33,6 +33,8 @@ import { getAuthToken } from '../../services/auth';
 import { applyPanelOneAppearance } from '../../services/liveConfig';
 import { socialApi } from '../../services/social';
 import { animateNumbersIn } from '../numberMotion';
+import { lucideIcon } from '../lucideIcon';
+import { insigniaBadge } from '../insigniaVault';
 import { applyHubChromeMode, bindHubChromeReveal } from './hubChrome';
 
 /** A tab's contextual UI: what goes in Panel 1 (main) and Panel 2 (sub). */
@@ -84,6 +86,10 @@ function returnHome(root: HTMLElement): void {
 
 function icon(node: typeof Swords, className: string): HTMLElement | SVGElement {
   if (typeof document.createElementNS !== 'function') return el('span', { class: className, 'aria-hidden': 'true' });
+  if (node === Bell) return lucideIcon('Bell', className, 18);
+  if (node === UsersRound) return lucideIcon('Users', className, 18);
+  if (node === MessageCircle) return lucideIcon('MessageCircle', className, 18);
+  if (node === Ellipsis) return lucideIcon('Ellipsis', className, 18);
   return createElement(node, { class: className, width: 18, height: 18, 'aria-hidden': 'true' });
 }
 
@@ -248,6 +254,7 @@ function buildHeader(save: SaveData, opts: HubOptions, root: HTMLElement): HTMLE
       src: save.avatar || '',
       alt: `${save.nickname || 'Slicer'} avatar`,
     }),
+    insigniaBadge('ftd-hub-identity__insignia'),
     el('div', { class: 'ftd-hub-identity__text' }, [
       el('p', { class: 'ftd-hub-identity__name', text: save.nickname || 'Slicer' }),
       el('p', { class: 'ftd-hub-identity__meta' }, [
@@ -461,7 +468,7 @@ function buildFooter(active: NavState, root: HTMLElement): HTMLElement {
       'data-hub-tab': tab.id,
       'data-testid': `nav-${tab.id === 'MAIN_MENU' ? 'home' : tab.id.toLowerCase()}`,
     }, [
-      icon(tab.icon, 'ftd-hub-tab__icon'),
+      lucideIcon(({ MAIN_MENU: 'Castle', HEROES: 'Shield', INVENTORY: 'Backpack', SHOP: 'ShoppingBag', PROFILE: 'Crown' } as Record<string, string>)[tab.id] || 'Target', 'ftd-hub-tab__icon', 22),
       el('span', { class: 'ftd-hub-tab__label', text: tab.label }),
     ]);
     button.addEventListener('click', () => {
@@ -537,7 +544,7 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
     if (!pageBack) {
       pageBack = el('button', {
         class: 'ftd-hub-page-back', type: 'button', 'aria-label': 'Back to hub', title: 'Back to hub',
-      }, [el('span', { 'aria-hidden': 'true', text: '←' }), el('span', { text: 'Hub' })]);
+      }, [lucideIcon('ArrowLeft', '', 16), el('span', { text: 'Hub' })]);
       heading.appendChild(pageBack);
     } else {
       pageBack.classList.add('ftd-hub-page-back');
