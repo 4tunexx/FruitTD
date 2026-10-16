@@ -6,6 +6,7 @@ import { GameButton } from '../components/primitives';
 import { LoadingIndicator } from '../components/loading';
 import type { PvpBattlefield } from './pvpBattlefield';
 import type { CoopMatch, CoopConfig, CoopCommand } from '../../game/onlineCoop';
+import { towerLevelFromXp } from '../../game/towerProgression';
 import type { PvpConfig } from '../../game/pvp';
 import { turretDef, type TurretKind } from '../../game/turrets';
 import type { Realtime } from 'ably';
@@ -76,7 +77,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   if(sceneId!==room.id){scene?.dispose();scene=null;sceneId=room.id;sceneLoadingId=room.id;const loadingRoom=room.id;void import('./pvpBattlefield').then(({PvpBattlefield})=>{if(disposed||!body.isConnected||room?.id!==loadingRoom||room.status==='complete'){if(sceneLoadingId===loadingRoom)sceneLoadingId='';return;}scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneLoadingId='';render();}).catch(error=>{if(sceneLoadingId===loadingRoom)sceneLoadingId='';if(!disposed&&room?.id===loadingRoom)notice.textContent=error instanceof Error?`Battlefield could not start: ${error.message}`:'Battlefield could not start.';});}
   if(!scene){body.append(LoadingIndicator('Loading Co-op battlefield…'));return;}
   scene.update(snapshot,balance);scene.element.dataset.tower=selected;
-  body.append(el('div',{class:'ftd-pvp__matchbar'},[el('strong',{text:`WAVE ${room.wave}`}),el('span',{text:`Wall ${room.wallHealth}/${balance.wallHealth} · ${Math.floor(room.fruts)} shared Fruts · ${room.score} score`}),el('span',{text:room.players.map(p=>`${p.name} · ${p.hero}`).join(' + ')}),GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})})]));
+  body.append(el('div',{class:'ftd-pvp__matchbar'},[el('strong',{text:`WAVE ${room.wave} · Tower Lv ${towerLevelFromXp(room.towerXp??0)}`}),el('span',{text:`Wall ${room.wallHealth}/${balance.wallHealth} · ${Math.floor(room.fruts)} shared Fruts · ${room.score} score`}),el('span',{text:room.players.map(p=>`${p.name} · ${p.hero}`).join(' + ')}),GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})})]));
   const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]);
   body.append(el('div',{class:'hero-ability-bar hero-ability-bar--coop'},powers.slice(0,3).filter(id=>heroAbility(id)).map(id=>{
     const button=powerButton(id,()=>command({type:'ability',abilityId:id}));

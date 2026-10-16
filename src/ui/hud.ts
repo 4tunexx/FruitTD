@@ -676,7 +676,6 @@ export class Hud {
   private updateDashboardPanels(save: SaveData): void {
     const hero = heroDef(save.hero);
     const xp = getHeroXpState(save, save.hero);
-    const tower = getTowerXpState();
 
     // Topbar
     const setEl = (id: string, val: string) => { const e = document.getElementById(id); if (e) e.textContent = val; };
@@ -702,8 +701,8 @@ export class Hud {
 
     // Tower
     setEl('dash-tower', `Base Tower`);
-    setEl('dash-tower-level', `Lv ${tower.level}/10`);
-    setStyle('dash-tower-xpbar', 'width', `${Math.round(tower.progress * 100)}%`);
+    setEl('dash-tower-level', 'Lv 1 · resets each run');
+    setStyle('dash-tower-xpbar', 'width', '0%');
 
     // Career stats
     setEl('dash-best-wave', save.bestWave > 0 ? String(save.bestWave) : '—');

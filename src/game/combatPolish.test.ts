@@ -275,9 +275,9 @@ describe('combat polish regressions', () => {
 
 it('upgraded towers start every solo mode at full health', async () => {
   installStorageShim();
-  const { syncTowerProgression, resetTowerProgression } = await import('./towerProgression');
+  const { grantTowerXp, resetTowerProgression } = await import('./towerProgression');
   const { createState, resetState, damageTower } = await import('./state');
-  syncTowerProgression(3500);
+  grantTowerXp(3500);
   try {
     for (const mode of ['casual', 'campaign', 'horde', 'coop'] as const) {
       const state = createState();

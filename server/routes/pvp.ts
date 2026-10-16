@@ -165,6 +165,12 @@ async function settleMatch(match: StoredMatch, config: PvpConfig): Promise<void>
           const reached = badgeByTier[topTier]; if (reached) await badge(reached);
         }
       }
+      // Arena and Ranked share the career reward pipeline. A positive combat
+      // score earns hero XP; tower XP is tracked only as a lifetime statistic.
+      const earnedXp = Math.min(2_000, Math.floor(Math.max(0, player.score) / 2));
+      if (earnedXp > 0) await creditClaimReward(player.userId, `pvp:${match.id}`, {
+        xp: { [player.hero ?? 'jiju']: earnedXp }, towerXp: earnedXp, games: 1,
+      });
       await saveNotification(() => getCollection<NotificationRecord>('notifications'), {
         userId: player.userId, type: 'pvp_result', title: 'Arena match finished',
         body: `${outcome === 'win' ? 'Victory' : outcome === 'loss' ? 'Defeat' : 'Tie'} · ${match.queue === 'ranked' && player.ratingDelta !== undefined ? `${player.ratingDelta > 0 ? '+' : ''}${player.ratingDelta} rating` : 'Casual Arena'}`,

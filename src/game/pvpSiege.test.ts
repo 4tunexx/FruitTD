@@ -23,6 +23,7 @@ it('main upgrades spend match Fruts, improve damage/health, and cannot exceed le
 });
 it('Catcher stores weakened zombies without bounties; paid release sends one unit and cannot be replayed or recaptured', () => {
   const game = active(); const player = game.players[0]; const pathCell = config.map.pathCells[0]!;
+  player.fruts = 200;
   const cell = config.map.buildCells.find(cell => pvpHexDistance(cell, pathCell, config.map.width) <= 1)!;
   act(game, 'a', { type: 'build', tower: 'catcher', cell });
   player.attackers.push({ id: 'wounded', type: 'normal', hp: 25, progress: 0 });

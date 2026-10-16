@@ -48,7 +48,7 @@ export const DEFAULT_PVP_CONFIG: PvpConfig = {
     makeMap('stone-arch', 'Stone Arch', [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
     makeMap('long-harvest', 'Long Harvest', [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]]),
   ],
-  durationSeconds: 180, wallHealth: 1000, startingFruts: 180, incomePerSecond: 6, reconnectGraceSeconds: 45,
+  durationSeconds: 180, wallHealth: 1000, startingFruts: 0, incomePerSecond: 6, reconnectGraceSeconds: 45,
   mainTower: { damage: 18, range: 2, cooldownMs: 1000 },
   towers: {
     guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
@@ -165,7 +165,7 @@ export function fruitOnSlash(pathCell: number, width: number, from: { x: number;
 }
 
 export function createPvpPlayer(userId: string, name: string, side: 'blue' | 'red', config: PvpConfig, now = Date.now()): PvpPlayer {
-  return { userId, name: name.slice(0, 32), side, mainLevel: 1, wallMaxHealth: config.wallHealth, captured: [], connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
+  return { userId, name: name.slice(0, 32), side, mainLevel: 1, wallMaxHealth: config.wallHealth, captured: [], connected: true, disconnectedAt: null, lastSeenAt: now, fruts: 0, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
 }
 
 export function newPvpMatch(id: string, queue: PvpQueue, players: [PvpPlayer, PvpPlayer], now = Date.now(), config: PvpConfig = DEFAULT_PVP_CONFIG): PvpMatch {
@@ -188,7 +188,7 @@ export function vetoPvpMap(match: PvpMatch, userId: string, mapId: string, seque
   if (match.mapPool.length === 2) {
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]!);
     match.status = 'active'; match.endsAt = now + config.durationSeconds * 1000;
-    match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = config.startingFruts; item.rallyReadyAt = now + PVP_RALLY.openingMs; });
+    match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = 0; item.rallyReadyAt = now + PVP_RALLY.openingMs; });
   } else match.vetoTurn = match.players.find((item) => item.userId !== userId)!.userId;
   return match;
 }

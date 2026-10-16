@@ -61,7 +61,7 @@ test('admin title and economy drafts survive switching tabs before publishing', 
   assert.equal(local.config.menuConfig.title, title.value);
   assert.equal(local.config.menuConfig.storyText, story.value);
   assert.equal(local.config.menuConfig.logoCaption, logoCaption.value);
-  assert.equal(local.config.gameplayConfig.startMoney, 350);
+  assert.equal(local.config.gameplayConfig.startMoney, 0);
 });
 
 test('admin artwork URL edits persist in the draft across branding rerenders', () => {

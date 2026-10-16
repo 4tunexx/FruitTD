@@ -328,6 +328,7 @@ function emptySkills() {
 var ARENA_W = 22;
 var ARENA_D = 132;
 var SOLO_ARENA_D = 44;
+var MAX_TOWER_LEVEL = 10;
 var SIM_DT = 1 / 60;
 var IMPACT_FREEZE = 1 / 60;
 var WALL_Z = -9.2;
@@ -348,6 +349,18 @@ function buildPads() {
 }
 var PADS = buildPads();
 var MAIN_INDEX = PADS.findIndex((p) => p.main);
+
+// src/game/towerProgression.ts
+var LEVEL_XP = [0, 100, 300, 650, 1100, 1700, 2500, 3500, 4800, 6400];
+function towerLevelFromXp(xp) {
+  const safe = Math.max(0, xp);
+  let level = 1;
+  for (let i = 1; i < LEVEL_XP.length; i++) {
+    if (safe >= LEVEL_XP[i]) level = i + 1;
+    else break;
+  }
+  return Math.min(MAX_TOWER_LEVEL, level);
+}
 
 // src/game/heroAbilities.ts
 var names = {
@@ -531,11 +544,11 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   set["saveData.coins"] = cappedCredit("coins", reward.coins ?? 0, 1e6);
   set["saveData.gems"] = cappedCredit("gems", reward.gems ?? 0, 1e6);
   set["saveData.skillPoints"] = cappedCredit("skillPoints", reward.skillPoints ?? 0, 1e4);
+  set["saveData.towerXp"] = 0;
   for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
     if (HEROES.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1e6);
   }
   if ((reward.towerXp ?? 0) > 0) {
-    set["saveData.towerXp"] = cappedCredit("towerXp", reward.towerXp, 1e9);
     set["saveData.towerLifetimeXp"] = cappedCredit("towerLifetimeXp", reward.towerXp, 1e9);
   }
   if ((reward.games ?? 0) > 0) set["saveData.games"] = cappedCredit("games", reward.games, 1e6);
@@ -608,7 +621,7 @@ function normalizeCoopConfig(raw) {
   }));
 }
 function newCoopMatch(id, player, balance) {
-  return { id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: balance.startingFruts, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
+  return { towerXp: 0, id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
 }
 function joinCoopMatch(match, player, now) {
   if (match.status !== "waiting" || match.players.length !== 1 || match.players.some((p) => p.userId === player.userId)) throw new Error("Room is unavailable.");
@@ -718,7 +731,8 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     return true;
   };
   for (const tower of match.towers) if (fire(tower.cell % 10 + 0.5, Math.floor(tower.cell / 10) + 0.5, balance.towers[tower.type], tower.lastFiredAt)) tower.lastFiredAt = now;
-  if (fire(5, 13.5, balance.mainTower, match.mainLastFiredAt)) match.mainLastFiredAt = now;
+  const towerLevel = towerLevelFromXp(match.towerXp ?? 0);
+  if (fire(5, 13.5, { ...balance.mainTower, damage: Math.round(balance.mainTower.damage * (1 + (towerLevel - 1) * 0.1)) }, match.mainLastFiredAt)) match.mainLastFiredAt = now;
   collectKills(match, balance);
   for (const f of match.fruits.filter((f2) => f2.y >= 13.5)) match.wallHealth = Math.max(0, match.wallHealth - balance.attacks[f.type].wallDamage * (f.boss ? 10 : 1));
   match.fruits = match.fruits.filter((f) => f.y < 13.5);
@@ -727,6 +741,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     match.reason = "wall";
   } else if (!match.remainingSpawns && !match.fruits.length) {
     match.completedWaves++;
+    match.towerXp = (match.towerXp ?? 0) + config.towerXpPerWave;
     match.wave++;
     match.status = match.wave % (config.bossEveryWaves + 1) === 0 ? "boss-intro" : "countdown";
     match.phaseUntil = now + (match.status === "boss-intro" ? config.bossIntroMs : config.intermissionMs);
@@ -1203,7 +1218,7 @@ var DEFAULT_PVP_CONFIG = {
   ],
   durationSeconds: 180,
   wallHealth: 1e3,
-  startingFruts: 180,
+  startingFruts: 0,
   incomePerSecond: 6,
   reconnectGraceSeconds: 45,
   mainTower: { damage: 18, range: 2, cooldownMs: 1e3 },
@@ -1308,7 +1323,7 @@ function calculateArenaRating(points, opponent, outcome, config = DEFAULT_PVP_CO
   return { outcome, base: delta, performance: 0, delta: rating - points, rating, tier: pvpTier(rating, config) };
 }
 function createPvpPlayer(userId, name, side, config, now = Date.now()) {
-  return { userId, name: name.slice(0, 32), side, mainLevel: 1, wallMaxHealth: config.wallHealth, captured: [], connected: true, disconnectedAt: null, lastSeenAt: now, fruts: config.startingFruts, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
+  return { userId, name: name.slice(0, 32), side, mainLevel: 1, wallMaxHealth: config.wallHealth, captured: [], connected: true, disconnectedAt: null, lastSeenAt: now, fruts: 0, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
 }
 function newPvpMatch(id, queue, players, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
   const mapPool = structuredClone(config.maps);
@@ -1336,7 +1351,7 @@ function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = D
     match.endsAt = now + config.durationSeconds * 1e3;
     match.players.forEach((item) => {
       item.wallHealth = config.wallHealth;
-      item.fruts = config.startingFruts;
+      item.fruts = 0;
       item.rallyReadyAt = now + PVP_RALLY.openingMs;
     });
   } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
@@ -1611,7 +1626,7 @@ var DEFAULT_ADMIN_CONFIG = {
     foliageEnabled: true
   },
   gameplayConfig: {
-    startMoney: 140,
+    startMoney: 0,
     startLives: 15,
     scoreMultiplier: 1,
     superChargeMultiplier: 1
@@ -1675,7 +1690,7 @@ function mergePvpConfig(raw) {
     map: maps[0],
     durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
     wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 1e5),
-    startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 1e5),
+    startingFruts: 0,
     incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
     reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
     mainTower: {
@@ -2914,7 +2929,7 @@ function normalizeGameplayConfig(input) {
     return Math.min(max, Math.max(min, n));
   };
   return {
-    startMoney: num(row.startMoney, DEFAULT_ADMIN_CONFIG2.gameplayConfig.startMoney, 0, 1e5),
+    startMoney: 0,
     startLives: num(row.startLives, DEFAULT_ADMIN_CONFIG2.gameplayConfig.startLives, 1, 100),
     scoreMultiplier: num(row.scoreMultiplier, DEFAULT_ADMIN_CONFIG2.gameplayConfig.scoreMultiplier, 0.1, 10),
     superChargeMultiplier: num(
@@ -2959,7 +2974,7 @@ var DEFAULT_ADMIN_CONFIG2 = {
     loadingBackgroundImage: ""
   },
   gameplayConfig: {
-    startMoney: 140,
+    startMoney: 0,
     startLives: 15,
     scoreMultiplier: 1,
     superChargeMultiplier: 1
@@ -3102,7 +3117,7 @@ function normalizePvpConfig(input) {
     map: maps[0],
     durationSeconds: bounded(row.durationSeconds, 180, 60, 600),
     wallHealth: bounded(row.wallHealth, 1e3, 100, 1e5),
-    startingFruts: bounded(row.startingFruts, 180, 0, 1e5),
+    startingFruts: 0,
     incomePerSecond: bounded(row.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
     reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300),
     towers,
@@ -4965,6 +4980,12 @@ async function settleMatch(match, config) {
           if (reached) await badge(reached);
         }
       }
+      const earnedXp = Math.min(2e3, Math.floor(Math.max(0, player.score) / 2));
+      if (earnedXp > 0) await creditClaimReward(player.userId, `pvp:${match.id}`, {
+        xp: { [player.hero ?? "jiju"]: earnedXp },
+        towerXp: earnedXp,
+        games: 1
+      });
       await saveNotification(() => getCollection("notifications"), {
         userId: player.userId,
         type: "pvp_result",

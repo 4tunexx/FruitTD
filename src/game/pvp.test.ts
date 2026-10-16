@@ -3,7 +3,16 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PVP_CONFIG as cfg, advancePvpMatch, applyPvpCommand, calculatePvpRating, createPvpPlayer, newPvpMatch, normalizePvpMaps, pvpTier, resetSeasonRating, vetoPvpMap, pvpUpgradeCost, pvpSellRefund, pvpTowerStats } from './pvp';
 
 describe('Arena and Ranked PvP rules', () => {
-  const match = () => newPvpMatch('test', 'ranked', [createPvpPlayer('a', 'A', 'blue', cfg), createPvpPlayer('b', 'B', 'red', cfg)], 1_000, cfg);
+  const match = () => {
+    const game = newPvpMatch('test', 'ranked', [createPvpPlayer('a', 'A', 'blue', cfg), createPvpPlayer('b', 'B', 'red', cfg)], 1_000, cfg);
+    for (const player of game.players) player.fruts = 500; // Fund command scenarios.
+    return game;
+  };
+
+  it('starts both players with zero Fruts and level one towers', () => {
+    const game = newPvpMatch('fresh', 'arena', [createPvpPlayer('a', 'A', 'blue', cfg), createPvpPlayer('b', 'B', 'red', cfg)], 1_000, cfg);
+    for (const player of game.players) { assert.equal(player.fruts, 0); assert.equal(player.mainLevel, 1); }
+  });
 
   it('spawns only player-sent squads, including matches carrying legacy wave timers', () => {
     const game = match(); game.status = 'active'; game.map = cfg.map; game.endsAt = 100_000;
@@ -101,7 +110,7 @@ describe('Arena and Ranked PvP rules', () => {
     const nearPath = cfg.maps[0]!.pathCells[0]! + 1;
     defender.towers.push({ id: 'tower', type: 'railgun', cell: nearPath, placedAt: 1_000 });
     applyPvpCommand(defended, defended.players[1]!.userId, { type: 'send', enemy: 'normal' }, 1, 1_001, singleConfig);
-    assert.equal(defended.players[1]!.fruts, cfg.startingFruts - cfg.attacks.normal!.cost);
+    assert.equal(defended.players[1]!.fruts, 500 - cfg.attacks.normal!.cost);
     for (let t = 1; t <= 20; t++) advancePvpMatch(defended, 1, 1_001 + t * 1000, cfg);
     assert.equal(defender.attackers.length, 0);
 

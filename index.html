@@ -1714,11 +1714,11 @@
             </div>
 
             <div id="admin-tab-economy" class="admin-panel-tab hidden">
-              <p class="text-xs text-slate-400 mb-3">Tune base mechanics, starting currency, and gameplay multipliers.</p>
+              <p class="text-xs text-slate-400 mb-3">Tune gameplay multipliers. Every mode starts with 0 Fruts.</p>
               <div class="admin-form-col">
                 <label>
-                  <span>Starting Coins ($)</span>
-                  <input id="admin-in-money" type="range" class="admin-input" min="0" max="5000" step="10" data-value-output="admin-in-money-value" /><output id="admin-in-money-value" class="admin-range-value">0</output>
+                  <span>Starting Fruts (fixed at 0)</span>
+                  <input id="admin-in-money" type="range" class="admin-input" min="0" max="0" step="1" value="0" disabled data-value-output="admin-in-money-value" /><output id="admin-in-money-value" class="admin-range-value">0</output>
                 </label>
                 <label>
                   <span>Starting Wall Lives</span>

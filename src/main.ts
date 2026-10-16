@@ -59,7 +59,7 @@ import { getCachedSteamState } from './services/steam';
 import { currentSeasonLabel } from './game/rankSeason';
 import type { GameEvent } from './game/requirements';
 import { enemyRule } from './game/enemies';
-import { getTowerXpState } from './game/towerProgression';
+import { getTowerXpState, resetTowerRun } from './game/towerProgression';
 import { syncTowerProgression } from './game/towerProgression';
 import { getTowerMilestoneBonuses } from './game/towerMilestones';
 import { navigation } from './game/navigation';
@@ -385,8 +385,8 @@ function applyCloudSave(remote: Record<string, any> | null): void {
     ...merged,
     xp: cloud.xp ?? merged.xp,
     ownedHeroes: cloud.ownedHeroes ?? merged.ownedHeroes,
-    towerXp: cloud.towerXp ?? merged.towerXp,
-    towerLifetimeXp: cloud.towerLifetimeXp ?? merged.towerLifetimeXp,
+    towerXp: 0,
+    towerLifetimeXp: Math.max(cloud.towerLifetimeXp ?? 0, cloud.towerXp ?? 0, merged.towerLifetimeXp),
     highScore: cloud.highScore ?? merged.highScore,
     rankedScore: cloud.rankedScore ?? merged.rankedScore,
     bestWave: cloud.bestWave ?? merged.bestWave,
@@ -722,7 +722,7 @@ function award(event: RewardEvent): ProgressionResult {
   matchRewards.towerXp = Math.min(10_000, matchRewards.towerXp + result.towerXpGained);
   matchRewards.skillPoints = Math.min(100, matchRewards.skillPoints + result.perkPointsGained);
   state.heroXp = save.xp[state.hero] ?? 0;
-  state.towerXp = save.towerXp;
+  state.towerXp = getTowerXpState().xp;
   const towerState = getTowerXpState();
   state.towerXpToNext = towerState.nextLevelXp;
   state.towerXpProgress = towerState.progress;
@@ -1463,6 +1463,9 @@ function quitToMenu(explicitMenuAction = false): void {
   document.getElementById('campaign-story')?.classList.add('hidden');
   state.running = false;
   guestKeys.clear();
+  resetTowerRun();
+  state.towerLevel = 1;
+  state.towerXp = 0;
   guestAttackHeld = false;
   coopActors.setVisible(false);
   guestCursor?.classList.add('hidden');
@@ -2226,7 +2229,7 @@ installCombatDiagnostics(() => {
     heroXp: state.heroXp,
     heroLevel: state.heroLevel,
     coins: save.coins,
-    towerXp: save.towerXp,
+    towerXp: getTowerXpState().xp,
     activeSlashes: slashFx.group.children.filter((mesh) => mesh.visible).length,
     trailDrawCount: trail.line.geometry.drawRange.count,
     trailVertices: Array.from(trail.line.geometry.getAttribute('position').array),

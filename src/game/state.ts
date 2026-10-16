@@ -1,9 +1,9 @@
-import { getScoreMultiplier, getStartLivesScale, getStartMoneyScale, getSuperChargeMultiplier } from '../services/liveConfig';
+import { getScoreMultiplier, getStartLivesScale, getSuperChargeMultiplier } from '../services/liveConfig';
 import { heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } from './heroes';
 import { modeRules } from './modes';
 import type { ComboResetReason } from './progression/combo';
 import { MAX_LIVES } from './world';
-import { getTowerXpState } from './towerProgression';
+import { getTowerXpState, resetTowerRun } from './towerProgression';
 import { getTowerMilestoneBonuses } from './towerMilestones';
 import { comboMultiplier } from './progression/combo';
 
@@ -50,7 +50,7 @@ export function createState(): GameState {
   const tower = getTowerXpState();
   const base: GameState = {
     score: 0,
-    currency: 140,
+    currency: 0,
     lives: MAX_LIVES,
     maxLives: MAX_LIVES,
     wave: 1,
@@ -122,12 +122,13 @@ export function createState(): GameState {
 export function resetState(state: GameState): void {
   const hero = state.hero;
   const heroXp = state.heroXp;
-  const tower = getTowerXpState();
   const mode = state.mode;
   // Peak combo is a career stat, not a match stat — it must survive a restart
   // so persist() can still record it after the state is rebuilt.
   const bestCombo = state.bestCombo ?? 0;
   Object.assign(state, createState());
+  resetTowerRun();
+  const tower = getTowerXpState();
   state.hero = hero;
   state.heroXp = heroXp;
   state.bestCombo = bestCombo;
@@ -143,7 +144,7 @@ export function resetState(state: GameState): void {
   // modes that start above the default 15 lives (Casual and Co-op).
   state.maxLives = Math.max(startingLives, startingLives + bonuses.maxLives);
   state.lives = state.maxLives;
-  state.currency = Math.max(0, Math.round(rules.startMoney * getStartMoneyScale()));
+  state.currency = 0;
 }
 
 export function leakCost(state: GameState, fruitKind: string, boss: boolean): number {

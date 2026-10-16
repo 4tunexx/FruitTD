@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULT_PVP_CONFIG,createPvpPlayer,newPvpMatch,applyPvpCommand,advancePvpMatch } from './pvp';
 const config=structuredClone(DEFAULT_PVP_CONFIG);config.mainTower.damage=0;config.reconnectGraceSeconds=1000;
-function battle(){const m=newPvpMatch('clash','arena',[createPvpPlayer('a','A','blue',config),createPvpPlayer('b','B','red',config)],1000,config);m.status='active';m.map=config.map;m.endsAt=500000;return m;}
+function battle(){const m=newPvpMatch('clash','arena',[createPvpPlayer('a','A','blue',config),createPvpPlayer('b','B','red',config)],1000,config);m.status='active';m.map=config.map;m.endsAt=500000;for(const player of m.players)player.fruts=100;return m;}
 test('released squads start at their own keep, meet and stop rather than walking through one another',()=>{
   const m=battle();applyPvpCommand(m,'a',{type:'send',enemy:'normal'},1,1001,config);applyPvpCommand(m,'b',{type:'send',enemy:'normal'},1,1001,config);
   assert.equal(m.players[0].attackers[0]!.progress,-config.map.pathCells.length);

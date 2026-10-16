@@ -96,7 +96,8 @@ test('a consumed run settles bounded kill, wave, and match rewards into the clou
   assert.equal(body.wallet.saveData.gems, 1);
   assert.equal(body.wallet.saveData.skillPoints, 1);
   assert.equal(wallet.saveData.xp.jiju, 40);
-  assert.equal(wallet.saveData.towerXp, 60);
+  assert.equal(wallet.saveData.towerXp, 0);
+  assert.equal(wallet.saveData.towerLifetimeXp, 60);
   assert.equal(wallet.saveData.games, 1);
   assert.ok(wallet.claimReceipts.some((receipt: string) => receipt.startsWith('run:')));
 

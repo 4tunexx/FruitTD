@@ -32,10 +32,8 @@ import { getHeroXpState, nextHeroMilestone, type HeroAvailability } from '../../
 import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
-import { getTowerXpState } from '../../game/towerProgression';
 import { currentSeasonLabel } from '../../game/rankSeason';
 import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves, createElement } from 'lucide';
-import { getTowerXpState as getMainTowerXpState } from '../../game/towerProgression';
 import type { GameMode, SaveData } from '../../game/save';
 import { modeRules } from '../../game/modes';
 import type { HeroScreenCallbacks } from './heroes';
@@ -445,7 +443,6 @@ function profileMain(getStats: () => ProfileStats) {
 function profileSub(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const heroXp = getHeroXpState(save, save.hero);
-  const tower = getTowerXpState();
 
   const banner = el('div', { class: 'ftd-profile-banner' }, [
     el('img', { class: 'ftd-profile-banner__avatar', src: save.avatar || '', alt: `${save.nickname || 'Slicer'} avatar` }),
@@ -473,8 +470,8 @@ function profileSub(root: HTMLElement, save: SaveData): void {
       ]),
       el('div', { class: 'ftd-profile-mastery__block' }, [
         el('p', { class: 'ftd-profile-mastery__label', text: 'MAIN TOWER' }),
-        el('p', { class: 'ftd-profile-mastery__value', text: `Level ${tower.level}` }),
-        el('div', { class: 'ftd-profile-bar ftd-profile-bar--tower' }, [el('i', { style: `width:${Math.round(tower.progress * 100)}%` })]),
+        el('p', { class: 'ftd-profile-mastery__value', text: 'Starts at Lv 1 each run' }),
+        el('div', { class: 'ftd-profile-bar ftd-profile-bar--tower' }, [el('i', { style: 'width:0%' })]),
       ]),
     ]),
   );
@@ -601,7 +598,6 @@ function homeModeSub(root: HTMLElement, save: SaveData, mode: GameMode, onLaunch
 function homeSub(root: HTMLElement, save: SaveData): void {
   const hero = heroDef(save.hero);
   const xp = getHeroXpState(save, save.hero);
-  const tower = getMainTowerXpState();
 
   root.appendChild(
     el('aside', { class: 'ftd-loadout' }, [
@@ -613,7 +609,7 @@ function homeSub(root: HTMLElement, save: SaveData): void {
         class: 'ftd-loadout__xp',
         text: xp.maxed ? `Lv ${MAX_HERO_LEVEL} · Mastered` : `Lv ${xp.level} · ${xp.xpIntoLevel}/${xp.xpForLevel} XP`,
       }),
-      el('p', { class: 'ftd-loadout__tower', text: `Main Tower · Lv ${tower.level}` }),
+      el('p', { class: 'ftd-loadout__tower', text: 'Main Tower · Lv 1 at run start' }),
       GameButton({ label: 'Change hero', variant: 'outline', size: 'sm', block: true, onClick: () => openScreen('HEROES') }),
       el('div', { class: 'ftd-loadout__career', 'aria-label': 'Career progression' }, [
         el('div', { class: 'ftd-loadout__stat' }, [el('span', { text: 'RANKED ARENA' }), el('strong', { class: 'ftd-loadout__rank', text: 'Unranked' })]),

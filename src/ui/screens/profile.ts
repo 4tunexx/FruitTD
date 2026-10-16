@@ -11,8 +11,6 @@ import { GameButton } from '../components/primitives';
 import { openScreen } from './registry';
 import { heroDef, MAX_HERO_LEVEL } from '../../game/heroes';
 import { getHeroXpState } from '../../game/progression';
-import { getTowerXpState } from '../../game/towerProgression';
-import { MAX_TOWER_LEVEL } from '../../game/world';
 import { rankFromScore, DEFAULT_RANK_TIERS, currentSeasonLabel } from '../../game/rankSeason';
 import type { SaveData } from '../../game/save';
 
@@ -37,7 +35,6 @@ export function renderProfile(root: HTMLElement, save: SaveData, stats: ProfileS
 
   const hero = heroDef(save.hero);
   const heroXp = getHeroXpState(save, save.hero);
-  const tower = getTowerXpState();
   const best = save.rankedScore || save.highScore || 0;
   const rank = rankFromScore(best);
   const nextRank = DEFAULT_RANK_TIERS.filter((t) => t.minScore > best).sort(
@@ -73,7 +70,7 @@ export function renderProfile(root: HTMLElement, save: SaveData, stats: ProfileS
   banner.style.setProperty('--rank-color', rank.color);
   body.appendChild(banner);
 
-  // ── Mastery: hero + tower progression ──
+  // ── Hero mastery is permanent; tower upgrades belong to a run. ──
   const mastery = el('div', { class: 'ftd-profile-mastery' }, [
     el('div', { class: 'ftd-profile-mastery__block' }, [
       el('p', { class: 'ftd-profile-mastery__label', text: 'HERO MASTERY' }),
@@ -84,9 +81,9 @@ export function renderProfile(root: HTMLElement, save: SaveData, stats: ProfileS
     ]),
     el('div', { class: 'ftd-profile-mastery__block' }, [
       el('p', { class: 'ftd-profile-mastery__label', text: 'MAIN TOWER' }),
-      el('p', { class: 'ftd-profile-mastery__value', text: `Level ${tower.level}/${MAX_TOWER_LEVEL}` }),
+      el('p', { class: 'ftd-profile-mastery__value', text: 'Starts at Lv 1 each run' }),
       el('div', { class: 'ftd-profile-bar ftd-profile-bar--tower' }, [
-        el('i', { style: `width:${Math.round(tower.progress * 100)}%` }),
+        el('i', { style: 'width:0%' }),
       ]),
     ]),
   ]);

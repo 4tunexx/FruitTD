@@ -61,11 +61,11 @@ export async function creditClaimReward(
   set['saveData.coins'] = cappedCredit('coins', reward.coins ?? 0, 1_000_000);
   set['saveData.gems'] = cappedCredit('gems', reward.gems ?? 0, 1_000_000);
   set['saveData.skillPoints'] = cappedCredit('skillPoints', reward.skillPoints ?? 0, 10_000);
+  set['saveData.towerXp'] = 0;
   for (const [hero, amount] of Object.entries(reward.xp ?? {})) {
     if (HEROES.some((entry) => entry.id === hero) && amount > 0) set[`saveData.xp.${hero}`] = cappedCredit(`xp.${hero}`, amount, 1_000_000);
   }
   if ((reward.towerXp ?? 0) > 0) {
-    set['saveData.towerXp'] = cappedCredit('towerXp', reward.towerXp!, 1_000_000_000);
     set['saveData.towerLifetimeXp'] = cappedCredit('towerLifetimeXp', reward.towerXp!, 1_000_000_000);
   }
   if ((reward.games ?? 0) > 0) set['saveData.games'] = cappedCredit('games', reward.games!, 1_000_000);

@@ -2,7 +2,6 @@ import { setPublishedCreatorMedia } from '../game/creatorMedia';
 import { DEFAULT_ADMIN_CONFIG, fetchAdminConfig, mergeAdminConfig, type AdminConfig } from './admin';
 import { setLiveWavesConfig } from '../game/creatorWaves';
 
-const BASE_START_MONEY = DEFAULT_ADMIN_CONFIG.gameplayConfig.startMoney;
 const BASE_START_LIVES = DEFAULT_ADMIN_CONFIG.gameplayConfig.startLives;
 
 let cached: AdminConfig = mergeAdminConfig(DEFAULT_ADMIN_CONFIG);
@@ -151,12 +150,6 @@ export function getScoreMultiplier(): number {
 export function getSuperChargeMultiplier(): number {
   const value = Number(cached.gameplayConfig.superChargeMultiplier);
   return Number.isFinite(value) && value > 0 ? value : 1;
-}
-
-export function getStartMoneyScale(): number {
-  const value = Number(cached.gameplayConfig.startMoney);
-  if (!Number.isFinite(value) || value <= 0) return 1;
-  return value / BASE_START_MONEY;
 }
 
 export function getStartLivesScale(): number {

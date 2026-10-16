@@ -152,7 +152,7 @@ export function applyRewards(
         if (milestone) result.towerMilestoneNames.push(`Lv ${lv} · ${milestone.name} — ${milestone.reward}`);
       }
     }
-    save.towerXp = after.xp;
+    save.towerXp = 0; // Run XP never goes into the account save.
     save.towerLifetimeXp = after.lifetimeXp;
   }
 

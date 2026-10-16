@@ -94,8 +94,8 @@ export function sanitiseSave(data: SaveData): SaveData {
   data.ownedHeroes = [...new Set(data.ownedHeroes.filter((id) => HEROES.some((h) => h.id === id)))];
   data.ownedSkins = uniqueStrings(data.ownedSkins, base.ownedSkins);
   for (const skill of SKILLS) data.skills[skill.id] = safeInt(data.skills[skill.id], 0, 0, skill.max);
-  data.towerXp = safeInt(data.towerXp, 0);
-  data.towerLifetimeXp = safeInt(data.towerLifetimeXp, 0);
+  data.towerLifetimeXp = Math.max(safeInt(data.towerLifetimeXp, 0), safeInt(data.towerXp, 0));
+  data.towerXp = 0;
   data.highScore = safeInt(data.highScore, 0, 0, 100_000_000);
   data.rankedScore = safeInt(data.rankedScore, 0, 0, 100_000_000);
   data.bestWave = safeInt(data.bestWave, 1, 1, 9999);
@@ -194,9 +194,8 @@ export function loadSave(): SaveData {
     const parsed = JSON.parse(raw) as Partial<SaveData>; const base = defaultSave();
     const hero = HEROES.some((h) => h.id === parsed.hero) ? parsed.hero as HeroId : 'jiju';
     const towerLocal = getTowerProgression();
-    const towerXp = Math.max(towerLocal.xp, safeInt(parsed.towerXp));
-    const towerLifetimeXp = Math.max(towerLocal.lifetimeXp, safeInt(parsed.towerLifetimeXp));
-    syncTowerProgression(towerXp, towerLifetimeXp);
+    const towerLifetimeXp = Math.max(towerLocal.lifetimeXp, safeInt(parsed.towerLifetimeXp), safeInt(parsed.towerXp));
+    syncTowerProgression(0, towerLifetimeXp);
     
     let heroPerkRanks = parsed.heroPerkRanks;
     if (!heroPerkRanks || typeof heroPerkRanks !== 'object') {
@@ -208,7 +207,7 @@ export function loadSave(): SaveData {
       ...base, ...parsed, hero,
       xp:{...base.xp,...(parsed.xp ?? {})},
       ownedHeroes:uniqueStrings(parsed.ownedHeroes, ['jiju']).filter((id): id is HeroId => HEROES.some((h)=>h.id===id)),
-      towerXp, towerLifetimeXp,
+      towerXp: 0, towerLifetimeXp,
       skills:{...base.skills,...(parsed.skills ?? {})},
       ownedSkins:uniqueStrings(parsed.ownedSkins, base.ownedSkins),
       avatar:parsed.avatar || defaultAvatar(parsed.nickname || 'Slicer'), nickname:parsed.nickname || 'Slicer',
@@ -230,7 +229,7 @@ export function writeSave(data: SaveData): void {
   try {
     syncHeroUnlocks(data);
     const tower = getTowerProgression();
-    data.towerXp = tower.xp;
+    data.towerXp = 0;
     data.towerLifetimeXp = tower.lifetimeXp;
     data.saveRevision = Math.max(0, Number(data.saveRevision) || 0) + 1;
     data.savedAt = Date.now();
@@ -259,9 +258,8 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
   }
   const owned = new Set([...(local.ownedSkins || []), ...(remote.ownedSkins || [])]);
   const heroes = new Set<HeroId>([...(local.ownedHeroes || ['jiju']), ...(remote.ownedHeroes || [])]);
-  const towerXp = Math.max(local.towerXp ?? 0, remote.towerXp ?? 0);
-  const towerLifetimeXp = Math.max(local.towerLifetimeXp ?? 0, remote.towerLifetimeXp ?? 0);
-  syncTowerProgression(towerXp, towerLifetimeXp);
+  const towerLifetimeXp = Math.max(local.towerLifetimeXp ?? 0, remote.towerLifetimeXp ?? 0, local.towerXp ?? 0, remote.towerXp ?? 0);
+  syncTowerProgression(0, towerLifetimeXp);
   
   const heroPerkRanks = emptyPerkRanks();
   for (const hero of HEROES) {
@@ -304,7 +302,7 @@ export function mergeSaves(local: SaveData, remote: Partial<SaveData> | null | u
     ...remote,
     xp,
     skills,
-    towerXp,
+    towerXp: 0,
     towerLifetimeXp,
     heroPerkRanks,
     ownedHeroes:[...heroes],

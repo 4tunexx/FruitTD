@@ -131,7 +131,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     groundGlowColor: '#2a3a1f', foliageColor: '#3d8b3a', ambientLight: 0.92, sunLight: 0.85, foliageEnabled: true,
   },
   gameplayConfig: {
-    startMoney: 140,
+    startMoney: 0,
     startLives: 15,
     scoreMultiplier: 1.0,
     superChargeMultiplier: 1.0,
@@ -200,7 +200,7 @@ function mergePvpConfig(raw: unknown): PvpConfig {
     map: maps[0]!,
     durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
     wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 100000),
-    startingFruts: bounded(value.startingFruts, DEFAULT_PVP_CONFIG.startingFruts, 0, 100000),
+    startingFruts: 0,
     incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1000),
     reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
     mainTower: {

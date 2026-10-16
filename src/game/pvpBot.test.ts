@@ -7,6 +7,7 @@ describe('admin PvP bot', () => {
   const match = () => {
     const game = newPvpMatch('bot-test', 'arena', [createPvpPlayer('human', 'Human', 'blue', config, 1_000), createPvpPlayer('bot', 'Bot', 'red', config, 1_000)], 1_000, config);
     game.status = 'active'; game.map = config.maps[0]!; game.endsAt = 200_000;
+    game.players[1]!.fruts = 200;
     return game;
   };
 

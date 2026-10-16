@@ -1,10 +1,11 @@
 import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
 import type { PvpConfig } from './pvp';
 import type { HeroId } from './heroes';
+import { towerLevelFromXp } from './towerProgression';
 export interface CoopPlayer { userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
 export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; slowUntil?:number; slowMultiplier?:number; boss: boolean }
-export interface CoopMatch { powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
+export interface CoopMatch { towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
 export interface CoopConfig { bossEveryWaves: number; baseWaveSize: number; extraPerWave: number; spawnGapMs: number; intermissionMs: number; bossIntroMs: number; coinsPerKill: number; coinsPerWave: number; gemsEveryWaves: number; xpPerKill: number; towerXpPerWave: number; rewardCoinCap: number; bladeDamage: number; bladeRadius: number; bladeCooldownMs: number; bossHealthMultiplier: number; bossSpeedMultiplier: number; fruitSpeedMultiplier: number }
 export const DEFAULT_COOP_CONFIG: CoopConfig = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 10, rewardCoinCap: 3000, bladeDamage: 35, bladeRadius: .65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: .35, fruitSpeedMultiplier: .65 };
 export function normalizeCoopConfig(raw: unknown): CoopConfig {
@@ -18,7 +19,7 @@ export function normalizeCoopConfig(raw: unknown): CoopConfig {
     return [key, Number.isFinite(value) ? Math.max(min, Math.min(max, fractional ? value : Math.floor(value))) : fallback];
   })) as unknown as CoopConfig;
 }
-export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: balance.startingFruts, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
+export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { towerXp: 0, id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
 export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number): void {
   if(match.status!=='waiting'||match.players.length!==1||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
   match.players.push(player); match.status='countdown'; match.phaseUntil=now+3000; match.revision++;
@@ -80,12 +81,13 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
     const fruit=match.fruits.filter(f=>f.hp>0&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false; fruit.hp-=stats.damage;return true;
   };
   for(const tower of match.towers) if(fire(tower.cell%10+.5,Math.floor(tower.cell/10)+.5,balance.towers[tower.type]!,tower.lastFiredAt)) tower.lastFiredAt=now;
-  if(fire(5,13.5,balance.mainTower,match.mainLastFiredAt)) match.mainLastFiredAt=now;
+  const towerLevel=towerLevelFromXp(match.towerXp??0);
+  if(fire(5,13.5,{...balance.mainTower,damage:Math.round(balance.mainTower.damage*(1+(towerLevel-1)*.1))},match.mainLastFiredAt)) match.mainLastFiredAt=now;
   collectKills(match,balance);
   for(const f of match.fruits.filter(f=>f.y>=13.5))match.wallHealth=Math.max(0,match.wallHealth-balance.attacks[f.type]!.wallDamage*(f.boss?10:1));
   match.fruits=match.fruits.filter(f=>f.y<13.5);
   if(match.wallHealth<=0){match.status='complete';match.reason='wall';}
-  else if(!match.remainingSpawns&&!match.fruits.length){match.completedWaves++;match.wave++;match.status=match.wave%(config.bossEveryWaves+1)===0?'boss-intro':'countdown';match.phaseUntil=now+(match.status==='boss-intro'?config.bossIntroMs:config.intermissionMs);}
+  else if(!match.remainingSpawns&&!match.fruits.length){match.completedWaves++;match.towerXp=(match.towerXp??0)+config.towerXpPerWave;match.wave++;match.status=match.wave%(config.bossEveryWaves+1)===0?'boss-intro':'countdown';match.phaseUntil=now+(match.status==='boss-intro'?config.bossIntroMs:config.intermissionMs);}
   match.revision++;
 }
 export function coopRewards(match:CoopMatch,config:CoopConfig):{coins:number;gems:number;xp:number;towerXp:number} {

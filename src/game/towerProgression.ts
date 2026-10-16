@@ -11,30 +11,32 @@ export interface TowerXpState extends TowerProgression {
   maxed: boolean;
 }
 
-// Account progression. Combat tower upgrades remain separate from this XP.
+// Tower XP belongs to the active run. Only lifetime XP is retained as a career statistic.
 const LEVEL_XP = [0, 100, 300, 650, 1100, 1700, 2500, 3500, 4800, 6400];
+let runXp = 0;
 
 export function defaultTowerProgression(): TowerProgression { return { xp: 0, lifetimeXp: 0 }; }
 
 function read(): TowerProgression {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultTowerProgression();
+    if (!raw) return { xp: runXp, lifetimeXp: 0 };
     const parsed = JSON.parse(raw) as Partial<TowerProgression>;
-    return { xp: Math.max(0, Number(parsed.xp) || 0), lifetimeXp: Math.max(0, Number(parsed.lifetimeXp) || 0) };
-  } catch { return defaultTowerProgression(); }
+    return { xp: runXp, lifetimeXp: Math.max(0, Number(parsed.lifetimeXp) || 0, Number(parsed.xp) || 0) };
+  } catch { return { xp: runXp, lifetimeXp: 0 }; }
 }
 
 function write(value: TowerProgression): void {
-  try { localStorage.setItem(KEY, JSON.stringify(value)); } catch { /* best effort */ }
+  runXp = value.xp;
+  try { localStorage.setItem(KEY, JSON.stringify({ xp: 0, lifetimeXp: value.lifetimeXp })); } catch { /* best effort */ }
 }
 
-/** Merge cloud/account data into the local tower progression without lowering progress. */
+/** Migrate legacy cloud XP into lifetime stats without restoring a past run. */
 export function syncTowerProgression(xp: number, lifetimeXp = xp): TowerProgression {
   const local = read();
   const next = {
-    xp: Math.min(LEVEL_XP[LEVEL_XP.length - 1], Math.max(local.xp, Number(xp) || 0)),
-    lifetimeXp: Math.max(local.lifetimeXp, Number(lifetimeXp) || 0),
+    xp: runXp,
+    lifetimeXp: Math.max(local.lifetimeXp, Number(lifetimeXp) || 0, Number(xp) || 0),
   };
   write(next);
   return next;
@@ -89,5 +91,8 @@ export function grantTowerXp(amount: number): TowerXpState {
   write(progression);
   return getTowerXpState();
 }
+
+/** A restart, mode switch or fresh match always begins at Lv 1. */
+export function resetTowerRun(): void { runXp = 0; }
 
 export function resetTowerProgression(): void { write(defaultTowerProgression()); }

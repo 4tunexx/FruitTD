@@ -18,7 +18,7 @@ export interface TowerMilestoneBonuses {
   masterFortressBadge: boolean;
 }
 
-/** Account-level Main Tower milestones. These are progression rewards, not free combat upgrades. */
+/** Main Tower milestones apply only while the current run has enough XP. */
 export const TOWER_MILESTONES: TowerMilestone[] = [
   { level: 2, name: 'Fortified Base', description: 'Your tower has survived its first major upgrade.', reward: '+1 starting life' },
   { level: 3, name: 'Juice Core', description: 'The tower starts converting clean defence into more Juice.', reward: '+5% Juice gain' },
@@ -28,7 +28,7 @@ export const TOWER_MILESTONES: TowerMilestone[] = [
   { level: 7, name: 'Emergency Core', description: 'Low-health defence becomes more rewarding.', reward: '+10% Last Stand reward' },
   { level: 8, name: 'Fortress', description: 'The Main Tower enters endgame progression.', reward: '+1 maximum life' },
   { level: 9, name: 'Elite Core', description: 'High-level defence earns better progression rewards.', reward: '+10% Tower XP from perfect waves' },
-  { level: 10, name: 'Master Fortress', description: 'The Main Tower has reached maximum mastery.', reward: 'Permanent Fortress badge + Master Tower title' },
+  { level: 10, name: 'Master Fortress', description: 'The Main Tower has reached maximum mastery for this run.', reward: 'Master Tower for this run' },
 ];
 
 export function towerMilestone(level: number): TowerMilestone | null {
@@ -41,9 +41,9 @@ export function towerUnlockedMilestones(level: number): TowerMilestone[] {
   return TOWER_MILESTONES.filter((m) => m.level <= lv);
 }
 
-/** Calculate cumulative permanent bonuses from unlocked tower milestones. */
-export function getTowerMilestoneBonuses(accountTowerLevel: number): TowerMilestoneBonuses {
-  const unlocked = towerUnlockedMilestones(accountTowerLevel);
+/** Calculate current run bonuses from earned tower levels. */
+export function getTowerMilestoneBonuses(runTowerLevel: number): TowerMilestoneBonuses {
+  const unlocked = towerUnlockedMilestones(runTowerLevel);
   const bonuses: TowerMilestoneBonuses = {
     startingLives: 0,
     maxLives: 0,

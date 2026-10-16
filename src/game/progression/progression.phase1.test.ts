@@ -23,6 +23,7 @@ import { MAX_TOWER_LEVEL } from '../world';
 import {
   getTowerXpState,
   grantTowerXp,
+  resetTowerRun,
   resetTowerProgression,
   towerLevelFromXp,
 } from '../towerProgression';
@@ -43,6 +44,8 @@ import {
 } from './index';
 import { canEquipHero, getAllHeroStatuses, purchaseHeroAtomic } from './heroStatus';
 import { heroPrice } from './heroEconomy';
+import { createState, resetState } from '../state';
+import { modeRules } from '../modes';
 
 function freshSave(): SaveData {
   localStorage.clear();
@@ -325,14 +328,17 @@ test('tower milestone bonuses accumulate and reach gameplay values', () => {
   assert.equal(maxed.masterFortressBadge, true);
 });
 
-test('tower XP persists and levels up through the pipeline', () => {
+test('tower XP levels up in the run and does not enter the account save', () => {
   const save = freshSave();
   const result = applyRewards(save, { score: 0, coins: 0, heroXp: 0, towerXp: 350, reason: 'wave_cleared' });
   assert.equal(result.towerLeveledUp, true);
   assert.equal(result.towerLevelAfter, towerLevelFromXp(350));
   assert.ok(result.towerMilestoneNames.length >= 1);
-  assert.equal(save.towerXp, 350);
+  assert.equal(save.towerXp, 0);
   assert.equal(getTowerXpState().xp, 350);
+  resetTowerRun();
+  assert.equal(getTowerXpState().level, 1);
+  assert.equal(save.towerLifetimeXp, 350);
 });
 
 test('tower XP never exceeds the level 10 requirement', () => {
@@ -342,6 +348,24 @@ test('tower XP never exceeds the level 10 requirement', () => {
   assert.equal(state.level, MAX_TOWER_LEVEL);
   assert.equal(state.maxed, true);
   assert.equal(state.progress, 1);
+});
+
+test('all six modes start at zero Fruts; tower run XP resets while hero XP remains', () => {
+  const save = freshSave();
+  const state = createState();
+  applyRewards(save, { score: 0, coins: 0, heroXp: 50, towerXp: 350, reason: 'wave_cleared' });
+  for (const mode of ['casual', 'campaign', 'horde', 'coop', 'arena', 'ranked'] as const) {
+    state.mode = mode;
+    state.heroXp = save.xp.jiju;
+    resetState(state);
+    assert.equal(modeRules(mode).startMoney, 0, `${mode} mode rules`);
+    assert.equal(state.currency, 0, `${mode} match Fruts`);
+    assert.equal(state.towerLevel, 1, `${mode} tower level`);
+    assert.equal(getTowerXpState().xp, 0, `${mode} tower XP`);
+    assert.equal(state.heroXp, 50, `${mode} hero XP`);
+    grantTowerXp(125); // This level is kept until the next reset.
+    assert.equal(getTowerXpState().level, 2);
+  }
 });
 
 /* ───────────────────────── Reward pipeline (§6) ───────────────────────── */
@@ -424,7 +448,7 @@ test('applying rewards updates hero XP, tower XP and coins together', () => {
   const result = applyRewards(save, { score: 50, coins: 30, heroXp: 40, towerXp: 20, reason: 'wave_cleared' });
   assert.equal(save.coins, 30);
   assert.equal(save.xp.jiju, 40);
-  assert.equal(save.towerXp, 20);
+  assert.equal(save.towerXp, 0);
   assert.equal(result.coinsGained, 30);
   assert.equal(result.heroXpGained, 40);
   assert.equal(result.towerXpGained, 20);
@@ -482,7 +506,7 @@ test('combo milestone rewards scale with the tier', () => {
 
 /* ───────────────────────── Save integrity (§9) ───────────────────────── */
 
-test('full play → save → reload keeps every progression value', () => {
+test('full play → save → reload keeps hero and career stats but resets tower run XP', () => {
   const save = freshSave();
   applyRewards(save, { score: 500, coins: 250, heroXp: heroXpForLevel(12), towerXp: 400, reason: 'match_completed' });
   save.coins += 2000;
@@ -494,8 +518,10 @@ test('full play → save → reload keeps every progression value', () => {
   assert.ok(reloaded.ownedHeroes.includes('topfu'), 'level 10 unlock must persist');
   assert.ok(reloaded.ownedHeroes.includes('tripos'), 'purchased hero must persist');
   assert.equal(reloaded.coins, save.coins);
-  assert.equal(reloaded.towerXp, 400);
-  assert.equal(towerLevelFromXp(reloaded.towerXp), towerLevelFromXp(400));
+  assert.equal(reloaded.towerXp, 0);
+  assert.equal(reloaded.towerLifetimeXp, 400);
+  resetTowerRun();
+  assert.equal(getTowerXpState().level, 1);
 });
 
 test('hero XP never silently resets across a reload', () => {

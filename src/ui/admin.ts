@@ -768,7 +768,7 @@ export class AdminController {
     const inScoreMul = document.getElementById('admin-in-scoremul') as HTMLInputElement | null;
     const inSuperMul = document.getElementById('admin-in-supermul') as HTMLInputElement | null;
 
-    if (inMoney) inMoney.value = String(gameplayConfig.startMoney);
+    if (inMoney) inMoney.value = '0';
     if (inLives) inLives.value = String(gameplayConfig.startLives);
     if (inScoreMul) inScoreMul.value = String(gameplayConfig.scoreMultiplier);
     if (inSuperMul) inSuperMul.value = String(gameplayConfig.superChargeMultiplier);
@@ -780,7 +780,6 @@ export class AdminController {
         if (Number.isFinite(number)) this.config.gameplayConfig[field] = number;
       });
     };
-    bindNumber(inMoney, 'startMoney');
     bindNumber(inLives, 'startLives');
     bindNumber(inScoreMul, 'scoreMultiplier');
     bindNumber(inSuperMul, 'superChargeMultiplier');
@@ -905,12 +904,11 @@ export class AdminController {
     if (inFavicon && !inFavicon.value.endsWith('…') && !inFavicon.value.startsWith('data:')) {
       this.config.menuConfig.faviconImage = inFavicon.value.trim();
     }
-    const inMoney = document.getElementById('admin-in-money') as HTMLInputElement | null;
     const inLives = document.getElementById('admin-in-lives') as HTMLInputElement | null;
     const inScoreMul = document.getElementById('admin-in-scoremul') as HTMLInputElement | null;
     const inSuperMul = document.getElementById('admin-in-supermul') as HTMLInputElement | null;
 
-    if (inMoney) this.config.gameplayConfig.startMoney = Number(inMoney.value);
+    this.config.gameplayConfig.startMoney = 0;
     if (inLives) this.config.gameplayConfig.startLives = Number(inLives.value);
     if (inScoreMul) this.config.gameplayConfig.scoreMultiplier = Number(inScoreMul.value);
     if (inSuperMul) this.config.gameplayConfig.superChargeMultiplier = Number(inSuperMul.value);
