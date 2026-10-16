@@ -117,6 +117,7 @@ function leaderboardDeps(): LeaderboardRouteDeps {
   const leaders: any[] = [];
   const runCollection = {
     insertOne: async (doc: any) => { runs.push(doc); },
+    findOne: async (filter: any) => runs.find((run) => run.tokenHash === filter.tokenHash && run.userId === filter.userId && run.mode === filter.mode && run.expiresAt > filter.expiresAt.$gt && !run.consumedAt) ?? null,
     findOneAndUpdate: async (filter: any, update: any) => {
       const found = runs.find((run) => run.tokenHash === filter.tokenHash && run.userId === filter.userId && run.mode === filter.mode && run.expiresAt > filter.expiresAt.$gt && !run.consumedAt);
       if (!found) return null;

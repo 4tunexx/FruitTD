@@ -90,8 +90,20 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   const refresh = async () => {
     if (refreshing || !main.isConnected) return;
     refreshing = true;
-    try { const incoming = await request('/status'); if (!main.isConnected) return; if (!status.match || !incoming.match || status.match.id !== incoming.match.id || incoming.match.revision >= status.match.revision) status = incoming; if (status.rating) acceptArenaRating(status.rating); if (!battlefield?.interacting) render(); }
-    catch (error) { actionError = error instanceof Error ? error.message : 'Could not connect.'; if (!battlefield?.interacting) render(); }
+    try {
+      const incoming = await request('/status');
+      if (!main.isConnected) return;
+      const unchangedLobby = !status.match && !incoming.match && JSON.stringify(status) === JSON.stringify(incoming);
+      const hadError = Boolean(actionError);
+      actionError = '';
+      if (!status.match || !incoming.match || status.match.id !== incoming.match.id || incoming.match.revision >= status.match.revision) status = incoming;
+      if (status.rating) acceptArenaRating(status.rating);
+      if ((!unchangedLobby || hadError) && !battlefield?.interacting) render();
+    }
+    catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not connect.';
+      if (actionError !== message) { actionError = message; if (!battlefield?.interacting) render(); }
+    }
     finally { refreshing = false; }
   };
   const attachRealtime = async (match: MatchView) => {
@@ -175,8 +187,12 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
   };
   const renderContent = () => {
-    const badge = main.querySelector<HTMLElement>('[data-pvp-rating] strong');
-    if (badge && status.rating) { badge.textContent = `${status.rating.tier} · ${status.rating.points.toLocaleString()} FR`; badge.style.color = ARENA_RANK_COLORS[status.rating.tier] || '#aab9aa'; }
+    const badge = main.querySelector<HTMLElement>('.ftd-pvp__rating')?.querySelector<HTMLElement>('strong');
+    if (badge && status.rating) {
+      const ratingText = `${status.rating.tier} · ${status.rating.points.toLocaleString()} FR`;
+      if (badge.textContent !== ratingText) badge.textContent = ratingText;
+      badge.style.color = ARENA_RANK_COLORS[status.rating.tier] || '#aab9aa';
+    }
     body.replaceChildren();
     const match = status.match;
     const inBattle = match?.status === 'active' || match?.status === 'complete';

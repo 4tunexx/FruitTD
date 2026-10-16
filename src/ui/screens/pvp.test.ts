@@ -5,7 +5,7 @@ installDomStub();
 const storage = new Map<string, string>();
 (globalThis as any).localStorage = { getItem: (key: string) => storage.get(key) || null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) };
 import { setAuthToken } from '../../services/auth';
-import { acceptArenaRating, arenaRankPresentation, type ArenaRating } from '../../services/pvpRating';
+import { acceptArenaRating, arenaRankPresentation, bindArenaRating, type ArenaRating } from '../../services/pvpRating';
 import { defaultSave } from '../../game/save';
 import { DEFAULT_PVP_CONFIG as config, applyPvpCommand, advancePvpMatch, pvpHexDistance, createPvpPlayer, newPvpMatch, type PvpCommand } from '../../game/pvp';
 import { renderPvpHub, disposePvpHub, type PvpHubOptions } from './pvp';
@@ -118,6 +118,23 @@ test('rank loading and signed-out states never fabricate a tier', () => {
   assert.equal(arenaRankPresentation(null, true, true).title, 'Rank unavailable');
 });
 
+test('unchanged Arena rating polls do not rewrite shared rank labels', () => {
+  resetDom(); setAuthToken('test-only'); acceptArenaRating(rating);
+  const badge = document.createElement('strong'); document.body.appendChild(badge);
+  const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(badge), 'textContent')!;
+  let writes = 0;
+  Object.defineProperty(badge, 'textContent', {
+    get() { return descriptor.get!.call(this); },
+    set(value: string) { writes++; descriptor.set!.call(this, value); },
+  });
+  try {
+    bindArenaRating(badge);
+    const initialWrites = writes;
+    acceptArenaRating({ ...rating });
+    assert.equal(writes, initialWrites);
+  } finally { badge.remove(); setAuthToken(null); resetDom(); }
+});
+
 for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgrades, sells, attacks, ends and returns to queue`, async () => {
   resetDom(); setAuthToken('test-only');
   const priorFetch = globalThis.fetch;
@@ -211,4 +228,27 @@ test('one Arena screen switches queue type and submits only the selected queue',
     button('Cancel search').click(); await flush(); assert.equal(queued, null);
     root.querySelector<HTMLButtonElement>('[data-testid="arena-queue-arena"]')!.click(); button('Quick match').click(); await flush(); assert.equal(queued, 'arena');
   } finally { disposePvpHub(root); globalThis.fetch = priorFetch; setAuthToken(null); resetDom(); }
+});
+
+test('unchanged Arena lobby polls preserve the queue controls and rating', async () => {
+  resetDom(); setAuthToken('test-only');
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let poll: (() => void) | undefined;
+  (globalThis as any).setInterval = (callback: () => void) => { poll = callback; return 1; };
+  (globalThis as any).clearInterval = () => {};
+  const root = document.createElement('div'); document.body.appendChild(root);
+  try {
+    renderPvpHub(root, 'arena', { realtime: false, request: async () => ({ success: true, rating, config, queued: null, match: null }) });
+    await flush();
+    const button = root.querySelector('[data-testid="arena-queue-ranked"]');
+    const ratingBadge = root.querySelector('.ftd-pvp__rating')!.querySelector('strong')!;
+    assert.ok(button); assert.equal(ratingBadge.textContent, 'Bronze · 1,000 FR'); assert.ok(poll);
+    poll!(); await flush();
+    assert.equal(root.querySelector('[data-testid="arena-queue-ranked"]'), button);
+    assert.equal(root.querySelector('.ftd-pvp__rating')!.querySelector('strong'), ratingBadge);
+  } finally {
+    disposePvpHub(root); setAuthToken(null); resetDom();
+    globalThis.setInterval = originalSetInterval; globalThis.clearInterval = originalClearInterval;
+  }
 });

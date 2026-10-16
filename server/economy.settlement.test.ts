@@ -46,6 +46,7 @@ function setup(): { deps: LeaderboardRouteDeps; wallet: any } {
   const wallet: any = { userId: user.userId, saveData: defaultSave(), revision: 2, claimReceipts: [], updatedAt: new Date() };
   const runTokens = {
     insertOne: async (doc: any) => { runs.push(doc); },
+    findOne: async (filter: any) => runs.find((run) => run.tokenHash === filter.tokenHash && run.userId === filter.userId && run.mode === filter.mode && run.expiresAt > filter.expiresAt.$gt && !run.consumedAt) ?? null,
     findOneAndUpdate: async (filter: any, update: any) => {
       const found = runs.find((run) => run.tokenHash === filter.tokenHash && run.userId === filter.userId && run.mode === filter.mode && run.expiresAt > filter.expiresAt.$gt && !run.consumedAt);
       if (!found) return null;
@@ -185,4 +186,9 @@ test('a freshly issued run token cannot settle an impossible score and wallet re
   assert.equal(forged.status, 422);
   assert.equal(wallet.saveData.coins, 0);
   assert.equal(wallet.saveData.gems, 0);
+  const corrected = await fetch(base, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'casual', score: 1000, wave: 1, fruitsSliced: 10, maxCombo: 3, runToken }),
+  });
+  assert.equal(corrected.status, 200, 'time-rejected counters must not consume the run token');
 });

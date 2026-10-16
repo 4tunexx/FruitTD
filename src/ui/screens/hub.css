@@ -756,7 +756,7 @@
 .ftd-pvp__eyebrow,.ftd-pvp__section-title { color:#ffca28; font-size:.72rem; font-weight:800; letter-spacing:.19em; }
 .ftd-pvp__intro { color:#aab9aa; font-size:.88rem; line-height:1.55; }
 .ftd-pvp__rating { min-width:170px; padding:.9rem 1rem; border-left:2px solid #ffca28; background:rgba(4,12,11,.72); }
-.ftd-pvp__rating strong { display:block; margin-top:.3rem; font-size:1.25rem; }
+.ftd-pvp__rating strong { display:block; margin-top:.3rem; font-size:1.25rem; white-space:nowrap; }
 .ftd-pvp__body { min-height:240px; }
 .ftd-pvp__queue,.ftd-pvp__result,.ftd-pvp__draft { padding:clamp(1rem,2vw,1.5rem); border:1px solid rgba(255,202,40,.25); background:rgba(4,14,12,.9); }
 .ftd-pvp__queue { display:grid; gap:.9rem; justify-items:start; max-width:760px; margin:1rem auto; }

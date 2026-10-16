@@ -1,13 +1,30 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import type { Collection } from 'mongodb';
 import { getCollection, type UserDoc } from '../db';
 import { fetchSteamPlayerSummary } from '../steam';
 import { createSession, resolveSession } from '../auth';
-import { sanitizeSteamUsername } from '../username';
+import { sanitizeSteamUsername, validateUsername } from '../username';
 import { unlockSteamAchievement, bearer } from './auth';
 import { creditClaimReward } from '../claimWallet';
 
 export const steamRouter = Router();
+
+async function availableSteamUsername(users: Collection<UserDoc>, persona: string, steamId: string, userId = ''): Promise<string> {
+  const occupied = async (username: string) => Boolean(await users.findOne({
+    username: { $regex: `^${username}$`, $options: 'i' },
+    userId: { $ne: userId },
+  }));
+  const preferred = sanitizeSteamUsername(persona);
+  if (validateUsername(preferred).ok && !(await occupied(preferred))) return preferred;
+  const stable = `S${steamId.slice(-15)}`;
+  if (!(await occupied(stable))) return stable;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const fallback = `Slicer${crypto.randomBytes(5).toString('hex')}`;
+    if (!(await occupied(fallback))) return fallback;
+  }
+  throw new Error('Could not reserve a Steam username. Please retry.');
+}
 
 function frontendOrigin(): string {
   return (process.env.APP_URL || process.env.PUBLIC_URL || 'http://localhost:5173').replace(/\/$/, '');
@@ -98,7 +115,7 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
         const other = await users.findOne({ steamId, userId: { $ne: sessionUser.userId } });
         if (other) return fail('That Steam account is already linked to another player.');
 
-        const username = sanitizeSteamUsername(summary.personaName);
+        const username = await availableSteamUsername(users, summary.personaName, steamId, sessionUser.userId);
         await users.updateOne(
           { userId: sessionUser.userId },
           {
@@ -127,7 +144,7 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
 
     if (!user) {
       const userId = 'user_' + crypto.randomBytes(8).toString('hex');
-      const username = sanitizeSteamUsername(summary.personaName);
+      const username = await availableSteamUsername(users, summary.personaName, steamId);
       const now = new Date();
       const doc: UserDoc = {
         userId,
@@ -150,7 +167,7 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
       bonus = true;
     } else {
       // Returning Steam login: always refresh persona + avatar (replaces custom)
-      const username = sanitizeSteamUsername(summary.personaName);
+      const username = await availableSteamUsername(users, summary.personaName, steamId, user.userId);
       await users.updateOne(
         { userId: user.userId },
         {

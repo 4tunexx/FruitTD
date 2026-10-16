@@ -1315,11 +1315,11 @@ export class Hud {
       row.innerHTML = `
         <span class="lb-rank ${rankClass}">${rankDisplay}</span>
         <div class="lb-player-cell">
-          <img class="lb-avatar" src="${avatarSrc}" alt="" />
-          <span class="lb-name">${entry.steamPersona || entry.nickname}</span>
+          <img class="lb-avatar" src="${escapeHtml(avatarSrc)}" alt="" />
+          <span class="lb-name">${escapeHtml(entry.steamPersona || entry.nickname)}</span>
           ${entry.steamId ? '<span class="steam-pill" title="Verified Steam User">STEAM</span>' : ''}
         </div>
-        <span class="text-xs font-semibold text-slate-400">${heroDefItem?.name || entry.hero}</span>
+        <span class="text-xs font-semibold text-slate-400">${escapeHtml(heroDefItem?.name || entry.hero)}</span>
         <span class="text-xs font-bold text-slate-300">W${entry.wave}</span>
         <span class="lb-score-val">${entry.score.toLocaleString()}</span>
       `;
@@ -1683,7 +1683,7 @@ export class Hud {
           <div class="mission-top">
             <div class="mission-icon">#${entry.rank}</div>
             <div class="flex-1 min-w-0">
-              <div class="mission-title">${entry.steamPersona || entry.nickname}</div>
+              <div class="mission-title">${escapeHtml(entry.steamPersona || entry.nickname)}</div>
               <div class="mission-desc">Wave ${entry.wave} · ${entry.score.toLocaleString()} pts</div>
             </div>
           </div>`;

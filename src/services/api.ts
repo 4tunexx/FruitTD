@@ -1,3 +1,5 @@
+import { sanitizeCampaignProgress } from '../game/campaign';
+
 export interface LeaderboardEntry {
   rank: number;
   userId: string;
@@ -99,7 +101,7 @@ export function getUserId(): string {
 }
 
 // Generic fetcher with fallback tolerance
-async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T | null> {
+async function apiRequest<T>(endpoint: string, options?: RequestInit, onFailureStatus?: (status: number) => void): Promise<T | null> {
   if (/^\/api\/(profile|missions|achievements|daily|badges)(?:[/?]|$)/.test(endpoint) && !getAuthToken()) return null;
   try {
     const res = await fetch(endpoint, {
@@ -113,6 +115,7 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
       },
     });
     if (!res.ok) {
+      onFailureStatus?.(res.status);
       console.warn(`[API] ${endpoint} returned status ${res.status}`);
       return null;
     }
@@ -379,7 +382,7 @@ export async function fetchCloudSave(): Promise<Record<string, any> | null> {
   return res && res.success ? res.saveData : null;
 }
 
-let pendingSave: { userId: string; saveData: Record<string, any> } | null = null;
+let pendingSave: { userId: string; authToken: string; saveData: Record<string, any> } | null = null;
 let syncInFlight: Promise<boolean> | null = null;
 let cloudRevision: number | null = null;
 let cloudRevisionAuthToken: string | null = null;
@@ -393,6 +396,7 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
   // actions; including local copies here would make the whole save conflict.
   pendingSave = {
     userId: getUserId(),
+    authToken,
     saveData: {
       nickname: String(saveData.nickname || '').slice(0, 64),
       avatar: typeof saveData.avatar === 'string' ? saveData.avatar.slice(0, 900_000) : '',
@@ -407,16 +411,33 @@ export function syncCloudSave(saveData: Record<string, any>): Promise<boolean> {
         if (runSettlementInFlight) await runSettlementInFlight;
         const snapshot = pendingSave;
         pendingSave = null;
-        if (snapshot.userId !== getUserId() || !getAuthToken()) continue;
+        if (snapshot.userId !== getUserId() || snapshot.authToken !== getAuthToken()) continue;
         if (cloudRevision === null) await fetchCloudSave();
         if (cloudRevision === null) {
           success = false;
           continue;
         }
-        const res = await apiRequest<{ success: boolean; revision: number }>('/api/profile/sync', {
+        let conflict = false;
+        let res = await apiRequest<{ success: boolean; revision: number }>('/api/profile/sync', {
           method: 'POST',
           body: JSON.stringify({ ...snapshot, revision: cloudRevision }),
-        });
+        }, (status) => { conflict = status === 409; });
+        if (conflict && snapshot.userId === getUserId() && getAuthToken() === snapshot.authToken) {
+          cloudRevision = null;
+          const remote = await fetchCloudSave();
+          if (cloudRevision !== null) {
+            const localProgress = sanitizeCampaignProgress(snapshot.saveData.campaignProgress);
+            const remoteProgress = sanitizeCampaignProgress(remote?.campaignProgress);
+            snapshot.saveData.campaignProgress = sanitizeCampaignProgress({
+              unlocked: Math.max(localProgress.unlocked, remoteProgress.unlocked),
+              cleared: [...localProgress.cleared, ...remoteProgress.cleared],
+            });
+            res = await apiRequest<{ success: boolean; revision: number }>('/api/profile/sync', {
+              method: 'POST',
+              body: JSON.stringify({ ...snapshot, revision: cloudRevision }),
+            });
+          }
+        }
         if (res?.success && Number.isSafeInteger(res.revision)) cloudRevision = res.revision;
         success = Boolean(res?.success) && success;
       }

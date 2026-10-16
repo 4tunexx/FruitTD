@@ -2149,7 +2149,7 @@ var defaultDeps = {
   collection: getCollection,
   catalog: loadQuestCatalog
 };
-var RUN_TOKEN_TTL_MS = 15 * 60 * 1e3;
+var RUN_TOKEN_TTL_MS = 24 * 60 * 60 * 1e3;
 function resolveMode(mode) {
   if (mode === "monthly") return monthlyLeaderboardMode();
   return mode || "ranked";
@@ -2373,22 +2373,26 @@ function createLeaderboardRouter(deps = defaultDeps) {
       const playMode = mode || "casual";
       const rewardTokenKey = hashToken(runToken);
       const runs = await deps.collection("run_tokens");
-      const consumed = await runs.findOneAndUpdate(
+      const available = await runs.findOne(
         {
           tokenHash: hashToken(runToken),
           userId,
           mode: playMode,
           expiresAt: { $gt: /* @__PURE__ */ new Date() },
           consumedAt: { $exists: false }
-        },
+        }
+      );
+      if (!available) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
+      const elapsedSeconds = Math.max(0, (Date.now() - new Date(available.createdAt).getTime()) / 1e3);
+      if (!Number.isFinite(elapsedSeconds) || score > 2500 + elapsedSeconds * 600 || (wave || 1) > 10 + Math.floor(elapsedSeconds / 2) || (fruitsSliced || 0) > 100 + Math.floor(elapsedSeconds * 12) || (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
+        return res.status(422).json({ success: false, error: "Run counters exceed the time available since match start" });
+      }
+      const consumed = await runs.findOneAndUpdate(
+        { tokenHash: rewardTokenKey, userId, mode: playMode, expiresAt: { $gt: /* @__PURE__ */ new Date() }, consumedAt: { $exists: false } },
         { $set: { consumedAt: /* @__PURE__ */ new Date() } },
         { returnDocument: "before" }
       );
       if (!consumed) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
-      const elapsedSeconds = Math.max(0, (Date.now() - new Date(consumed.createdAt).getTime()) / 1e3);
-      if (!Number.isFinite(elapsedSeconds) || score > 2500 + elapsedSeconds * 600 || (wave || 1) > 10 + Math.floor(elapsedSeconds / 2) || (fruitsSliced || 0) > 100 + Math.floor(elapsedSeconds * 12) || (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
-        return res.status(422).json({ success: false, error: "Run counters exceed the time available since match start" });
-      }
       let settledWallet = null;
       if (rewards) {
         const wallet = await creditClaimReward(userId, `run:${rewardTokenKey}`, {
@@ -3638,6 +3642,10 @@ authRouter.post("/resend-verify", async (req2, res) => {
     if (!email) return res.status(400).json({ success: false, error: "Email is required." });
     const code = makeVerifyCode();
     const users = await getCollection("users");
+    const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
+    }
     await users.updateOne(
       { userId: user.userId },
       {
@@ -3650,10 +3658,6 @@ authRouter.post("/resend-verify", async (req2, res) => {
         }
       }
     );
-    const delivery = await deliverVerifyCode(email, code);
-    if (!delivery.emailed && !delivery.previewCode) {
-      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
-    }
     res.json({ success: true, email, ...delivery });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3671,6 +3675,10 @@ authRouter.post("/set-email", async (req2, res) => {
     const taken = await users.findOne({ email, userId: { $ne: user.userId } });
     if (taken) return res.status(409).json({ success: false, error: "That email is already used." });
     const code = makeVerifyCode();
+    const delivery = await deliverVerifyCode(email, code);
+    if (!delivery.emailed && !delivery.previewCode) {
+      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
+    }
     await users.updateOne(
       { userId: user.userId },
       {
@@ -3683,10 +3691,6 @@ authRouter.post("/set-email", async (req2, res) => {
         }
       }
     );
-    const delivery = await deliverVerifyCode(email, code);
-    if (!delivery.emailed && !delivery.previewCode) {
-      return res.status(503).json({ success: false, error: delivery.error || "Email delivery is unavailable." });
-    }
     res.json({ success: true, email, ...delivery });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3738,6 +3742,21 @@ authRouter.post("/complete-profile", async (req2, res) => {
 
 // server/routes/steam.ts
 var steamRouter = Router8();
+async function availableSteamUsername(users, persona, steamId, userId = "") {
+  const occupied = async (username) => Boolean(await users.findOne({
+    username: { $regex: `^${username}$`, $options: "i" },
+    userId: { $ne: userId }
+  }));
+  const preferred = sanitizeSteamUsername(persona);
+  if (validateUsername(preferred).ok && !await occupied(preferred)) return preferred;
+  const stable = `S${steamId.slice(-15)}`;
+  if (!await occupied(stable)) return stable;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const fallback = `Slicer${crypto4.randomBytes(5).toString("hex")}`;
+    if (!await occupied(fallback)) return fallback;
+  }
+  throw new Error("Could not reserve a Steam username. Please retry.");
+}
 function frontendOrigin() {
   return (process.env.APP_URL || process.env.PUBLIC_URL || "http://localhost:5173").replace(/\/$/, "");
 }
@@ -3808,7 +3827,7 @@ steamRouter.get("/callback", async (req2, res) => {
       if (sessionUser) {
         const other = await users.findOne({ steamId, userId: { $ne: sessionUser.userId } });
         if (other) return fail2("That Steam account is already linked to another player.");
-        const username = sanitizeSteamUsername(summary.personaName);
+        const username = await availableSteamUsername(users, summary.personaName, steamId, sessionUser.userId);
         await users.updateOne(
           { userId: sessionUser.userId },
           {
@@ -3835,7 +3854,7 @@ steamRouter.get("/callback", async (req2, res) => {
     }
     if (!user) {
       const userId = "user_" + crypto4.randomBytes(8).toString("hex");
-      const username = sanitizeSteamUsername(summary.personaName);
+      const username = await availableSteamUsername(users, summary.personaName, steamId);
       const now = /* @__PURE__ */ new Date();
       const doc = {
         userId,
@@ -3857,7 +3876,7 @@ steamRouter.get("/callback", async (req2, res) => {
       user = doc;
       bonus = true;
     } else {
-      const username = sanitizeSteamUsername(summary.personaName);
+      const username = await availableSteamUsername(users, summary.personaName, steamId, user.userId);
       await users.updateOne(
         { userId: user.userId },
         {

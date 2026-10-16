@@ -4,7 +4,7 @@ type CountToken = { value: number; decimals: number; grouped: boolean };
 type MotionEntry = { targets: number[]; rendered: string; frame: number; changedAt: number; bumpedAt: number };
 
 const NUMBER = /^(\s*(?:(?:Wave|Level|Lv|Stage|Score|×|x|\+|-|FR)\s*)?)(\d[\d,]*(?:\.\d+)?)(\s*(?:%|XP|pts|coins|gems|COMBO)?)\s*$/i;
-const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel],#game-ui,.hero-ability-slot,.ftd-duel-wallet,.ftd-duel-hud,.floating-score-layer,.ftd-pvp.is-battle,.ftd-coop-battle';
+const EXCLUDED = 'script,style,noscript,svg,input,textarea,select,option,[contenteditable],[data-no-count],[aria-live],[class*="timer"],[class*="clock"],#fps,#modal-admin,#screen-admin,[data-admin-panel],#game-ui,.hero-ability-slot,.ftd-duel-wallet,.ftd-duel-hud,.floating-score-layer,.ftd-pvp,.ftd-coop-battle';
 let scanInstalledNumbers: ((root: Node) => void) | null = null;
 
 /** Re-scan freshly rendered screen content so every page entry counts in visibly. */

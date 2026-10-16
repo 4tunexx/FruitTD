@@ -173,18 +173,20 @@ export class TurretRig {
     } else if (this.kind === 'railgun') {
       this.charge += dt;
       const need = Math.max(1.6, 2.4 - level * 0.12);
-      if (this.slug && this.slugLive > 0) {
+      if (this.slugLive > 0) {
         this.slugLive -= dt;
         this.slugZ += 22 * dt;
-        this.slug.position.set(0, 0.55, this.slugZ);
-        this.slug.visible = this.slugLive > 0;
+        if (this.slug) {
+          this.slug.position.set(0, 0.55, this.slugZ);
+          this.slug.visible = this.slugLive > 0;
+        }
         for (const fruit of fruits) {
           if (!fruit.alive) continue;
           if (Math.abs(fruit.group.position.x - x) > 0.55) continue;
           if (Math.abs(fruit.group.position.z - (z + this.slugZ)) > 0.55) continue;
           onHit({ fruit, damage: 18 + level * 7, pierce: true, impulseX: 0, impulseZ: 7 + level });
         }
-        if (this.slugLive <= 0) this.slug.visible = false;
+        if (this.slug && this.slugLive <= 0) this.slug.visible = false;
       } else if (this.charge >= need && bank.take('pink', 6)) {
         this.charge = 0;
         this.slugLive = 0.55;

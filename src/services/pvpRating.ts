@@ -28,7 +28,8 @@ export function arenaRankPresentation(value: ArenaRating | null, signedIn: boole
 }
 function paint(node: HTMLElement, kind: 'badge' | 'progress' | 'record') {
   const view = arenaRankPresentation(rating, !!getAuthToken(), failed);
-  node.textContent = kind === 'badge' ? view.title : view[kind];
+  const text = kind === 'badge' ? view.title : view[kind];
+  if (node.textContent !== text) node.textContent = text;
   node.style.setProperty('--rank-color', view.color);
   if (kind === 'badge') { node.style.color = view.color; node.style.borderColor = view.color; node.title = 'Ranked Arena · server rating'; }
 }
@@ -39,7 +40,10 @@ function repaint() {
   }
 }
 export function acceptArenaRating(value: ArenaRating): void {
-  tokenKey = getAuthToken(); rating = value; failed = false; loadedAt = Date.now(); repaint();
+  const token = getAuthToken();
+  const changed = tokenKey !== token || failed || JSON.stringify(rating) !== JSON.stringify(value);
+  tokenKey = token; rating = value; failed = false; loadedAt = Date.now();
+  if (changed) repaint();
 }
 export function bindArenaRating(node: HTMLElement | null, kind: 'badge' | 'progress' | 'record' = 'badge'): void {
   if (!node) return;

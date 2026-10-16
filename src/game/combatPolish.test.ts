@@ -256,6 +256,27 @@ describe('combat polish regressions', () => {
     assert.equal(state.lives, safeLives, 'turret kills are safe');
   });
 
+  it('Berry Cannon damages a fruit after consuming pink juice', async () => {
+    installStorageShim();
+    const [{ FruitField }, { JuiceBank }, { TurretRig }] = await Promise.all([
+      import('./fruits'), import('./juice'), import('./turrets'),
+    ]);
+    const field = new FruitField(() => undefined);
+    const fruit = field.spawn('lemon')!;
+    fruit.group.position.set(0, 0, 0.75);
+    const bank = new JuiceBank();
+    bank.pink = 6;
+    const rig = new TurretRig('railgun');
+    const hits: number[] = [];
+    const ctx = { dt: 2.3, fruits: [fruit], juice: {} as any, bank,
+      onHit: (hit: { damage: number }) => hits.push(hit.damage), shoot: () => undefined };
+    rig.tick(0, 0, 1, ctx);
+    ctx.dt = 0.016;
+    rig.tick(0, 0, 1, ctx);
+    assert.equal(bank.pink, 0);
+    assert.ok(hits.some((damage) => damage > 0), 'the projectile must deal damage without a visual mesh');
+  });
+
   it('brood bosses trigger a single halfway phase and release runners', async () => {
     installStorageShim();
     const { FruitField } = await import('./fruits');

@@ -22,7 +22,8 @@ const defaultDeps: LeaderboardRouteDeps = {
   catalog: loadQuestCatalog,
 };
 
-const RUN_TOKEN_TTL_MS = 15 * 60 * 1000;
+// Solo Horde and late campaign stages can last well beyond fifteen minutes.
+const RUN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 function resolveMode(mode: string): string {
   if (mode === 'monthly') return monthlyLeaderboardMode();
@@ -276,23 +277,21 @@ router.post('/', async (req: Request, res: Response) => {
     const playMode = mode || 'casual';
     const rewardTokenKey = hashToken(runToken);
     const runs = await deps.collection<RunTokenDoc>('run_tokens');
-    const consumed = await runs.findOneAndUpdate(
+    const available = await runs.findOne(
       {
         tokenHash: hashToken(runToken),
         userId,
         mode: playMode,
         expiresAt: { $gt: new Date() },
         consumedAt: { $exists: false },
-      },
-      { $set: { consumedAt: new Date() } },
-      { returnDocument: 'before' }
+      }
     );
-    if (!consumed) return res.status(401).json({ success: false, error: 'Run token is invalid, expired, or already used' });
+    if (!available) return res.status(401).json({ success: false, error: 'Run token is invalid, expired, or already used' });
 
     // A one-use token proves identity, not gameplay. Bound submitted counters
     // against its server timestamp so instant forged high scores cannot mint
     // the maximum wallet rewards or claim the top leaderboard slots.
-    const elapsedSeconds = Math.max(0, (Date.now() - new Date(consumed.createdAt).getTime()) / 1000);
+    const elapsedSeconds = Math.max(0, (Date.now() - new Date(available.createdAt).getTime()) / 1000);
     if (!Number.isFinite(elapsedSeconds) ||
         score > 2500 + elapsedSeconds * 600 ||
         (wave || 1) > 10 + Math.floor(elapsedSeconds / 2) ||
@@ -300,6 +299,14 @@ router.post('/', async (req: Request, res: Response) => {
         (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
       return res.status(422).json({ success: false, error: 'Run counters exceed the time available since match start' });
     }
+
+    // Claim only after validation, and keep the update atomic against retries.
+    const consumed = await runs.findOneAndUpdate(
+      { tokenHash: rewardTokenKey, userId, mode: playMode, expiresAt: { $gt: new Date() }, consumedAt: { $exists: false } },
+      { $set: { consumedAt: new Date() } },
+      { returnDocument: 'before' }
+    );
+    if (!consumed) return res.status(401).json({ success: false, error: 'Run token is invalid, expired, or already used' });
 
     let settledWallet: { saveData: Record<string, any>; revision: number } | null = null;
     if (rewards) {

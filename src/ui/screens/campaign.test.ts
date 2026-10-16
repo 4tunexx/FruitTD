@@ -110,11 +110,14 @@ test('hub keeps launch beside the map after moving boss intel to its side panel'
   const starts: number[] = [];
   for (const tab of menuHubTabs({ onOpenDaily() {}, onToggleSound() {}, onLogout() {}, onStartCampaign: stage => starts.push(stage), showLobbyPage() {} })) registerHubTab(tab);
   const root = document.createElement('div');
+  document.body.appendChild(root);
   const save = defaultSave(); save.campaignProgress = { unlocked: 3, cleared: [1, 2] };
   renderHub(root, save, 'CAMPAIGN', { onPlay() {} });
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   const main = root.querySelector('.ftd-hub__main')!;
   const sub = root.querySelector('.ftd-hub__sub')!;
+  for (let attempt = 0; attempt < 100 && !main.querySelector('[data-testid="campaign-start-stage"]'); attempt++) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  }
   assert.ok(main.querySelector('[data-testid="campaign-start-stage"]'));
   assert.ok(sub.querySelector('.ftd-boss-reveal'));
   assert.equal(sub.querySelector('[data-testid="campaign-start-stage"]'), null);
@@ -124,4 +127,5 @@ test('hub keeps launch beside the map after moving boss intel to its side panel'
   main.querySelector<HTMLButtonElement>('[data-testid="campaign-start-stage"]')!.click();
   assert.deepEqual(starts, [1], 'pinned launch starts the selected stage without scrolling boss intel');
   resetHub();
+  root.remove();
 });
