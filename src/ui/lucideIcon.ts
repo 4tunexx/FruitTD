@@ -26,7 +26,8 @@ export function lucideIcon(name: string | null | undefined, className = '', size
   const key = name || '';
   const asset = getLiveConfig().iconOverrides[key] || ICON_ASSETS[key];
   if (asset) {
-    const icon = extractedIcon(asset, className, size);
+    const cssSized = /(?:^|\s)(?:ftd-mode-card__icon|ftd-hub-tab__icon|ftd-home-mode-detail__art)(?:\s|$)/.test(className);
+    const icon = extractedIcon(asset, className, cssSized ? 0 : size);
     icon.dataset.iconRole = key;
     return icon;
   }

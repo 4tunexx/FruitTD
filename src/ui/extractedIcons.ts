@@ -42,8 +42,12 @@ export function extractedIcon(id: string, className = '', size = 20): HTMLElemen
   const path = `/assets/icons/extracted/${safeId}.png`;
   const frame = document.createElement('span');
   frame.className = `ftd-extracted-icon ftd-game-glyph ${className}`.trim();
-  frame.style.width = `${size}px`;
-  frame.style.height = `${size}px`;
+  // A size of zero leaves sizing to the component CSS. This is important for
+  // responsive controls whose dimensions change at mobile breakpoints.
+  if (size > 0) {
+    frame.style.width = `${size}px`;
+    frame.style.height = `${size}px`;
+  }
   frame.setAttribute('aria-hidden', 'true');
   if (safeId.startsWith('core-')) {
     const img = document.createElement('img');
