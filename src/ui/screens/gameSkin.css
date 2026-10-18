@@ -9,13 +9,25 @@
   --ftd-command-text: #fff1d3;
 }
 
-.ftd-extracted-icon { display: inline-grid; place-items: center; flex: 0 0 auto; vertical-align: middle; }
+.ftd-extracted-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: visible;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 1px #08090b) drop-shadow(0 0 4px color-mix(in srgb, currentColor 28%, transparent));
+}
 .ftd-asset-glyph {
   display: inline-block;
   width: 100%;
   height: 100%;
   vertical-align: middle;
-  background: currentColor;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, currentColor 72%, white),
+    currentColor 54%,
+    color-mix(in srgb, currentColor 70%, #17120b));
+  transform: scale(1.22);
+  transform-origin: center;
   -webkit-mask-size: contain;
   mask-size: contain;
   -webkit-mask-position: center;
@@ -23,7 +35,7 @@
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
-.ftd-asset-glyph--core { background: none; object-fit: contain; }
+.ftd-asset-glyph--core { background: none; object-fit: contain; transform: scale(1.04); }
 .ftd-hero-perk__glyph { margin-right: 8px; color: #ffd268; }
 .ftd-hub-identity__insignia,.ftd-profile-banner__insignia {
   display: grid;
@@ -446,6 +458,7 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 #screen-hub .ftd-mode-card__icon { filter: drop-shadow(0 3px 1px #090a0c) drop-shadow(0 0 8px #ffad315c); }
 #screen-hub .ftd-mode-card.is-active .ftd-mode-card__icon { transform: translateY(-7px) scale(1.07); }
 #screen-hub .ftd-hub__footer .ftd-hub-tab__icon { filter: drop-shadow(0 2px 1px #08090b) drop-shadow(0 0 6px #ffbf4c55); }
+.ftd-game-glyph:not(.ftd-extracted-icon) { filter: drop-shadow(0 1px 1px #08090b) drop-shadow(0 0 3px color-mix(in srgb, currentColor 30%, transparent)); }
 #screen-hub .ftd-hub-context__emblem,
 #screen-hub .ftd-hub-identity__insignia,
 #screen-hub .ftd-profile-banner__insignia {
