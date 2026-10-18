@@ -8,10 +8,10 @@ import type { SaveData } from '../../game/save';
 import { LoadingIndicator } from '../components/loading';
 import { lucideIcon } from '../lucideIcon';
 
-function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>): void {
+function context(root: HTMLElement, eyebrow: string, title: string, body: string, links: Array<{ label: string; open: () => void }>, variant = ''): void {
   const actions = el('div', { class: 'ftd-hub-context__actions' }, links.map(({ label, open }) => GameButton({ label, variant: 'outline', block: true, onClick: open })));
   const emblem = /arena|ranked/i.test(title) ? 'Swords' : /leader|rank/i.test(title) ? 'Trophy' : /account|profile/i.test(title) ? 'Shield' : /orders|campaign/i.test(title) ? 'Map' : 'Target';
-  root.appendChild(el('aside', { class: 'ftd-hub-context ftd-hub-context--entering' }, [
+  root.appendChild(el('aside', { class: `ftd-hub-context ftd-hub-context--entering${variant ? ` ftd-hub-context--${variant}` : ''}` }, [
     el('span', { class: 'ftd-hub-context__emblem', 'aria-hidden': 'true' }, [lucideIcon(emblem, '', 28)]),
     el('p', { class: 'ftd-hub-context__eyebrow', text: eyebrow }),
     el('h2', { text: title }),
@@ -60,7 +60,7 @@ export interface MenuHubActions {
 
 export function menuHubTabs(actions: MenuHubActions): HubTab[] {
   const simple: HubTab[] = [
-    { id: 'LEADERBOARD', label: 'Leaderboard', icon: Trophy, renderMain: (root) => renderLazyPage(root, 'leaderboards', () => import('./leaderboards'), (page, module) => module.renderLeaderboards(page)), renderSub: root => context(root, 'THE LEADERBOARDS', 'Choose your challenge', 'Ranked uses Arena FR points. Casual and Co-op use high scores. Horde rewards the highest wave. Coins and gems show current balances.', [route('Your statistics', 'PROFILE'), route('Play Ranked', 'RANKED')]) },
+    { id: 'LEADERBOARD', label: 'Leaderboard', icon: Trophy, renderMain: (root) => renderLazyPage(root, 'leaderboards', () => import('./leaderboards'), (page, module) => module.renderLeaderboards(page)), renderSub: root => context(root, 'GLOBAL STANDINGS', 'Chase the top', 'Compare your ranked rating, best runs, and collected rewards. Switch to Friends to see your squad.', [route('Your statistics', 'PROFILE'), route('Play Ranked', 'RANKED')], 'leaderboard') },
     { id: 'NEWS', label: 'News', icon: Newspaper, renderMain: (root, save) => {
       renderLazyPage(root, 'news', () => import('./news'), (page, module) => module.renderNews(page, save, actions.onOpenDaily), 'ftd-hub-embedded');
     }, renderSub: (root, save) => context(root, 'YOUR NEXT MOVE', 'Field orders', `${save.campaignProgress.cleared.length} campaign stages cleared.`, [

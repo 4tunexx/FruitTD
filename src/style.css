@@ -72,11 +72,6 @@ html, body, #app {
 .ftd-score-chart i { display:block; height:var(--bar-height); background:linear-gradient(#b5f43c,#288bc1); border-radius:5px 5px 0 0; animation:stat-bar-grow .6s ease-out; transform-origin:bottom; }
 .ftd-score-chart small { font-size:9px; text-align:center; overflow:hidden; padding-top:5px; }
 @keyframes stat-bar-grow { from { transform:scaleY(0); } to { transform:scaleY(1); } }
-.ftd-board-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0; }
-.ftd-board-tabs button[aria-pressed="true"] { background:#b5f43c; color:#102108; }
-.ftd-board-row { display:grid; grid-template-columns:48px minmax(0,1fr) auto; align-items:center; gap:12px; padding:14px; border-bottom:1px solid #365038; }
-.ftd-board-row small { display:block; font-size:11px; color:#a7b8ac; }
-.ftd-board-row.is-you { background:#204329; border-left:3px solid #b5f43c; }
 @media (prefers-reduced-motion:reduce) { .ftd-score-chart i,.campaign-boss-victory section { animation:none; } }
 
 #hud {

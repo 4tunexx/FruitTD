@@ -168,7 +168,7 @@
   .ftd-hub__main,
   .ftd-hub__sub { border: 1px solid rgba(255, 202, 40, 0.34); background: linear-gradient(145deg, #222428, #282a2e); }
   .ftd-hub__main { background: linear-gradient(145deg, #1c1e21, #292b30); }
-  .ftd-hub__main { border-left: 4px solid #ef4444; }
+  .ftd-hub__main { border-left: 3px solid #c99143; }
   .ftd-hub__sub { border-left: 3px solid #ffca28; }
   .ftd-hub__sub > .ftd-hub-panel-content { min-height: 100%; padding: clamp(1rem, 1.6vw, 1.6rem); }
   .ftd-hub .ftd-campaign__map { grid-template-columns: repeat(5, minmax(0, 1fr)); }
