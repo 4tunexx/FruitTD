@@ -16,6 +16,7 @@ import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../game/campaignStory';
 import { getAuthToken, getCachedAuthUser } from './auth';
 import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../game/pvp';
+import { EXTRACTED_ICON_IDS } from '../ui/extractedIcons';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
 
@@ -91,6 +92,8 @@ export interface AdminConfig {
   /** Per-stage boss description and reveal art. Boss animation sprites use Media Studio. */
   campaignBosses?: Array<{ name: string; title: string; description: string; difficulty: number; rewardCoins: number; rewardGems: number; revealImage?: string }>;
   campaignStories?: CampaignChapter[];
+  /** Admin-selected extracted icon assets keyed by shared semantic icon name. */
+  iconOverrides: Record<string, string>;
 }
 
 export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
@@ -146,6 +149,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   waves: { version: 1, levels: {} },
   campaignBosses: [],
   campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
+  iconOverrides: {},
 };
 
 export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): AdminConfig {
@@ -176,7 +180,18 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
     campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20
       ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
+    iconOverrides: normalizeIconOverrides(src.iconOverrides),
   };
+}
+
+function normalizeIconOverrides(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const allowedIcons = new Set(EXTRACTED_ICON_IDS);
+  const result: Record<string, string> = {};
+  for (const [role, id] of Object.entries(value as Record<string, unknown>).slice(0, 128)) {
+    if (/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(role) && typeof id === 'string' && allowedIcons.has(id)) result[role] = id;
+  }
+  return result;
 }
 
 function mergePvpConfig(raw: unknown): PvpConfig {

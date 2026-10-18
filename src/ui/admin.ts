@@ -16,7 +16,7 @@ import {
 } from '../services/admin';
 import { getUserId } from '../services/api';
 import { DEFAULT_CAMPAIGN_STORIES } from '../game/campaignStory';
-import { setLiveConfig, applyMenuAppearance } from '../services/liveConfig';
+import { setLiveConfig, getLiveConfig, applyMenuAppearance } from '../services/liveConfig';
 import { getAuthToken } from '../services/auth';
 import {
   addAchievement,
@@ -39,9 +39,10 @@ import { renderThemeEditor } from './design/themeEditor';
 import { confirmModal, GameToast } from './components/surface';
 import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campaign';
 import { installBattleMapEditor } from './admin/battleMapEditor';
+import { renderIconLibrary } from './admin/iconLibrary';
 
-type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'maps' | 'sprites' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
-const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'maps', 'sprites', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
+type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'maps' | 'sprites' | 'icons' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
+const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'maps', 'sprites', 'icons', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
 let sliderOutputId = 0;
 
 function syncRangeOutput(input: HTMLInputElement | null): void {
@@ -351,6 +352,8 @@ export class AdminController {
       this.renderCatalogEditors(this.activeTab);
     } else if (this.activeTab === 'sprites') {
       installMediaStudio();
+    } else if (this.activeTab === 'icons') {
+      this.renderIconLibrary();
     } else if (this.activeTab === 'landscape') {
       this.renderLandscapeEditor();
     } else if (this.activeTab === 'branding') {
@@ -363,6 +366,22 @@ export class AdminController {
       this.renderLeaderboardManager();
     }
     this.enhanceNumericControls();
+  }
+
+  private renderIconLibrary(): void {
+    const host = document.getElementById('admin-icon-library');
+    if (!host || !this.config) return;
+    renderIconLibrary(host, this.config.iconOverrides, async (role, iconId) => {
+      const updated = { ...this.config!.iconOverrides };
+      if (iconId) updated[role] = iconId;
+      else delete updated[role];
+      const result = await saveAdminConfig({ iconOverrides: updated });
+      if (!result.success) return { ok: false, message: result.error || 'Could not save icon assignment.' };
+      this.config!.iconOverrides = updated;
+      setLiveConfig({ ...getLiveConfig(), iconOverrides: updated });
+      this.onConfigSaved?.(this.config!);
+      return { ok: true, message: result.message || 'Icon assignment saved.' };
+    });
   }
 
   private enhanceNumericControls(): void {

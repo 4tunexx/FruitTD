@@ -1580,6 +1580,70 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
   return match;
 }
 
+// src/ui/extractedIcons.ts
+var groups = {
+  rune: Array(11).fill(6),
+  creative: Array(10).fill(10),
+  skill: [10, 10, 10],
+  hero: [10],
+  quest: [9],
+  mode: [5],
+  misc: [5, 12],
+  stat: [9, 9],
+  emote: [10, 10, 5],
+  lobby: [12],
+  weapon: [13],
+  core: [8]
+};
+var EXTRACTED_ICON_IDS = Object.entries(groups).flatMap(([sheet, rows]) => rows.flatMap((count, row) => Array.from({ length: count }, (_, col) => `${sheet}-${String(row + 1).padStart(2, "0")}-${String(col + 1).padStart(2, "0")}`)));
+var knownIds = new Set(EXTRACTED_ICON_IDS);
+var ICON_ASSETS = {
+  Shield: "skill-01-10",
+  ShieldCheck: "hero-01-02",
+  Castle: "lobby-01-07",
+  TowerControl: "rune-08-01",
+  Landmark: "lobby-01-07",
+  Swords: "lobby-01-11",
+  Sword: "weapon-01-02",
+  Scissors: "weapon-01-02",
+  Slice: "weapon-01-02",
+  Target: "rune-03-03",
+  ScanLine: "creative-10-01",
+  CircleDot: "rune-03-03",
+  Apple: "creative-09-07",
+  Zap: "misc-02-12",
+  Sparkles: "creative-02-09",
+  Leaf: "creative-03-10",
+  Flame: "creative-04-04",
+  Droplets: "creative-10-09",
+  Tornado: "creative-04-03",
+  Waves: "rune-11-01",
+  Coins: "lobby-01-09",
+  Gem: "creative-07-01",
+  Diamond: "creative-07-01",
+  Crown: "lobby-01-04",
+  Backpack: "lobby-01-10",
+  ShoppingBag: "creative-09-08",
+  ShoppingCart: "creative-09-08",
+  Map: "quest-01-03",
+  ScrollText: "lobby-01-08",
+  Trophy: "stat-01-01",
+  Medal: "creative-05-09",
+  Hammer: "creative-05-07",
+  Bomb: "creative-02-04",
+  Gift: "creative-09-08",
+  Skull: "creative-03-07",
+  LockKeyhole: "creative-06-01",
+  Heart: "creative-06-10",
+  ChevronRight: "misc-02-09",
+  ChevronsUp: "misc-02-06",
+  ArrowUpCircle: "misc-02-06",
+  ChartNoAxesCombined: "stat-02-01",
+  Gauge: "stat-02-01",
+  UserRound: "lobby-01-03",
+  User: "lobby-01-03"
+};
+
 // src/services/admin.ts
 var DEFAULT_ADMIN_CONFIG = {
   configKey: "game_config",
@@ -1640,7 +1704,8 @@ var DEFAULT_ADMIN_CONFIG = {
   enemies: [],
   waves: { version: 1, levels: {} },
   campaignBosses: [],
-  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES)
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES),
+  iconOverrides: {}
 };
 function mergeAdminConfig(raw) {
   const src = raw || {};
@@ -1666,8 +1731,18 @@ function mergeAdminConfig(raw) {
     enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
     waves: src.waves && typeof src.waves === "object" ? structuredClone(src.waves) : structuredClone(DEFAULT_ADMIN_CONFIG.waves),
     campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
-    campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20 ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES)
+    campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20 ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES),
+    iconOverrides: normalizeIconOverrides(src.iconOverrides)
   };
+}
+function normalizeIconOverrides(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const allowedIcons = new Set(EXTRACTED_ICON_IDS);
+  const result = {};
+  for (const [role, id] of Object.entries(value).slice(0, 128)) {
+    if (/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(role) && typeof id === "string" && allowedIcons.has(id)) result[role] = id;
+  }
+  return result;
 }
 function mergePvpConfig(raw) {
   const value = raw && typeof raw === "object" ? raw : {};
@@ -2991,8 +3066,19 @@ var DEFAULT_ADMIN_CONFIG2 = {
   slicers: DEFAULT_SLICERS,
   enemies: [],
   waves: { version: 1, levels: {} },
-  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES)
+  campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES),
+  iconOverrides: {}
 };
+function normalizeIconOverrides2(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const roles = new Set(Object.keys(ICON_ASSETS));
+  const assets = new Set(EXTRACTED_ICON_IDS);
+  const result = {};
+  for (const [role, id] of Object.entries(value).slice(0, 128)) {
+    if (roles.has(role) && typeof id === "string" && assets.has(id)) result[role] = id;
+  }
+  return result;
+}
 async function isAuthorized(req2) {
   const user = await resolveRequestUser(req2);
   return Boolean(ADMIN_STEAM_ID && user?.steamId === ADMIN_STEAM_ID);
@@ -3025,7 +3111,8 @@ adminRouter.get("/config", async (_req, res) => {
         enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
         waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG2.waves,
         campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : [],
-        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG2.campaignStories
+        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG2.campaignStories,
+        iconOverrides: normalizeIconOverrides2(cfg.iconOverrides)
       }
     });
   } catch (err) {
@@ -3083,6 +3170,7 @@ adminRouter.post("/config", async (req2, res) => {
       waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG2.waves,
       campaignBosses: campaignBosses !== void 0 ? campaignBosses : existing?.campaignBosses || [],
       campaignStories: campaignStories !== void 0 ? campaignStories : existing?.campaignStories || DEFAULT_ADMIN_CONFIG2.campaignStories,
+      iconOverrides: req2.body.iconOverrides !== void 0 ? normalizeIconOverrides2(req2.body.iconOverrides) : existing?.iconOverrides || {},
       updatedAt: /* @__PURE__ */ new Date()
     };
     await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
@@ -5619,14 +5707,14 @@ adminMapsRouter.post("/", async (req2, res) => {
       return res.status(409).json({ success: false, error: "This map changed in another admin session. Reload it before saving.", currentRevision: existing.revision });
     }
     map.revision = existing ? existing.revision + 1 : 1;
-    const document = { ...map, updatedAt: /* @__PURE__ */ new Date() };
+    const document2 = { ...map, updatedAt: /* @__PURE__ */ new Date() };
     if (existing) {
-      const result = await col.replaceOne({ id: map.id, revision: existing.revision }, document);
+      const result = await col.replaceOne({ id: map.id, revision: existing.revision }, document2);
       if (!result.matchedCount) return res.status(409).json({ success: false, error: "This map changed while you were saving. Reload and try again." });
     } else {
-      await col.insertOne(document);
+      await col.insertOne(document2);
     }
-    return res.json({ success: true, map: document });
+    return res.json({ success: true, map: document2 });
   } catch (error2) {
     console.error("Admin battle map save failed:", error2);
     return res.status(500).json({ success: false, error: "Could not save the map to MongoDB." });

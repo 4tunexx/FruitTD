@@ -394,3 +394,179 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
   #screen-hub .ftd-mode-card,
   .ftd-pvp .ftd-duel-icon-button { transition: none !important; }
 }
+
+/* Insignia-led navigation: the artwork is the control, the selected label is its caption. */
+#screen-hub .ftd-hub__footer { width: min(100%, 550px); justify-content: center; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab {
+  flex: 0 1 64px;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 10px;
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active { flex: 0 1 148px; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab__icon,
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon {
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  padding: 0;
+  border: 0;
+  background: none;
+  clip-path: none;
+  color: #ffcf64;
+  filter: drop-shadow(0 2px 2px #000a);
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon {
+  color: #2a1909;
+  filter: drop-shadow(0 1px 0 #fff7ba88);
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab:not(.is-active) .ftd-hub-tab__label { display: none; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__label { display: block; white-space: nowrap; }
+
+#screen-hub .ftd-mode-card__icon,
+#screen-hub .ftd-hub.is-home .ftd-mode-card.is-active .ftd-mode-card__icon,
+#screen-hub .ftd-hub.is-home .ftd-mode-card--campaign .ftd-mode-card__icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  clip-path: none;
+  box-shadow: none;
+  filter: drop-shadow(0 3px 2px #000a);
+}
+#screen-hub .ftd-mode-card { grid-template-columns: 42px minmax(0, 1fr); }
+#screen-hub .ftd-mode-card__icon .ftd-asset-glyph,
+#screen-hub .ftd-hub__footer .ftd-hub-tab__icon .ftd-asset-glyph { transform: scale(1.2); }
+#screen-hub .ftd-hub-context__emblem,
+#screen-hub .ftd-hub-identity__insignia,
+#screen-hub .ftd-profile-banner__insignia {
+  border: 0;
+  background: none;
+  clip-path: none;
+  filter: drop-shadow(0 2px 3px #000a);
+}
+#screen-hub .ftd-btn__icon,
+.ftd-pvp .ftd-btn__icon,
+.ftd-screen .ftd-btn__icon,
+.ftd-surface .ftd-btn__icon {
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  clip-path: none;
+  filter: drop-shadow(0 1px 1px #0007);
+}
+#screen-hub .ftd-btn__icon svg,
+.ftd-pvp .ftd-btn__icon svg,
+.ftd-screen .ftd-btn__icon svg,
+.ftd-surface .ftd-btn__icon svg { width: 21px; height: 21px; }
+#screen-hub .ftd-home-mode-detail__art {
+  justify-self: center;
+  align-self: center;
+  width: clamp(110px, 13vw, 190px);
+  height: clamp(110px, 13vw, 190px);
+  margin-block: 8px;
+  color: #ffca53;
+  opacity: .5;
+  filter: drop-shadow(0 10px 18px #0009) drop-shadow(0 0 24px #e9953933);
+}
+#screen-hub .ftd-home-mode-detail {
+  grid-template-rows: auto auto auto auto minmax(90px, 1fr) auto;
+}
+.ftd-playcard__mobile-brief { display: none; }
+
+@media (max-width: 900px) {
+  #screen-hub .ftd-hub__header {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    grid-template-rows: 50px 48px;
+    align-items: stretch;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+  }
+  #screen-hub .ftd-hub-identity-slot { grid-column: 1; grid-row: 1; width: 54px; height: 50px; }
+  #screen-hub .ftd-hub-identity { height: 50px; min-height: 50px; }
+  #screen-hub .ftd-hub-identity__insignia { display: none; }
+  #screen-hub .ftd-hub-currency { grid-column: 2; grid-row: 1; height: 50px; gap: 5px; }
+  #screen-hub .ftd-hub-currency__button { height: 50px; min-height: 50px; font-size: .86rem; }
+  #screen-hub .ftd-hub-actions { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 48px; }
+  #screen-hub .ftd-hub-actions .ftd-hub-utils { height: 48px; gap: 5px; }
+  #screen-hub .ftd-hub-utility { height: 48px; min-height: 48px; }
+  #screen-hub .ftd-hub-social__icon,
+  #screen-hub .ftd-hub-utility svg { width: 23px; height: 23px; }
+  #screen-hub .ftd-hub-community-slot { height: 48px; }
+  #screen-hub .ftd-hub__footer { display: flex; width: 100%; justify-content: space-between; align-items: stretch; gap: 5px; padding: 4px; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab { flex: 1 1 0; min-width: 0; min-height: 58px; padding: 6px 2px; flex-direction: column; gap: 1px; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab.is-active { flex: 1.65 1 0; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab__icon { width: 28px; height: 28px; flex-basis: 28px; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab__label { font-size: .58rem; line-height: 1.1; }
+  #screen-hub .ftd-home-mode-detail__art { display: none; }
+}
+
+@media (max-width: 640px) {
+  #screen-hub.ftd-hub { gap: 6px; padding: max(5px, var(--ftd-safe-top)) 5px max(5px, var(--ftd-safe-bottom)); }
+  #screen-hub.ftd-hub.is-home .ftd-hub__body { display: block; overflow-y: auto; padding: 0; }
+  #screen-hub.ftd-hub.is-home .ftd-hub__main { min-height: 0; padding: 0; }
+  #screen-hub.ftd-hub.is-home .ftd-hub__main > .ftd-hub-panel-content { padding: 5px !important; }
+  #screen-hub.ftd-hub.is-home .ftd-hub__sub { display: none; }
+  #screen-hub.ftd-hub.is-home .ftd-playcard {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(305px, 1fr) auto;
+    min-height: max(450px, calc(100dvh - 216px));
+    height: auto;
+    padding: 0;
+    gap: 0;
+  }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-art { inset: 0 0 106px; background-position: 70% 50%; }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-art::after {
+    background: linear-gradient(0deg, #191b1eee, transparent 52%), linear-gradient(90deg, #15161ab0, transparent 76%);
+  }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__content {
+    grid-row: 1;
+    justify-content: flex-end;
+    align-items: stretch;
+    gap: 6px;
+    max-width: none;
+    padding: 58px 12px 12px;
+  }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__eyebrow { top: 12px; left: 12px; max-width: 18em; font-size: .58rem; }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__title { display: block; font-size: clamp(2.8rem, 13vw, 4.3rem); }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__tagline { display: block; margin: 0; font-size: .8rem; }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__cta { min-height: 57px; width: min(100%, 320px); align-self: flex-start; font-size: 1.2rem; white-space: nowrap; }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__mode { align-self: flex-start; font-size: .6rem; margin: 0; }
+  #screen-hub.ftd-hub.is-home .ftd-playcard__mobile-brief { display: block; max-width: 34ch; margin: 0; color: #fff0cf; font-size: .75rem; line-height: 1.3; text-shadow: 0 2px 4px #000; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-select { grid-row: 2; padding: 9px 8px 11px; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-select__heading { margin-bottom: 7px; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-select__heading h2 { font-size: .68rem; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-select__heading span { font-size: .55rem; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-select__grid { display: flex; gap: 5px; min-height: 0; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card,
+  #screen-hub.ftd-hub.is-home .ftd-mode-card[data-testid='mode-arena'] {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    min-height: 62px;
+    padding: 5px 2px;
+    gap: 2px;
+    grid-column: auto;
+  }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card.is-active { flex: 1.55 1 0; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card__icon { width: 36px; height: 36px; flex: 0 0 36px; color: #ffe28a; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card.is-active .ftd-mode-card__icon { color: #2b1d0d; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card__copy { display: none; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card.is-active .ftd-mode-card__copy { display: block; text-align: center; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card__copy strong { display: block; font-size: .56rem; line-height: 1.1; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card__copy small { display: none; }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-shortcuts { top: 12px; right: 10px; gap: 6px; }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-shortcuts .ftd-btn { width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 5px; }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-shortcuts .ftd-btn__label { display: none; }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-shortcuts .ftd-btn__icon { width: 26px; height: 26px; flex-basis: 26px; }
+}

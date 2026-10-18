@@ -18,6 +18,7 @@ import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../../src/game/c
 import { resolveRequestUser } from '../auth';
 import { validId } from '../validation';
 import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../../src/game/pvp';
+import { ICON_ASSETS, EXTRACTED_ICON_IDS } from '../../src/ui/extractedIcons';
 
 export const adminRouter = Router();
 
@@ -82,6 +83,7 @@ export interface AdminConfigDoc {
   waves?: any;
   campaignBosses?: any[];
   campaignStories?: CampaignChapter[];
+  iconOverrides?: Record<string, string>;
   updatedAt: Date;
 }
 
@@ -254,7 +256,19 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   enemies: [],
   waves: { version: 1, levels: {} },
   campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
+  iconOverrides: {},
 };
+
+function normalizeIconOverrides(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const roles = new Set(Object.keys(ICON_ASSETS));
+  const assets = new Set(EXTRACTED_ICON_IDS);
+  const result: Record<string, string> = {};
+  for (const [role, id] of Object.entries(value as Record<string, unknown>).slice(0, 128)) {
+    if (roles.has(role) && typeof id === 'string' && assets.has(id)) result[role] = id;
+  }
+  return result;
+}
 
 // Check if request is authenticated as admin (Steam ID only)
 async function isAuthorized(req: Request): Promise<boolean> {
@@ -293,6 +307,7 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
         campaignBosses: Array.isArray((cfg as any).campaignBosses) ? (cfg as any).campaignBosses.slice(0, 100) : [],
         campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories)
           ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG.campaignStories,
+        iconOverrides: normalizeIconOverrides(cfg.iconOverrides),
       },
     });
   } catch (err: any) {
@@ -356,6 +371,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       waves: waves && typeof waves === 'object' ? waves : (existing?.waves || DEFAULT_ADMIN_CONFIG.waves),
       campaignBosses: campaignBosses !== undefined ? campaignBosses : ((existing as any)?.campaignBosses || []),
       campaignStories: campaignStories !== undefined ? campaignStories : (existing?.campaignStories || DEFAULT_ADMIN_CONFIG.campaignStories),
+      iconOverrides: req.body.iconOverrides !== undefined ? normalizeIconOverrides(req.body.iconOverrides) : existing?.iconOverrides || {},
       updatedAt: new Date(),
     };
 

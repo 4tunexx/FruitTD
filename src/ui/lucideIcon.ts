@@ -9,6 +9,7 @@ import {
 } from 'lucide';
 import { GAME_GLYPHS } from './gameGlyphs';
 import { ICON_ASSETS, extractedIcon } from './extractedIcons';
+import { getLiveConfig } from '../services/liveConfig';
 
 const ICONS: Record<string, IconNode> = {
   AlertTriangle, Apple, ArrowLeft, ArrowUpCircle, Backpack, BadgeCheck, Banana, Bell, Bomb, BrainCircuit, CalendarCheck,
@@ -22,8 +23,13 @@ const ICONS: Record<string, IconNode> = {
 
 /** Render only icons shipped with the application. Admin supplied names fall back safely. */
 export function lucideIcon(name: string | null | undefined, className = '', size = 20): SVGElement | HTMLElement {
-  const asset = ICON_ASSETS[name || ''];
-  if (asset) return extractedIcon(asset, className, size);
+  const key = name || '';
+  const asset = getLiveConfig().iconOverrides[key] || ICON_ASSETS[key];
+  if (asset) {
+    const icon = extractedIcon(asset, className, size);
+    icon.dataset.iconRole = key;
+    return icon;
+  }
   const node = GAME_GLYPHS[name || ''] ?? ICONS[name || ''] ?? BadgeCheck;
   if (typeof document.createElementNS !== 'function') {
     const fallback = document.createElement('span');
@@ -33,6 +39,15 @@ export function lucideIcon(name: string | null | undefined, className = '', size
   }
   return createElement(node, { class: `${className}${GAME_GLYPHS[name || ''] ? ' ftd-game-glyph' : ''}`.trim(), width: size, height: size, 'aria-hidden': 'true' });
 }
+
+function refreshPublishedIcons(): void {
+  document.querySelectorAll<HTMLElement>('.ftd-extracted-icon[data-icon-role]').forEach((icon) => {
+    const size = Number.parseFloat(icon.style.width) || 20;
+    icon.replaceWith(lucideIcon(icon.dataset.iconRole, icon.className, size));
+  });
+}
+
+if (typeof window !== 'undefined') window.addEventListener('fruit-td-icons-update', refreshPublishedIcons);
 
 export function mountLucideIcon(host: Element | null, name: string | null | undefined, size = 20): void {
   if (!host) return;

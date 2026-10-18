@@ -7127,3 +7127,22 @@ body.is-playing .match-parallax,
 .ftd-hero-ability__title { display:flex; align-items:center; gap:9px; }
 .ftd-hero-ability__icon { width:32px; height:32px; flex:0 0 32px; filter:drop-shadow(0 2px 7px rgba(255,200,72,.28)); }
 @media(max-width:520px) { .ftd-hero-ability__icon { width:28px; height:28px; flex-basis:28px; } }
+
+/* Admin → Icons: searchable atlas of the extracted game icon assets. */
+.admin-icon-library { color: var(--ftd-color-text, #f5edd8); }
+.admin-icon-library__intro { max-width: 80ch; color: var(--ftd-color-text-muted, #b8b1a3); line-height: 1.55; }
+.admin-icon-library__toolbar { display:grid; grid-template-columns:minmax(180px,1.4fr) repeat(2,minmax(150px,1fr)) auto auto; gap:.55rem; align-items:center; margin:1rem 0 .7rem; }
+.admin-icon-library__toolbar .admin-input { min-width:0; }
+.admin-icon-library__count { margin:.5rem 0; color:var(--ftd-color-text-muted,#b8b1a3); font-size:.78rem; }
+.admin-icon-library__preview { display:flex; align-items:center; gap:.75rem; min-height:100px; padding:.8rem 1rem; margin:.6rem 0; border:1px solid rgba(255,202,40,.35); background:linear-gradient(110deg,rgba(255,202,40,.09),rgba(20,22,25,.8)); }
+.admin-icon-library__large { color:#ffca28; filter:drop-shadow(0 0 12px rgba(255,174,0,.3)); }
+.admin-icon-library__mapped { margin-left:auto; color:#c6bead; font-size:.75rem; }
+.admin-icon-library__current { color:#ffd261; }
+.admin-icon-library__grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(86px,1fr)); gap:.45rem; max-height:min(54vh,620px); overflow:auto; padding:.35rem; border:1px solid rgba(255,202,40,.22); background:rgba(8,10,12,.58); }
+.admin-icon-library__item { display:flex; min-width:0; min-height:78px; flex-direction:column; align-items:center; justify-content:center; gap:.3rem; padding:.45rem .25rem; color:#d5cdbd; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.025); cursor:pointer; }
+.admin-icon-library__item:hover,.admin-icon-library__item:focus-visible { color:#ffe08a; border-color:rgba(255,202,40,.62); outline:none; background:rgba(255,202,40,.08); }
+.admin-icon-library__item.is-selected { color:#16130a; border-color:#ffca28; background:linear-gradient(140deg,#ffe16c,#f39a18); box-shadow:0 0 14px rgba(255,178,24,.22); }
+.admin-icon-library__item .ftd-extracted-icon { color:currentColor; }
+.admin-icon-library__item small { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font: .62rem/1.2 ui-monospace,monospace; }
+.admin-icon-library__status { min-height:1.2em; color:#ffd261; font-size:.8rem; }
+@media(max-width:760px) { .admin-icon-library__toolbar { grid-template-columns:1fr 1fr; } .admin-icon-library__search { grid-column:1/-1; } .admin-icon-library__grid { grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); max-height:60vh; } }

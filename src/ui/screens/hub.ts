@@ -465,6 +465,8 @@ function buildFooter(active: NavState, root: HTMLElement): HTMLElement {
       type: 'button',
       role: 'tab',
       'aria-selected': String(tab.id === active),
+      'aria-label': tab.label,
+      title: tab.label,
       'data-hub-tab': tab.id,
       'data-testid': `nav-${tab.id === 'MAIN_MENU' ? 'home' : tab.id.toLowerCase()}`,
     }, [

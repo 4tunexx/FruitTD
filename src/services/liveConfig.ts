@@ -126,6 +126,7 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
 
 export function setLiveConfig(config: AdminConfig): void {
   cached = config;
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('fruit-td-icons-update'));
   applyMenuAppearance(config);
   setLiveWavesConfig(cached.waves);
   setPublishedCreatorMedia(cached.creatorMedia);

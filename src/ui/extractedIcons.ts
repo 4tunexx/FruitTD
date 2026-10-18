@@ -28,7 +28,7 @@ export const ICON_ASSETS: Record<string, string> = {
   Zap: 'misc-02-12', Sparkles: 'creative-02-09', Leaf: 'creative-03-10', Flame: 'creative-04-04',
   Droplets: 'creative-10-09', Tornado: 'creative-04-03', Waves: 'rune-11-01',
   Coins: 'lobby-01-09', Gem: 'creative-07-01', Diamond: 'creative-07-01', Crown: 'lobby-01-04',
-  Backpack: 'lobby-01-10', ShoppingBag: 'lobby-01-10', ShoppingCart: 'lobby-01-10',
+  Backpack: 'lobby-01-10', ShoppingBag: 'creative-09-08', ShoppingCart: 'creative-09-08',
   Map: 'quest-01-03', ScrollText: 'lobby-01-08',
   Trophy: 'stat-01-01', Medal: 'creative-05-09', Hammer: 'creative-05-07', Bomb: 'creative-02-04',
   Gift: 'creative-09-08', Skull: 'creative-03-07', LockKeyhole: 'creative-06-01',

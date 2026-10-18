@@ -523,8 +523,8 @@ export function coopHubTab(onStart?: () => void): HubTab {
  * Panel 1 is the PLAY call-to-action; Panel 2 is the active-hero loadout. This
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
-function modeGlyph(mode: GameMode): HTMLElement | SVGElement {
-  return lucideIcon(({ casual: 'Shield', horde: 'Skull', campaign: 'Map', coop: 'Users', arena: 'Swords' } as Record<string, string>)[mode] || 'Target', 'ftd-mode-card__icon', 23);
+function modeGlyph(mode: GameMode, className = 'ftd-mode-card__icon', size = 23): HTMLElement | SVGElement {
+  return lucideIcon(({ casual: 'Shield', horde: 'Skull', campaign: 'Map', coop: 'Users', arena: 'Swords' } as Record<string, string>)[mode] || 'Target', className, size);
 }
 
 const HOME_MODES: Array<{ id: GameMode; name: string; note: string; icon: typeof Swords; testId: string }> = [
@@ -554,6 +554,7 @@ function homeMain(getSelected: () => GameMode | null, onSelect: (mode: GameMode,
       el('p', { class: 'ftd-playcard__brief', text: 'Swipe the fruit. Power your defences. Keep the wall standing.' }),
       GameButton({ label: getSelected() ? 'BATTLE!' : 'CHOOSE A RUN', tone: 'primary', size: 'lg', class: 'ftd-playcard__cta', onClick: () => { const mode = getSelected(); if (mode) onLaunch(mode); } }),
       el('p', { class: 'ftd-playcard__mode', 'data-testid': 'mode-selection-hint', text: getSelected() ? `${modeRules(getSelected()!).name.toUpperCase()} / REVIEW THE BRIEFING` : 'CHOOSE A RUN TO SEE ITS BRIEFING' }),
+      el('p', { class: 'ftd-playcard__mobile-brief', text: getSelected() ? modeRules(getSelected()!).blurb : 'Pick a mode below to see your mission.' }),
     ]);
     const modes = el('section', { class: 'ftd-mode-select', 'aria-label': 'Game modes' }, [
       el('div', { class: 'ftd-mode-select__heading' }, [el('h2', { text: 'CHOOSE YOUR RUN' }), el('span', { text: 'CAMPAIGN · STAGE ' + String(save.campaignProgress.unlocked).padStart(2, '0') })]),
@@ -566,6 +567,8 @@ function homeMain(getSelected: () => GameMode | null, onSelect: (mode: GameMode,
         type: 'button',
         class: `ftd-mode-card${active ? ' is-active' : ''}${mode.id === 'campaign' ? ' ftd-mode-card--campaign' : ''}`,
         'aria-pressed': String(active),
+        'aria-label': `${mode.name}. ${mode.note}`,
+        title: `${mode.name} — ${mode.note}`,
         'data-mode-id': mode.id,
         'data-testid': mode.testId,
       }, [modeGlyph(mode.id), el('span', { class: 'ftd-mode-card__copy' }, [el('strong', { text: mode.name }), el('small', { text: mode.note })])]);
@@ -577,6 +580,11 @@ function homeMain(getSelected: () => GameMode | null, onSelect: (mode: GameMode,
       GameButton({ label: 'RANKINGS', variant: 'outline', onClick: () => openScreen('LEADERBOARD') }),
       GameButton({ label: 'GEAR UP', variant: 'outline', onClick: () => openScreen('INVENTORY') }),
     ]);
+    shortcuts.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      const label = button.querySelector('.ftd-btn__label')?.textContent || '';
+      button.setAttribute('aria-label', label);
+      button.title = label;
+    });
     root.appendChild(el('div', { class: 'ftd-playcard' }, [el('div', { class: 'ftd-outpost-art', 'aria-hidden': 'true' }), shortcuts, playContent, modes]));
   };
 }
@@ -592,6 +600,7 @@ function homeModeSub(root: HTMLElement, save: SaveData, mode: GameMode, onLaunch
     el('h2', { class: 'ftd-home-mode-detail__title', text: rules.name }),
     el('p', { class: 'ftd-home-mode-detail__copy', text: rules.blurb }),
     el('p', { class: 'ftd-home-mode-detail__signal', text: stage }),
+    modeGlyph(mode, 'ftd-home-mode-detail__art', 156),
     GameButton({ label, tone: 'primary', size: 'lg', block: true, class: 'ftd-home-mode-detail__launch', onClick: () => onLaunch(mode) }),
   ]);
   card.querySelector<HTMLButtonElement>('button')?.setAttribute('data-testid', 'nav-play');
@@ -708,7 +717,12 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
       button.setAttribute('aria-pressed', String(active));
     }
     const hint = activeMain.querySelector<HTMLElement>('[data-testid="mode-selection-hint"]');
-    if (hint) hint.textContent = `${modeRules(mode).name.toUpperCase()} SELECTED · REVIEW THE BRIEFING BELOW`;
+    if (hint) hint.textContent = `${modeRules(mode).name.toUpperCase()} SELECTED`;
+    const brief = activeMain.querySelector<HTMLElement>('.ftd-playcard__mobile-brief');
+    if (brief) brief.textContent = modeRules(mode).blurb;
+    const launch = activeMain.querySelector<HTMLButtonElement>('.ftd-playcard__cta');
+    const launchLabel = launch?.querySelector<HTMLElement>('.ftd-btn__label');
+    if (launchLabel) launchLabel.textContent = mode === 'campaign' ? 'OPEN CAMPAIGN' : mode === 'coop' ? 'OPEN CO-OP' : mode === 'arena' ? 'OPEN ARENA' : 'BATTLE!';
     if (currentSub) renderSub(currentSub, currentSave ?? save);
     const animClass = nextIndex < previousIndex ? 'is-mode-sliding-back' : 'is-mode-sliding-forward';
     for (const panel of [activeMain.querySelector('.ftd-outpost-art'), activeMain.querySelector('.ftd-playcard__content'), currentSub?.querySelector('.ftd-home-mode-detail')]) {
