@@ -1189,7 +1189,6 @@
 .ftd-hub.is-home .ftd-mode-card.is-active .ftd-mode-card__copy strong { color: #1d180d; }
 .ftd-hub.is-home .ftd-mode-card.is-active .ftd-mode-card__copy small { color: #473316; }
 .ftd-hub.is-home .ftd-mode-card.is-active .ftd-mode-card__icon { border-color: #9b650d; color: #37230a; background: linear-gradient(145deg, #fff2a3, #f4b928); }
-.ftd-hub.is-home .ftd-mode-card.is-active::after,
 .ftd-hub .ftd-hub-tab.is-active::after {
   position: absolute;
   inset: -35% auto -35% -70%;
@@ -1215,7 +1214,6 @@
   72%, 100% { left: 130%; opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ftd-hub.is-home .ftd-mode-card.is-active::after,
   .ftd-hub .ftd-hub-tab.is-active::after,
   .ftd-hub-social-overlay { animation: none; }
 }

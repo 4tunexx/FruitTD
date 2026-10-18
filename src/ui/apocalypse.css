@@ -499,8 +499,8 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
 
 /* Hub pages share one heading frame and keep breathing room at the bottom of
    both scrolling panels, regardless of which screen adapter rendered them. */
-#screen-hub .ftd-hub__main > .ftd-hub-panel-content,
-#screen-hub .ftd-hub__sub > .ftd-hub-panel-content {
+#screen-hub:not(.is-home) .ftd-hub__main > .ftd-hub-panel-content,
+#screen-hub:not(.is-home) .ftd-hub__sub > .ftd-hub-panel-content {
   box-sizing: border-box;
   min-height: 100%;
   height: auto !important;
@@ -932,7 +932,7 @@ html[data-ftd-motion='reduced'] #screen-hub :is(.ftd-hub__header, .ftd-hub__main
   html[data-ftd-motion='full'] #screen-hub :is(.ftd-hub-tab.is-active, .ftd-mode-card.is-active, .ftd-catbar__tab.is-active,
     .ftd-duel-tabs button.is-active, .ftd-duel-icon-button.is-active, .ftd-stage.is-selected, .ftd-social__nav-item.is-active,
     #page-quests .subtab.is-active) { animation: ftd-amber-sheen 4s ease-in-out infinite !important; }
-  html[data-ftd-motion='full'] #screen-hub :is(.ftd-hub-tab.is-active, .ftd-mode-card.is-active)::after { animation: ftd-gold-shine 2.8s ease-in-out infinite !important; }
+  html[data-ftd-motion='full'] #screen-hub .ftd-hub-tab.is-active::after { animation: ftd-gold-shine 2.8s ease-in-out infinite !important; }
   html[data-ftd-motion='full'] #screen-hub :is(.ftd-catbar__tab.is-active, .ftd-duel-tabs button.is-active,
     .ftd-duel-icon-button.is-active, .ftd-stage.is-selected)::after { animation: ftd-selected-sweep 3.8s ease-in-out infinite !important; }
   html[data-ftd-motion='full'] #screen-hub .ftd-social__nav-item.is-active::after { animation: ftd-social-shine 3.8s ease-in-out infinite !important; }
@@ -950,7 +950,7 @@ html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: 
 /* One inset for every hub destination; legacy pages use the panel's inset
    instead of carrying a second, inconsistent page margin. */
 #screen-hub:not(.is-home):not(.is-pvp-battle) .ftd-hub__main > .ftd-hub-panel-content,
-#screen-hub:not(.is-pvp-battle) .ftd-hub__sub > .ftd-hub-panel-content {
+#screen-hub:not(.is-home):not(.is-pvp-battle) .ftd-hub__sub > .ftd-hub-panel-content {
   padding: clamp(14px, 2vw, 24px) !important;
   padding-bottom: clamp(34px, 4vh, 58px) !important;
 }
@@ -986,7 +986,7 @@ html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: 
 }
 @media (max-width: 900px) {
   #screen-hub:not(.is-home):not(.is-pvp-battle) .ftd-hub__main > .ftd-hub-panel-content,
-  #screen-hub:not(.is-pvp-battle) .ftd-hub__sub > .ftd-hub-panel-content {
+  #screen-hub:not(.is-home):not(.is-pvp-battle) .ftd-hub__sub > .ftd-hub-panel-content {
     padding: clamp(12px, 3.5vw, 18px) !important;
     padding-bottom: 36px !important;
   }

@@ -573,19 +573,19 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 }
 
 /* Insignia-led navigation: the artwork is the control, the selected label is its caption. */
-#screen-hub .ftd-hub__footer { width: min(100%, 550px); justify-content: center; }
+#screen-hub .ftd-hub__footer { width: min(100%, 710px); justify-content: center; }
 #screen-hub .ftd-hub__footer .ftd-hub-tab {
-  flex: 0 1 64px;
+  flex: 0 1 86px;
   justify-content: center;
   gap: 8px;
   padding-inline: 10px;
 }
-#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active { flex: 0 1 148px; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active { flex: 0 1 172px; }
 #screen-hub .ftd-hub__footer .ftd-hub-tab__icon,
 #screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon {
-  width: 31px;
-  height: 31px;
-  flex: 0 0 31px;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
   padding: 0;
   border: 0;
   background: none;
@@ -650,17 +650,36 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 #screen-hub .ftd-home-mode-detail__art {
   justify-self: center;
   align-self: center;
-  width: clamp(110px, 13vw, 190px);
-  height: clamp(110px, 13vw, 190px);
+  width: clamp(88px, 9vw, 124px);
+  height: clamp(88px, 9vw, 124px);
   margin-block: 8px;
   color: #ffca53;
-  opacity: .5;
+  opacity: .32;
   filter: drop-shadow(0 10px 18px #0009) drop-shadow(0 0 24px #e9953933);
 }
 #screen-hub .ftd-home-mode-detail {
   grid-template-rows: auto auto auto auto minmax(90px, 1fr) auto;
 }
 .ftd-playcard__mobile-brief { display: none; }
+
+@media (min-width: 901px) {
+  #screen-hub.ftd-hub.is-home :is(.ftd-hub__main, .ftd-hub__sub) > .ftd-hub-panel-content {
+    box-sizing: border-box;
+    height: 100% !important;
+    min-height: 0;
+    padding: clamp(14px, 1.35vw, 22px) !important;
+  }
+  #screen-hub.ftd-hub.is-home .ftd-playcard,
+  #screen-hub.ftd-hub.is-home :is(.ftd-loadout, .ftd-home-mode-detail) {
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+  }
+  #screen-hub.ftd-hub.is-home .ftd-outpost-art::after {
+    background: linear-gradient(90deg, #141517ed 0%, #1415179c 30%, transparent 63%),
+      linear-gradient(0deg, #222428 0%, #222428b8 9%, transparent 33%);
+  }
+}
 
 @media (max-width: 900px) {
   #screen-hub .ftd-hub__header {
