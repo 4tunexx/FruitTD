@@ -293,10 +293,10 @@ body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
   transform:translateY(-2px);filter:brightness(1.14);border-color:#ffca28;box-shadow:0 5px 0 #060908,0 0 0 1px #ffca2866;outline:2px solid #ffca28;outline-offset:2px;
 }
 :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transition:transform 190ms cubic-bezier(.2,.8,.2,1),filter 190ms;transform-origin:50% 80%;}
-:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot):not(:disabled):is(:active,:focus-visible,.is-selected,.is-active) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transform:translateY(-5px) scale(1.08);filter:drop-shadow(0 5px 3px #0008);}
+:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot):not(:disabled):is(:active,:focus-visible,.is-selected,.is-active) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transform:translateY(-5px) scale(1.08);}
 @media(hover:hover) and (pointer:fine){
  :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot,.ftd-power-row__equip,.ftd-power-row__hex,.ftd-card--interactive):not(:disabled):hover{transform:translateY(-3px);filter:brightness(1.12);border-color:#ffca28;box-shadow:0 6px 0 #060908,0 0 0 1px #ffca2844;}
- :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot):not(:disabled):hover :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transform:translateY(-6px) scale(1.1);filter:drop-shadow(0 6px 3px #0008);}
+ :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot):not(:disabled):hover :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transform:translateY(-6px) scale(1.1);}
  .ftd-hero-detail:hover .ftd-hero-portrait{transform:translateY(-8px) scale(1.025);}
 }
 .ftd-hero-portrait{position:relative;display:inline-block;width:48px;height:58px;flex-shrink:0;transition:transform 200ms;vertical-align:middle;filter:drop-shadow(0 5px 2px #0007);}
@@ -311,6 +311,6 @@ body[data-ftd-screen='GAME_OVER'] #combo-layer { visibility: hidden; }
  :is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot,.ftd-power-row__equip,.ftd-power-row__hex,.ftd-card--interactive,.ftd-hero-portrait),:is(.ftd-btn,.ftd-tab,.ftd-hub-tab,.ftd-hub-more-menu__item,.ftd-hero-tile,.ftd-duel-card,.ftd-duel-icon-button,.hero-ability-slot) :is(img:not(.ftd-hero-portrait__image),svg,.ftd-btn__icon,.ftd-hero-portrait){transition:none!important;transform:none!important;}
 }
 .ftd-power-row__icon{transition:transform 180ms cubic-bezier(.2,.8,.2,1),filter 180ms;}
-.ftd-power-row:focus-within .ftd-power-row__icon,.ftd-power-row:has(button:active) .ftd-power-row__icon{transform:translateY(-5px) scale(1.08);filter:drop-shadow(0 6px 3px #0008);}
+.ftd-power-row:focus-within .ftd-power-row__icon,.ftd-power-row:has(button:active) .ftd-power-row__icon{transform:translateY(-5px) scale(1.08);}
 @media(hover:hover) and (pointer:fine){.ftd-power-row:hover .ftd-power-row__icon{transform:translateY(-6px) scale(1.08);}}
 @media(prefers-reduced-motion:reduce){.ftd-power-row__icon{transition:none!important;transform:none!important;}}
