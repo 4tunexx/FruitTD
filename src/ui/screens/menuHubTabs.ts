@@ -1,3 +1,5 @@
+import { renderPvpHub } from './pvp';
+import { showScreenLoadFailure } from './loadFailure';
 import { Newspaper, Settings, Map, Users, MessageCircle, Bell, ListChecks, Trophy, Medal, Swords } from 'lucide';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
@@ -34,20 +36,22 @@ function renderLazyPage<T extends object>(
   page.appendChild(LoadingIndicator(`Loading ${label}…`));
   void load().then((module) => {
     if (page.parentElement) render(page, module);
-  }).catch(() => {
-    if (page.parentElement) page.replaceChildren(el('p', { role: 'alert', text: `${label} could not load. Open it again to retry.` }));
+  }).catch((error) => {
+    console.error(`${label} screen failed`,error);
+    if (page.parentElement) showScreenLoadFailure(page,label,error,()=>{page.remove();renderLazyPage(root,label,load,render,className);});
   });
 }
 
 function renderPvpTab(root: HTMLElement, queue: 'arena' | 'ranked'): void {
   const page = el('div');
   root.appendChild(page);
-  page.appendChild(LoadingIndicator(queue === 'ranked' ? 'Loading Ranked…' : 'Loading Arena…'));
-  void import('./pvp').then(({ renderPvpHub }) => {
-    if (page.isConnected) renderPvpHub(page, queue);
-  }).catch(() => {
-    if (page.isConnected) page.replaceChildren(el('p', { role: 'alert', text: 'Arena could not load. Return to the tab and try again.' }));
-  });
+  // Arena's lobby is core UI. Bundle it with the hub so an open page cannot
+  // request a retired Arena chunk after a production deployment.
+  const start=()=>{
+    try { renderPvpHub(page,queue); }
+    catch(error){console.error('Arena screen failed',error);showScreenLoadFailure(page,'Arena',error,start);}
+  };
+  start();
 }
 
 export interface MenuHubActions {

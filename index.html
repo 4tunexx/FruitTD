@@ -1865,15 +1865,18 @@
 
         <!-- ════ Game over overlay ════ -->
         <div id="hud-gameover" class="hidden">
-          <div class="modal-card modal-card--over">
+          <div class="modal-card modal-card--over" role="dialog" aria-modal="true" aria-labelledby="run-result-title" data-no-count="true">
+            <aside class="ftd-run-operative"><div id="hud-result-hero"></div><small>YOUR DEFENDER</small><strong id="hud-result-name"></strong><span id="hud-result-mode"></span></aside>
+            <div class="ftd-run-summary">
             <div class="modal-icon modal-icon--over" data-lucide="Skull" data-lucide-size="32"></div>
-            <h2 class="modal-title modal-title--over">Game Over</h2>
+            <h2 id="run-result-title" class="modal-title modal-title--over">Game Over</h2>
             <p class="modal-sub">Final score</p>
             <p id="hud-final-score" class="over-score">0</p>
             <p id="hud-final-wave" class="over-wave">Wave 1</p>
-
+            <div class="ftd-run-stats"><div><small>FRUIT DEFEATED</small><strong id="hud-result-kills">0</strong></div><div><small>BEST COMBO</small><strong id="hud-result-combo">0</strong></div></div>
+            </div>
             <div id="lb-submit-feedback" class="gameover-rank-pill">
-              <span>Syncing score to MongoDB Atlas...</span>
+              <span>Saving your result…</span>
             </div>
 
             <div class="modal-btns">

@@ -300,3 +300,19 @@ test('PC matches open a usable command panel and dispose their viewport portal',
     assert.equal(document.body.querySelector('.ftd-pvp.is-battle'),null,'leaving removes the document-level match');
   } finally { disposePvpHub(root);setAuthToken(null);resetDom(); }
 });
+
+test('failed battlefield startup does not loop on polls and retries only on request',async()=>{
+ resetDom();setAuthToken('test-only');const oldInterval=globalThis.setInterval;
+ let poll:()=>void=()=>{},starts=0;
+ globalThis.setInterval=((callback:()=>void)=>{poll=callback;return 0;}) as typeof setInterval;
+ const root=document.createElement('div');document.body.appendChild(root);
+ const game=newPvpMatch('failed-scene','arena',[createPvpPlayer('a','You','blue',config),createPvpPlayer('b','Rival','red',config)],Date.now(),config);game.status='active';game.map=config.map;
+ try {
+  renderPvpHub(root,'arena',{realtime:false,request:async()=>({success:true,config,match:{...game,yourSide:'blue',remainingMs:180000}}),createBattlefield:()=>{starts++;throw new Error('WebGL unavailable');}});
+  await flush();assert.equal(starts,1);assert.ok(root.querySelector('.ftd-screen-load-error'));
+  for(let i=0;i<3;i++){poll();await flush();}assert.equal(starts,1,'snapshots never restart a failed renderer');
+  [...root.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==='Retry')!.click();await flush();assert.equal(starts,2);
+  root.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')!.click();
+  assert.ok(root.querySelector('.ftd-duel-confirm'),'a failed renderer must not block the leave confirmation');
+ } finally {disposePvpHub(root);globalThis.setInterval=oldInterval;setAuthToken(null);resetDom();}
+});

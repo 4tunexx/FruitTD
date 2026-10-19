@@ -1,3 +1,4 @@
+import { heroArt } from './ui/heroArt';
 import { purchaseHeroPerk } from './game/heroPerkPurchase';
 import { installCombatHudLayout } from './ui/combatHudLayout';
 import { PowerVfx } from './game/powerVfx';
@@ -926,8 +927,12 @@ function showGameOverOverlay(): void {
   }
   const finalScore = document.getElementById('hud-final-score');
   const finalWave = document.getElementById('hud-final-wave');
-  if (finalScore) finalScore.textContent = `${state.score.toLocaleString()}`;
-  if (finalWave) finalWave.textContent = campaignDefeat ? `DEFENCE FAILED · WAVE ${state.wave}` : `Wave ${state.wave}`;
+  if (finalScore && finalScore.textContent!==state.score.toLocaleString()) finalScore.textContent = state.score.toLocaleString();
+  const portrait=document.getElementById('hud-result-hero');
+  if(portrait&&portrait.dataset.hero!==save.hero){portrait.dataset.hero=save.hero;portrait.replaceChildren(heroArt(save.hero));}
+  for(const [id,text] of Object.entries({'hud-result-name':heroDef(save.hero).name,'hud-result-mode':modeRules(state.mode).name,'hud-result-kills':String(totalFruitsSliced),'hud-result-combo':String(sessionMaxCombo)})){const node=document.getElementById(id);if(node&&node.textContent!==text)node.textContent=text;}
+  const waveText=campaignDefeat ? `DEFENCE FAILED · WAVE ${state.wave}` : `Wave ${state.wave}`;
+  if(finalWave&&finalWave.textContent!==waveText)finalWave.textContent=waveText;
 }
 
 function submitCurrentRun(completed: boolean): Promise<void> {

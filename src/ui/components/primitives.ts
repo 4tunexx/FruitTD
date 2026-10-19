@@ -65,7 +65,7 @@ export function GameButton(opts: ButtonOptions = {}): HTMLButtonElement {
   });
   const buttonIcon = opts.icon || actionGlyph(opts.label || '');
   if (buttonIcon) btn.appendChild(el('span', { class: 'ftd-btn__icon', 'aria-hidden': 'true' }, [
-    /^[A-Za-z]+$/.test(buttonIcon) ? lucideIcon(buttonIcon, '', opts.size === 'sm' ? 17 : 20) : buttonIcon,
+    /^[A-Za-z][A-Za-z0-9]*$/.test(buttonIcon) ? lucideIcon(buttonIcon, '', opts.size === 'sm' ? 17 : 20) : buttonIcon,
   ]));
   if (opts.label) btn.appendChild(el('span', { class: 'ftd-btn__label', text: opts.label }));
   if (opts.children) opts.children.forEach((c) => c && btn.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));

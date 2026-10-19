@@ -1,3 +1,4 @@
+import { showScreenLoadFailure } from './loadFailure';
 import { TURRET_WEAPONS } from '../../game/turretWeapons';
 import { heroArt } from '../heroArt';
 import { heroDef, type HeroId } from '../../game/heroes';
@@ -78,6 +79,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let battlefield: BattlefieldView | null = null;
   let battlefieldId = '';
   let battlefieldLoadingId = '';
+  let battlefieldFailure: {id:string;error:unknown}|null = null;
   let busy = false;
   let refreshing = false;
   let attachingRealtime = false;
@@ -318,7 +320,18 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const current = status.match;
       if (current?.status === 'active') void send(`/match/${current.id}/command`, { sequence: current.yourSequence + 1, command });
     };
+    if (surrenderConfirm) body.append(el('div', { class: 'ftd-duel-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Leave match' }, [
+      el('section', {}, [el('h2', { text: 'Leave this match?' }), label(match.testMatch ? 'End this practice match.' : match.queue === 'ranked' ? 'Leaving counts as a Ranked loss.' : 'Your opponent wins if you leave.'),
+        GameButton({ label: 'Keep playing', tone: 'primary', onClick: () => { surrenderConfirm = false; render(); } }),
+        GameButton({ label: 'Leave match', tone: 'danger', onClick: () => { surrenderConfirm = false; if (match.testMatch) void send(`/match/${match.id}/end-test`); else issue({ type: 'surrender' }); } }),
+      ]),
+    ]));
     if (!battlefield || battlefieldId !== match.id) {
+      if(battlefieldFailure?.id===match.id){
+        const failure=el('div',{class:'ftd-duel-scene-failure'});
+        showScreenLoadFailure(failure,'Battlefield',battlefieldFailure.error,()=>{battlefieldFailure=null;render();});
+        body.append(failure);return;
+      }
       battlefield?.dispose(); selectedCell = null; battlefield = null; battlefieldId = '';
       const select = (cell: number) => {
         const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
@@ -334,8 +347,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
           battlefield = options.createBattlefield(match, sceneConfig, issue, select);
           battlefieldId = match.id;
         } catch (error) {
-          body.append(label(error instanceof Error ? `Battlefield could not start: ${error.message}` : 'Battlefield could not start.', 'ftd-pvp__error'));
-          return;
+          battlefieldFailure={id:match.id,error};render();return;
         }
       } else {
         const loadingId = match.id;
@@ -355,7 +367,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
           }).catch((error) => {
             battlefieldLoadingId = '';
             if (disposed || !main.isConnected || status.match?.id !== loadingId) return;
-            actionError = error instanceof Error ? `Battlefield could not start: ${error.message}` : 'Battlefield could not start.';
+            battlefieldFailure={id:loadingId,error};
             render();
           });
         }
@@ -456,12 +468,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
     tray.append(panel);
     body.append(tray);
-    if (surrenderConfirm) body.append(el('div', { class: 'ftd-duel-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Leave match' }, [
-      el('section', {}, [el('h2', { text: 'Leave this match?' }), label(match.testMatch ? 'End this practice match.' : match.queue === 'ranked' ? 'Leaving counts as a Ranked loss.' : 'Your opponent wins if you leave.'),
-        GameButton({ label: 'Keep playing', tone: 'primary', onClick: () => { surrenderConfirm = false; render(); } }),
-        GameButton({ label: 'Leave match', tone: 'danger', onClick: () => { surrenderConfirm = false; if (match.testMatch) void send(`/match/${match.id}/end-test`); else issue({ type: 'surrender' }); } }),
-      ]),
-    ]));
+
 
   };
   body.appendChild(LoadingIndicator('Connecting to the match service…'));

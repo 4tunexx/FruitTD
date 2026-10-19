@@ -111,3 +111,60 @@ html[data-ftd-motion] #screen-hub.ftd-hub button:hover::before,html[data-ftd-mot
  body[data-ftd-screen='PLAY'] #player-chip { left:max(24px,calc(var(--combat-left) - 392px)); }
  body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { right:auto; left:calc(var(--combat-left) + var(--combat-width) + 20px); }
 }
+/* Result text is solid ink: the retired transparent gradient clipped its shadows. */
+#hud-gameover .modal-card.modal-card--over { background:linear-gradient(145deg,#323337,#1c1e22)!important; border:2px solid #ffe394; color:#eee5cf; }
+#hud-gameover #hud-final-score { color:#ffe394!important; -webkit-text-fill-color:#ffe394!important; -webkit-text-stroke:0!important; background:none!important; background-clip:border-box!important; -webkit-background-clip:border-box!important; text-shadow:none!important; filter:none!important; animation:none!important; font-size:clamp(56px,9vw,88px); font-weight:900; line-height:1.15; overflow:visible; }
+#hud-gameover .ftd-run-summary { min-width:0; }
+#hud-gameover .ftd-run-operative { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; padding:12px; border:1px solid #786b50; background:#202125; }
+#hud-gameover #hud-result-hero .ftd-hero-portrait { width:78px; height:78px; }
+#hud-gameover .ftd-run-operative small { color:#c6b78f; font-size:10px; letter-spacing:.12em; }
+#hud-gameover .ftd-run-operative strong { color:#ffe394; font-size:18px; }
+#hud-gameover #hud-result-mode { color:#d2cec4; font-size:12px; }
+#hud-gameover .ftd-run-stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px; }
+#hud-gameover .ftd-run-stats > div { display:grid; gap:8px; padding:14px; border:1px solid #786b50; background:#202125; }
+#hud-gameover .ftd-run-stats small { color:#c7bc9e; font-size:10px; letter-spacing:.08em; }
+#hud-gameover .ftd-run-stats strong { color:#fff0cb; font-size:24px; }
+#hud-gameover .gameover-rank-pill { margin:0; font-size:13px; line-height:1.5; }
+#hud-gameover .modal-card--over.is-campaign-defeat .ftd-run-operative { display:none; }
+.ftd-board-toolbar { display:flex; flex-direction:column; gap:12px; }
+.ftd-board-columns { display:none; }
+.ftd-screen-load-error { padding:24px; border:1px solid #ffe394; background:#25262a; color:#eee5cf; max-width:640px; margin:24px auto; }
+.ftd-screen-load-error h2 { margin:0 0 12px; color:#ffe394; }
+.ftd-screen-load-error p { line-height:1.6; }
+.ftd-duel-scene-failure { position:absolute; inset:110px 0 0; display:grid; place-items:center; background:#202125; z-index:5; padding:20px; }
+@media(min-width:1000px) {
+ #hud-gameover .modal-card.modal-card--over { width:min(820px,calc(100vw - 64px)); padding:32px; display:grid; grid-template-columns:200px minmax(0,1fr); gap:24px 32px; align-items:center; }
+ #hud-gameover .ftd-run-operative { align-self:stretch; flex-direction:column; flex-wrap:nowrap; padding:20px; text-align:center; }
+ #hud-gameover #hud-result-hero .ftd-hero-portrait { width:160px; height:160px; }
+ #hud-gameover .ftd-run-operative strong { font-size:23px; }
+ #hud-gameover .ftd-run-summary .modal-icon--over { width:48px; height:48px; margin-bottom:16px; }
+ #hud-gameover .ftd-run-summary .modal-title--over { font-size:32px; text-shadow:none; }
+ #hud-gameover .gameover-rank-pill,#hud-gameover .modal-btns { grid-column:1/-1; width:100%; }
+ #hud-gameover .modal-btns { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:0; }
+ #hud-gameover .modal-card--over.is-campaign-defeat { grid-template-columns:1fr; }
+ #screen-hub.ftd-hub[data-hub-page='LEADERBOARD'] .ftd-hub__sub > .ftd-hub-panel-content { height:auto; min-height:0; justify-content:flex-start; }
+ #screen-hub.ftd-hub[data-hub-page='LEADERBOARD'] .ftd-hub__sub { scroll-padding-top:20px; }
+ #screen-hub.ftd-hub .ftd-board { gap:20px; }
+ #screen-hub.ftd-hub .ftd-board-tabs--categories { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); width:100%; gap:8px; }
+ #screen-hub.ftd-hub .ftd-board-tabs .ftd-btn { min-width:0; min-height:48px!important; font-size:12px; gap:8px; padding:10px!important; }
+ #screen-hub.ftd-hub .ftd-board-tabs .ftd-btn__icon { width:22px!important; height:22px!important; flex-basis:22px!important; }
+ #screen-hub.ftd-hub .ftd-board-tabs--scope { margin-left:auto; flex-wrap:nowrap; }
+ #screen-hub.ftd-hub .ftd-board-intro { padding:18px; }
+ #screen-hub.ftd-hub .ftd-board-intro__copy { font-size:15px; }
+ #screen-hub.ftd-hub .ftd-board-columns { display:grid; grid-template-columns:100px minmax(0,1fr) 180px; padding:16px 20px; gap:20px; border-block:1px solid #786b50; color:#c9be9d; font-size:11px; letter-spacing:.12em; background:#202125; }
+ #screen-hub.ftd-hub .ftd-board-columns span:last-child { text-align:right; }
+ #screen-hub.ftd-hub .ftd-board-row { grid-template-columns:100px minmax(0,1fr) 180px; min-height:76px; padding:18px 20px; gap:20px; }
+ #screen-hub.ftd-hub .ftd-board-row__player strong { font-size:17px; }
+ #screen-hub.ftd-hub .ftd-board-row__score strong { font-size:22px; }
+ #screen-hub.ftd-hub .ftd-board-empty { box-sizing:border-box; display:grid; width:100%; max-width:none; grid-template-columns:minmax(120px,25%) minmax(0,1fr); grid-template-areas:'art eyebrow' 'art title' 'art copy' 'art action'; gap:14px 28px; min-height:300px; padding:32px; margin:0; text-align:left; align-items:center; justify-items:start; }
+ #screen-hub.ftd-hub .ftd-board-empty__art { grid-area:art; width:100%; height:180px; border-right:1px solid #786b50; filter:none; }
+ #screen-hub.ftd-hub .ftd-board-empty__art :is(svg,.ftd-extracted-icon) { width:80px!important; height:80px!important; }
+ #screen-hub.ftd-hub .ftd-board-empty__eyebrow { grid-area:eyebrow; }
+ #screen-hub.ftd-hub .ftd-board-empty h2 { grid-area:title; font-size:30px; }
+ #screen-hub.ftd-hub .ftd-board-empty__copy { grid-area:copy; max-width:65ch; font-size:15px; }
+ #screen-hub.ftd-hub .ftd-board-empty > .ftd-btn { grid-area:action; }
+}
+@media(min-width:1450px) {
+ #screen-hub.ftd-hub .ftd-board-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; align-items:center; }
+ #screen-hub.ftd-hub .ftd-board-tabs--categories { grid-template-columns:repeat(7,minmax(0,1fr)); }
+}

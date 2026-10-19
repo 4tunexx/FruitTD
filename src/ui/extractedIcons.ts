@@ -47,7 +47,7 @@ export const ICON_ROLE_ALIASES: Record<string, string> = {
 export const ICON_ROLE_IDS = Object.freeze([...new Set([
   ...Object.keys(ICON_ROLE_ALIASES), ...Object.keys(ICON_ASSETS), ...Object.keys(GAME_GLYPHS),
   'AlertTriangle', 'BrainCircuit', 'CalendarDays', 'Circle', 'Gamepad2', 'GitBranch', 'Infinity',
-  'Rocket', 'Sprout', 'Link', 'Move', 'Palette', 'RotateCcw', 'UserPlus', 'Volume2', 'VolumeX',
+  'Globe2', 'RefreshCw', 'LogOut', 'Fence', 'Rocket', 'Sprout', 'Link', 'Move', 'Palette', 'RotateCcw', 'UserPlus', 'Volume2', 'VolumeX',
 ])]);
 
 /** Shared by Admin's client and API so published roles survive a reload. */

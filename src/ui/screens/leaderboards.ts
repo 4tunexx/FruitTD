@@ -75,7 +75,9 @@ export function renderLeaderboards(root: HTMLElement): void {
     ]),
   ]);
   const content = el('div', { class: 'ftd-board-content', 'aria-live': 'polite', 'aria-busy': 'true' });
-  page.append(categoryTabs, scopeTabs, intro, content);
+  const toolbar=el('div',{class:'ftd-board-toolbar'},[categoryTabs,scopeTabs]);
+  const columns=el('div',{class:'ftd-board-columns','aria-hidden':'true'},[el('span',{text:'RANK'}),el('span',{text:'DEFENDER'}),el('span',{text:'RESULT'})]);
+  page.append(toolbar,intro,columns,content);
   root.appendChild(page);
 
   let category: BoardCategory = 'ranked';
@@ -101,6 +103,7 @@ export function renderLeaderboards(root: HTMLElement): void {
     controller = new AbortController();
     categoryTabs.querySelectorAll<HTMLButtonElement>('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.category === category)));
     scopeTabs.querySelectorAll<HTMLButtonElement>('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scope === scope)));
+    columns.children[2]!.textContent=({ranked:'RANK POINTS',casual:'SCORE',horde:'WAVE',coop:'WAVES',campaign:'STAGE',coins:'COINS',gems:'GEMS'})[category];
     introEyebrow.textContent = scope === 'friends' ? 'SQUAD STANDINGS' : 'GLOBAL STANDINGS';
     content.setAttribute('aria-busy', 'true');
     content.replaceChildren(el('div', { class: 'ftd-board-loading' }, [
@@ -131,6 +134,7 @@ export function renderLeaderboards(root: HTMLElement): void {
         return;
       }
       const metric = typeof payload.metric === 'string' && payload.metric.trim() ? payload.metric.trim().slice(0, 50) : 'Score';
+      columns.children[2]!.textContent=metric.toUpperCase();
       const rows = entries.map(entry => el('article', { class: `ftd-board-row${entry.isYou ? ' is-you' : ''}` }, [
         el('div', { class: `ftd-board-row__rank${entry.rank <= 3 ? ` ftd-board-row__rank--${entry.rank}` : ''}` }, [
           entry.rank <= 3 ? lucideIcon(entry.rank === 1 ? 'Crown' : 'Medal', '', 17) : null,
