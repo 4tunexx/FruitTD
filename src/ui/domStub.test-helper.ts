@@ -125,7 +125,17 @@ export class StubElement {
     this.children.push(node);
     return node;
   }
+  insertBefore(node: StubElement, reference: StubElement | null) {
+    if (!reference) return this.appendChild(node);
+    if (node === reference) return node;
+    if (reference.parentElement !== this) throw new Error('Reference is not a child');
+    node.parentElement?.removeChild(node);
+    node.parentElement = this;
+    this.children.splice(this.children.indexOf(reference), 0, node);
+    return node;
+  }
   append(...nodes: StubElement[]) { nodes.forEach(node => this.appendChild(node)); }
+  get childElementCount(): number { return this.children.length; }
   get isConnected(): boolean {
     let node: StubElement | null = this;
     while (node) {

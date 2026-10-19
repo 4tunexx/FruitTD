@@ -1,3 +1,5 @@
+import {registerHooks} from 'node:module';
+registerHooks({load(url,context,nextLoad){return url.endsWith('.css')?{format:'module',source:'export {};',shortCircuit:true}:nextLoad(url,context);}});
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {installDomStub,resetDom} from '../domStub.test-helper';
@@ -49,4 +51,51 @@ test('actual Arena hub entry opens core UI without fetching a retired Arena modu
   assert.equal(requests.some(url=>/\/assets\/.*pvp/.test(url)),false);
   assert.equal(root.querySelector('.ftd-screen-load-error'),null);
  } finally {disposePvpHub(root.children[0] as HTMLElement);globalThis.fetch=oldFetch;setAuthToken(null);resetDom();}
+});
+test('notification centre daily-reward action reaches the real hub daily handler',async()=>{
+ resetDom();setAuthToken('test-only');const root=host(),oldFetch=globalThis.fetch;let daily=0;
+ globalThis.fetch=async url=>{
+  const path=String(url);
+  return new Response(JSON.stringify(path.endsWith('/friends')?{friends:[]}:path.endsWith('/forum')?{posts:[]}:path.endsWith('/notifications')?{unread:1,notifications:[{notificationId:'daily-test',type:'daily_reward',title:'Daily supply ready',body:'Claim your supply',actorName:'FruitTD',createdAt:new Date().toISOString()}]}:{success:true}));
+ };
+ try{
+  const tabs=menuHubTabs({onOpenDaily:()=>daily++,onToggleSound:()=>{},onLogout:()=>{},onStartCampaign:()=>{},showLobbyPage:()=>{}});
+  const {defaultSave}=await import('../../game/save');tabs.find(tab=>tab.id==='NOTIFICATIONS')!.renderMain(root,defaultSave());for(let i=0;i<20&&!root.querySelector('.ftd-social__notification-actions');i++)await new Promise(r=>setTimeout(r,10));
+  const action=[...root.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='View daily rewards');assert.ok(action,root.innerHTML);action.click();await flush();assert.equal(daily,1);
+ }finally{globalThis.fetch=oldFetch;setAuthToken(null);resetDom();}
+});
+test('Arena context shows the selected defender and every destination button routes correctly',async()=>{
+ resetDom();const {navigation}=await import('../../game/navigation');const {defaultSave}=await import('../../game/save');const save=defaultSave();
+ const tabs=menuHubTabs({onOpenDaily:()=>{},onToggleSound:()=>{},onLogout:()=>{},onStartCampaign:()=>{},showLobbyPage:()=>{}});
+ for(const id of ['ARENA','RANKED']){
+  const root=host();tabs.find(tab=>tab.id===id)!.renderSub!(root,save);
+  assert.ok(root.querySelector('.ftd-hero-portrait'));assert.match(root.textContent!,/10 per player/);
+  const targets=['HEROES','LEADERBOARD','SOCIAL'];const buttons=[...root.querySelectorAll<HTMLButtonElement>('button')];
+  assert.equal(buttons.length,targets.length);
+  buttons.forEach((button,index)=>{navigation.home();button.click();assert.equal(navigation.state,targets[index]);});
+  root.remove();
+ }
+ navigation.home();resetDom();
+});
+test('all 18 hub page adapters render both panels for a new account without a blank/error page',async()=>{
+ resetDom();setAuthToken(null);const oldFetch=globalThis.fetch;
+ globalThis.fetch=async()=>new Response(JSON.stringify({entries:[],metric:'Score',friends:[],posts:[],notifications:[],unread:0}));
+ try{
+  const {defaultSave}=await import('../../game/save');const save=defaultSave();
+  const {homeHubTab,heroesHubTab,inventoryHubTab,shopHubTab,profileHubTab,coopHubTab}=await import('./hubTabs');
+  const noop=()=>{};
+  const tabs=[homeHubTab(noop),heroesHubTab({onEquip:noop,onBuy:noop}),inventoryHubTab({onEquip:noop,onSell:noop}),shopHubTab({onBuy:noop}),profileHubTab(()=>({})),coopHubTab(noop),...menuHubTabs({onOpenDaily:noop,onToggleSound:noop,onLogout:noop,onStartCampaign:noop,showLobbyPage:noop})];
+  assert.equal(tabs.length,18);assert.equal(new Set(tabs.map(t=>t.id)).size,18);
+  for(const tab of tabs){
+   const workspace=host();workspace.className='ftd-hub';const root=document.createElement('main'),side=document.createElement('aside');root.className='ftd-hub__main';side.className='ftd-hub__sub';workspace.append(root,side);
+   tab.renderMain(root,save);tab.renderSub?.(side,save);
+   for(let i=0;i<30&&(!root.textContent||root.querySelector('.ftd-loading'));i++)await new Promise(r=>setTimeout(r,10));
+   assert.ok(root.textContent!.trim(),`${tab.id} must show content or a sign-in gate`);
+   assert.ok(side.textContent!.trim(),`${tab.id} must provide contextual content`);
+   assert.equal(root.querySelector('.ftd-screen-load-error'),null,`${tab.id} failed to render`);
+   assert.equal(root.querySelector('.ftd-loading'),null,`${tab.id} left a loading indicator`);
+   if(tab.id==='ARENA'||tab.id==='RANKED')disposePvpHub(root.children[0] as HTMLElement);
+   workspace.remove();
+  }
+ }finally{globalThis.fetch=oldFetch;resetDom();}
 });

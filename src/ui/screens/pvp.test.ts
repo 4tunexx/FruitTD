@@ -211,7 +211,7 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     button('Return to Arena').click(); await flush();
     assert.equal(disposed, 1, 'acknowledging the result releases the renderer');
     assert.equal(hub.classList.contains('is-pvp-battle'), false);
-    assert.match(document.body.textContent!, /Find an opponent/);
+    assert.ok(root.querySelector('.ftd-pvp__launch'), 'returning from a match restores the matchmaking launch panel');
     assert.deepEqual(commands.map(command => command.type), ['build', 'upgrade', 'sell', 'send', 'upgrade-main', 'rally', 'build', 'release', 'surrender']);
   } finally { window.innerWidth = priorWidth; disposePvpHub(root); globalThis.fetch = priorFetch; setAuthToken(null); resetDom(); }
 });

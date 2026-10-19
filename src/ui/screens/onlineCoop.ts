@@ -1,3 +1,4 @@
+import { showScreenLoadFailure } from './loadFailure';
 import { powerButton, updatePowerButton } from '../powerButton';
 import { getAuthToken } from '../../services/auth';
 import { heroAbility } from '../../game/heroAbilities';
@@ -26,7 +27,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  heading.querySelector('button')?.addEventListener('click',()=>openScreen('MAIN_MENU'));
  host.append(heading);
  const notice=el('p',{role:'status',class:'ftd-pvp__intro'});const body=el('div');host.append(notice,body);
- let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let sceneLoadingId='';let selected='guillotine';let towerManagerOpen=false;let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
+ let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let sceneLoadingId='';let sceneFailure:unknown=null;let selected='guillotine';let towerManagerOpen=false;let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
  const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();scene=null;sceneId='';client?.close();client=null;connectedRoom='';};
  const canAttachRoom=(id:string)=>Boolean(room&&room.id===id&&room.status!=='complete');
  const attach=async()=>{if(!room||room.status==='complete'||attaching||connectedRoom===room.id)return;attaching=true;const id=room.id;
@@ -60,7 +61,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   if(disposed||scene?.interacting)return;
   body.replaceChildren();
   body.classList.toggle('ftd-coop-battle', Boolean(room && !['waiting','complete'].includes(room.status)));
-  if(!room){scene?.dispose();scene=null;client?.close();client=null;connectedRoom='';
+  if(!room){scene?.dispose();scene=null;sceneId='';sceneFailure=null;client?.close();client=null;connectedRoom='';
    const code=el('input',{class:'admin-input',placeholder:'10-character friend room code','aria-label':'Friend room code',maxlength:10,value:inviteCode}) as HTMLInputElement;
    body.append(el('div',{class:'ftd-coop-online-actions'},[GameButton({label:'Find a teammate',tone:'primary',onClick:()=>void send('/create',{public:true})}),GameButton({label:'Create private room',variant:'outline',onClick:()=>void send('/create',{public:false})}),code,GameButton({label:'Join friend',variant:'outline',onClick:()=>void send('/join',{code:code.value})}),GameButton({label:'Play locally on this PC',variant:'ghost',onClick:()=>{dispose();startLocal();}})]));return;
   }
@@ -74,8 +75,12 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   void attach();
   const other=room.players.find(p=>p.userId!==yourId);
   const snapshot={id:room.id,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStroke:other?.lastStroke,players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,mainLevel:towerLevelFromXp(room.towerXp??0),mainLastFiredAt:room.mainLastFiredAt,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y}))}]};
-  if(sceneId!==room.id){scene?.dispose();scene=null;sceneId=room.id;sceneLoadingId=room.id;const loadingRoom=room.id;void import('./pvpBattlefield').then(({PvpBattlefield})=>{if(disposed||!body.isConnected||room?.id!==loadingRoom||room.status==='complete'){if(sceneLoadingId===loadingRoom)sceneLoadingId='';return;}scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneLoadingId='';render();}).catch(error=>{if(sceneLoadingId===loadingRoom)sceneLoadingId='';if(!disposed&&room?.id===loadingRoom)notice.textContent=error instanceof Error?`Battlefield could not start: ${error.message}`:'Battlefield could not start.';});}
-  if(!scene){body.append(LoadingIndicator('Loading Co-op battlefield…'));return;}
+  if(sceneId!==room.id){scene?.dispose();scene=null;sceneId=room.id;sceneLoadingId=room.id;const loadingRoom=room.id;void import('./pvpBattlefield').then(({PvpBattlefield})=>{if(disposed||!body.isConnected||room?.id!==loadingRoom||room.status==='complete'){if(sceneLoadingId===loadingRoom)sceneLoadingId='';return;}scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneLoadingId='';render();}).catch(error=>{if(sceneLoadingId===loadingRoom)sceneLoadingId='';if(!disposed&&room?.id===loadingRoom){sceneFailure=error;render();}});}
+  if(!scene){
+   if(sceneFailure){const recovery=el('section');body.append(recovery);showScreenLoadFailure(recovery,'Co-op battlefield',sceneFailure,()=>{sceneFailure=null;sceneId='';render();});}
+   else body.append(LoadingIndicator('Loading Co-op battlefield…'));
+   body.append(GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})}));return;
+  }
   scene.update(snapshot,balance);scene.element.dataset.tower=selected;
   body.append(el('div',{class:'ftd-pvp__matchbar'},[el('strong',{text:`WAVE ${room.wave} · Tower Lv ${towerLevelFromXp(room.towerXp??0)}`}),el('span',{text:`Wall ${room.wallHealth}/${balance.wallHealth} · ${Math.floor(room.fruts)} shared Fruts · ${room.score} score`}),el('span',{text:room.players.map(p=>`${p.name} · ${p.hero}`).join(' + ')}),GameButton({label:'Leave match',variant:'outline',onClick:()=>command({type:'leave'})})]));
   const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]);

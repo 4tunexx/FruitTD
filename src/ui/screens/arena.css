@@ -193,7 +193,7 @@
 .ftd-duel-panel { max-height:min(34dvh,290px); overflow:auto; padding-top:5px; border-top:1px solid #716239; }
 .ftd-duel-panel[hidden] { display:none; }
 .ftd-duel-panel .ftd-duel-guide { display:none; }
-.ftd-duel-tabs { display:none; }
+.ftd-pvp.is-battle .ftd-duel-tabs { display:none; }
 .ftd-duel-cards { padding-bottom:3px; }
 .ftd-duel-card { flex:1 0 76px; min-height:62px; border-radius:5px; border-color:#82703c; background:linear-gradient(145deg,#292b2b,#151718); box-shadow:0 2px 0 #050607; }
 .ftd-duel-card strong { font-size:10px; }

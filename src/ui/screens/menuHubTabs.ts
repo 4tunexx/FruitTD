@@ -1,3 +1,6 @@
+import { heroArt } from '../heroArt';
+import { heroDef } from '../../game/heroes';
+import { MODE_ICONS } from '../modeIcons';
 import { renderPvpHub } from './pvp';
 import { showScreenLoadFailure } from './loadFailure';
 import { Newspaper, Settings, Map, Users, MessageCircle, Bell, ListChecks, Trophy, Medal, Swords } from 'lucide';
@@ -19,6 +22,19 @@ function context(root: HTMLElement, eyebrow: string, title: string, body: string
     el('h2', { text: title }),
     el('p', { text: body }),
     actions,
+  ]));
+}
+
+function siegeContext(root: HTMLElement, save: SaveData, ranked: boolean): void {
+  root.appendChild(el('section', { class: 'ftd-siege-loadout' }, [
+    el('p', { class: 'ftd-hub-context__eyebrow', text: ranked ? 'RANKED ARENA / YOUR DEFENDER' : 'ARENA / YOUR DEFENDER' }),
+    heroArt(save.hero),
+    el('h2', { text: heroDef(save.hero).name }),
+    el('p', { text: ranked ? 'Seasonal FR on the line. Equal starting walls and income.' : 'A full siege without risking your seasonal FR.' }),
+    el('dl', {}, [el('dt', { text: 'BUILD PADS' }), el('dd', { text: '10 per player' }), el('dt', { text: 'MATCH LENGTH' }), el('dd', { text: '3 minutes' }), el('dt', { text: 'VICTORY' }), el('dd', { text: 'Break the rival wall' })]),
+    GameButton({ label: 'Change defender', icon: MODE_ICONS.casual, variant: 'outline', block: true, onClick: () => openScreen('HEROES') }),
+    GameButton({ label: 'Season standings', icon: 'Trophy', variant: 'outline', block: true, onClick: () => openScreen('LEADERBOARD') }),
+    GameButton({ label: 'Invite friends', icon: 'Users', variant: 'outline', block: true, onClick: () => openScreen('SOCIAL') }),
   ]));
 }
 
@@ -91,14 +107,14 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
       { id: 'MESSAGES', label: 'Messages', icon: MessageCircle, view: 'messages' },
       { id: 'NOTIFICATIONS', label: 'Notifications', icon: Bell, view: 'notifications' },
     ] as const).map(({ id, label, icon, view }): HubTab => ({ id, label, icon, renderMain: (root) => {
-      const page = el('div');
-      root.appendChild(page);
-      void import('./social').then(({ renderSocial }) => {
-        if (page.isConnected) renderSocial(page, view);
-      }).catch(() => {
-        if (!page.isConnected) return;
-        page.replaceChildren(el('p', { role: 'alert', text: `${label} could not load. Open it again to retry.` }));
-      });
+      renderLazyPage(root, label, () => import('./social'), (page, module) => module.renderSocial(page, view, {
+        onOpenDailyReward: actions.onOpenDaily,
+        onJoinCoopInvite: (code) => {
+          void import('./onlineCoop').then(({ openOnlineCoopInvite }) => openOnlineCoopInvite(code)).catch((error) => {
+            showScreenLoadFailure(page, 'Co-op', error, () => openScreen('CO_OP'));
+          });
+        },
+      }));
     }, renderSub: (root) => context(root, 'YOUR NETWORK', label, view === 'messages' ? 'Open a conversation with a friend from the list.' : view === 'notifications' ? 'See recent activity and respond from this page.' : 'Find defenders, manage friends, and read the community board.', [
       route('Community', 'SOCIAL'), route('Messages', 'MESSAGES'), route('Notifications', 'NOTIFICATIONS'),
     ]) })),
@@ -109,8 +125,8 @@ export function menuHubTabs(actions: MenuHubActions): HubTab[] {
     { id: 'BADGES', label: 'Badges', page: 'quests', subtab: 'badges', icon: Medal },
   ];
   const pvp: HubTab[] = [
-    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpTab(root, 'ranked'), renderSub: (root) => context(root, 'FR POINT LADDER', 'Ranked siege', 'Public 1v1 fruit siege. Wins, ties, and losses update your seasonal FR rating.', [route('Community', 'SOCIAL')]) },
-    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpTab(root, 'arena'), renderSub: (root) => context(root, 'NORMAL OR RANKED', 'Arena siege', 'Build turrets, upgrade defences, and send attacks. Equal stats, equipped appearances, and the same Rally power. Normal keeps your rank; Ranked changes FR.', [route('Community', 'SOCIAL')]) },
+    { id: 'RANKED', label: 'Ranked PvP', icon: Trophy, renderMain: (root) => renderPvpTab(root, 'ranked'), renderSub: (root, save) => siegeContext(root, save, true) },
+    { id: 'ARENA', label: 'Arena', icon: Swords, renderMain: (root) => renderPvpTab(root, 'arena'), renderSub: (root, save) => siegeContext(root, save, false) },
   ];
   return [...simple, ...pvp, ...legacy.map(({ id, label, page, subtab, icon }): HubTab => ({
     id, label, icon,

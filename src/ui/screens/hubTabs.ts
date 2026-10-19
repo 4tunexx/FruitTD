@@ -1,3 +1,5 @@
+import { showScreenLoadFailure } from './loadFailure';
+import { LoadingIndicator } from '../components/loading';
 import { renderHeroPerkTree } from './heroPerkTree';
 import { heroArt } from '../heroArt';
 import { lucideIcon } from '../lucideIcon';
@@ -488,9 +490,15 @@ export function coopHubTab(onStart?: () => void): HubTab {
     label: 'Co-op',
     icon: UsersRound,
     renderMain: (root) => {
-      void import('./onlineCoop').then(({ renderOnlineCoop }) => {
-        if (root.isConnected) renderOnlineCoop(root, () => onStart?.());
-      });
+      const start = () => {
+        root.replaceChildren(LoadingIndicator('Loading Co-op…'));
+        void import('./onlineCoop').then(({ renderOnlineCoop }) => {
+          if (root.isConnected) renderOnlineCoop(root, () => onStart?.());
+        }).catch((error) => {
+          if (root.isConnected) showScreenLoadFailure(root, 'Co-op', error, start);
+        });
+      };
+      start();
     },
     renderSub: (root) => {
       root.appendChild(el('aside', { class: 'ftd-hub-context' }, [

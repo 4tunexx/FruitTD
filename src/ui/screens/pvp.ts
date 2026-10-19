@@ -234,23 +234,26 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         button.addEventListener('click', () => { queue = choice; render(); }); return button;
       })));
       body.append(el('div', { class: 'ftd-pvp__queue' }, [
-        label(status.queued === queue ? `Searching for an opponent · ${queue.toUpperCase()}` : 'Find an opponent', 'ftd-pvp__section-title'),
+        el('section', { class: 'ftd-pvp__launch' }, [
+          el('div', {}, [label(queue === 'ranked' ? 'SEASONAL RANKED SIEGE' : 'NORMAL SIEGE', 'ftd-pvp__eyebrow'), el('h2', { text: status.queued === queue ? 'FINDING YOUR RIVAL' : 'DEFEND. BUILD. COUNTERATTACK.' }), label('1 vs 1 · 3 minutes · 10 build pads per player', 'ftd-pvp__intro')]),
+          status.queued === queue
+            ? GameButton({ label: 'Cancel search', variant: 'outline', onClick: () => void send('/queue', undefined, 'DELETE') })
+            : GameButton({ label: queue === 'ranked' ? 'Find ranked match' : 'Quick match', tone: 'primary', size: 'lg', onClick: () => void send('/queue', { queue }) }),
+        ]),
+        label('YOUR BATTLE PLAN', 'ftd-pvp__section-title'),
         el('div', { class: 'ftd-pvp__howto' }, [
-          el('div', {}, [el('b', { text: '01 / BUILD' }), el('p', { text: 'Tap one of the ten build pads beside your road and choose its turret. Tap a placed tower to upgrade or sell.' })]),
+          el('div', {}, [el('b', { text: '01 / BUILD' }), el('p', { text: 'Select one of the ten build pads beside your road and choose its turret. Select a placed tower to upgrade or sell.' })]),
           el('div', {}, [el('b', { text: '02 / ATTACK' }), el('p', { text: 'Send fruit squads through the opponent lane. Incoming squads approach your wall.' })]),
           el('div', {}, [el('b', { text: '03 / BREAK THE BASE' }), el('p', { text: 'Pressure a weak defence or save for a heavy push. Destroy the opponent wall or finish with more wall health at time.' })]),
         ]),
         el('details', { class: 'ftd-pvp__rules' }, [el('summary', { text: 'Strategy & advanced rules' }), label(`Earn ${status.config?.incomePerSecond ?? 6} Fruts per second plus kill bounties. Match Fruts are separate from shop coins. Rally: +25% damage for 8 seconds; 35-second cooldown. Upgrade your main tower for damage and +25% wall health. Catchers store three weakened enemies; release them as reinforcements at half per-unit cost. At timeout, the higher wall percentage wins.`, 'ftd-pvp__intro')]),
         label(queue === 'ranked' ? 'Win or lose FR based on opponent rating. Nearby ranks only. No slicing bonuses.' : 'Normal results do not change rank. Both queues start with equal walls and income and match nearby ratings. Your equipped hero powers use match Fruts; ranks improve their effects. Every hero also has Rally.', 'ftd-pvp__intro'),
-        status.queued === queue
-          ? GameButton({ label: 'Cancel search', variant: 'outline', onClick: () => void send('/queue', undefined, 'DELETE') })
-          : GameButton({ label: queue === 'ranked' ? 'Find ranked match' : 'Quick match', tone: 'primary', onClick: () => void send('/queue', { queue }) }),
-        ...(queue === 'arena' ? [el('div', { class: 'ftd-pvp__challenge' }, [el('label', { htmlFor: 'pvp-friend-select', text: 'Challenge a friend' }), el('select', { id: 'pvp-friend-select', class: 'ftd-pvp__friend-select' }, [el('option', { value: '', text: friendsError ? 'Could not load friends' : friendOptions ? friendOptions.length ? 'Choose a friend' : 'Add a friend first' : 'Loading friends…' }), ...(friendOptions || []).map((friend) => el('option', { value: friend.userId, text: friend.name, selected: friend.userId === selectedFriend }))]), GameButton({ label: 'Send challenge', variant: 'outline', onClick: () => { if (selectedFriend) void send('/challenge', { friendId: selectedFriend }); } })])] : []),
+        ...(queue === 'arena' ? [el('div', { class: 'ftd-pvp__challenge' }, [el('h3', { text: 'PRIVATE DUEL' }), el('label', { htmlFor: 'pvp-friend-select', text: 'Challenge a friend' }), el('select', { id: 'pvp-friend-select', class: 'ftd-pvp__friend-select' }, [el('option', { value: '', text: friendsError ? 'Could not load friends' : friendOptions ? friendOptions.length ? 'Choose a friend' : 'Add a friend first' : 'Loading friends…' }), ...(friendOptions || []).map((friend) => el('option', { value: friend.userId, text: friend.name, selected: friend.userId === selectedFriend }))]), GameButton({ label: 'Send challenge', variant: 'outline', disabled: !selectedFriend || busy, onClick: () => { if (selectedFriend) void send('/challenge', { friendId: selectedFriend }); } })])] : []),
         ...(status.challenge ? [el('div', { class: 'ftd-pvp__incoming' }, [label(`${status.challenge.fromName} challenged you.`), GameButton({ label: 'Accept challenge', tone: 'primary', onClick: () => void send(`/challenge/${status.challenge!.challengeId}/accept`) })])] : []),
         ...(status.canStartBotMatch ? [el('div', { class: 'ftd-pvp__bot-start' }, [label('ADMIN PLAYTEST', 'ftd-pvp__section-title'), label('Play the full siege against a server-controlled opponent. Results do not grant FR, rewards, or badges.', 'ftd-pvp__intro'), el('label', { htmlFor: 'pvp-test-map', text: 'Battlefield' }), el('select', { id: 'pvp-test-map', class: 'ftd-pvp__friend-select' }, (status.config?.maps || []).map((map) => el('option', { value: map.id, text: map.name, selected: map.id === selectedTestMap }))), GameButton({ label: `Test ${queue === 'ranked' ? 'Ranked' : 'Arena'} vs bot`, tone: 'primary', onClick: () => void send('/admin/bot', { queue, mapId: main.querySelector<HTMLSelectElement>('#pvp-test-map')?.value || selectedTestMap }) })])] : []),
       ]));
       main.querySelector<HTMLSelectElement>('#pvp-test-map')?.addEventListener('change', (event) => { selectedTestMap = (event.currentTarget as HTMLSelectElement).value; });
-      main.querySelector<HTMLSelectElement>('#pvp-friend-select')?.addEventListener('change', (event) => { selectedFriend = (event.currentTarget as HTMLSelectElement).value; });
+      main.querySelector<HTMLSelectElement>('#pvp-friend-select')?.addEventListener('change', (event) => { selectedFriend = (event.currentTarget as HTMLSelectElement).value; render(); });
       if (queue === 'arena' && !friendOptions && !friendsLoading && !friendsError) {
         friendsLoading = true;
         void socialApi.friends().then(({ friends }) => {
