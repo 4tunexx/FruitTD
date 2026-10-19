@@ -16,7 +16,7 @@ import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../game/campaignStory';
 import { getAuthToken, getCachedAuthUser } from './auth';
 import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../game/pvp';
-import { EXTRACTED_ICON_IDS } from '../ui/extractedIcons';
+import { normalizeIconAssignments as normalizeIconOverrides } from '../ui/extractedIcons';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
 
@@ -184,15 +184,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
   };
 }
 
-function normalizeIconOverrides(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const allowedIcons = new Set(EXTRACTED_ICON_IDS);
-  const result: Record<string, string> = {};
-  for (const [role, id] of Object.entries(value as Record<string, unknown>).slice(0, 128)) {
-    if (/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(role) && typeof id === 'string' && allowedIcons.has(id)) result[role] = id;
-  }
-  return result;
-}
+
 
 function mergePvpConfig(raw: unknown): PvpConfig {
   const value = raw && typeof raw === 'object' ? raw as Partial<PvpConfig> : {};

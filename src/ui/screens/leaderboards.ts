@@ -10,7 +10,7 @@ type BoardScope = 'global' | 'friends';
 type BoardEntry = { rank: number; name: string; value: number; detail: string; isYou: boolean };
 
 const categories: Array<{ id: BoardCategory; label: string; icon: string }> = [
-  { id: 'ranked', label: 'Ranked FR', icon: 'Swords' },
+  { id: 'ranked', label: 'Ranked FR', icon: MODE_ICONS.ranked },
   { id: 'casual', label: 'Casual', icon: MODE_ICONS.casual },
   { id: 'horde', label: 'Horde', icon: MODE_ICONS.horde },
   { id: 'coop', label: 'Co-op', icon: MODE_ICONS.coop },

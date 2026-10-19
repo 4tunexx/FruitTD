@@ -1,4 +1,5 @@
-import { ICON_ASSETS, EXTRACTED_ICON_IDS, extractedIcon } from '../extractedIcons';
+import { lucideIcon } from '../lucideIcon';
+import { ICON_ASSETS, ICON_ROLE_IDS, ICON_ROLE_ALIASES, EXTRACTED_ICON_IDS, extractedIcon } from '../extractedIcons';
 import { el } from '../components/dom';
 
 const GROUPS: Record<string, string> = {
@@ -8,6 +9,8 @@ const GROUPS: Record<string, string> = {
 };
 
 const ROLE_NAMES: Record<string, string> = {
+  ModeCasual: 'Mode: Casual', ModeHorde: 'Mode: Horde', ModeCampaign: 'Mode: Campaign',
+  ModeCoop: 'Mode: Co-op', ModeArena: 'Mode: Arena', ModeRanked: 'Mode: Ranked',
   Apple: 'Fruit', Backpack: 'Inventory', Bomb: 'Bomb', Castle: 'Home', ChartNoAxesCombined: 'Career chart',
   ChevronRight: 'Next', Coins: 'Coins', Crown: 'Profile', Diamond: 'Gems', Droplets: 'Juice',
   Flame: 'Fire', Gift: 'Gift', Gauge: 'Power meter', Gem: 'Gem', Hammer: 'Upgrade', Heart: 'Health',
@@ -19,7 +22,7 @@ const ROLE_NAMES: Record<string, string> = {
   ChevronsUp: 'Rank up', CircleDot: 'Marker', ScanLine: 'Scan',
 };
 
-const ROLE_LABELS: Record<string, string> = Object.fromEntries(Object.keys(ICON_ASSETS)
+const ROLE_LABELS: Record<string, string> = Object.fromEntries(ICON_ROLE_IDS
   .map((id) => [id, ROLE_NAMES[id] || id.replace(/([a-z])([A-Z])/g, '$1 $2')]));
 
 export type IconAssignment = (role: string, iconId: string | null) => Promise<{ ok: boolean; message: string }>;
@@ -27,21 +30,33 @@ export type IconAssignment = (role: string, iconId: string | null) => Promise<{ 
 /** Full, searchable asset library with shared semantic icon assignments. */
 export function renderIconLibrary(host: HTMLElement, overrides: Record<string, string>, onAssign: IconAssignment): void {
   let selected = '';
+  let busy = false;
+  let visibleCount = 60;
   const activeOverrides = { ...overrides };
-  const search = el('input', { class: 'admin-input admin-icon-library__search', type: 'search', placeholder: 'Find by icon ID…', 'aria-label': 'Search icon IDs' }) as HTMLInputElement;
+  const search = el('input', { class: 'admin-input admin-icon-library__search', type: 'search', placeholder: 'Search Horde, shield, weapons or icon ID…', 'aria-label': 'Search icons' }) as HTMLInputElement;
   const group = el('select', { class: 'admin-input', 'aria-label': 'Filter icon collection' }, [
     el('option', { value: 'all', text: 'All collections' }),
     ...Object.entries(GROUPS).map(([id, label]) => el('option', { value: id, text: label })),
   ]) as HTMLSelectElement;
-  const role = el('select', { class: 'admin-input', 'aria-label': 'Icon role to update' },
+  const role = el('select', { class: 'admin-input', 'aria-label': 'Icon role to update', 'data-testid': 'admin-icon-role' },
     Object.entries(ROLE_LABELS).map(([id, label]) => el('option', { value: id, text: `${label} · ${id}` }))) as HTMLSelectElement;
-  const grid = el('div', { class: 'admin-icon-library__grid', role: 'list', 'aria-label': 'Extracted icon collection' });
+  group.value = 'all';
+  role.value = ICON_ROLE_IDS[0];
+  const grid = el('div', { class: 'admin-icon-library__grid', role: 'group', 'aria-label': 'Extracted icon collection' });
   const preview = el('div', { class: 'admin-icon-library__preview' });
   const count = el('p', { class: 'admin-icon-library__count', role: 'status' });
   const status = el('p', { class: 'admin-icon-library__status', role: 'status', 'aria-live': 'polite' });
   const assign = el('button', { class: 'admin-btn-action', type: 'button', text: 'Apply selected icon' }) as HTMLButtonElement;
   const reset = el('button', { class: 'admin-btn-action admin-btn-action--warning', type: 'button', text: 'Restore default' }) as HTMLButtonElement;
+  const more = el('button', { class: 'admin-btn-action', type: 'button', text: 'Load more icons' }) as HTMLButtonElement;
   assign.disabled = true;
+
+  function setBusy(value: boolean): void {
+    busy = value;
+    role.disabled = group.disabled = search.disabled = more.disabled = value;
+    grid.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = value; });
+    renderSelection();
+  }
 
   function renderSelection(): void {
     preview.replaceChildren();
@@ -51,24 +66,29 @@ export function renderIconLibrary(host: HTMLElement, overrides: Record<string, s
     } else {
       preview.append(extractedIcon(selected, 'admin-icon-library__large', 72));
       preview.append(el('strong', { text: selected }));
-      assign.disabled = false;
+      assign.disabled = busy;
     }
     const mapped = activeOverrides[role.value];
-    reset.disabled = !mapped;
-    if (mapped) preview.append(el('span', { class: 'admin-icon-library__mapped', text: `Current ${ROLE_LABELS[role.value] || role.value}: ${mapped}` }), extractedIcon(mapped, 'admin-icon-library__current', 30));
+    const fallback = ICON_ROLE_ALIASES[role.value] || role.value;
+    const current = mapped || ICON_ASSETS[fallback];
+    reset.disabled = busy || !mapped;
+    preview.append(el('span', { class: 'admin-icon-library__mapped', text: `Current ${ROLE_LABELS[role.value] || role.value}: ${current || 'default'}` }),
+      current ? extractedIcon(current, 'admin-icon-library__current', 40) : lucideIcon(fallback, 'admin-icon-library__current', 40));
   }
 
   function renderGrid(): void {
     const term = search.value.trim().toLowerCase();
     const filtered = EXTRACTED_ICON_IDS.filter((id) =>
-      (group.value === 'all' || id.startsWith(`${group.value}-`)) && (!term || id.includes(term)));
-    count.textContent = `${filtered.length} of ${EXTRACTED_ICON_IDS.length} icons · ${Object.keys(ICON_ASSETS).length} game roles`;
-    grid.replaceChildren(...filtered.map((id) => {
+      (group.value === 'all' || id.startsWith(`${group.value}-`)) && (!term || `${id} ${GROUPS[id.split('-')[0]] || ''} ${Object.entries(ICON_ASSETS).filter(([, asset]) => asset === id).map(([key]) => ROLE_NAMES[key] || key).join(' ')} ${Object.entries(ICON_ROLE_ALIASES).filter(([, key]) => ICON_ASSETS[key] === id).map(([key]) => ROLE_NAMES[key]).join(' ')}`.toLowerCase().includes(term)));
+    count.textContent = `${filtered.length} of ${EXTRACTED_ICON_IDS.length} icons · ${ICON_ROLE_IDS.length} game roles`;
+    more.hidden = filtered.length <= visibleCount;
+    more.textContent = `Load more icons (${Math.max(0, filtered.length - visibleCount)} remaining)`;
+    grid.replaceChildren(...filtered.slice(0, visibleCount).map((id) => {
       const button = el('button', {
         class: `admin-icon-library__item${id === selected ? ' is-selected' : ''}`,
-        type: 'button', 'aria-pressed': String(id === selected),
+        type: 'button', disabled: busy, 'aria-pressed': String(id === selected),
         'aria-label': `Preview icon ${id}`, title: id,
-      }, [extractedIcon(id, '', 36), el('small', { text: id })]);
+      }, [extractedIcon(id, '', 44), el('small', { text: id })]);
       button.addEventListener('click', () => {
         selected = id;
         grid.querySelectorAll<HTMLButtonElement>('.admin-icon-library__item').forEach((item) => {
@@ -82,39 +102,44 @@ export function renderIconLibrary(host: HTMLElement, overrides: Record<string, s
     }));
   }
 
-  search.addEventListener('input', renderGrid);
-  group.addEventListener('change', renderGrid);
+  const filterIcons = () => { visibleCount = 60; renderGrid(); };
+  search.addEventListener('input', filterIcons);
+  group.addEventListener('change', filterIcons);
+  more.addEventListener('click', () => { if (!busy) { visibleCount += 60; renderGrid(); } });
   role.addEventListener('change', renderSelection);
   assign.addEventListener('click', async () => {
-    if (!selected) return;
-    assign.disabled = reset.disabled = true;
+    if (!selected || busy) return;
+    const roleId = role.value, iconId = selected;
+    setBusy(true);
     try {
-      const result = await onAssign(role.value, selected);
+      const result = await onAssign(roleId, iconId);
       status.textContent = result.message;
-      if (result.ok) activeOverrides[role.value] = selected;
-      renderSelection();
+      if (result.ok) activeOverrides[roleId] = iconId;
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : 'Could not save icon assignment.';
-      renderSelection();
+    } finally {
+      setBusy(false);
     }
   });
   reset.addEventListener('click', async () => {
-    assign.disabled = reset.disabled = true;
+    if (busy) return;
+    const roleId = role.value;
+    setBusy(true);
     try {
-      const result = await onAssign(role.value, null);
+      const result = await onAssign(roleId, null);
       status.textContent = result.message;
-      if (result.ok) delete activeOverrides[role.value];
-      renderSelection();
+      if (result.ok) delete activeOverrides[roleId];
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : 'Could not restore the default icon.';
-      renderSelection();
+    } finally {
+      setBusy(false);
     }
   });
 
   const toolbar = el('div', { class: 'admin-icon-library__toolbar' }, [search, group, role, assign, reset]);
   host.replaceChildren(
-    el('p', { class: 'admin-icon-library__intro', text: 'Every extracted icon is kept here. Filter the collection, preview a mark, and assign it to a shared game icon role. Changes publish to the live admin configuration.' }),
-    toolbar, count, preview, grid, status,
+    el('p', { class: 'admin-icon-library__intro', text: 'Every extracted icon is kept here. Filter the collection, preview a mark, and assign it to a named mode or a shared game icon role. Mode assignments update every occurrence of that mode. Changes publish to the live admin configuration.' }),
+    toolbar, count, preview, grid, more, status,
   );
   renderSelection();
   renderGrid();

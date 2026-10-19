@@ -18,7 +18,7 @@ import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../../src/game/c
 import { resolveRequestUser } from '../auth';
 import { validId } from '../validation';
 import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../../src/game/pvp';
-import { ICON_ASSETS, EXTRACTED_ICON_IDS } from '../../src/ui/extractedIcons';
+import { normalizeIconAssignments as normalizeIconOverrides } from '../../src/ui/extractedIcons';
 
 export const adminRouter = Router();
 
@@ -259,16 +259,7 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   iconOverrides: {},
 };
 
-function normalizeIconOverrides(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const roles = new Set(Object.keys(ICON_ASSETS));
-  const assets = new Set(EXTRACTED_ICON_IDS);
-  const result: Record<string, string> = {};
-  for (const [role, id] of Object.entries(value as Record<string, unknown>).slice(0, 128)) {
-    if (roles.has(role) && typeof id === 'string' && assets.has(id)) result[role] = id;
-  }
-  return result;
-}
+
 
 // Check if request is authenticated as admin (Steam ID only)
 async function isAuthorized(req: Request): Promise<boolean> {

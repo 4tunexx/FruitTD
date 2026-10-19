@@ -1,0 +1,20 @@
+/* Admin's icon library uses a stable, readable preview and room for lifted art. */
+.admin-icon-library__toolbar { grid-template-columns: minmax(180px, 1fr) minmax(140px, .7fr) minmax(190px, 1fr); align-items: stretch; }
+.admin-icon-library__toolbar button { min-height: 42px; }
+.admin-icon-library__preview { flex-wrap: wrap; gap: 12px; min-height: 112px; }
+.admin-icon-library__large { flex: 0 0 72px; filter: none; }
+.admin-icon-library__current { flex: 0 0 40px; }
+.admin-icon-library__mapped { margin-left: 0; overflow-wrap: anywhere; }
+.admin-icon-library__grid { padding: 14px 8px 8px; gap: 10px; }
+.admin-icon-library__item { min-height: 94px; padding: 10px 4px 8px; gap: 10px; overflow: visible !important; clip-path: none !important; }
+.admin-icon-library__item .ftd-extracted-icon { transition: transform 180ms cubic-bezier(.2,.8,.2,1); }
+.admin-icon-library__item.is-selected .ftd-extracted-icon { transform: translateY(-7px); }
+.admin-icon-library__item:focus-visible { outline: 2px solid #ffe08a; outline-offset: 2px; }
+.admin-icon-library__toolbar :disabled { opacity: .6; cursor: wait; }
+@media (max-width: 760px) {
+  .admin-icon-library__toolbar { grid-template-columns: 1fr 1fr; }
+  .admin-icon-library__toolbar select[aria-label='Icon role to update'] { grid-column: 1 / -1; }
+  .admin-icon-library__preview { padding: 12px; }
+  .admin-icon-library__mapped { flex: 1 1 120px; }
+}
+@media (prefers-reduced-motion: reduce) { .admin-icon-library__item .ftd-extracted-icon { transition: none; } }

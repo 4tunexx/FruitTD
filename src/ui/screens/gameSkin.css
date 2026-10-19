@@ -834,3 +834,41 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 .ftd-screen .ftd-btn__icon > .ftd-extracted-icon,
 .ftd-surface .ftd-btn__icon > .ftd-extracted-icon { width: 100% !important; height: 100% !important; }
 #screen-hub .ftd-hub__header .ftd-hub-social__icon { width: 22px !important; height: 22px !important; }
+
+/* Raised icon artwork lives above the frame; captions stay on their baseline. */
+#screen-hub :is(.ftd-hub-tab, .ftd-mode-card),
+#screen-hub .ftd-btn:is(.ftd-btn--outline, .ftd-btn--ghost),
+.admin-icon-library__item {
+  overflow: visible !important;
+  clip-path: none !important;
+  isolation: isolate;
+}
+#screen-hub .ftd-hub__footer { overflow: visible; padding-top: 12px; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab { min-height: 74px; padding: 8px 4px 6px; gap: 8px; }
+#screen-hub .ftd-mode-select__grid { padding-top: 10px; padding-bottom: 3px; }
+#screen-hub :is(.ftd-hub-tab__icon, .ftd-mode-card__icon, .ftd-btn__icon) {
+  position: relative; z-index: 2; overflow: visible;
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), filter 180ms ease;
+}
+#screen-hub :is(.ftd-hub-tab__label, .ftd-mode-card__copy, .ftd-btn__label) { position: relative; z-index: 1; }
+#screen-hub :is(.ftd-hub-tab.is-active, .ftd-hub-tab:active, .ftd-hub-tab:focus-visible) .ftd-hub-tab__icon,
+#screen-hub :is(.ftd-mode-card.is-active, .ftd-mode-card:active, .ftd-mode-card:focus-visible) .ftd-mode-card__icon {
+  transform: translateY(-10px) scale(1.08) !important;
+  filter: drop-shadow(0 4px 2px #0005) !important;
+}
+/* The old sweeping layer escaped the frame once overflow was opened. */
+#screen-hub .ftd-hub-tab.is-active::after { content: none !important; }
+@media (hover: hover) and (pointer: fine) {
+  #screen-hub .ftd-hub-tab:hover .ftd-hub-tab__icon,
+  #screen-hub .ftd-mode-card:hover .ftd-mode-card__icon { transform: translateY(-10px) scale(1.08) !important; }
+}
+@media (max-width: 640px) {
+  #screen-hub.ftd-hub.is-home .ftd-mode-card { min-height: 78px; padding: 8px 4px 6px; gap: 8px; }
+  #screen-hub.ftd-hub.is-home .ftd-mode-card__copy strong { line-height: 1.2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-hub :is(.ftd-hub-tab__icon, .ftd-mode-card__icon) { transition: none; }
+}
+
+#screen-hub .ftd-hub__footer .ftd-hub-tab__label { font-size: .62rem; }
+@media (max-width: 640px) { #screen-hub.ftd-hub.is-home .ftd-mode-card__copy strong { font-size: .62rem; } }

@@ -8,7 +8,7 @@ import {
   User, UserPlus, Users, Volume2, VolumeX, Waves, X, Zap, createElement, type IconNode,
 } from 'lucide';
 import { GAME_GLYPHS } from './gameGlyphs';
-import { ICON_ASSETS, extractedIcon } from './extractedIcons';
+import { ICON_ASSETS, ICON_ROLE_ALIASES, extractedIcon } from './extractedIcons';
 import { getLiveConfig } from '../services/liveConfig';
 
 const ICONS: Record<string, IconNode> = {
@@ -24,27 +24,32 @@ const ICONS: Record<string, IconNode> = {
 /** Render only icons shipped with the application. Admin supplied names fall back safely. */
 export function lucideIcon(name: string | null | undefined, className = '', size = 20): SVGElement | HTMLElement {
   const key = name || '';
-  const asset = getLiveConfig().iconOverrides[key] || ICON_ASSETS[key];
+  const fallback = ICON_ROLE_ALIASES[key] || key;
+  // Replacing an SVG with a PNG (or restoring it) must not retain renderer classes.
+  const cleanClass = className.split(/\s+/).filter(value => value && value !== 'ftd-extracted-icon' && value !== 'ftd-game-glyph').join(' ');
+  const overrides = getLiveConfig().iconOverrides;
+  const asset = overrides[key] || overrides[fallback] || ICON_ASSETS[fallback];
+  let icon: SVGElement | HTMLElement;
   if (asset) {
-    const cssSized = /(?:^|\s)(?:ftd-mode-card__icon|ftd-hub-tab__icon|ftd-home-mode-detail__art)(?:\s|$)/.test(className);
-    const icon = extractedIcon(asset, className, cssSized ? 0 : size);
-    icon.dataset.iconRole = key;
-    return icon;
+    const cssSized = /(?:^|\s)(?:ftd-mode-card__icon|ftd-hub-tab__icon|ftd-home-mode-detail__art)(?:\s|$)/.test(cleanClass);
+    icon = extractedIcon(asset, cleanClass, cssSized ? 0 : size);
+  } else if (typeof document.createElementNS !== 'function') {
+    icon = document.createElement('span');
+    icon.className = cleanClass;
+    icon.setAttribute('aria-hidden', 'true');
+  } else {
+    const node = GAME_GLYPHS[fallback] ?? ICONS[fallback] ?? BadgeCheck;
+    icon = createElement(node, { class: `${cleanClass}${GAME_GLYPHS[fallback] ? ' ftd-game-glyph' : ''}`.trim(), width: size, height: size, 'aria-hidden': 'true' });
   }
-  const node = GAME_GLYPHS[name || ''] ?? ICONS[name || ''] ?? BadgeCheck;
-  if (typeof document.createElementNS !== 'function') {
-    const fallback = document.createElement('span');
-    fallback.className = className;
-    fallback.setAttribute('aria-hidden', 'true');
-    return fallback;
-  }
-  return createElement(node, { class: `${className}${GAME_GLYPHS[name || ''] ? ' ftd-game-glyph' : ''}`.trim(), width: size, height: size, 'aria-hidden': 'true' });
+  icon.setAttribute('data-icon-role', key);
+  icon.setAttribute('data-icon-size', String(size));
+  return icon;
 }
 
 function refreshPublishedIcons(): void {
-  document.querySelectorAll<HTMLElement>('.ftd-extracted-icon[data-icon-role]').forEach((icon) => {
-    const size = Number.parseFloat(icon.style.width) || 20;
-    icon.replaceWith(lucideIcon(icon.dataset.iconRole, icon.className, size));
+  document.querySelectorAll<SVGElement | HTMLElement>('[data-icon-role]').forEach((icon) => {
+    const size = Number(icon.getAttribute('data-icon-size')) || 20;
+    icon.parentElement?.replaceChild(lucideIcon(icon.getAttribute('data-icon-role'), icon.getAttribute('class') || '', size), icon);
   });
 }
 

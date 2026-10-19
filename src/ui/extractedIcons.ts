@@ -1,3 +1,4 @@
+import { GAME_GLYPHS } from './gameGlyphs';
 import { EXTRACTED_ICON_BOUNDS } from './extractedIconBounds';
 /** Individual transparent crops from the three icon sheets supplied for FruitTD. */
 const groups: Record<string, number[]> = {
@@ -37,6 +38,28 @@ export const ICON_ASSETS: Record<string, string> = {
   ArrowUpCircle: 'misc-02-06', ChartNoAxesCombined: 'stat-02-01', Gauge: 'stat-02-01',
   UserRound: 'lobby-01-03', User: 'lobby-01-03',
 };
+
+/** Mode roles are independent: changing Horde must not change every enemy skull. */
+export const ICON_ROLE_ALIASES: Record<string, string> = {
+  ModeCasual: 'Shield', ModeHorde: 'Skull', ModeCampaign: 'Map',
+  ModeCoop: 'Users', ModeArena: 'Swords', ModeRanked: 'Swords',
+};
+export const ICON_ROLE_IDS = Object.freeze([...new Set([
+  ...Object.keys(ICON_ROLE_ALIASES), ...Object.keys(ICON_ASSETS), ...Object.keys(GAME_GLYPHS),
+  'AlertTriangle', 'BrainCircuit', 'CalendarDays', 'Circle', 'Gamepad2', 'GitBranch', 'Infinity',
+  'Link', 'Move', 'Palette', 'RotateCcw', 'UserPlus', 'Volume2', 'VolumeX',
+])]);
+
+/** Shared by Admin's client and API so published roles survive a reload. */
+export function normalizeIconAssignments(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const roles = new Set(ICON_ROLE_IDS);
+  const result: Record<string, string> = {};
+  for (const [role, id] of Object.entries(value).slice(0, 128)) {
+    if (roles.has(role) && typeof id === 'string' && knownIds.has(id)) result[role] = id;
+  }
+  return result;
+}
 
 export function extractedIcon(id: string, className = '', size = 20): HTMLElement {
   const safeId = knownIds.has(id) ? id : 'rune-01-01';
