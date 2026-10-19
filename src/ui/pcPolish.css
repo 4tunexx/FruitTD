@@ -80,8 +80,8 @@ html[data-ftd-motion] #screen-hub.ftd-hub :is(button,.ftd-hero-tile):hover :is(.
 @media(min-width:1100px) and (min-height:600px) {
  body[data-ftd-screen='PLAY'] #app { background:radial-gradient(ellipse at center,#38322b,#181b1e 70%); }
  body[data-ftd-screen='PLAY'] #game-canvas { border:1px solid #8c7850; box-shadow:0 0 40px #0008; box-sizing:border-box; }
- body[data-ftd-screen='PLAY'] #player-chip { left:24px; top:18px; max-width:340px; }
- body[data-ftd-screen='PLAY'] #player-chip .player-chip__identity { display:block; }
+ body[data-ftd-screen='PLAY'] #player-chip { left:24px; top:18px; max-width:calc(var(--combat-left) - 48px); flex-wrap:wrap; gap:5px; }
+ body[data-ftd-screen='PLAY'] #player-chip:not(.is-collapsed) .player-chip__identity { display:block; }
  body[data-ftd-screen='PLAY'] #battle-status { top:18px!important; left:calc(var(--combat-left) + 12px); right:auto; width:calc(var(--combat-width) - 24px); }
  body[data-ftd-screen='PLAY'] #battle-status > span { font-size:16px; padding:12px; }
  body[data-ftd-screen='PLAY'] #battle-status small { font-size:11px; }

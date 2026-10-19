@@ -16,6 +16,10 @@ export class TurretEffects {
   const travel=projectileTravelSeconds(kind,from.distanceTo(to));
   const duration=travel?travel+.4:kind==='laser'?.24:kind==='sprinkler'?.7:.38;
   const stats=kind==='main'?null:weaponStats(kind,level);
+  if(kind==='laser'||kind==='vortex'){
+   const direction=to.clone().sub(from);direction.y=0;
+   if(direction.lengthSq()>0)to=from.clone().addScaledVector(direction.normalize(),radius??stats!.range);
+  }
   const beam=(a:Vector3,b:Vector3,r:number,tint:number,opacity=1)=>{
    const delta=b.clone().sub(a),mesh=this.mesh(new CylinderGeometry(r,r,Math.max(.01,delta.length()),6),tint,opacity);
    mesh.position.copy(a).lerp(b,.5);mesh.quaternion.setFromUnitVectors(new Vector3(0,1,0),delta.normalize());group.add(mesh);return mesh;
@@ -77,7 +81,7 @@ export class TurretEffects {
      m.visible=e.age>=e.travel;m.position.copy(e.to).add(new Vector3(Math.cos(angle)*distance,Math.sin(blast*Math.PI)*.5,Math.sin(angle)*distance));m.scale.setScalar(.6+blast*1.8);mat.opacity=(1-blast)*.85;
     }
     if(m.userData.shock){m.visible=e.age>=e.travel;m.position.copy(e.to);m.position.y=.14;m.scale.setScalar(.1+blast*m.userData.shock);mat.opacity=(1-blast)*.7;}
-    if(m.userData.flame!==undefined){const p=(t*1.2+m.userData.flame)%1;m.position.copy(e.from).addScaledVector(m.userData.direction,p*m.userData.reach).addScaledVector(m.userData.side,Math.sin(m.userData.flame*37)*p*m.userData.reach*.45);m.scale.setScalar(.4+p*1.2);mat.opacity=(1-p)*.85;}
+    if(m.userData.flame!==undefined){const p=(t*1.2+m.userData.flame)%1;m.position.copy(e.from).addScaledVector(m.userData.direction,p*m.userData.reach).addScaledVector(m.userData.side,Math.sin(m.userData.flame*37)*p*m.userData.reach*.55);m.scale.setScalar(.4+p*1.2);mat.opacity=(1-p)*.85;}
     if(m.userData.mist!==undefined){const p=(t+m.userData.mist*.35)%1,angle=m.userData.mist*Math.PI*2+t*.5;m.position.copy(e.from).add(new Vector3(Math.cos(angle)*p*m.userData.reach,.15+Math.sin(p*Math.PI)*.3,Math.sin(angle)*p*m.userData.reach));mat.opacity=(1-p)*.5;}
     if(m.userData.velocity){m.position.addScaledVector(m.userData.velocity,dt);m.userData.velocity.y-=6*dt;}
     if(m.userData.spin)m.rotation.z+=dt*18;

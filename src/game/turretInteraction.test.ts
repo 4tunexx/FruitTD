@@ -74,3 +74,14 @@ test('published turret level settings, attack hooks and audio survive server and
   assert.equal(normalizeTurretTuning({damageMultiplier:999,rangeMultiplier:-4})!.damageMultiplier,10);
   assert.equal(normalizeTurretTuning({damageMultiplier:999,rangeMultiplier:-4})!.rangeMultiplier,.25);
 });
+
+
+test('flame and laser presentation reaches the configured damage range past the first target',()=>{
+ for(const kind of ['vortex','laser'] as const){
+  const effects=new TurretEffects(),source=new Vector3(0,1,0),target=new Vector3(0,1,2);
+  effects.shot(kind,source,target,1,undefined,1,6);
+  const effect=(effects as any).effects[0];
+  assert.ok(Math.abs(effect.to.distanceTo(source)-6)<1e-6);
+  assert.equal(target.z,2,'presentation never mutates the actual target');effects.clear();
+ }
+});

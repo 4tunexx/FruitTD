@@ -192,7 +192,7 @@ export class TurretRig {
     this.animate(dt,!!tracked);this.cooldown=Math.max(0,this.cooldown-dt);this.charge+=dt;
     const onHit=(fruit:Fruit,damage:number)=>{
       ctx.onHit({fruit,damage:damage*tuning.damageMultiplier,brittle:this.kind==='sprinkler',split:this.kind==='guillotine'});
-      fireStudioEvent(`tower-${this.kind}-level-${level}`,'onImpact',fruit.group.position)||fireStudioEvent(`tower-${this.kind}`,'onImpact',fruit.group.position);
+      if(this.kind!=='railgun'&&this.kind!=='blender')fireStudioEvent(`tower-${this.kind}-level-${level}`,'onImpact',fruit.group.position)||fireStudioEvent(`tower-${this.kind}`,'onImpact',fruit.group.position);
     };
     if(this.projectile){
       const shot=this.projectile;shot.left-=dt;
@@ -201,7 +201,7 @@ export class TurretRig {
         const blast=weaponStats(this.kind,shot.level).blast;
         for(const fruit of fruits)if(fruit.alive&&Math.hypot(fruit.group.position.x-shot.x,fruit.group.position.z-shot.z)<=blast)onHit(fruit,weaponStats(this.kind,shot.level).damage);
         juice.floorSplash(shot.x,shot.z,TURRET_WEAPONS[this.kind].color,12);
-        if(!fireStudioEvent(`tower-${this.kind}`,'onImpact',{x:shot.x,y:.7,z:shot.z}))playStudioSound('bombExplode');
+        if(!(fireStudioEvent(`tower-${this.kind}-level-${shot.level}`,'onImpact',{x:shot.x,y:.7,z:shot.z})||fireStudioEvent(`tower-${this.kind}`,'onImpact',{x:shot.x,y:.7,z:shot.z})))playStudioSound('bombExplode');
         this.projectile=null;
       }
     }
