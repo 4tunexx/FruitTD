@@ -1,5 +1,7 @@
+import { combatTokenFrame, COMBAT_ORANGE } from './combatTokens';
 import {
   CanvasTexture,
+  CircleGeometry,
   DoubleSide,
   Group,
   Mesh,
@@ -98,15 +100,16 @@ export class WallBase {
 
     const keepMat = new MeshLambertMaterial({ color: 0x6e3128, side: DoubleSide, transparent: true });
     this.keepMesh = new Mesh(
-      new PlaneGeometry(2.1, 2.1),
+      new CircleGeometry(1.05, 48),
       keepMat,
     );
+    this.keepMesh.add(combatTokenFrame(1.05, 'tower'));
     this.keepMesh.position.set(0, 1.15, WALL_Z);
     this.group.add(this.keepMesh);
     // A framed segmented bar sits just below the wall and remains attached to
     // the tower as the camera moves.
     const hpZ = WALL_Z - 1.45;
-    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.58), new MeshBasicMaterial({ color: 0xd6be70, depthWrite: false, depthTest: false }));
+    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.58), new MeshBasicMaterial({ color: COMBAT_ORANGE, depthWrite: false, depthTest: false }));
     hpFrame.rotation.x = -Math.PI / 2;
     hpFrame.position.set(0, 0.135, hpZ);
     const towerHpTrack = new Mesh(new PlaneGeometry(ARENA_W - 1.95, 0.4), new MeshBasicMaterial({ color: 0x303d28, depthWrite: false, depthTest: false }));
@@ -137,7 +140,7 @@ export class WallBase {
 
     this.rangeRing = new Mesh(
       new RingGeometry(0.7, 0.92, 40),
-      new MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.4, depthWrite: false }),
+      new MeshBasicMaterial({ color: COMBAT_ORANGE, transparent: true, opacity: 0.4, depthWrite: false }),
     );
     this.rangeRing.rotation.x = -Math.PI / 2;
     this.rangeRing.position.y = 0.08;
@@ -572,7 +575,9 @@ export class WallBase {
       mat.map = map;
       mat.needsUpdate = true;
     }
-    return new Mesh(new PlaneGeometry(radius * 2, radius * 2), mat);
+    const portrait = new Mesh(new CircleGeometry(radius, 48), mat);
+    portrait.add(combatTokenFrame(radius, 'hero'));
+    return portrait;
   }
 
   private resizeHead(slot: Slot): void {

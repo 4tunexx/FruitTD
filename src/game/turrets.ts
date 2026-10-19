@@ -1,4 +1,5 @@
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
+import { combatTokenFrame } from './combatTokens';
+import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
 import type { Fruit } from './fruits';
 import type { JuiceBank, JuiceSystem } from './juice';
 import type { PadDef } from './world';
@@ -90,7 +91,8 @@ export class TurretRig {
   constructor(kind: TurretKind) {
     this.kind = kind;
     const colors: Record<TurretKind, number> = { guillotine: 0xff6622, vortex: 0x6ec6c0, laser: 0xffee55, railgun: 0xd48aa0, sprinkler: 0xff8a2a, blender: 0x888888 };
-    const placeholder = new Mesh(new PlaneGeometry(0.9, 1.1), new MeshBasicMaterial({ color: colors[kind], side: DoubleSide, transparent: true, opacity: 0.9 }));
+    const placeholder = new Mesh(new CircleGeometry(.55, 40), new MeshBasicMaterial({ color: colors[kind], side: DoubleSide, transparent: true, opacity: 0.9 }));
+    placeholder.add(combatTokenFrame(.55, 'tower'));
     placeholder.position.y = 0.6;
     this.group.add(placeholder);
     this.placeholder = placeholder;

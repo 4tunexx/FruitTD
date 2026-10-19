@@ -1,3 +1,4 @@
+import { combatTokenFrame } from '../../game/combatTokens';
 import { battleScenery, battleTexture } from '../../game/battleArt';
 import { PowerVfx } from '../../game/powerVfx';
 import { heroAbility } from '../../game/heroAbilities';
@@ -168,10 +169,10 @@ export class PvpBattlefield {
           const rig = new TurretRig(tower.type === 'catcher' ? 'vortex' : tower.type as TurretKind);
           if (tower.type === 'catcher') {
             while (rig.group.children.length) this.release(rig.group.children[0] as Mesh);
-            const marker = new Mesh(new PlaneGeometry(1, 1.2), new MeshBasicMaterial({ color: 0x99b89a, side: DoubleSide })); marker.position.y = .7; rig.group.add(marker);
+            const marker = new Mesh(new CircleGeometry(.6, 40), new MeshBasicMaterial({ color: 0x99b89a, side: DoubleSide })); marker.position.y = .7; marker.add(combatTokenFrame(.6, 'tower')); rig.group.add(marker);
           }
           const bodies: Mesh[] = []; rig.group.traverse((object) => { if (object instanceof Mesh) bodies.push(object); });
-          for (const object of bodies) { const outline = new Mesh(object.geometry, new MeshBasicMaterial({ color: 0x07110b, side: BackSide })); outline.scale.setScalar(1.06); object.add(outline); }
+          for (const object of bodies) { if (object.userData.combatFrame) continue; const outline = new Mesh(object.geometry, new MeshBasicMaterial({ color: 0x07110b, side: BackSide })); outline.scale.setScalar(1.06); object.add(outline); }
           rig.group.position.copy(this.cellPoint(tower.cell, own)); rig.group.scale.setScalar(1.15);
           const pad = new Mesh(new PlaneGeometry(1.4,.2), new MeshLambertMaterial({ color: this.sideColors[player.side] ?? 0xa3e635, side: DoubleSide }));
           rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, type: tower.type, own, cell: tower.cell, level: pvpTowerLevel(tower.level) });
@@ -188,7 +189,8 @@ export class PvpBattlefield {
           const texture = sampleStudioTexture(enemyKindToStudioKey(fruit.type as Parameters<typeof enemyKindToStudioKey>[0])) || getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin);
           const teamColor = player.side === 'blue' ? COLORS.red : COLORS.blue;
           const size = fruit.type === 'armored' ? 1.36 : .96;
-          const mesh = new Mesh(new PlaneGeometry(size,size), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, transparent: true, side: DoubleSide, depthWrite: false }));
+          const mesh = new Mesh(new CircleGeometry(size / 2, 40), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, transparent: true, side: DoubleSide, depthWrite: false }));
+          mesh.add(combatTokenFrame(size / 2, fruit.boss ? 'boss' : 'fruit'));
           const shadow = new Mesh(new CircleGeometry(fruit.type === 'armored' ? .78 : .58, 16), new MeshBasicMaterial({color:0x06130d,transparent:true,opacity:.28,depthWrite:false}));
           shadow.rotation.x = -Math.PI / 2; shadow.position.y = -.56; mesh.add(shadow);
           if (!snapshot.shared) {
@@ -297,19 +299,22 @@ export class PvpBattlefield {
       const wall = new Mesh(new PlaneGeometry(map.width * TILE_X, 1.05), new MeshLambertMaterial({ color: this.snapshot.shared ? WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? COLORS.blue : teamColor, side: DoubleSide }));
       this.wallMaterials.push(wall.material as MeshLambertMaterial);
       wall.position.y = .5;
-      const keep = new Mesh(new PlaneGeometry(2.1, 2.4), new MeshLambertMaterial({ color: teamColor, side: DoubleSide, transparent: true }));
+      const keep = new Mesh(new CircleGeometry(1.1, 48), new MeshLambertMaterial({ color: teamColor, side: DoubleSide, transparent: true }));
       this.mainTowerMaterials.push(keep.material as MeshLambertMaterial);
+      keep.add(combatTokenFrame(1.1, 'tower'));
       keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
       const towerTexture = sampleStudioTexture('tower-main') || getAdminTexture('tower-main'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
       const hero = heroDef((player.hero || 'jiju') as HeroId);
       const heroKey = heroIdToStudioKey(hero.id);
       const heroTexture = sampleStudioTexture(heroKey, 'idle') || getAdminTexture(`hero-${hero.id}`);
       const heroMaterial = new MeshBasicMaterial({ color: heroTexture ? 0xffffff : hero.color, map: heroTexture, transparent: true, side: DoubleSide });
-      const avatar = new Mesh(new PlaneGeometry(2.5, 3), heroMaterial);
+      const avatar = new Mesh(new CircleGeometry(1.25, 48), heroMaterial);
+      avatar.add(combatTokenFrame(1.25, 'hero'));
       avatar.position.set(gateX + 2.2, 1.7, own ? -.4 : .4); base.add(avatar);
       this.heroArt.push({ key: heroKey, material: heroMaterial });
       for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
-        const turret = new Mesh(new PlaneGeometry(1.6, 2), new MeshLambertMaterial({ color: teamColor, side: DoubleSide }));
+        const turret = new Mesh(new CircleGeometry(.85, 40), new MeshLambertMaterial({ color: teamColor, side: DoubleSide }));
+        turret.add(combatTokenFrame(.85, 'tower'));
         turret.position.set(x, 1, 0); base.add(turret);
       }
       const rail = new Mesh(new PlaneGeometry(map.width * TILE_X * .8, .12), new MeshBasicMaterial({ color: teamColor, side: DoubleSide }));

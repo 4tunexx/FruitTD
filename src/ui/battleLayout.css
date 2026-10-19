@@ -130,3 +130,16 @@ body[data-ftd-screen='PLAY'] #hud-toast { top:18px; bottom:auto; max-width:calc(
   .hero-ability-slot__icon { width: 34px; height: 34px; }
   .hero-ability-slot__name { display: none; }
 }
+
+/* Circular combat portraits sit against the same graphite and orange as the hub. */
+.hero-ability-slot { overflow: visible; clip-path: none !important; border: 0; background: transparent !important; box-shadow: none !important; }
+.hero-ability-slot__portrait { box-sizing: border-box; border: 2px solid #f48120; border-radius: 50%; background: #202125; box-shadow: 0 0 0 2px #141519; }
+.hero-ability-slot__icon { border-radius: 50%; width: 38px; height: 38px; }
+.hero-ability-slot__sweep { border-radius: 50%; }
+.hero-ability-slot.is-ready .hero-ability-slot__portrait { border-color: #ffac32; box-shadow: 0 0 0 2px #141519; }
+.hero-ability-slot__cooldown { color: #ffbd64; }
+body[data-ftd-screen='PLAY'] :is(#player-chip, #btn-game-menu-quick, #sidebar, #btn-sidebar-toggle, #boss-health) { border-color: #f48120; background-color: #202125ed; }
+body[data-ftd-screen='PLAY'] #super-bar-track { border-color: #f48120; background: #191b1e; }
+body[data-ftd-screen='PLAY'] #boss-health { box-shadow: 0 3px 0 #101113; }
+.ftd-pvp.is-battle :is(.ftd-duel-hud, .ftd-duel-dock) { border-color: #f48120; }
+@media (max-height: 520px) { .hero-ability-slot__icon { width: 30px; height: 30px; } }

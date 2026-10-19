@@ -872,3 +872,32 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 
 #screen-hub .ftd-hub__footer .ftd-hub-tab__label { font-size: .62rem; }
 @media (max-width: 640px) { #screen-hub.ftd-hub.is-home .ftd-mode-card__copy strong { font-size: .62rem; } }
+
+/* Solid orange contour on artwork that rises above its button frame. */
+:root { --ftd-art-stroke: #f48120; }
+#screen-hub :is(.ftd-hub-tab.is-active, .ftd-hub-tab:active, .ftd-hub-tab:focus-visible, .ftd-mode-card.is-active, .ftd-mode-card:active, .ftd-mode-card:focus-visible) :is(.ftd-hub-tab__icon, .ftd-mode-card__icon),
+.admin-icon-library__item.is-selected .ftd-extracted-icon {
+  filter: drop-shadow(1px 0 0 var(--ftd-art-stroke)) drop-shadow(-1px 0 0 var(--ftd-art-stroke)) drop-shadow(0 1px 0 var(--ftd-art-stroke)) drop-shadow(0 -1px 0 var(--ftd-art-stroke)) !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  #screen-hub .ftd-hub-tab:hover .ftd-hub-tab__icon,
+  #screen-hub .ftd-mode-card:hover .ftd-mode-card__icon {
+    filter: drop-shadow(1px 0 0 var(--ftd-art-stroke)) drop-shadow(-1px 0 0 var(--ftd-art-stroke)) drop-shadow(0 1px 0 var(--ftd-art-stroke)) drop-shadow(0 -1px 0 var(--ftd-art-stroke)) !important;
+  }
+}
+
+#screen-hub .ftd-btn:is(:active, :focus-visible) .ftd-btn__icon,
+#screen-hub .ftd-hero-tile:is(.is-selected, :active, :focus-visible) .ftd-hero-portrait,
+#screen-hub .ftd-duel-icon-button:is(.is-active, :active, :focus-visible) > .ftd-game-glyph,
+#screen-hub .ftd-power-row:focus-within .ftd-power-row__icon {
+  filter: drop-shadow(1px 0 0 #f48120) drop-shadow(-1px 0 0 #f48120) drop-shadow(0 1px 0 #f48120) drop-shadow(0 -1px 0 #f48120) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #screen-hub .ftd-btn:hover .ftd-btn__icon,
+  #screen-hub .ftd-hero-tile:hover .ftd-hero-portrait,
+  #screen-hub .ftd-duel-icon-button:hover > .ftd-game-glyph,
+  #screen-hub .ftd-power-row:hover .ftd-power-row__icon {
+    filter: drop-shadow(1px 0 0 #f48120) drop-shadow(-1px 0 0 #f48120) drop-shadow(0 1px 0 #f48120) drop-shadow(0 -1px 0 #f48120) !important;
+  }
+}

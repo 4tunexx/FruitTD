@@ -1,4 +1,5 @@
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3 } from 'three';
+import { combatTokenFrame, setCombatTokenKind } from './combatTokens';
+import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
 import { ARENA_D, ARENA_W, LEAK_Z } from './world';
 import { modeRules } from './modes';
@@ -61,7 +62,7 @@ export interface Fruit {
 }
 
 // Flat billboard placeholders can be replaced by uploaded enemy and boss sheets.
-const BODY_GEO = new PlaneGeometry(2, 2);
+const BODY_GEO = new CircleGeometry(1, 48);
 const BAR_GEO = new PlaneGeometry(1, 1);
 const HAZARD_GEO = new PlaneGeometry(2.4, 2.4);
 const ARMOR_GEO = new PlaneGeometry(2.2, 2.2);
@@ -92,6 +93,7 @@ function layoutHp(fruit: Fruit, t: number): void {
 
 function makeFruit(): Fruit {
   const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff, transparent: true, side: DoubleSide, depthWrite: false }));
+  body.add(combatTokenFrame(1));
   const outline = new Mesh(BODY_GEO, new MeshBasicMaterial({ color: 0x080b07, side: DoubleSide, transparent: true, depthWrite: false }));
   outline.position.z = 0.02;
   outline.scale.setScalar(1.075);
@@ -273,6 +275,7 @@ export class FruitField {
     }
 
     idle.outline.visible = boss;
+    setCombatTokenKind(idle.body.getObjectByName('combat-token-frame') as Group, boss ? 'boss' : 'fruit');
     idle.alive = true; idle.kind = kind; idle.enemyKind = enemyKind; idle.boss = boss;
     idle.radius = def.radius * (boss ? 1.05 : 0.62);
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
@@ -479,12 +482,11 @@ export class FruitField {
       if (reachedRouteEnd || (!route && fruit.group.position.z <= LEAK_Z)) { this.kill(fruit, false); onLeak(fruit); continue; }
       fruit.squash = Math.max(0, fruit.squash - dt);
       const squash = fruit.squash > 0 ? 1 - fruit.squash * 1.4 : 1;
-      const def = FRUIT_DEFS[fruit.kind];
-      const stretch = def.stretch;
+      // Circular portrait tokens retain the original collision radius and gait.
       fruit.group.scale.set(
-        fruit.radius * stretch[0] * (2 - squash),
-        fruit.radius * stretch[1] * squash,
-        fruit.radius * stretch[2] * (2 - squash),
+        fruit.radius * (2 - squash),
+        fruit.radius * squash,
+        fruit.radius * (2 - squash),
       );
       const stride = Math.sin(fruit.bob);
       fruit.group.position.y = (fruit.boss ? 1.05 : 0.62) + stride * (fruit.boss ? (fruit.enemyKind === 'armored' ? 0.12 : 0.09) : 0.06);
