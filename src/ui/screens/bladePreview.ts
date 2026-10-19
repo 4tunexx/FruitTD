@@ -53,7 +53,7 @@ function draw(now: number): void {
     const progress = Math.min(1, phase / .32);
     let opacity = 1;
     if (!preview.pointer) {
-      opacity = phase < .32 ? 1 : Math.max(0, 1 - (phase - .32) / .15);
+      opacity = phase < .32 ? 1 : Math.max(.22, 1 - (phase - .32) / .15);
       preview.points = Array.from({ length: 16 }, (_, i) => {
         const t = Math.max(0, progress - (15 - i) * .027);
         return { x: .12 + t * .76, y: .66 - Math.sin(t * Math.PI) * .27 - t * .25 };
@@ -70,7 +70,7 @@ function draw(now: number): void {
     // Shine belongs to the moving cut, rather than a separate panel overlay.
     const glint = Math.max(0, Math.min(1, slicer?.glint ?? .25));
     const tip = points[points.length - 1];
-    if (glint > 0) {
+    if (glint > 0 && opacity > .3) {
       ctx.globalAlpha = opacity * glint;
       const x = tip.x * rect.width, y = tip.y * rect.height;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.shadowColor = slicer?.glowColor ?? '#fff'; ctx.shadowBlur = 6;

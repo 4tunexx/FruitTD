@@ -12,7 +12,7 @@ test('blade cards contain one animated canvas and no static sword or stacked ove
   for (const selector of ['img', 'svg', '.ftd-blade-preview__edge', '.ftd-blade-preview__trail', '.ftd-blade-preview__glint']) assert.equal(preview.querySelector(selector), null);
 });
 
-test('preview moves the slice, draws its shine, then clears between swipes', async () => {
+test('preview moves the slice, draws its shine, keeps a faint color sample between swipes', async () => {
   const { animateBladePreview } = await import('./bladePreview');
   const oldFrame = globalThis.requestAnimationFrame;
   let nextFrame: FrameRequestCallback | undefined;
@@ -39,6 +39,7 @@ test('preview moves the slice, draws its shine, then clears between swipes', asy
     nextFrame!(began + 300);
     assert.ok(paths[15][0] > earlyTip[0], 'slice travels across the card');
     nextFrame!(began + 1200);
-    assert.equal(strokes.length, 0, 'no static cut or weapon remains between animations');
+    assert.equal(strokes.length, 2, 'idle afterimage keeps the card legible without another weapon or shine');
+    assert.ok(strokes.every(stroke => stroke.opacity <= .22), 'idle preview stays subdued');
   } finally { preview.dispose(); nextFrame?.(began + 1300); globalThis.requestAnimationFrame = oldFrame; }
 });

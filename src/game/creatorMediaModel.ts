@@ -104,6 +104,7 @@ function normalizeEntityData(raw: unknown): EntityStudioData {
     label: typeof entity.label === 'string' ? entity.label : undefined,
     events: normalizeEvents(entity.events),
     turret: normalizeTurretTuning(entity.turret),
+    ...(entity.ignoreLegacy===true?{ignoreLegacy:true}:{}),
   };
 }
 
@@ -118,7 +119,7 @@ function migrateStoreToV2(raw: unknown): MediaStudioStore {
   const selectedEntity = typeof source.selectedEntity === 'string' && isSafeEntityKey(source.selectedEntity)
     ? source.selectedEntity
     : 'enemy-normal';
-  return { version: 2, entities, sounds:source.sounds as Record<string,string>|undefined, selectedEntity };
+  return { version: 2, entities, sounds:source.sounds as Record<string,string>|undefined, removedSounds:Array.isArray(source.removedSounds)?source.removedSounds.filter((id):id is string=>typeof id==='string').slice(0,128):undefined, selectedEntity };
 }
 
 export function loadStudioStore(): MediaStudioStore {

@@ -86,6 +86,8 @@ import { installMenuInput } from './ui/menuInput';
 import { installNumberMotion } from './ui/numberMotion';
 import './ui/numberMotion.css';
 import './ui/battleLayout.css';
+import './ui/admin/creatorWorkspace.css';
+import './ui/pcPolish.css';
 import { installPowerHotkeys } from './ui/powerButton';
 
 // Theme + layout must be applied before any UI renders.
@@ -168,6 +170,7 @@ const debris = new SliceDebris((g) => renderer.scene.add(g));
 const juice = new JuiceSystem();
 const bank = new JuiceBank();
 const wall = new WallBase();
+window.addEventListener('fruit-td-creator-update',()=>{wall.applySkins();});
 for(const id of ['btn-sidebar-close','btn-sidebar-hide'])document.getElementById(id)?.addEventListener('click',()=>wall.deselect());
 const blade = new BladeInput(canvas, renderer.camera, renderer);
 const trail = new BladeTrail();

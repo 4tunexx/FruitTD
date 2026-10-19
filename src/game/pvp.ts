@@ -5,20 +5,22 @@ export type PvpQueue = 'arena' | 'ranked';
 export type PvpTier = 'Amateur' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Emerald' | 'Sapphire';
 export interface PvpMap { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] }
 
-function route(waypoints: Array<[number, number]>): number[] {
-  const cells: number[] = [];
-  for (let i = 0; i < waypoints.length; i++) {
-    const [x, y] = waypoints[i]!; const [nextX, nextY] = waypoints[i + 1] ?? [x, y];
-    if (!cells.length) cells.push(y * 10 + x);
-    if (nextY !== y) { const step = Math.sign(nextY - y); for (let row = y + step; row !== nextY + step; row += step) cells.push(row * 10 + x); }
-    else if (nextX !== x) { const step = Math.sign(nextX - x); for (let column = x + step; column !== nextX + step; column += step) cells.push(y * 10 + column); }
-  }
-  return cells;
+/** Ten authored plots, shared by the preview and authoritative build rules. */
+export function siegeBuildCells(width: number, height: number): number[] {
+  const middle = Math.floor(width / 2) - 1;
+  return Array.from({length: 5}, (_, i) => {
+    const row = Math.round(i * (height - 2) / 4);
+    return [row * width + Math.max(0, middle - 1), row * width + Math.min(width - 1, middle + 1)];
+  }).flat();
 }
-
-function makeMap(id: string, name: string, waypoints: Array<[number, number]>): PvpMap {
-  const width = 10; const height = 14; const pathCells = route(waypoints);
-  return { id, name, width, height, pathCells, buildCells: Array.from({ length: width * height }, (_, i) => i).filter((cell) => !pathCells.includes(cell)) };
+function makeMap(id: string, name: string): PvpMap {
+  const width = 10, height = 14;
+  return {id, name, width, height, pathCells: Array.from({length: height}, (_, row) => row * width + 4), buildCells: siegeBuildCells(width, height).map((cell, index) => {
+    const variant = ['orchard-crossing','windfall','old-grove','riverbend','twin-rows','stone-arch','long-harvest'].indexOf(id);
+    if (index < 2 || variant <= 0) return cell;
+    const row = Math.floor(cell / width), column = cell % width;
+    return Math.min(height - 2, row + (variant % 3 === 1 && index < 6 ? 1 : 0)) * width + column + (variant % 2 && index % 4 >= 2 ? (index % 2 ? 1 : -1) : 0);
+  })};
 }
 
 export interface PvpConfig {
@@ -39,15 +41,15 @@ export interface PvpConfig {
 
 export const DEFAULT_PVP_CONFIG: PvpConfig = {
   version: 1,
-  map: makeMap('orchard-crossing', 'Orchard Crossing', [[4, 0], [4, 13]]),
+  map: makeMap('orchard-crossing', 'Orchard Crossing'),
   maps: [
-    makeMap('orchard-crossing', 'Orchard Crossing', [[4, 0], [4, 13]]),
-    makeMap('windfall', 'Windfall Run', [[1, 0], [1, 3], [8, 3], [8, 6], [2, 6], [2, 9], [7, 9], [7, 13]]),
-    makeMap('old-grove', 'Old Grove', [[8, 0], [8, 2], [2, 2], [2, 5], [7, 5], [7, 8], [1, 8], [1, 11], [6, 11], [6, 13]]),
-    makeMap('riverbend', 'Riverbend', [[5, 0], [5, 4], [1, 4], [1, 7], [8, 7], [8, 10], [3, 10], [3, 13]]),
-    makeMap('twin-rows', 'Twin Rows', [[0, 0], [0, 3], [6, 3], [6, 5], [2, 5], [2, 8], [9, 8], [9, 11], [4, 11], [4, 13]]),
-    makeMap('stone-arch', 'Stone Arch', [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
-    makeMap('long-harvest', 'Long Harvest', [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]]),
+    makeMap('orchard-crossing', 'Orchard Crossing'),
+    makeMap('windfall', 'Windfall Run'),
+    makeMap('old-grove', 'Old Grove'),
+    makeMap('riverbend', 'Riverbend'),
+    makeMap('twin-rows', 'Twin Rows'),
+    makeMap('stone-arch', 'Stone Arch'),
+    makeMap('long-harvest', 'Long Harvest'),
   ],
   durationSeconds: 180, wallHealth: 1000, startingFruts: 0, incomePerSecond: 6, reconnectGraceSeconds: 45,
   mainTower: { damage: 18, range: 2, cooldownMs: 1000 },
@@ -93,7 +95,15 @@ export function normalizePvpMaps(input: unknown): PvpMap[] {
     const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
     const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs((cell % width) - (path[i - 1]! % width)) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1]! / width)) === 1)) && Math.floor(path[0]! / width) === 0 && Math.floor(path.at(-1)! / width) === height - 1;
     if (!valid) return structuredClone(fallback);
-    return { id: String(row.id || fallback.id).slice(0, 48), name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: Array.from({ length: width * height }, (_, cell) => cell).filter((cell) => !path.includes(cell)) };
+    const id = String(row.id || fallback.id).slice(0, 48);
+    // Upgrade the shipped zigzag arenas without discarding authored custom maps.
+    const builtin = DEFAULT_PVP_CONFIG.maps.find(map => map.id === id);
+    if (builtin && (!Array.isArray(row.buildCells) || row.buildCells.length > 10)) return {...structuredClone(builtin), name: String(row.name || builtin.name).slice(0, 64)};
+    const legal = (cell: number) => Number.isInteger(cell) && cell >= 0 && cell < width * height && !path.includes(cell);
+    const requested = Array.isArray(row.buildCells) ? row.buildCells.map(Number) : [];
+    const pads = [...new Set([...requested, ...siegeBuildCells(width, height), ...Array.from({length:width*height}, (_,i)=>i)])].filter(legal).slice(0,10);
+    return { id, name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: pads };
+
   });
 }
 

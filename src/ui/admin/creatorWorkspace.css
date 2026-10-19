@@ -1,0 +1,36 @@
+.ftd-entity-art { position:relative;display:block;width:100%;height:100%;min-width:0;overflow:hidden; }
+.ftd-entity-art__image { position:absolute;inset:0;background-repeat:no-repeat;background-position:center;background-size:contain; }
+.ftd-entity-art.is-empty { display:grid;place-items:center;color:#c7bdad;font-size:10px; }
+.ftd-hero-portrait__published { position:absolute;inset:0; }
+#modal-admin .sprite-preview { display:grid;grid-template-rows:minmax(0,1fr) auto;gap:5px;padding:8px;background:#202125;border:1px solid #9f8048; }
+#modal-admin .sprite-preview small { color:#ffe394;font-size:10px;line-height:1.3; }
+#modal-admin .sprite-save-status { color:#d5c9ad;font-size:11px;line-height:1.5;min-height:1.5em; }
+#modal-admin .studio-header { flex-wrap:wrap;gap:12px;border-bottom:2px solid #c5a25c;padding-bottom:14px; }
+#modal-admin .studio-title { color:#ffe394;font-size:24px;letter-spacing:.035em;text-transform:uppercase; }
+#modal-admin .studio-sub { color:#d5cbb8;max-width:75ch;line-height:1.6; }
+#modal-admin .creator-layout { display:grid;grid-template-columns:minmax(210px,.8fr) minmax(0,1.8fr) minmax(230px,1fr);gap:14px;align-items:start; }
+#modal-admin .studio-panel { min-width:0;padding:14px!important;border:1px solid #b09254!important;background:linear-gradient(145deg,#303034,#1b1d21)!important; }
+#modal-admin .studio-panel--rail { display:grid;gap:9px; }
+#modal-admin .studio-entity-rail { max-height:520px;overflow:auto;overscroll-behavior:contain;display:grid;gap:7px;scrollbar-color:#c4a05b #17191d; }
+#modal-admin .studio-rail-item { display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px 10px;align-items:center;min-height:76px;padding:9px;text-align:left; }
+#modal-admin .studio-rail-thumb { width:48px;height:48px;grid-row:1/4; }
+#modal-admin .studio-rail-title { overflow-wrap:anywhere;font-size:12px; }
+#modal-admin .studio-rail-meta { color:#c8bda6;font-size:10px; }
+#modal-admin .studio-rail-cov { display:flex;gap:3px; }
+#modal-admin .studio-rail-item.is-on { border-color:#ffe394;background:#5c4725!important;box-shadow:inset 3px 0 #ffe394; }
+#modal-admin .studio-input { min-height:40px;min-width:0;max-width:100%;box-sizing:border-box; }
+#modal-admin .studio-toolbar { gap:8px;flex-wrap:wrap; }
+#modal-admin .studio-btn { min-height:40px;white-space:normal; }
+#modal-admin .studio-btn--accent { background:linear-gradient(110deg,#ffda59,#ffb62d);color:#16191c;border-color:#ffe394; }
+#modal-admin .studio-live-artwork { display:grid;grid-template-columns:72px 1fr;gap:5px 12px;align-items:center;border:1px solid #ad8e51;padding:12px;margin-bottom:14px; }
+#modal-admin .studio-live-thumb { width:72px;height:72px;grid-row:1/3; }
+#modal-admin .studio-live-artwork strong { color:#ffe394;font-size:14px; }
+#modal-admin .studio-live-artwork small { color:#d5cbb8;font-size:10px;overflow-wrap:anywhere; }
+#modal-admin :is(#studio-sheet-canvas,#studio-preview-canvas,#studio-timeline-canvas) { max-width:100%;height:auto;box-sizing:border-box; }
+#modal-admin .admin-icon-library__live,#modal-admin .admin-icon-library__candidate { display:grid;justify-items:center;gap:8px;min-width:130px;flex:1;padding:16px;border:1px solid #c6a05a;background:#242529;color:#ffe394; }
+#modal-admin .admin-icon-library__candidate { border-style:dashed; }
+#modal-admin .admin-icon-library__preview small { font-size:10px;letter-spacing:.06em; }
+#modal-admin .admin-icon-library__mapped { text-align:center;font-size:11px; }
+@media(max-width:1250px) { #modal-admin .creator-layout { grid-template-columns:minmax(180px,.7fr) minmax(0,1.5fr); } #modal-admin .creator-layout > .studio-panel--preview { grid-column:1/-1; } }
+@media(max-width:760px) { #modal-admin .creator-layout { display:flex;flex-direction:column; } #modal-admin .creator-layout>.studio-panel { width:100%;box-sizing:border-box; } #modal-admin .studio-entity-rail { max-height:260px;grid-template-columns:repeat(2,minmax(0,1fr)); } #modal-admin .studio-rail-item { grid-template-columns:36px minmax(0,1fr);padding:6px;gap:4px; } #modal-admin .studio-rail-thumb { width:36px;height:36px; } #modal-admin .studio-toolbar>.studio-btn { flex:1 1 130px; } }
+.admin-route-grid .is-pad { color:#ffe394; border-color:#ffe394; background:#403723; }

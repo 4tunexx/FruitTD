@@ -61,6 +61,12 @@ export function normalizeIconAssignments(value: unknown): Record<string, string>
   return result;
 }
 
+/** Resolve aliases identically in runtime controls and Admin's current-icon preview. */
+export function resolveIconAsset(role:string,overrides:Record<string,string>):string|undefined {
+  const fallback=ICON_ROLE_ALIASES[role]||role;
+  return overrides[role]||overrides[fallback]||ICON_ASSETS[fallback];
+}
+
 export function extractedIcon(id: string, className = '', size = 20): HTMLElement {
   const safeId = knownIds.has(id) ? id : 'rune-01-01';
   const path = `/assets/icons/extracted/${safeId}.png`;

@@ -1,3 +1,4 @@
+import { subscribeStudioRuntimeInvalidation } from './studioRuntimeSignals';
 import { CanvasTexture, LinearFilter, SRGBColorSpace } from 'three';
 import { getAdminSprite, type AdminSpriteType } from '../ui/adminSprites';
 
@@ -89,3 +90,5 @@ export function refreshAdminTexture(type: AdminSpriteType): void {
   }
   textureCache.delete(type);
 }
+
+subscribeStudioRuntimeInvalidation(clearAdminTextureCache);

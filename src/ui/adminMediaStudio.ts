@@ -1,3 +1,6 @@
+import { builtinEntityArtwork, resolveEntityArtwork, mergeStudioDraft, type Artwork } from '../game/entityArtwork';
+import { getPublishedCreatorMedia } from '../game/creatorMedia';
+import { artworkPreview } from './entityArtworkPreview';
 import { normalizeTurretTuning, DEFAULT_TURRET_TUNING, type TurretTuning } from '../game/turretTuning';
 /**
  * FruitTD Creator Hub v2 — sprite sheet editor, clip timeline, event hooks, sound bank.
@@ -53,6 +56,7 @@ export interface EntityStudioData {
   label?: string;
   events?: StudioEntityEvents;
   turret?: TurretTuning;
+  ignoreLegacy?:boolean;
 }
 
 export interface MediaStudioStore {
@@ -60,6 +64,7 @@ export interface MediaStudioStore {
   entities: Record<string, EntityStudioData>;
   selectedEntity: string;
   sounds?:Record<string,string>;
+  removedSounds?:string[];
 }
 
 export const FX_PRESETS: FxPreset[] = ['none', 'juice-burst', 'spark', 'dark-pulse', 'screen-shake'];
@@ -74,6 +79,7 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'tower-wall', label: 'Full-width Defense Wall (tower-wall)' },
   ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: `${kind} tower` })),
   ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).flatMap(kind=>Array.from({length:10},(_,i)=>({key:`tower-${kind}-level-${i+1}`,label:`${kind} · Level ${i+1} artwork / attack / impact`}))),
+  ...['jiju','topfu','lagen','tripos','ki'].flatMap(hero=>Array.from({length:6},(_,i)=>({key:`power-${hero}-${i+1}`,label:`${hero} · Ability ${i+1} icon`}))),
   { key: 'hero-jiju', label: 'Master Jiju (hero-jiju)' },
   { key: 'hero-topfu', label: 'Topfu (hero-topfu)' },
   { key: 'hero-lagen', label: 'Lagen (hero-lagen)' },
@@ -257,6 +263,7 @@ export function normalizeEntityData(raw: unknown): EntityStudioData {
     label: typeof e.label === 'string' ? e.label : undefined,
     events: normalizeEvents(e.events),
     turret: normalizeTurretTuning(e.turret),
+    ...(e.ignoreLegacy===true?{ignoreLegacy:true}:{}),
   };
 }
 
@@ -279,7 +286,7 @@ export function migrateStoreToV2(raw: unknown): MediaStudioStore {
     typeof s.selectedEntity === 'string' && isSafeEntityKey(s.selectedEntity)
       ? s.selectedEntity
       : 'enemy-normal';
-  return { version: 2, entities, sounds:s.sounds as Record<string,string>|undefined, selectedEntity: selected };
+  return { version: 2, entities, sounds:s.sounds as Record<string,string>|undefined, removedSounds:Array.isArray(s.removedSounds)?s.removedSounds.filter((id):id is string=>typeof id==='string').slice(0,128):undefined, selectedEntity: selected };
 }
 
 export function coverageForEntity(ent: EntityStudioData): { key: string; ok: boolean }[] {
@@ -379,6 +386,13 @@ let eventLog: string[] = [];
 let playAllActive = false;
 let playAllQueue: StudioState[] = [];
 
+let sheetRequest=0;
+let fallbackImage:HTMLImageElement|null=null;
+let fallbackArtwork:Artwork|null=null;
+let entityFilter='all';
+let entitySearch='';
+let studioMounted=false;
+function legacyArtwork(key:string):string|null {try{return localStorage.getItem(`admin-sprite-${key}`);}catch{return null;}}
 function currentEntity(): EntityStudioData {
   const key = store.selectedEntity;
   if (!store.entities[key]) store.entities[key] = emptyEntityData();
@@ -428,10 +442,12 @@ function fillEntitySelect(): void {
 function renderEntityRail(): void {
   const list = $('studio-entity-rail');
   if (!list) return;
-  const keys = knownEntityKeys();
+  const keys=knownEntityKeys().filter(key=>(entityFilter==='all'||key.startsWith(`${entityFilter}-`))&&`${key} ${entityLabel(key,store.entities[key])}`.toLowerCase().includes(entitySearch));
   list.innerHTML = '';
+  const count=$('studio-entity-count');if(count)count.textContent=`${keys.length} assets · select an asset to edit`;
   for (const key of keys) {
     const ent = store.entities[key] ?? emptyEntityData();
+    const art=resolveEntityArtwork(key,store.entities,legacyArtwork(key));
     const cov = coverageSummary(ent);
     const row = document.createElement('button');
     row.type = 'button';
@@ -442,7 +458,8 @@ function renderEntityRail(): void {
     title.textContent = entityLabel(key, ent);
     const meta = document.createElement('span');
     meta.className = 'studio-rail-meta';
-    meta.textContent = `${cov.hasSheet ? 'sheet' : 'no sheet'} · ${cov.filled}/${cov.total}`;
+    const published=getPublishedCreatorMedia()?.entities[key];
+    meta.textContent = cov.hasSheet?`${published?.sheetDataUrl===ent.sheetDataUrl?'Published':'Draft'} · ${cov.filled}/${cov.total} clips`:art?'Built-in game artwork':'Built-in mechanism';
     const coverage = document.createElement('span');
     coverage.className = 'studio-rail-cov';
     for (const item of coverageForEntity(ent).slice(0, 11)) {
@@ -451,8 +468,9 @@ function renderEntityRail(): void {
       dot.title = item.key;
       coverage.appendChild(dot);
     }
-    row.append(title, meta, coverage);
+    row.append(artworkPreview(art,entityLabel(key,ent),'studio-rail-thumb'),title, meta, coverage);
     row.addEventListener('click', () => {
+      persistAll();
       store.selectedEntity = key;
       fillEntitySelect();
       void onEntityChange();
@@ -535,23 +553,30 @@ function readEventInputsIntoEntity(): void {
 }
 
 function loadSheetImage(dataUrl: string | null): Promise<void> {
-  return new Promise((resolve) => {
-    if (!dataUrl) {
-      sheetImg = null;
-      resolve();
-      return;
-    }
-    const img = new Image();
-    img.onload = () => {
-      sheetImg = img;
-      resolve();
-    };
-    img.onerror = () => {
-      sheetImg = null;
-      resolve();
-    };
-    img.src = dataUrl;
+  const request=++sheetRequest;sheetImg=null;fallbackImage=null;
+  fallbackArtwork=dataUrl?null:resolveEntityArtwork(store.selectedEntity,store.entities,legacyArtwork(store.selectedEntity))||builtinEntityArtwork(store.selectedEntity);
+  renderLiveArtwork();
+  const source=dataUrl||fallbackArtwork?.source;
+  if(!source)return Promise.resolve();
+  return new Promise(resolve=>{
+    const img=new Image();img.onload=()=>{if(request===sheetRequest){if(dataUrl)sheetImg=img;else fallbackImage=img;}resolve();};
+    img.onerror=()=>{if(request===sheetRequest)setStatus('Image unavailable. Upload a replacement or restore built-in artwork.',false);resolve();};img.src=source;
   });
+}
+function renderLiveArtwork():void {
+  const host=$('studio-live-artwork');if(!host)return;
+  const published=getPublishedCreatorMedia();
+  let legacy:string|null=null;try{legacy=localStorage.getItem(`admin-sprite-${store.selectedEntity}`);}catch{}
+  const live=resolveEntityArtwork(store.selectedEntity,published?.entities||{},legacy);
+  host.replaceChildren(artworkPreview(live,'Live game artwork','studio-live-thumb'));
+  const title=document.createElement('strong');title.textContent='Live in game';const note=document.createElement('small');
+  note.textContent=`${live?.origin||'built-in mechanism'} · ${store.selectedEntity}`;host.append(title,note);
+}
+function drawFallback(ctx:CanvasRenderingContext2D,size:number):boolean {
+  if(!fallbackImage||!fallbackArtwork)return false;
+  const crop=fallbackArtwork.crop||{x:0,y:0,width:1,height:1};
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(fallbackImage,crop.x*fallbackImage.width,crop.y*fallbackImage.height,crop.width*fallbackImage.width,crop.height*fallbackImage.height,16,16,size-32,size-32);return true;
 }
 
 function drawSheet(): void {
@@ -566,11 +591,11 @@ function drawSheet(): void {
   if (!sheetImg) {
     canvas.width = maxW;
     canvas.height = 220;
-    ctx.fillStyle = '#0c120a';
+    ctx.fillStyle = '#202125';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#64748b';
     ctx.font = '12px monospace';
-    ctx.fillText('Upload a PNG sprite sheet to begin', 16, 28);
+    ctx.fillText(fallbackArtwork?'Built-in artwork is shown in the game preview. Upload to replace it.':'Built-in animated mechanism. Upload a PNG or sprite sheet to replace it.',16,28);
     drawTimeline();
     return;
   }
@@ -578,7 +603,7 @@ function drawSheet(): void {
   const scale = Math.min(maxW / sheetImg.width, maxH / sheetImg.height, 1);
   canvas.width = Math.max(1, Math.floor(sheetImg.width * scale));
   canvas.height = Math.max(1, Math.floor(sheetImg.height * scale));
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(sheetImg, 0, 0, canvas.width, canvas.height);
 
@@ -587,7 +612,7 @@ function drawSheet(): void {
   const cellW = canvas.width / cols;
   const cellH = canvas.height / rows;
 
-  ctx.strokeStyle = 'rgba(163, 230, 53, 0.45)';
+  ctx.strokeStyle = 'rgba(255, 227, 148, 0.45)';
   ctx.lineWidth = 1;
   for (let c = 0; c <= cols; c++) {
     const x = Math.round(c * cellW) + 0.5;
@@ -637,7 +662,7 @@ function drawTimeline(): void {
   const w = Math.max(320, Math.min(720, total * 28));
   canvas.width = w;
   canvas.height = h;
-  ctx.fillStyle = '#050805';
+  ctx.fillStyle = '#151619';
   ctx.fillRect(0, 0, w, h);
 
   const key = activeClipKey();
@@ -647,7 +672,7 @@ function drawTimeline(): void {
   for (let i = 0; i < total; i++) {
     const x = i * cellW;
     const inClip = i >= clip.startFrame && i <= clipEndFrame(clip);
-    ctx.fillStyle = inClip ? 'rgba(251, 191, 36, 0.35)' : 'rgba(163, 230, 53, 0.08)';
+    ctx.fillStyle = inClip ? 'rgba(251, 191, 36, 0.35)' : 'rgba(255, 227, 148, 0.08)';
     ctx.fillRect(x, 4, cellW - 1, h - 8);
     if (sheetImg) {
       const rect = frameRect(
@@ -660,7 +685,7 @@ function drawTimeline(): void {
         ent.frameH || undefined,
       );
       const thumb = Math.min(cellW - 2, h - 16);
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
       ctx.drawImage(
         sheetImg,
         rect.sx,
@@ -711,13 +736,14 @@ function drawPreviewFrame(frameIndex: number): void {
   const size = 240;
   canvas.width = size;
   canvas.height = size;
-  ctx.fillStyle = '#0b1208';
+  ctx.fillStyle = '#202125';
   ctx.fillRect(0, 0, size, size);
 
   if (!sheetImg) {
-    ctx.fillStyle = '#64748b';
-    ctx.font = '11px monospace';
-    ctx.fillText('No sheet', 16, 24);
+    if(drawFallback(ctx,size))return;
+    ctx.fillStyle = '#c6bda7';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('Built-in mechanism · upload to replace', 12, 24);
     return;
   }
 
@@ -734,7 +760,7 @@ function drawPreviewFrame(frameIndex: number): void {
     );
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
     const scale = Math.min(size / rect.sw, size / rect.sh);
     const dw = rect.sw * scale;
     const dh = rect.sh * scale;
@@ -924,12 +950,13 @@ export function currentStudioDraft(): MediaStudioStore {
 }
 
 export function loadPublishedStudioDraft(published: MediaStudioStore): void {
+  studioMounted=false;saveStudioStore(published);
   installMediaStudio(published);
 }
 
 function exportSelectedFrame(): void {
   if (!sheetImg) {
-    setStatus('No sheet loaded', false);
+    if(fallbackImage){const out=document.createElement('canvas');out.width=512;out.height=512;const ctx=out.getContext('2d');if(ctx&&drawFallback(ctx,512)){const a=document.createElement('a');a.href=out.toDataURL('image/png');a.download=`${store.selectedEntity}-game-art.png`;a.click();setStatus('Current game artwork exported.');}}else setStatus('Select artwork to export.',false);
     return;
   }
   const ent = currentEntity();
@@ -947,7 +974,7 @@ function exportSelectedFrame(): void {
   out.height = Math.max(1, Math.round(rect.sh));
   const ctx = out.getContext('2d');
   if (!ctx) return;
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
   ctx.drawImage(sheetImg, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, out.width, out.height);
   const a = document.createElement('a');
   a.href = out.toDataURL('image/png');
@@ -983,6 +1010,7 @@ function importEntityPackFile(file: File): void {
       }
       const key = parsed.entityKey;
       store.entities[key] = parsed.entity;
+      persistAll();
       store.selectedEntity = key;
       fillEntitySelect();
       await onEntityChange();
@@ -1174,6 +1202,7 @@ function renderSoundBank(): void {
         const response=await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getAuthToken()}`},body:JSON.stringify({audio:dataUrl})});
         const result=await response.json();if(!response.ok||!result.success)throw new Error(result.error||'Sound upload failed');
         soundStore.replacements[id] = result.url;
+        store.removedSounds=store.removedSounds?.filter(key=>key!==id);
         store.sounds={...(store.sounds||{}),[id]:result.url};saveStudioStore(store);notifyStudioRuntimeChanged();
         saveSoundBank(soundStore);
         renderSoundBank();
@@ -1188,6 +1217,7 @@ function renderSoundBank(): void {
     btn.addEventListener('click', () => {
       const id = btn.dataset.sfxClear!;
       delete soundStore.replacements[id];
+      store.removedSounds=[...new Set([...(store.removedSounds||[]),id])];
       if(store.sounds)delete store.sounds[id];saveStudioStore(store);notifyStudioRuntimeChanged();
       saveSoundBank(soundStore);
       renderSoundBank();
@@ -1197,8 +1227,11 @@ function renderSoundBank(): void {
 }
 
 function bindControls(): void {
+  $('studio-asset-search')?.addEventListener('input',()=>{entitySearch=($('studio-asset-search') as HTMLInputElement).value.trim().toLowerCase();renderEntityRail();});
+  $('studio-asset-group')?.addEventListener('change',()=>{entityFilter=($('studio-asset-group') as HTMLSelectElement).value;renderEntityRail();});
+  $('studio-open-icons')?.addEventListener('click',()=>document.querySelector<HTMLButtonElement>('.admin-tab-btn[data-tab="icons"]')?.click());
   $('studio-entity')?.addEventListener('change', (e) => {
-    store.selectedEntity = (e.target as HTMLSelectElement).value;
+    const next=(e.target as HTMLSelectElement).value;persistAll();store.selectedEntity=next;
     void onEntityChange();
   });
 
@@ -1245,6 +1278,7 @@ function bindControls(): void {
         const url = result.url as string;
         if (!store.entities[entityKey]) store.entities[entityKey] = emptyEntityData();
         store.entities[entityKey].sheetDataUrl = url;
+        store.entities[entityKey].ignoreLegacy=false;
         if(!Object.keys(store.entities[entityKey].clips).length){store.entities[entityKey].cols=1;store.entities[entityKey].rows=1;store.entities[entityKey].clips={idle:{startFrame:0,frameCount:1}};}
 
         // The image is already stored remotely. Keep its small URL in the
@@ -1353,14 +1387,14 @@ function bindControls(): void {
   });
   $('studio-duplicate')?.addEventListener('click', () => duplicateEntity());
   $('studio-clear-entity')?.addEventListener('click', async () => {
-    store.entities[store.selectedEntity] = emptyEntityData();
+    store.entities[store.selectedEntity] = {...emptyEntityData(),ignoreLegacy:true};
     await onEntityChange();
     setStatus(`Cleared Creator data for ${store.selectedEntity}`);
   });
 
   for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact']) {
     for (const suffix of ['sfx', 'flash', 'shake', 'fx']) {
-      $(`studio-evt-${kind}-${suffix}`)?.addEventListener('change', () => readEventInputsIntoEntity());
+      $(`studio-evt-${kind}-${suffix}`)?.addEventListener('change', () => {readEventInputsIntoEntity();saveStudioStore(store);notifyStudioRuntimeChanged();});
     }
   }
 
@@ -1370,8 +1404,12 @@ function bindControls(): void {
 
 export function installMediaStudio(published?: MediaStudioStore): void {
   if (!$('admin-media-studio')) return;
-  store = published ? migrateStoreToV2(published) : loadStudioStore();
+  if(studioMounted){persistAll();}
+  const draft=studioMounted?store:loadStudioStore();
+  store=mergeStudioDraft(published||getPublishedCreatorMedia(),draft);
+  studioMounted=true;
   soundStore = {version:1,replacements:{...loadSoundBank().replacements,...store.sounds}};
+  for(const id of store.removedSounds||[])delete soundStore.replacements[id];
   fillSfxSelects();
   if (!installed) {
     fillEntitySelect();
@@ -1401,7 +1439,7 @@ export function installMediaStudio(published?: MediaStudioStore): void {
   document.querySelectorAll('[data-studio-dir]').forEach((b) =>
     b.classList.toggle('is-on', (b as HTMLElement).dataset.studioDir === previewDir),
   );
-  pushEventLog('Creator Hub ready');
+  pushEventLog('Creator workspace ready');
 }
 
 /** Load a generated single-frame enemy or boss into the same editor state as an uploaded sheet. */
@@ -1421,3 +1459,12 @@ export function importStudioImageSample(entityKey: string, label: string, dataUr
   renderEntityRail();
   setStatus(`${label} sample loaded. Publish Creator media to share it with the game.`);
 }
+
+if(typeof window!=='undefined')window.addEventListener('fruit-td-creator-update',()=>{if(studioMounted)renderLiveArtwork();});
+
+if(typeof window!=='undefined')window.addEventListener('fruit-td-sprite-published',event=>{
+  if(!studioMounted)return;const key=(event as CustomEvent<{key:string}>).detail?.key;
+  const fresh=key&&getPublishedCreatorMedia()?.entities[key];if(!key||!fresh)return;
+  store.entities[key]={...fresh,...store.entities[key],sheetDataUrl:fresh.sheetDataUrl,ignoreLegacy:fresh.ignoreLegacy,cols:fresh.cols,rows:fresh.rows,clips:fresh.clips};saveStudioStore(store);
+  if(store.selectedEntity===key)void onEntityChange();else renderEntityRail();
+});

@@ -1,5 +1,24 @@
 import { refreshAdminTexture } from '../game/adminTextureLoader';
 import { refreshPowerIcon } from './powerIcons';
+import { fetchAdminConfig, saveAdminConfig } from '../services/admin';
+import { getAuthToken } from '../services/auth';
+import { getLiveConfig, setLiveConfig } from '../services/liveConfig';
+import { getPublishedCreatorMedia } from '../game/creatorMedia';
+import { resolveEntityArtwork } from '../game/entityArtwork';
+import { artworkPreview } from './entityArtworkPreview';
+import type { MediaStudioStore } from './adminMediaStudio';
+let spriteSaveQueue:Promise<unknown>=Promise.resolve();
+
+export function withSpriteImage(media:MediaStudioStore|null|undefined,key:string,source:string|null):MediaStudioStore {
+  const old=media?.entities[key];
+  return {version:2,selectedEntity:key,sounds:media?.sounds,entities:{...media?.entities,[key]:{...old,ignoreLegacy:!source,sheetDataUrl:source,cols:1,rows:1,frameW:0,frameH:0,clips:source?{idle:{startFrame:0,frameCount:1}}:{}}}};
+}
+async function publishSprite(key:string,source:string|null):Promise<MediaStudioStore> {
+  const latest=await fetchAdminConfig();if(!latest)throw new Error('Could not load the live asset configuration.');
+  const creatorMedia=withSpriteImage(latest.creatorMedia,key,source);
+  const result=await saveAdminConfig({creatorMedia});if(!result.success)throw new Error(result.error||'Could not publish this image.');
+  return creatorMedia;
+}
 const SPRITE_KEYS = {
   'enemy-normal': 'admin-sprite-enemy-normal',
   'enemy-explosive': 'admin-sprite-enemy-explosive',
@@ -52,53 +71,49 @@ export function installSpriteUploads(): void {
     if (!input || !preview || !clearBtn) return;
     
     const loadStored = () => {
-      const stored = localStorage.getItem(storageKey);
-      preview.replaceChildren();
-      if (stored) {
-        const image = document.createElement('img');
-        image.src = stored;
-        image.alt = id;
-        preview.appendChild(image);
-        clearBtn.style.display = 'block';
-      } else {
-        const empty = document.createElement('span');
-        empty.textContent = 'No sprite';
-        preview.appendChild(empty);
-        clearBtn.style.display = 'none';
-      }
+      const published=getPublishedCreatorMedia();
+      const stored=localStorage.getItem(storageKey);
+      const artwork=resolveEntityArtwork(id,published?.entities||{},stored);
+      preview.replaceChildren(artworkPreview(artwork,id));
+      const source=document.createElement('small');source.textContent=artwork?.origin==='published'?'Published · shared with players':artwork?.origin==='legacy'?'Local upload · upload again to publish':'Built-in game artwork';preview.appendChild(source);
+      clearBtn.style.display = published?.entities[id]?.sheetDataUrl||stored?'block':'none';
+      clearBtn.textContent='Restore built-in artwork';
     };
-
+    let status=preview.parentElement?.querySelector<HTMLElement>('.sprite-save-status');
+    if(!status){status=document.createElement('p');status.className='sprite-save-status';status.setAttribute('role','status');preview.parentElement?.appendChild(status);}
     if (input.dataset.spriteUploadWired === '1') {
       loadStored();
       return;
     }
     input.dataset.spriteUploadWired = '1';
     
-    input.addEventListener('change', (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file || !file.type.startsWith('image/')) return;
-      
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (dataUrl) {
-          localStorage.setItem(storageKey, dataUrl);
-          loadStored();
-          
-          id.startsWith('power-') ? refreshPowerIcon(id.slice('power-'.length), dataUrl) : refreshAdminTexture(id as any);
-        }
+    input.accept='image/png,image/jpeg,image/webp';
+    input.addEventListener('change', () => {
+      const file=input.files?.[0];if(!file)return;
+      if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>1_000_000){status!.textContent='Use PNG, JPEG or WebP under 1 MB.';return;}
+      input.disabled=true;clearBtn.setAttribute('disabled','');status!.textContent='Uploading and publishing…';
+      const operation=async()=>{
+        const dataUrl=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Could not read this image.'));reader.readAsDataURL(file);});
+        const response=await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getAuthToken()}`},body:JSON.stringify({image:dataUrl})});
+        const result=await response.json();if(!response.ok||!result.url)throw new Error(result.error||'Image upload failed.');
+        const creatorMedia=await publishSprite(id,result.url);
+        try{localStorage.setItem(storageKey,result.url);}catch{/* Shared image is already saved. */}
+        refreshAdminTexture(id as any);setLiveConfig({...getLiveConfig(),creatorMedia});window.dispatchEvent(new CustomEvent('fruit-td-sprite-published',{detail:{key:id}}));
+        if(id.startsWith('power-'))refreshPowerIcon(id.slice(6),result.url);
+        loadStored();status!.textContent='Published. This image is shared with every player.';
       };
-      reader.readAsDataURL(file);
+      spriteSaveQueue=spriteSaveQueue.catch(()=>{}).then(operation).catch(error=>{status!.textContent=error instanceof Error?error.message:'Could not publish this image.';}).finally(()=>{input.disabled=false;clearBtn.removeAttribute('disabled');});
     });
-    
-    clearBtn.addEventListener('click', () => {
-      localStorage.removeItem(storageKey);
-      input.value = '';
-      loadStored();
-      
-      id.startsWith('power-') ? refreshPowerIcon(id.slice('power-'.length), null) : refreshAdminTexture(id as any);
+    clearBtn.addEventListener('click',()=>{
+      input.disabled=true;clearBtn.setAttribute('disabled','');status!.textContent='Restoring game artwork…';
+      spriteSaveQueue=spriteSaveQueue.catch(()=>{}).then(async()=>{
+        const creatorMedia=await publishSprite(id,null);localStorage.removeItem(storageKey);input.value='';
+        refreshAdminTexture(id as any);setLiveConfig({...getLiveConfig(),creatorMedia});window.dispatchEvent(new CustomEvent('fruit-td-sprite-published',{detail:{key:id}}));
+        if(id.startsWith('power-'))refreshPowerIcon(id.slice(6),null);
+        loadStored();status!.textContent='Built-in artwork restored for every player.';
+      }).catch(error=>{status!.textContent=error instanceof Error?error.message:'Could not restore this image.';}).finally(()=>{input.disabled=false;clearBtn.removeAttribute('disabled');});
     });
-    
+
     loadStored();
   });
 }
@@ -106,5 +121,10 @@ export function installSpriteUploads(): void {
 export type AdminSpriteType = keyof typeof SPRITE_KEYS;
 
 export function getAdminSprite(type: AdminSpriteType): string | null {
+  const published=getPublishedCreatorMedia()?.entities[type];
+  if(published?.ignoreLegacy)return null;
+  if(published?.sheetDataUrl&&published.cols===1&&published.rows===1)return published.sheetDataUrl;
   return localStorage.getItem(SPRITE_KEYS[type]);
 }
+
+if(typeof window!=='undefined')window.addEventListener('fruit-td-creator-update',()=>installSpriteUploads());

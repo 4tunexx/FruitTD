@@ -1,3 +1,5 @@
+import { heroArt } from '../heroArt';
+import { heroDef, type HeroId } from '../../game/heroes';
 import { powerButton, updatePowerButton } from '../powerButton';
 import type { PowerCast } from '../../game/powerCombat';
 import { acceptArenaRating, ARENA_RANK_COLORS, type ArenaRating } from '../../services/pvpRating';
@@ -29,10 +31,10 @@ async function requestPvp(path: string, init: RequestInit = {}): Promise<any> {
   return data;
 }
 function label(text: string, cls = ''): HTMLElement { return el('p', { class: cls, text }); }
-function playerPortrait(player: Pick<NonNullable<PvpStatus['match']>['players'][number], 'name' | 'avatar' | 'side'>, className = ''): HTMLElement {
+function playerPortrait(player: Pick<NonNullable<PvpStatus['match']>['players'][number], 'name' | 'avatar' | 'side' | 'hero'>, className = ''): HTMLElement {
   const portrait = el('span', { class: `ftd-vs-portrait is-${player.side === 'red' ? 'red' : 'blue'} ${className}`, 'aria-label': `${player.name} avatar` });
   if (player.avatar) portrait.appendChild(el('img', { src: player.avatar, alt: `${player.name} avatar`, referrerpolicy: 'no-referrer' }));
-  else portrait.appendChild(el('strong', { text: player.name.trim().charAt(0).toUpperCase() || '?' }));
+  else portrait.appendChild(heroArt(heroDef((player.hero || 'jiju') as HeroId).id));
   return portrait;
 }
 
@@ -58,8 +60,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let status: PvpStatus = { success: true };
   let selectedTower = 'guillotine';
   let selectedCell: number | null = null;
+  let pendingBuildCell: number | null = null;
   let dockTab: 'build' | 'attack' | 'capture' = 'build';
-  let dockExpanded = false;
+  let dockExpanded = window.innerWidth >= 1000;
   let surrenderConfirm = false;
   let actionError = '';
   let actionFeedback = '';
@@ -161,7 +164,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       actionError = '';
       const command = (payload as { command?: import('../../game/pvp').PvpCommand } | undefined)?.command;
       if (command) {
-        actionFeedback = command.type === 'send' ? 'BLUE SQUAD SENT → RED BASE' : command.type === 'build' ? 'DEFENCE BUILT · AUTO FIRE READY' : command.type === 'upgrade' ? 'TOWER UPGRADED' : command.type === 'rally' ? 'RALLY! +25% DAMAGE FOR 8 SECONDS' : command.type === 'release' ? 'CAPTURED FRUIT SENT → RED BASE' : command.type === 'upgrade-main' ? 'BASE UPGRADED · STRONGER WALL' : command.type === 'ability' ? 'HERO POWER ACTIVATED' : command.type === 'sell' ? 'TOWER SOLD · FRUTS REFUNDED' : '';
+        actionFeedback = command.type === 'send' ? 'FRUIT SQUAD SENT → RIVAL TOWER' : command.type === 'build' ? 'DEFENCE BUILT · AUTO FIRE READY' : command.type === 'upgrade' ? 'TOWER UPGRADED' : command.type === 'rally' ? 'RALLY! +25% DAMAGE FOR 8 SECONDS' : command.type === 'release' ? 'CAPTURED FRUIT SENT → RIVAL TOWER' : command.type === 'upgrade-main' ? 'BASE UPGRADED · STRONGER WALL' : command.type === 'ability' ? 'HERO POWER ACTIVATED' : command.type === 'sell' ? 'TOWER SOLD · FRUTS REFUNDED' : '';
         feedbackUntil = Date.now() + 2200;
       }
       if (response.match) { status.match = response.match; if (!battlefield?.interacting) render(); }
@@ -187,6 +190,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       replacement?.focus({ preventScroll:true });
     }
   };
+  let completedViewKey = '';
   const renderContent = () => {
     const badge = main.querySelector<HTMLElement>('.ftd-pvp__rating')?.querySelector<HTMLElement>('strong');
     if (badge && status.rating) {
@@ -194,8 +198,13 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       if (badge.textContent !== ratingText) badge.textContent = ratingText;
       badge.style.color = ARENA_RANK_COLORS[status.rating.tier] || '#aab9aa';
     }
-    body.replaceChildren();
     const match = status.match;
+    // Completed snapshots may repeat while settlement finishes. Keep the dialog
+    // mounted so polling cannot restart its entrance or lose keyboard focus.
+    const resultKey = match?.status === 'complete' ? JSON.stringify([match.id, match.winnerId, match.resultReason, match.players.map(p => [p.wallHealth,p.ratingDelta]), actionError]) : '';
+    if (resultKey && resultKey === completedViewKey) return;
+    completedViewKey = resultKey;
+    body.replaceChildren();
     const inBattle = match?.status === 'active' || match?.status === 'complete';
     hub ??= root.closest<HTMLElement>('.ftd-hub');
     if (realtimeMatchId && (realtimeMatchId !== match?.id || match?.status !== 'active')) {
@@ -205,6 +214,10 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       realtimeMatchId = '';
     }
     main.classList.toggle('is-battle', inBattle); hub?.classList.toggle('is-pvp-battle', inBattle);
+    // Hub panels use filters and clipping, which contain fixed descendants.
+    // Mount the actual match at the document root, then restore the lobby.
+    const host = inBattle && hub ? document.body : root;
+    if (main.parentElement !== host) host.appendChild(main);
     if (actionError) { const error = label(actionError, 'ftd-pvp__error'); error.setAttribute('role', 'alert'); error.addEventListener('click', () => { actionError = ''; render(); }); body.append(error); }
     if (!inBattle) { battlefield?.dispose(); battlefield = null; battlefieldId = ''; }
     const towerIds = Object.keys(status.config?.towers || {});
@@ -220,7 +233,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       body.append(el('div', { class: 'ftd-pvp__queue' }, [
         label(status.queued === queue ? `Searching for an opponent · ${queue.toUpperCase()}` : 'Find an opponent', 'ftd-pvp__section-title'),
         el('div', { class: 'ftd-pvp__howto' }, [
-          el('div', {}, [el('b', { text: '01 / BUILD' }), el('p', { text: 'Pick a tower and tap an empty hex in your highlighted territory. Tap a placed tower to upgrade or sell.' })]),
+          el('div', {}, [el('b', { text: '01 / BUILD' }), el('p', { text: 'Tap one of the ten build pads beside your road and choose its turret. Tap a placed tower to upgrade or sell.' })]),
           el('div', {}, [el('b', { text: '02 / ATTACK' }), el('p', { text: 'Send fruit squads through the opponent lane. Incoming squads approach your wall.' })]),
           el('div', {}, [el('b', { text: '03 / BREAK THE BASE' }), el('p', { text: 'Pressure a weak defence or save for a heavy push. Destroy the opponent wall or finish with more wall health at time.' })]),
         ]),
@@ -254,7 +267,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         const veto = el('button', { class: 'ftd-pvp__map-card', type: 'button', disabled: !match.yourVetoTurn }, [thumbnail, el('strong', { text: map.name }), el('small', { text: `${map.pathCells.length} path tiles · veto this route` })]);
         veto.addEventListener('click', () => void send(`/match/${match.id}/veto`, { sequence: match.yourSequence + 1, mapId: map.id })); return veto;
       });
-      const identityCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-versus-card ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('div', {}, [el('small', { text: `${rival ? 'CHALLENGER' : 'YOUR FIGHTER'} · ${player.side.toUpperCase()}` }), el('strong', { text: player.name })])]);
+      const identityCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-versus-card ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('div', {}, [el('small', { text: `${rival ? 'CHALLENGER' : 'YOUR FIGHTER'}` }), el('strong', { text: player.name })])]);
       body.append(el('section', { class: 'ftd-pvp__draft' }, [el('div', { class: 'ftd-pvp__draft-head' }, [el('p', { class: 'ftd-pvp__eyebrow', text: match.queue === 'ranked' ? 'RANKED SHOWDOWN' : 'ARENA SHOWDOWN' }), el('h2', { text: 'CHOOSE THE BATTLEFIELD' }), label(`${match.vetoesRemaining} route bans left · then the arena is chosen`), label(match.yourVetoTurn ? 'Your turn: ban one route' : 'Waiting for the other player to ban a route')]), el('div', { class: 'ftd-versus-lineup' }, [identityCard(own, false), el('strong', { class: 'ftd-versus-mark', text: 'VS' }), identityCard(opponent, true)]), el('div', { class: 'ftd-pvp__map-grid' }, drafts), GameButton({ label: 'Cancel draft · no rank change', variant: 'outline', onClick: () => void send(`/match/${match.id}/cancel-draft`) })]));
       return;
     }
@@ -266,7 +279,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       }
       const wallResult = (player: typeof own) => Math.round(player.wallHealth / (player.wallMaxHealth ?? status.config?.wallHealth ?? 1000) * 100);
       const title = match.resultReason === 'draft-cancelled' ? 'DRAFT CANCELLED' : match.resultReason === 'test-ended' ? 'TEST ENDED' : won ? 'VICTORY' : match.winnerId ? 'DEFEAT' : 'DRAW';
-      const faceoff = (player: typeof own, winner: boolean, rival: boolean) => el('div', { class: `ftd-result-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}${winner ? ' is-winner' : ''}` }, [playerPortrait(player), el('strong', { text: player.name }), el('span', { text: `${player.side.toUpperCase()} SIDE` }), el('small', { text: `${wallResult(player)}% WALL` })]);
+      const faceoff = (player: typeof own, winner: boolean, rival: boolean) => el('div', { class: `ftd-result-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}${winner ? ' is-winner' : ''}` }, [playerPortrait(player), el('strong', { text: player.name }), el('span', { text: rival ? 'OPPONENT' : 'YOU' }), el('small', { text: `${wallResult(player)}% WALL` })]);
       const animateResult = clashShownMatchId !== `result:${match.id}`;
       if (animateResult) clashShownMatchId = `result:${match.id}`;
       body.append(el('div', { class:'ftd-duel-result-overlay' }, [el('section', { class: `ftd-pvp__result ${won ? 'is-victory' : match.winnerId ? 'is-defeat' : ''}${animateResult ? ' is-entering' : ''}`, role:'dialog', 'aria-modal':'true', 'aria-label':'Match result' }, [
@@ -274,7 +287,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         el('h2', { text: title }),
         el('div', { class:'ftd-result-faceoff' }, [faceoff(own, won, false), el('strong', { class:'ftd-result-vs', text:'VS' }), faceoff(opponent, match.winnerId === opponent.userId, true)]),
         label(won ? `${own.name} held the orchard wall.` : match.winnerId ? `${opponent.name} broke through your defence.` : 'Both walls held. The match is a draw.', 'ftd-result-summary'),
-        el('div', { class:'ftd-result-stats' }, [el('span', {}, [el('small', { text:`${own.name} · ${own.side.toUpperCase()}` }), el('b', { text:`${wallResult(own)}%` })]), el('span', {}, [el('small', { text:`${opponent.name} · ${opponent.side.toUpperCase()}` }), el('b', { text:`${wallResult(opponent)}%` })])]),
+        el('div', { class:'ftd-result-stats' }, [el('span', {}, [el('small', { text:`${own.name} · YOU` }), el('b', { text:`${wallResult(own)}%` })]), el('span', {}, [el('small', { text:`${opponent.name} · OPPONENT` }), el('b', { text:`${wallResult(opponent)}%` })])]),
         ...(match.testMatch ? [label('PRACTICE · No FR, rewards, achievements, or badges granted.', 'ftd-pvp__intro')] : []),
         ...(match.queue === 'ranked' && !match.testMatch && match.resultReason !== 'draft-cancelled' ? [label(own.ratingDelta === undefined ? 'Settling your Ranked rating…' : `RANK POINTS  ${own.ratingDelta > 0 ? '+' : ''}${own.ratingDelta} FR`, 'ftd-result-rating')] : []),
         GameButton({ label: 'Return to Arena', tone: 'primary', onClick: () => void send(`/match/${match.id}/ack`) })
@@ -285,7 +298,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const maxHealth = status.config?.wallHealth || 1000;
     const playerCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-duel-player ${rival ? 'is-rival' : 'is-own'} is-${player.side === 'red' ? 'red' : 'blue'}` }, [
       playerPortrait(player, 'ftd-duel-player__crest'),
-      el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:`${rival?'OPPONENT':'YOU'} · ${player.side.toUpperCase()} SIDE` }), el('span', { text: `${player.wallHealth} / ${player.wallMaxHealth ?? maxHealth} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
+      el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:rival ? 'OPPONENT' : 'YOU' }), el('span', { text: `${player.wallHealth} / ${player.wallMaxHealth ?? maxHealth} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
         el('div', { class: 'ftd-duel-hp', role: 'progressbar', 'aria-label': `${player.name} wall health`, 'aria-valuenow': player.wallHealth, 'aria-valuemax': player.wallMaxHealth ?? maxHealth }, [el('i', { style: `width:${Math.max(0, Math.min(100, player.wallHealth / (player.wallMaxHealth ?? maxHealth) * 100))}%` })]),
       ]),
     ]);
@@ -296,7 +309,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     ]));
     body.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')?.addEventListener('click', () => { surrenderConfirm=true;render(); });
     const objective = el('div', { class: 'ftd-duel-objective' });
-    objective.innerHTML = `<b>DEFEND ${own.side.toUpperCase()}</b> · Stop incoming fruit &nbsp; | &nbsp; <em>ATTACK ${opponent.side.toUpperCase()}</em> · Squads clash, survivors push`;
+    objective.innerHTML = `<b>DEFEND YOUR TOWER</b> · Stop incoming fruit &nbsp; | &nbsp; <em>SEND FRUIT SQUADS</em> · Squads clash, survivors push`;
     body.append(objective);
     if (actionFeedback && Date.now() < feedbackUntil) body.append(el('div', { class: 'ftd-duel-feedback', role: 'status', text: actionFeedback }));
     const sceneConfig = { wallHealth: maxHealth, towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
@@ -310,12 +323,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
         if (!current || !player) return;
         const tower = player.towers.find(item => item.cell === cell);
-        if (tower) { selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
+        if (tower) { pendingBuildCell = null; selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
         else {
-          selectedCell = cell;
-          const cost = status.config?.towers[selectedTower]?.cost;
-          if (cost !== undefined && player.fruts >= cost) issue({ type: 'build', tower: selectedTower, cell });
-          else { actionError = 'More Fruts needed for this tower.'; render(); }
+          selectedCell = cell; pendingBuildCell = cell; dockTab = 'build'; dockExpanded = true; render();
         }
       };
       if (options.createBattlefield) {
@@ -355,7 +365,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     body.append(battlefield.element);
     if (match.status === 'active' && clashShownMatchId !== match.id) {
       clashShownMatchId = match.id;
-      const fighter = (player: typeof own, rival: boolean) => el('div', { class: `ftd-clash-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('strong', { text: player.name }), el('small', { text: `${player.side.toUpperCase()} SIDE` })]);
+      const fighter = (player: typeof own, rival: boolean) => el('div', { class: `ftd-clash-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('strong', { text: player.name }), el('small', { text: rival ? 'OPPONENT' : 'YOU' })]);
       body.append(el('div', { class:'ftd-vs-clash', role:'status', 'aria-live':'polite' }, [fighter(own, false), el('strong', { class:'ftd-vs-clash__mark', text:'VS' }), fighter(opponent, true), el('span', { class:'ftd-vs-clash__caption', text:match.queue === 'ranked' ? 'RANKED BATTLE · BUILD YOUR DEFENCE' : 'ARENA BATTLE · BUILD YOUR DEFENCE' })]));
     }
     const towerIcons: Record<string, string> = { guillotine: 'Swords', vortex: 'Tornado', laser: 'Zap', railgun: 'Target', sprinkler: 'Droplets', blender: 'Scissors', catcher: 'Fence' };
@@ -394,7 +404,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
     tray.append(resource,actionRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
-    panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Choose a tower, then tap a faint placement circle on your side. Towers fire automatically.` : dockTab === 'attack' ? `Release a squad from your keep. It fights enemy squads; survivors push toward the ${opponent.side.toUpperCase()} wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));
+    panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Tap a gold + pad, then choose its turret. Towers fire automatically.` : dockTab === 'attack' ? `Release a squad from your keep. It fights enemy squads; survivors push toward the opponent’s wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));
     const cards = el('div', { class: 'ftd-duel-cards', 'aria-label': dockTab === 'build' ? 'Tower choices' : 'Fruit attack choices' });
     const coreTowers = ['guillotine', 'sprinkler', 'laser'];
     const allTowers = Object.entries(status.config?.towers || {});
@@ -404,7 +414,15 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         lucideIcon(towerIcons[id] || 'TowerControl', 'ftd-duel-card__art', 30), el('strong', { text: towerName(id) }), el('small', { text: `${info.cost} F · ${pvpTowerRole(id)}` }),
       ]);
       button.classList.toggle('is-unaffordable', own.fruts < info.cost);
-      button.addEventListener('click', () => { selectedTower = id; selectedCell = null; dockExpanded = false; render(); }); cards.append(button);
+      button.addEventListener('click', () => {
+        selectedTower = id;
+        if (pendingBuildCell !== null) {
+          if (own.fruts < info.cost) { actionError = 'More Fruts needed for this tower.'; render(); return; }
+          const cell = pendingBuildCell; pendingBuildCell = null;
+          issue({type:'build', tower:id, cell});
+        } else selectedCell = null;
+        dockExpanded = window.innerWidth >= 1000; render();
+      }); cards.append(button);
     } else if (dockTab === 'attack') for (const [id, info] of Object.entries(status.config?.attacks || {})) {
       const button = el('button', { type: 'button', class: 'ftd-duel-card is-attack', disabled: busy || own.fruts < info.cost, 'data-testid': `arena-send-${id}` }, [
         lucideIcon(attackIcons[id] || 'Apple', 'ftd-duel-card__art', 30), el('strong', { text: id === 'normal' ? 'Fruit pack' : id === 'swift' ? 'Runners' : id === 'armored' ? 'Brutes' : 'Exploders' }), el('small', { text: `${info.cost} F · ×${info.packSize || 1}` }), el('small', { text: `${info.health} HP · ${Math.round(info.wallDamage*.45)} DPS · ${info.wallDamage} breach` }), el('small', { text: id === 'swift' ? 'Fast rush' : id === 'armored' ? 'Armor · use pierce' : id === 'explosive' ? 'Wall breaker' : 'Swarm · use splash' }),
@@ -447,7 +465,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   };
   body.appendChild(LoadingIndicator('Connecting to the match service…'));
   void refresh();
-  const timer = options.polling === false ? 0 : globalThis.setInterval(() => { if (!main.isConnected) { disposed = true; globalThis.clearInterval(timer); battlefield?.dispose(); hub?.classList.remove('is-pvp-battle'); const client = realtimeClients.get(root); if (client) client.close(); realtimeClients.delete(root); realtimeMatchId = ''; return; } void refresh(); }, 900) as unknown as number;
+  const timer = options.polling === false ? 0 : globalThis.setInterval(() => { if (!root.isConnected || !main.isConnected) { main.remove(); disposed = true; globalThis.clearInterval(timer); battlefield?.dispose(); hub?.classList.remove('is-pvp-battle'); const client = realtimeClients.get(root); if (client) client.close(); realtimeClients.delete(root); realtimeMatchId = ''; return; } void refresh(); }, 900) as unknown as number;
   timers.set(root, timer);
-  cleanups.set(root, () => { disposed = true; globalThis.clearInterval(timer); battlefield?.dispose(); hub?.classList.remove('is-pvp-battle'); const client = realtimeClients.get(root); if (client) client.close(); realtimeClients.delete(root); realtimeMatchId = ''; });
+  cleanups.set(root, () => { main.remove(); disposed = true; globalThis.clearInterval(timer); battlefield?.dispose(); hub?.classList.remove('is-pvp-battle'); const client = realtimeClients.get(root); if (client) client.close(); realtimeClients.delete(root); realtimeMatchId = ''; });
 }

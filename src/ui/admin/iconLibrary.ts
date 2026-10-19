@@ -1,5 +1,5 @@
 import { lucideIcon } from '../lucideIcon';
-import { ICON_ASSETS, ICON_ROLE_IDS, ICON_ROLE_ALIASES, EXTRACTED_ICON_IDS, extractedIcon } from '../extractedIcons';
+import { ICON_ASSETS, ICON_ROLE_IDS, ICON_ROLE_ALIASES, EXTRACTED_ICON_IDS, extractedIcon, resolveIconAsset } from '../extractedIcons';
 import { el } from '../components/dom';
 
 const GROUPS: Record<string, string> = {
@@ -30,6 +30,7 @@ export type IconAssignment = (role: string, iconId: string | null) => Promise<{ 
 /** Full, searchable asset library with shared semantic icon assignments. */
 export function renderIconLibrary(host: HTMLElement, overrides: Record<string, string>, onAssign: IconAssignment): void {
   let selected = '';
+  let candidateRole='';
   let busy = false;
   let visibleCount = 60;
   const activeOverrides = { ...overrides };
@@ -41,7 +42,7 @@ export function renderIconLibrary(host: HTMLElement, overrides: Record<string, s
   const role = el('select', { class: 'admin-input', 'aria-label': 'Icon role to update', 'data-testid': 'admin-icon-role' },
     Object.entries(ROLE_LABELS).map(([id, label]) => el('option', { value: id, text: `${label} · ${id}` }))) as HTMLSelectElement;
   group.value = 'all';
-  role.value = ICON_ROLE_IDS[0];
+  role.value = 'ModeCasual';
   const grid = el('div', { class: 'admin-icon-library__grid', role: 'group', 'aria-label': 'Extracted icon collection' });
   const preview = el('div', { class: 'admin-icon-library__preview' });
   const count = el('p', { class: 'admin-icon-library__count', role: 'status' });
@@ -60,20 +61,18 @@ export function renderIconLibrary(host: HTMLElement, overrides: Record<string, s
 
   function renderSelection(): void {
     preview.replaceChildren();
-    if (!selected) {
-      preview.append(el('p', { text: 'Select an icon to preview it and update a game icon role.' }));
-      assign.disabled = true;
-    } else {
-      preview.append(extractedIcon(selected, 'admin-icon-library__large', 72));
-      preview.append(el('strong', { text: selected }));
-      assign.disabled = busy;
-    }
-    const mapped = activeOverrides[role.value];
-    const fallback = ICON_ROLE_ALIASES[role.value] || role.value;
-    const current = mapped || ICON_ASSETS[fallback];
-    reset.disabled = busy || !mapped;
-    preview.append(el('span', { class: 'admin-icon-library__mapped', text: `Current ${ROLE_LABELS[role.value] || role.value}: ${current || 'default'}` }),
-      current ? extractedIcon(current, 'admin-icon-library__current', 40) : lucideIcon(fallback, 'admin-icon-library__current', 40));
+    const mapped=activeOverrides[role.value],fallback=ICON_ROLE_ALIASES[role.value]||role.value;
+    const current=resolveIconAsset(role.value,activeOverrides);
+    const live=el('div',{class:'admin-icon-library__live','data-testid':'admin-icon-live'},[
+      el('small',{text:'LIVE IN GAME'}),
+      current?extractedIcon(current,'admin-icon-library__current',64):lucideIcon(fallback,'admin-icon-library__current',64),
+      el('strong',{text:ROLE_LABELS[role.value]||role.value}),
+      el('span',{class:'admin-icon-library__mapped',text:`Current ${ROLE_LABELS[role.value]||role.value}: ${current||'default'}${!mapped&&activeOverrides[fallback]?` · inherited from ${fallback}`:''}`}),
+    ]);preview.append(live);
+    if(selected){preview.append(el('div',{class:'admin-icon-library__candidate'},[el('small',{text:'SELECTED · APPLY TO PUBLISH'}),extractedIcon(selected,'admin-icon-library__large',64),el('strong',{text:selected})]));}
+    else preview.append(el('p',{text:'Choose an icon below to replace the live icon shown here.'}));
+    assign.disabled=busy||!selected;reset.disabled=busy||!mapped;
+    reset.textContent='Use default / inherited icon';
   }
 
   function renderGrid(): void {
@@ -90,7 +89,7 @@ export function renderIconLibrary(host: HTMLElement, overrides: Record<string, s
         'aria-label': `Preview icon ${id}`, title: id,
       }, [extractedIcon(id, '', 44), el('small', { text: id })]);
       button.addEventListener('click', () => {
-        selected = id;
+        selected = id;candidateRole=role.value;
         grid.querySelectorAll<HTMLButtonElement>('.admin-icon-library__item').forEach((item) => {
           const active = item === button;
           item.classList.toggle('is-selected', active);
@@ -106,15 +105,15 @@ export function renderIconLibrary(host: HTMLElement, overrides: Record<string, s
   search.addEventListener('input', filterIcons);
   group.addEventListener('change', filterIcons);
   more.addEventListener('click', () => { if (!busy) { visibleCount += 60; renderGrid(); } });
-  role.addEventListener('change', renderSelection);
+  role.addEventListener('change',()=>{selected='';candidateRole='';renderGrid();renderSelection();});
   assign.addEventListener('click', async () => {
-    if (!selected || busy) return;
+    if (!selected || busy || candidateRole!==role.value) return;
     const roleId = role.value, iconId = selected;
     setBusy(true);
     try {
       const result = await onAssign(roleId, iconId);
       status.textContent = result.message;
-      if (result.ok) activeOverrides[roleId] = iconId;
+      if (result.ok) {activeOverrides[roleId] = iconId;selected='';candidateRole='';renderGrid();}
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : 'Could not save icon assignment.';
     } finally {

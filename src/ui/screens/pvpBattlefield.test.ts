@@ -64,3 +64,11 @@ test('both armies share the same world route in opposite directions across every
   const own=pvpArmyPoint(map,progress,true),opposing=pvpArmyPoint(map,-progress-1,false);assert.ok(own.distanceTo(opposing)<1e-6,`${map.id} same fight position from both teams`);
  }
 });
+
+
+test('both straight roads meet on one centre line without a diagonal seam',()=>{
+ for(const map of config.maps)for(const cell of map.pathCells)for(const own of [true,false]){
+  const point=pvpWorldPoint(map,cell%map.width+.5,Math.floor(cell/map.width)+.5,own);
+  assert.ok(Math.abs(point.x)<1e-9, `${map.id}: road stays straight on both halves`);
+ }
+});

@@ -251,6 +251,8 @@ pvpRouter.post('/admin/bot', async (req: Request, res: Response) => {
     const match = newPvpMatch(id, queue, [createPvpPlayer(user.userId, user.username || user.nickname || 'Slicer', 'blue', config, now), createPvpPlayer(botUserId, 'Orchard Siege Bot', 'red', config, now)], now, config) as StoredMatch;
     match.status = 'active'; match.map = structuredClone(selectedMap); match.endsAt = now + config.durationSeconds * 1000;
     match.balance = structuredClone(config); match.activePlayers = [user.userId]; match.nextWaveAt = now + 15_000; match.neutralWave = 0;
+    const account = await (await getCollection<any>('users')).findOne({userId:user.userId});
+    Object.assign(match.players[0], pvpAccountIdentity(account, match.players[0].name));
     Object.assign(match.players[0], await equippedAppearance(user.userId)); match.players.forEach(player => { player.rallyReadyAt = now + 15_000; });
     match.testMatch = true; match.botUserId = botUserId; match.botNextActionAt = now + 1_200; match.updatedAt = new Date(now);
     await (await getCollection<QueueEntry>('pvp_queue')).deleteOne({ userId: user.userId });

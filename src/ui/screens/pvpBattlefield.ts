@@ -7,7 +7,7 @@ import { battleScenery, battleTexture } from '../../game/battleArt';
 import { PowerVfx } from '../../game/powerVfx';
 import { heroAbility } from '../../game/heroAbilities';
 import type { PowerCast } from '../../game/powerCombat';
-import { AmbientLight, BackSide, CircleGeometry, BufferGeometry, Color, DirectionalLight, DoubleSide, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, PlaneGeometry, Raycaster, RingGeometry, Scene, Sprite, Vector2, Vector3, WebGLRenderer } from 'three';
+import { AmbientLight, BackSide, CircleGeometry, BufferGeometry, Color, DirectionalLight, DoubleSide, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, PlaneGeometry, Raycaster, RingGeometry, Scene, Sprite, TextureLoader, SRGBColorSpace, Vector2, Vector3, WebGLRenderer } from 'three';
 import { TurretRig, TURRETS, type TurretKind } from '../../game/turrets';
 import { BladeTrail } from '../../game/trail';
 import { FRUIT_DEFS } from '../../game/fruits';
@@ -26,11 +26,11 @@ export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: st
 const TILE = 1.7;
 const TILE_X = Math.sqrt(3) * TILE / 1.5;
 const HEX_RADIUS = TILE / 1.5;
-const COLORS = { blue: 0x38bdf8, red: 0xef5350 };
+const COLORS = { blue: 0xffda6b, red: 0xffda6b };
 
 /** Both server lanes meet at the centre; the viewer's wall is always at the bottom. */
 export function pvpWorldPoint(map: Pick<PvpMap, 'width'>, x: number, y: number, own: boolean): Vector3 {
-  return new Vector3((x + (Math.floor(y) % 2 ? .5*(1-(y-Math.floor(y))) : .5*(y-Math.floor(y))) - map.width / 2 - .25) * TILE_X * (own ? 1 : -1), 0, (y + 1) * TILE * (own ? 1 : -1));
+  return new Vector3((x - (Math.floor(map.width / 2) - .5)) * TILE_X * (own ? 1 : -1), 0, (y + 1) * TILE * (own ? 1 : -1));
 }
 
 /** Continuous route from the sending keep, across centre, to the defending keep. */
@@ -43,7 +43,7 @@ export function pvpArmyPoint(map:PvpMap,progress:number,own:boolean):Vector3 {
 
 export class PvpBattlefield {
   readonly element = el('div', { class: 'ftd-pvp-scene' });
-  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Angled siege arena. Your keep is at the bottom; drag to pan and tap a build marker.' });
+  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Straight orchard siege field. Your keep is at the bottom; drag to pan and tap a build marker.' });
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly powerVfx = new PowerVfx(this.scene);
@@ -94,11 +94,11 @@ export class PvpBattlefield {
   constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
     this.snapshot = snapshot; this.config = config;
     if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
-    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Your keep · bottom  |  Rival keep · top  ·  Tap a faint build marker · Drag to pan · Pinch to zoom' }));
+    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Your keep · bottom  |  Rival keep · top  ·  Tap a gold build pad · Drag to pan · Pinch to zoom' }));
     if (!snapshot.shared) {
       const opponent = snapshot.players.find(player => player.side !== snapshot.yourSide);
       const opposingSide = opponent?.side || (snapshot.yourSide === 'blue' ? 'red' : 'blue');
-      this.element.append(el('div', { class: `ftd-duel-team is-own is-${snapshot.yourSide}`, text: `YOU · ${snapshot.yourSide.toUpperCase()} SIDE` }), el('div', { class: `ftd-duel-team is-rival is-${opposingSide}`, text: `OPPONENT · ${opposingSide.toUpperCase()} SIDE` }));
+      this.element.append(el('div', { class: `ftd-duel-team is-own is-${snapshot.yourSide}`, text: `YOUR TOWER` }), el('div', { class: `ftd-duel-team is-rival is-${opposingSide}`, text: `RIVAL TOWER` }));
       const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
       focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize(); }); this.element.appendChild(focus);
       const cameraControls = el('div', { class:'ftd-duel-camera', 'aria-label':'Camera zoom controls' });
@@ -267,29 +267,43 @@ export class PvpBattlefield {
     const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), new MeshBasicMaterial({ color:0xffffff, map:battlefieldTexture(), side:DoubleSide }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -.05;
     if (this.snapshot.shared) floor.position.z = (map.height + 2) * TILE / 2;
-    this.terrain.add(floor,battleScenery(fullWidth,fullLength,floor.position.z));
+    if (!this.snapshot.shared) {
+      // Repeat the Casual scene once per half instead of stretching one image.
+      floor.geometry.dispose(); floor.geometry = new PlaneGeometry(fullWidth, fullLength / 2);
+      floor.position.z = fullLength / 4;
+      const rivalFloor = new Mesh(floor.geometry.clone(), (floor.material as MeshBasicMaterial).clone());
+      rivalFloor.rotation.set(-Math.PI / 2, 0, Math.PI); rivalFloor.position.set(0, -.05, -fullLength / 4);
+      this.terrain.add(rivalFloor);
+      const outskirts = new Mesh(new PlaneGeometry(fullWidth * 8, fullLength * 3), new MeshBasicMaterial({color:0x343336, map:battleTexture('stone'),side:DoubleSide}));
+      outskirts.rotation.x = -Math.PI/2; outskirts.position.y = -.12; this.terrain.add(outskirts);
+    }
+    this.terrain.add(floor,battleScenery(fullWidth,fullLength,this.snapshot.shared ? floor.position.z : 0));
 
     const shoulderMat = new MeshLambertMaterial({ color: 0x73583b });
     const roadMat = new MeshLambertMaterial({ color: 0x55524b, map:battleTexture('stone') });
     const laneMat = new MeshLambertMaterial({ color: 0xe9d09a });
-    const padMat = new MeshBasicMaterial({ color: 0xf0dcaa, transparent: true, opacity: .16, depthWrite: false });
+    const padMat = new MeshBasicMaterial({ color: 0xffda6b, transparent: true, opacity: .8, depthWrite: false, side: DoubleSide });
 
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
-      const teamColor = this.sideColors[player.side] ?? 0xa3e635;
+      const teamColor = COLORS.blue;
       const route = map.pathCells.length ? map.pathCells : this.snapshot.shared
         ? Array.from({ length: Math.max(1, map.height - 1) }, (_, row) => row * map.width + Math.floor(map.width / 2))
         : [];
 
-      // Hexes remain only as faint build-location hints on your half of the field.
-      if (own) for (const cell of map.buildCells) {
-        const pad = new Mesh(new CircleGeometry(.34, 20), padMat); pad.rotation.x = -Math.PI/2;
-        pad.position.copy(this.cellPoint(cell, own)); pad.position.y = -.005;
-        pad.userData.cell = cell; this.terrain.add(pad); this.buildPads.push(pad);
+      // Both players get ten readable plots; only your own plots are pickable.
+      for (const cell of map.buildCells) {
+        const pad = new Mesh(new RingGeometry(.52, .62, 32), padMat); pad.rotation.x = -Math.PI/2;
+        pad.position.copy(this.cellPoint(cell, own)); pad.position.y = .15;
+        pad.userData.cell = cell; this.terrain.add(pad); if (own) this.buildPads.push(pad);
+        for (const angle of [0, Math.PI / 2]) {
+          const plus = new Mesh(new PlaneGeometry(.36, .07), padMat);
+          plus.rotation.set(-Math.PI/2, 0, angle); plus.position.copy(pad.position); plus.position.y += .01; this.terrain.add(plus);
+        }
       }
 
       // The lane is continuous and readable.
-      for (let location = 0; location < route.length; location++) {
+      for (let location = 0; this.snapshot.shared && location < route.length; location++) {
         const cell = route[location]!;
         const point = this.cellPoint(cell, own);
         const nextCell = route[location + 1];
@@ -313,9 +327,15 @@ export class PvpBattlefield {
       const gateX = endpoint.x;
       const base = new Group(); base.position.copy(endpoint); base.position.x = 0;
       const wall = new Mesh(new PlaneGeometry(map.width * TILE_X, 1.05), new MeshLambertMaterial({ color: this.snapshot.shared ? WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? COLORS.blue : teamColor, side: DoubleSide }));
+      const wallSkin = WALL_SKINS.find(skin => skin.id === player.wallSkin) || WALL_SKINS[0]!;
+      if (typeof Image !== 'undefined' && wallSkin.texture) {
+        const texture = new TextureLoader().load(wallSkin.texture); texture.colorSpace = SRGBColorSpace;
+        (wall.material as MeshLambertMaterial).map = texture; (wall.material as MeshLambertMaterial).color.setHex(0xffffff);
+      }
+      wall.userData.combatPortrait = true;
       this.wallMaterials.push(wall.material as MeshLambertMaterial);
       wall.position.y = .5;
-      const keep = new Mesh(new CircleGeometry(1.1, 48), new MeshLambertMaterial({ color: teamColor, side: DoubleSide, transparent: true }));
+      const keep = new Mesh(new CircleGeometry(1.1, 48), new MeshLambertMaterial({ color: 0xffffff, side: DoubleSide, transparent: true }));
       this.mainTowerMaterials.push(keep.material as MeshLambertMaterial);
       keep.userData.combatPortrait=true;
       keep.add(combatTokenFrame(1.1, 'tower'));
@@ -332,21 +352,13 @@ export class PvpBattlefield {
       avatar.position.set(gateX, 4, 0); base.add(avatar);
       const motion=new DefenderMotion(avatar,'hero',hero.color);motion.setHero(hero.id,hero.color);
       this.heroArt.push({key:heroKey,userId:player.userId,material:heroMaterial,motion});
-      for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
-        const turret = new Mesh(new CircleGeometry(.85, 40), new MeshLambertMaterial({ color: teamColor, side: DoubleSide }));
-        turret.userData.combatPortrait=true;
-        turret.add(combatTokenFrame(.85, 'tower'));
-        turret.position.set(x, 1, 0); base.add(turret);
-      }
-      const rail = new Mesh(new PlaneGeometry(map.width * TILE_X * .8, .12), new MeshBasicMaterial({ color: teamColor, side: DoubleSide }));
+      const rail = new Mesh(new PlaneGeometry(map.width * TILE_X * .8, .12), new MeshBasicMaterial({ color: 0xc7df8e, side: DoubleSide }));
       rail.position.set(0, .2, own ? -1.6 : 1.6);
       rail.userData.maxHealth = player.wallMaxHealth ?? this.config.wallHealth ?? player.wallHealth;
       this.health.set(player.userId, rail);
-      base.add(wall, keep, rail); this.terrain.add(base);
-    }
-    if(!this.snapshot.shared){
-      const cell=map.pathCells[0]??0,a=pvpWorldPoint(map,cell%map.width+.5,Math.floor(cell/map.width)+.5,true),b=pvpWorldPoint(map,cell%map.width+.5,Math.floor(cell/map.width)+.5,false);
-      const bridge=new Mesh(new PlaneGeometry(2.2,a.distanceTo(b)),new MeshLambertMaterial({color:0x88774e,side:DoubleSide}));bridge.position.copy(a).lerp(b,.5);bridge.position.y=.035;bridge.rotation.set(-Math.PI/2,0,-Math.atan2(b.x-a.x,b.z-a.z));this.terrain.add(bridge);
+      const railTrack = new Mesh(new PlaneGeometry(map.width * TILE_X * .8 + .12, .24), new MeshBasicMaterial({color:0xffe394,side:DoubleSide}));
+      railTrack.position.copy(rail.position); railTrack.position.z -= .02;
+      base.add(wall, keep, railTrack, rail); this.terrain.add(base);
     }
     this.resize();
   }
@@ -355,7 +367,7 @@ export class PvpBattlefield {
     const rect = this.canvas.getBoundingClientRect();
     this.ray.setFromCamera(new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera);
     const hit = this.ray.ray.intersectPlane(this.ground, new Vector3()); if (!hit) return null;
-    const y = hit.z / TILE - 1; const x = hit.x / TILE_X + map.width / 2 + .25 - (Math.floor(y) % 2 ? .5*(1-(y-Math.floor(y))) : .5*(y-Math.floor(y)));
+    const y = hit.z / TILE - 1; const x = hit.x / TILE_X + Math.floor(map.width / 2) - .5;
     return x >= -1e-6 && x <= map.width+1e-6 && y >= -1e-6 && y <= map.height+1e-6 ? { x:Math.max(0,Math.min(map.width,x)), y:Math.max(0,Math.min(map.height,y)) } : null;
   }
 
@@ -470,9 +482,9 @@ export class PvpBattlefield {
     const focused = this.snapshot.shared || this.focusOwn;
     const centerZ = focused && map ? (map.height + 2) * TILE / 2 : 0;
     // Fit the actual projected world bounds, including keep height and scenery.
-    // Desktop gets a slight three-quarter turn; phones preserve lane width.
+    // The straight road stays vertical on phones and PC alike.
     this.camera.up.set(0,1,0);
-    this.camera.position.set(aspect > 1 ? 14 : 4,54,centerZ+72);
+    this.camera.position.set(0,54,centerZ+72);
     this.camera.lookAt(0,0,centerZ);this.camera.updateMatrixWorld(true);
     const extentZ = map ? (map.height+4)*TILE : 30;
     const extentX = map ? map.width*TILE_X/2+4 : 14;

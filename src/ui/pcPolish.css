@@ -1,0 +1,60 @@
+/* Match screens are document-level surfaces, independent of hub panel filters. */
+body > .ftd-pvp.is-battle { box-sizing:border-box; width:100vw; max-width:none; overflow:hidden; isolation:isolate; background:#202125; }
+.ftd-pvp.is-battle :is(.ftd-duel-hud,.ftd-duel-dock,.ftd-duel-panel,.ftd-duel-objective) { background:linear-gradient(145deg,#2c2d30,#191b1e); border-color:#ffe394; color:#eee5cf; }
+.ftd-pvp :is(.ftd-duel-player,.ftd-vs-portrait,.ftd-result-fighter,.ftd-clash-fighter,.ftd-versus-card) { --side:#ffe394!important; }
+.ftd-pvp :is(.ftd-duel-team,.ftd-duel-objective b,.ftd-duel-objective em) { color:#ffe394!important; }
+.ftd-pvp .ftd-duel-hp i { background:linear-gradient(90deg,#dca733,#ffe394); }
+.ftd-pvp :is(.ftd-versus-lineup,.ftd-duel-team,.ftd-duel-focus,.ftd-duel-camera button) { background:#202125ed; border-color:#ffe394; color:#ffe394; }
+.ftd-pvp .ftd-duel-card { border-color:#8c7850; border-radius:0; background:linear-gradient(145deg,#363539,#202125); color:#fff0cb; }
+.ftd-pvp .ftd-duel-card:is(:hover,:focus-visible,.is-selected) { border-color:#ffe394; background:#433a28; }
+.ftd-pvp .ftd-duel-card__art { color:#ffe394; }
+.ftd-pvp .ftd-duel-icon-button { border-radius:0; }
+.ftd-pvp .ftd-vs-portrait > .ftd-hero-portrait { width:100%; height:100%; margin:0; border:0; border-radius:0; }
+.ftd-pvp.is-battle .ftd-pvp__result { opacity:1!important; transform:none!important; animation:none!important; border-color:#ffe394!important; background:linear-gradient(145deg,#363337,#1c1e22 70%)!important; box-shadow:inset 0 0 0 5px #121418,8px 8px #050608!important; }
+.ftd-pvp.is-battle .ftd-pvp__result h2 { color:#ffe394!important; transform:none!important; }
+.ftd-pvp .ftd-result-fighter { transform:none!important; animation:none!important; }
+.ftd-pvp.is-battle .ftd-duel-result-overlay { position:absolute; inset:0; display:grid; place-items:center; padding:20px; overflow:auto; background:#090b10e8; z-index:20; }
+.ftd-pvp .ftd-result-stats span { color:#eee5cf; }
+.ftd-pvp .ftd-duel-feedback { background:#25262a; border-color:#ffe394; color:#ffe394; }
+.ftd-hub-command-card { margin-top:16px; padding:18px; border:1px solid #8c7850; background:linear-gradient(145deg,#303034,#202125); color:#ddd5c6; }
+.ftd-hub-command-card > .ftd-hero-portrait { width:96px; height:96px; margin:16px auto; display:block; }
+.ftd-hub-command-card h2 { margin:0; color:#ffe394; font-size:20px; text-align:center; }
+.ftd-hub-command-card h2 + p { margin:6px 0 18px; font-size:12px; text-align:center; }
+.ftd-hub-command-card dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px; font-size:12px; }
+.ftd-hub-command-card dd { margin:0; text-align:right; color:#fff0cb; }
+.ftd-hub-command-card__equip { width:100%; min-height:40px; border:1px solid #ffe394; background:#202125; color:#ffe394; cursor:pointer; font-weight:800; }
+@media(min-width:1000px) {
+  #screen-hub.ftd-hub .ftd-hub__body { grid-template-columns:minmax(0,1fr) clamp(280px,23vw,360px); align-items:start; }
+  #screen-hub.ftd-hub.is-single-panel .ftd-hub__body { grid-template-columns:1fr; }
+  #screen-hub.ftd-hub .ftd-hub__sub:not(.is-empty) { align-self:start; height:auto; max-height:100%; min-height:0; overflow:auto; }
+  #screen-hub.ftd-hub .ftd-hub__main { height:100%; }
+  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab { min-height:76px; gap:8px; padding:10px 8px; overflow:visible!important; clip-path:none!important; }
+  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab__label { display:block!important; opacity:1!important; font-size:11px; line-height:1.2; }
+  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab__icon { width:34px!important; height:34px!important; flex-basis:34px!important; }
+  #screen-hub.ftd-hub .ftd-hub-tab:is(:hover,:active,:focus-visible,.is-active) .ftd-hub-tab__icon,
+  #screen-hub.ftd-hub .ftd-mode-card:is(:hover,:active,:focus-visible,.is-active) .ftd-mode-card__icon { transform:translateY(-2px)!important; filter:drop-shadow(0 1px 0 #ffe394)!important; }
+  #screen-hub.ftd-hub .ftd-hub-tab:hover { background:#3d3527; border-color:#ffe394; }
+  .ftd-pvp.is-battle .ftd-pvp__body { display:grid; grid-template-columns:300px minmax(0,1fr); grid-template-rows:82px 32px minmax(0,1fr); }
+  .ftd-pvp.is-battle .ftd-duel-hud { grid-column:1/-1; grid-row:1; padding:12px 24px; }
+  .ftd-pvp.is-battle .ftd-duel-player strong { font-size:17px; }
+  .ftd-pvp.is-battle .ftd-vs-portrait { width:48px; height:48px; }
+  .ftd-pvp.is-battle .ftd-duel-objective { grid-column:1/-1; grid-row:2; font-size:11px; padding:8px; }
+  .ftd-pvp.is-battle .ftd-pvp-scene { grid-column:2; grid-row:3; width:100%; height:100%; margin:0; }
+  .ftd-pvp.is-battle .ftd-duel-dock { position:relative; inset:auto; grid-column:1; grid-row:3; width:100%; height:100%; padding:14px; overflow:auto; border-right:1px solid #ffe394; box-sizing:border-box; }
+  .ftd-pvp.is-battle .ftd-duel-resource { display:flex; margin-bottom:16px; }
+  .ftd-pvp.is-battle .ftd-duel-statusline { display:block; font-size:10px; }
+  .ftd-pvp.is-battle .ftd-duel-rail { flex-direction:row; flex-wrap:wrap; gap:8px; max-height:none; overflow:visible; margin-bottom:14px; }
+  .ftd-pvp.is-battle .ftd-duel-panel { position:static; width:100%; max-height:none; padding:12px 0 0; border:0; border-top:1px solid #8c7850; border-radius:0; box-shadow:none; background:none; }
+  .ftd-pvp.is-battle .ftd-duel-card { min-height:112px; }
+  .ftd-pvp.is-battle .ftd-duel-card__art { width:36px; height:36px; }
+  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-guide { font-size:12px; line-height:1.5; margin-bottom:12px; }
+}
+@media(prefers-reduced-motion:reduce) { .ftd-pvp *,#screen-hub .ftd-hub-tab__icon { transition:none!important; } }
+#screen-hub .ftd-item-card__swatch--image { background-size:contain; background-repeat:no-repeat; background-color:#202125; }
+#screen-hub .ftd-item-card__swatch--hero { display:grid; place-items:center; background:#202125; }
+#screen-hub .ftd-item-card__swatch--hero .ftd-hero-portrait { width:84px; height:84px; margin:0; }
+/* Lazy embedded pages already have the persistent hub heading and Back control. */
+#screen-hub .ftd-hub-panel-content .ftd-screen__header:not(.ftd-hub-page-heading) { display:none; }
+.ftd-pvp.is-battle .ftd-btn { border:1px solid #ffe394; border-radius:0; background:#25262a; color:#ffe394; }
+.ftd-pvp.is-battle .ftd-btn.ftd-tone-primary { background:linear-gradient(110deg,#ffda59,#ffb62d); color:#17191c; }
+.ftd-pvp.is-battle .ftd-btn:hover:not(:disabled) { filter:brightness(1.08); }

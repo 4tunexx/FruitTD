@@ -130,6 +130,7 @@ export function setLiveConfig(config: AdminConfig): void {
   applyMenuAppearance(config);
   setLiveWavesConfig(cached.waves);
   setPublishedCreatorMedia(cached.creatorMedia);
+  if(typeof window!=='undefined')window.dispatchEvent(new Event('fruit-td-creator-update'));
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('fruit-td-landscape-update', { detail: cached.landscapeConfig }));
 }
 

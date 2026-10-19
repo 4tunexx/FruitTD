@@ -10,6 +10,8 @@ import { openScreen } from './registry';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import type { CatalogItem } from '../../game/catalog';
+import { heroArt } from '../heroArt';
+import { HEROES } from '../../game/heroes';
 import { lucideIcon } from '../lucideIcon';
 
 export type ItemCardMode = 'shop' | 'inventory';
@@ -56,6 +58,8 @@ export function slicerPreview(item: CatalogItem): HTMLElement {
 
 function swatch(item: CatalogItem): HTMLElement {
   if (item.category === 'slicers') return slicerPreview(item);
+  const hero = item.category === 'heroes' ? HEROES.find(hero => hero.id === item.id || `hero:${hero.id}` === item.id) : undefined;
+  if (hero) return el('div', {class:'ftd-item-card__swatch ftd-item-card__swatch--hero'}, [heroArt(hero.id)]);
   if (item.previewImage) {
     const preview = el('div', { class: 'ftd-item-card__swatch ftd-item-card__swatch--image', 'aria-label': `${item.name} tower appearance` });
     preview.style.backgroundImage = `url("${item.previewImage}")`;

@@ -1086,15 +1086,19 @@
                 <section id="admin-media-studio" class="admin-media-studio creator-hub">
                   <div class="studio-header">
                     <div>
-                      <h3 class="studio-title">FruitTD Creator Hub v2</h3>
-                      <p class="studio-sub">Create animations, effects and sounds here. Save your draft while editing, then publish animations to make them available to every player.</p>
+                      <h3 class="studio-title">FruitTD Asset Workshop</h3>
+                      <p class="studio-sub">Browse the actual game artwork, replace images, animate sprite sheets and tune effects or sounds. Save a draft, then publish the pack to update every player.</p>
                     </div>
                     <span id="studio-status" class="studio-status">Ready</span>
                   </div>
 
                   <div class="creator-layout">
                     <aside class="studio-panel studio-panel--rail">
-                      <h4 class="studio-section-label">Entity Pack</h4>
+                      <h4 class="studio-section-label">Game assets</h4>
+                      <input id="studio-asset-search" type="search" class="studio-input" placeholder="Search heroes, towers, bosses, powers…" aria-label="Search game assets" />
+                      <select id="studio-asset-group" class="studio-input" aria-label="Asset category"><option value="all">All assets</option><option value="hero">Heroes</option><option value="enemy">Enemies</option><option value="tower">Towers and upgrade levels</option><option value="boss">Bosses</option><option value="power">Hero ability icons</option></select>
+                      <p id="studio-entity-count" class="studio-hint" role="status"></p>
+                      <button id="studio-open-icons" type="button" class="studio-btn">Edit menu and mode icons</button>
                       <div id="studio-entity-rail" class="studio-entity-rail"></div>
                       <div class="studio-toolbar" style="margin-top:0.5rem;">
                         <button type="button" id="studio-duplicate" class="studio-btn studio-btn--sm">Duplicate entity</button>
@@ -1109,10 +1113,10 @@
 
                     <div class="studio-panel studio-panel--sheet">
                       <div class="studio-toolbar">
-                        <label class="studio-btn studio-btn--file">Upload sheet (PNG)
+                        <label class="studio-btn studio-btn--file">Replace artwork / sprite sheet
                           <input id="studio-sheet-upload" type="file" accept="image/png,image/*" hidden />
                         </label>
-                        <button type="button" id="studio-save" class="studio-btn">Save draft</button><button type="button" id="studio-load-published" class="studio-btn">Load published pack</button><button type="button" id="studio-publish" class="studio-btn studio-btn--accent">Publish animations</button>
+                        <button type="button" id="studio-save" class="studio-btn">Save draft</button><button type="button" id="studio-load-published" class="studio-btn">Load published pack</button><button type="button" id="studio-publish" class="studio-btn studio-btn--accent">Publish asset pack</button>
                         <button type="button" id="studio-export-frame" class="studio-btn">Export frame</button>
                         <button type="button" id="studio-export-pack" class="studio-btn">Export pack JSON</button>
                         <label class="studio-btn studio-btn--file">Import pack
@@ -1169,7 +1173,7 @@
                       </div>
                     </div>
 
-                    <div class="studio-panel studio-panel--preview">
+                    <div class="studio-panel studio-panel--preview"><div id="studio-live-artwork" class="studio-live-artwork" data-testid="studio-live-artwork"></div>
                       <h4 class="studio-section-label">Sandbox preview</h4>
                       <canvas id="studio-preview-canvas" class="studio-preview-canvas studio-preview-canvas--lg" width="240" height="240"></canvas>
                       <div class="studio-btn-row">
@@ -1255,7 +1259,7 @@
                   <div class="studio-header">
                     <div>
                       <h3 class="studio-title">Wave / Level Board</h3>
-                      <p class="studio-sub">Author levels like a game creator. Draft saves to <code>fruittd-creator-waves-v1</code>. Publish writes into admin live config <code>waves</code> so <code>planWave</code> / <code>planBossWave</code> prefer authored packs (else procedural).</p>
+                      <p class="studio-sub">Edit the enemies and timing of each wave. Save a draft while editing, then publish to use your encounters in the game.</p>
                     </div>
                     <span id="creator-waves-status" class="studio-status">Ready</span>
                   </div>

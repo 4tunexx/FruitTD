@@ -1,6 +1,6 @@
 import { normalizeCoopConfig } from '../game/onlineCoop';
 import { renderConfigForm } from './admin/configForm';
-import { currentStudioDraft, loadPublishedStudioDraft, loadStudioStore } from './adminMediaStudio';
+import { currentStudioDraft, loadPublishedStudioDraft } from './adminMediaStudio';
 import { renderPvpEditor, disposePvpEditor } from './admin/pvpEditor';
 import { beginLoading } from './components/loading';
 import {
@@ -68,6 +68,7 @@ export class AdminController {
   constructor(onConfigSaved?: (config: AdminConfig) => void, onDailyReset?: () => void) {
     this.onConfigSaved = onConfigSaved || null;
     this.onDailyReset = onDailyReset || null;
+    if(typeof window!=='undefined')window.addEventListener('fruit-td-creator-update',()=>{if(this.config){this.config.creatorMedia=getLiveConfig().creatorMedia;this.onConfigSaved?.(this.config);}});
     this.initListeners();
     this.checkAdminPrivileges();
   }
@@ -95,8 +96,7 @@ export class AdminController {
     try { await this.loadConfig(); } finally { endLoading(); }
     this.renderActiveTab();
     installSpriteUploads();
-    const localDraft = loadStudioStore();
-    installMediaStudio(Object.keys(localDraft.entities).length ? undefined : this.config?.creatorMedia ?? undefined);
+    installMediaStudio(this.config?.creatorMedia ?? undefined);
     installCreatorWaveBoard();
     installCreatorSlicerVfx();
     installBattleMapEditor();
@@ -351,7 +351,7 @@ export class AdminController {
     ) {
       this.renderCatalogEditors(this.activeTab);
     } else if (this.activeTab === 'sprites') {
-      installMediaStudio();
+      installMediaStudio(this.config?.creatorMedia ?? undefined);
     } else if (this.activeTab === 'icons') {
       this.renderIconLibrary();
     } else if (this.activeTab === 'landscape') {

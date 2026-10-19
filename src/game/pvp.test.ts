@@ -210,3 +210,28 @@ describe('Arena and Ranked PvP rules', () => {
 
 
 describe('server-authoritative hero powers',()=>{it('validates equipped powers, applies their effect, and rejects cooldown replays',()=>{const game=newPvpMatch('abilities','arena',[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)],1000,cfg);game.status='active';game.endsAt=100000;const player=game.players[0]!;player.hero='jiju';player.abilityLoadout=['jiju-1'];player.abilityRanks={'jiju-1':1};player.attackers=[{id:'incoming',type:'normal',hp:100,maxHp:100,progress:2}];applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},1,2000,cfg);assert.equal(player.attackers[0]!.hp,82);assert.throws(()=>applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},2,2500,cfg),/cooling down/);});});
+
+describe('straight siege arenas and authored build pads', () => {
+  it('ships seven straight roads and ten legal landscape plots per player', () => {
+    for (const map of cfg.maps) {
+      assert.equal(new Set(map.pathCells.map(cell=>cell%map.width)).size,1);
+      assert.equal(map.pathCells.length,map.height);
+      assert.equal(map.buildCells.length,10);
+      assert.equal(new Set(map.buildCells).size,10);
+      assert.ok(map.buildCells.every(cell=>!map.pathCells.includes(cell)));
+    }
+    assert.ok(new Set(cfg.maps.map(map=>JSON.stringify(map.buildCells))).size>1,'veto choices offer different plot layouts');
+  });
+  it('migrates legacy all-cell maps but preserves ten-pad Admin layouts', () => {
+    const legacy=structuredClone(cfg.maps);
+    for(const map of legacy)map.buildCells=Array.from({length:map.width*map.height},(_,i)=>i).filter(i=>!map.pathCells.includes(i));
+    assert.deepEqual(normalizePvpMaps(legacy),cfg.maps);
+    const authored=structuredClone(cfg.maps);authored[0]!.buildCells[2]=21;
+    assert.deepEqual(normalizePvpMaps(authored)[0]!.buildCells,authored[0]!.buildCells);
+    const game=newPvpMatch('pad-rules','arena',[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)],1000,cfg);
+    game.status='active';game.map=cfg.map;game.players[0].fruts=1000;
+    const forbidden=Array.from({length:140},(_,i)=>i).find(i=>!cfg.map.pathCells.includes(i)&&!cfg.map.buildCells.includes(i))!;
+    assert.throws(()=>applyPvpCommand(game,'a',{type:'build',tower:'guillotine',cell:forbidden},1,2000,cfg));
+    assert.equal(game.players[0].fruts,1000);
+  });
+});

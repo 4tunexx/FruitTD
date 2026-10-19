@@ -27,7 +27,7 @@ export function normalizeCreatorMedia(raw: unknown): MediaStudioStore | null {
       const event = value.events?.[hook]; if (!event) continue;
       events[hook] = { flash: Boolean(event.flash), shake: number(event.shake, 0, 0, 3), ...(typeof event.sfxSlot === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(event.sfxSlot) ? { sfxSlot: event.sfxSlot } : {}), ...(['none','juice-burst','spark','dark-pulse','screen-shake'].includes(event.fx || '') ? { fx: event.fx } : {}) };
     }
-    entities[key] = { sheetDataUrl: sheet || null, cols, rows, frameW: Math.floor(number(value.frameW, 0, 0, 4096)), frameH: Math.floor(number(value.frameH, 0, 0, 4096)), clips, events, turret:normalizeTurretTuning(value.turret), label: String(value.label || key).slice(0,80) };
+    entities[key] = { sheetDataUrl: sheet || null, cols, rows, frameW: Math.floor(number(value.frameW, 0, 0, 4096)), frameH: Math.floor(number(value.frameH, 0, 0, 4096)), clips, events, turret:normalizeTurretTuning(value.turret), ...(value.ignoreLegacy===true?{ignoreLegacy:true}:{}), label: String(value.label || key).slice(0,80) };
   }
   const sounds:Record<string,string>=Object.create(null);
   for(const [key,url] of Object.entries(row.sounds||{})){

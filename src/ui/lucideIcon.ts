@@ -8,7 +8,7 @@ import {
   User, UserPlus, Users, Volume2, VolumeX, Waves, X, Zap, createElement, type IconNode,
 } from 'lucide';
 import { GAME_GLYPHS } from './gameGlyphs';
-import { ICON_ASSETS, ICON_ROLE_ALIASES, extractedIcon } from './extractedIcons';
+import { resolveIconAsset, ICON_ROLE_ALIASES, extractedIcon } from './extractedIcons';
 import { getLiveConfig } from '../services/liveConfig';
 
 const ICONS: Record<string, IconNode> = {
@@ -28,7 +28,7 @@ export function lucideIcon(name: string | null | undefined, className = '', size
   // Replacing an SVG with a PNG (or restoring it) must not retain renderer classes.
   const cleanClass = className.split(/\s+/).filter(value => value && value !== 'ftd-extracted-icon' && value !== 'ftd-game-glyph').join(' ');
   const overrides = getLiveConfig().iconOverrides;
-  const asset = overrides[key] || overrides[fallback] || ICON_ASSETS[fallback];
+  const asset = resolveIconAsset(key,overrides);
   let icon: SVGElement | HTMLElement;
   if (asset) {
     const cssSized = /(?:^|\s)(?:ftd-mode-card__icon|ftd-hub-tab__icon|ftd-home-mode-detail__art)(?:\s|$)/.test(cleanClass);

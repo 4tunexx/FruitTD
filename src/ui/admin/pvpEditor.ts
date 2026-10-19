@@ -11,7 +11,7 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const layout = el('div', { class: 'admin-pvp-workshop' });
   const controls = el('div'); const preview = el('aside', { class: 'admin-pvp-preview' });
   layout.append(controls, preview); host.append(header, layout);
-  let selected = 0; let painting = false; let draft: number[] | null = null;
+  let selected = 0; let paintingPads = false; let painting = false; let draft: number[] | null = null;
   const select = el('select', { class: 'admin-input', 'aria-label': 'Preview map' });
   config.maps.forEach((map, index) => select.append(new Option(map.name, String(index))));
   const name = el('input', { class: 'admin-input', 'aria-label': 'Map name' });
@@ -28,10 +28,19 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
     grid.style.gridTemplateColumns = `repeat(${current.width}, 1fr)`; grid.replaceChildren();
     const path = draft ?? current.pathCells;
     for (let cell = 0; cell < current.width * current.height; cell++) {
-      const button = el('button', { type: 'button', class: path.includes(cell) ? 'is-path' : '', 'aria-label': `Column ${cell % current.width + 1}, row ${Math.floor(cell / current.width) + 1}`, 'aria-pressed': String(path.includes(cell)) });
+      const button = el('button', { type: 'button', class: path.includes(cell) ? 'is-path' : current.buildCells.includes(cell) ? 'is-pad' : '', 'aria-label': `Column ${cell % current.width + 1}, row ${Math.floor(cell / current.width) + 1}`, 'aria-pressed': String(path.includes(cell)) });
+      if (current.buildCells.includes(cell)) button.textContent = '+';
       if (cell === path[0]) button.textContent = 'IN';
       if (cell === path.at(-1)) button.textContent = 'END';
       button.addEventListener('click', () => {
+        if (paintingPads) {
+          if (path.includes(cell)) { notice.textContent = 'Keep the road clear.'; return; }
+          if (current.buildCells.includes(cell)) current.buildCells = current.buildCells.filter(value => value !== cell);
+          else if (current.buildCells.length < 10) current.buildCells.push(cell);
+          else { notice.textContent = 'Ten pads maximum. Remove a pad before moving it.'; return; }
+          if (config.map.id === current.id) config.map = structuredClone(current);
+          notice.textContent = `${current.buildCells.length}/10 pads. Choose ten before publishing.`; paint(); refreshPreview(); return;
+        }
         if (!painting || !draft) return;
         if (!draft.length && cell >= current.width) { notice.textContent = 'Start on the top row.'; return; }
         const last = draft.at(-1);
@@ -44,15 +53,16 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
     }
   };
   const button = (text: string, fn: () => void) => { const node = el('button', { type: 'button', class: 'studio-btn', text }); node.addEventListener('click', fn); return node; };
-  controls.append(el('h4', { text: 'Map and paths' }), select, name, el('p', { text: 'Start a route on the top row and click adjoining tiles down to the bottom. Other tiles become build zones automatically.' }), grid,
+  controls.append(el('h4', { text: 'Map and paths' }), select, name, el('p', { text: 'Start a route on the top row and click adjoining tiles down to the bottom. Ten gold + pads define the build positions for each player. Use Edit build pads to move them.' }), grid,
     el('div', { class: 'admin-route-actions' }, [
-      button('Draw new route', () => { painting = true; draft = []; notice.textContent = 'Choose the entry tile on the top row.'; paint(); }),
+      button('Edit build pads', () => { paintingPads = !paintingPads; painting = false; draft = null; notice.textContent = paintingPads ? 'Tap a gold + to remove it; tap landscape to place it. Choose ten pads.' : 'Pad editing finished.'; paint(); }),
+      button('Draw new route', () => { paintingPads = false; painting = true; draft = []; notice.textContent = 'Choose the entry tile on the top row.'; paint(); }),
       button('Undo tile', () => { draft?.pop(); paint(); }),
       button('Cancel route', () => { painting = false; draft = null; notice.textContent = 'Existing route kept.'; paint(); }),
       button('Apply route', () => {
         const current = map();
         if (!draft || draft.length < 12 || Math.floor(draft.at(-1)! / current.width) !== current.height - 1) { notice.textContent = 'Route needs at least 12 tiles and must reach the bottom row.'; return; }
-        current.pathCells = [...draft]; current.buildCells = Array.from({ length: current.width * current.height }, (_, i) => i).filter((i) => !current.pathCells.includes(i));
+        current.pathCells = [...draft]; current.buildCells = [...new Set([...current.buildCells, ...Array.from({ length: current.width * current.height }, (_, i) => i)])].filter((i) => !current.pathCells.includes(i)).slice(0,10);
         if (config.map.id === current.id) config.map = structuredClone(current) as PvpMap;
         painting = false; draft = null; notice.textContent = 'Route applied to the draft. Save to publish.'; paint(); refreshPreview();
       }),

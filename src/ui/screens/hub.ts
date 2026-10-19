@@ -19,6 +19,8 @@
  * changes *how* a tab is painted, never *whether* it participates in nav.
  */
 
+import { heroArt } from '../heroArt';
+import { findCatalogItem } from '../../game/catalog';
 import { el, clear } from '../components/dom';
 import { GameCurrency } from '../components/primitives';
 import { Bell, Ellipsis, MessageCircle, UsersRound, createElement, type Swords } from 'lucide';
@@ -577,6 +579,22 @@ function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'fo
       const subInner = el('div', { class: 'ftd-hub-panel-content' });
       subHost.appendChild(subInner);
       tab.renderSub(subInner, save);
+      if (subInner.children.length && ['NEWS', 'SHOP', 'LEADERBOARD'].includes(tab.id)) {
+        const hero = heroDef(save.hero), xp = getHeroXpState(save, save.hero);
+        subInner.appendChild(el('section', {class:'ftd-hub-command-card'}, [
+          el('p', {class:'ftd-hub-context__eyebrow', text:'YOUR DEFENDER'}),
+          heroArt(save.hero), el('h2', {text:hero.name}),
+          el('p', {text:`Level ${xp.level} · ${hero.title}`}),
+          el('dl', {}, [
+            el('dt', {text:'Blade'}), el('dd', {text:findCatalogItem(save.bladeSkin)?.name || 'Starter blade'}),
+            el('dt', {text:'Wall'}), el('dd', {text:findCatalogItem(save.wallSkin)?.name || 'Orchard wall'}),
+            el('dt', {text:'Best wave'}), el('dd', {text:String(save.bestWave)}),
+            el('dt', {text:'High score'}), el('dd', {text:save.highScore.toLocaleString()}),
+          ]),
+          el('button', {type:'button', class:'ftd-hub-command-card__equip', text:'MANAGE LOADOUT'}),
+        ]));
+      }
+      subInner.querySelector('.ftd-hub-command-card__equip')?.addEventListener('click', () => openScreen('INVENTORY'));
       animateNumbersIn(subInner);
       subHost.classList.remove('is-empty');
       if (direction !== 'none') subHost.scrollTop = 0;
