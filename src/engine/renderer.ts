@@ -10,18 +10,11 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { ARENA_W } from '../game/world';
 
 const CLEAR = new Color(0x202529);
 
-/** Preserve all spawn lanes at default zoom, including narrow portrait screens. */
-export function arenaFrustum(width: number, height: number, zoomHeight = 20) {
-  const aspect = Math.max(1, width) / Math.max(1, height);
-  const minimumWidth = aspect < .82 ? 18 : ARENA_W + 2;
-  const viewHeight = Math.max(20, minimumWidth / aspect) * (zoomHeight / 20);
-  const viewWidth = viewHeight * aspect;
-  return { left: -viewWidth / 2, right: viewWidth / 2, top: viewHeight / 2, bottom: -viewHeight / 2 };
-}
+export { arenaFrustum } from './combatCamera';
+import { frameCombatCamera } from './combatCamera';
 
 export function combatViewport(width:number,height:number) {
  if(width<1100||height<600)return {left:0,top:0,width,height};
@@ -216,25 +209,8 @@ export class GameRenderer {
     // Portrait phones need the wall lower in the playable viewport, with room
     // for the compact top HUD. Keep landscape/desktop composition unchanged.
     this.renderer.setSize(w, h, false);
-    // Fit the full tower width and compact approach at every screen ratio.
-    const portrait = w / Math.max(1, h) < .82;
-    this.cameraBase.set(0, portrait ? 32 : 26, portrait ? -24 : -32);
-    Object.assign(this.camera, arenaFrustum(w, h, this.viewH * (portrait ? 20 / 28 : window.innerWidth>=1100 ? 24 / 28 : 1)));
-    // Keep a fixed cinematic pitch. Re-aiming the camera to fit the wall was
-    // flattening the world and changing the input projection on every resize.
-    this.lookZ = 1.5;
-    this.camera.position.set(this.panX, this.cameraBase.y, this.cameraBase.z + this.lookZ + this.panZ);
-    this.camera.lookAt(this.panX, .2, this.lookZ + this.panZ);
-    this.camera.updateProjectionMatrix();
-    this.camera.updateMatrixWorld(true);
-    // Shift the lens, not its pitch, so the keep remains at the bottom on phones.
-    const wall = new Vector3(0, .15, -10.6).project(this.camera);
-    // Portrait play keeps the full-width keep and its health rail close to the
-    // bottom safe edge. Desktop framing keeps the existing cinematic margin.
-    const wallTargetY = 1 - 24 / Math.max(1, h);
-    const shift = (wall.y - (1 - 2 * wallTargetY)) * (this.camera.top - this.camera.bottom) / 2;
-    this.camera.top += shift; this.camera.bottom += shift;
-    this.camera.updateProjectionMatrix();
+    const frame=frameCombatCamera(this.camera,w,h,this.viewH,window.innerWidth>=1100,this.panX,this.panZ);
+    this.cameraBase.set(0,frame.baseY,frame.baseZ);this.lookZ=frame.lookZ;
   }
 
   pan(dx: number, dz: number): void {

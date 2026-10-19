@@ -80,7 +80,7 @@ export function enemyKindToStudioKey(kind: EnemyKind): string {
     case 'explosive':
       return 'enemy-explosive';
     case 'chainburst':
-      return 'enemy-normal';
+      return 'enemy-chainburst';
     case 'armored':
       return 'enemy-armored';
     case 'splitter':

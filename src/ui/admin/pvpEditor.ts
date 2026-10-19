@@ -1,3 +1,4 @@
+import { loadSave } from '../../game/save';
 import type { PvpConfig, PvpMap } from '../../game/pvp';
 import { PvpBattlefield } from '../screens/pvpBattlefield';
 import { renderConfigForm } from './configForm';
@@ -11,6 +12,7 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const layout = el('div', { class: 'admin-pvp-workshop' });
   const controls = el('div'); const preview = el('aside', { class: 'admin-pvp-preview' });
   layout.append(controls, preview); host.append(header, layout);
+  let showUnits=true,sharedPreview=false,previewLevel=1;
   let selected = 0; let paintingPads = false; let painting = false; let draft: number[] | null = null;
   const select = el('select', { class: 'admin-input', 'aria-label': 'Preview map' });
   config.maps.forEach((map, index) => select.append(new Option(map.name, String(index))));
@@ -18,11 +20,28 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const grid = el('div', { class: 'admin-route-grid', role: 'group', 'aria-label': 'Paint a connected route from the top edge to the bottom edge' });
   const notice = el('p', { role: 'status' });
   const map = () => config.maps[selected]!;
-  const snapshot = () => ({ id: 'admin-preview', map: map(), yourSide: 'blue', players: ['blue', 'red'].map((side) => ({ userId: side, side, name: side, wallHealth: config.wallHealth, towers: [], attackers: [] })) });
+  const snapshot = () => {
+    const save=loadSave();
+    const previewMap=sharedPreview?{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[] as number[],buildCells:Array.from({length:8},(_,i)=>121+i)}:map();
+    return {id:'admin-preview',map:previewMap,yourSide:'blue',shared:sharedPreview,players:(sharedPreview?['blue']:['blue','red']).map((side)=>({
+      userId:side,side,name:side==='blue'?save.nickname||'Your defender':'Rival defender',hero:save.hero,wallSkin:save.wallSkin,wallHealth:config.wallHealth,mainLevel:previewLevel,
+      towers:showUnits?previewMap.buildCells.slice(0,6).map((cell,index)=>({id:`${side}-preview-${index}`,cell,type:Object.keys(config.towers).filter(id=>id!=='catcher')[index%6]||'guillotine',level:previewLevel})):[],
+      attackers:showUnits?Object.keys(config.attacks).slice(0,5).map((type,index)=>({id:`${side}-fruit-${index}`,type,progress:.28+index*.11,hp:config.attacks[type]!.health,maxHp:config.attacks[type]!.health})):[],
+    }))};
+  };
   let scene: PvpBattlefield | null = null;
   try { scene = new PvpBattlefield(snapshot(), config, () => {}); preview.append(scene.element); }
   catch { preview.append(el('p', { role: 'alert', text: '3D preview is unavailable on this device. Route editing is still available.' })); }
   const refreshPreview = () => scene?.update(snapshot(), config);
+  const previewControls=el('div',{class:'admin-route-actions'});
+  const previewMode=el('select',{class:'admin-input','aria-label':'Live preview mode'},[el('option',{value:'pvp',text:'Arena / Ranked · two keeps'}),el('option',{value:'coop',text:'Online Co-op · shared wall'})]);
+  const level=el('select',{class:'admin-input','aria-label':'Preview turret level'},Array.from({length:10},(_,i)=>el('option',{value:String(i+1),text:`Level ${i+1}`})));
+  const units=el('button',{type:'button',class:'studio-btn',text:'Hide sample units'});
+  previewControls.append(previewMode,level,units);preview.prepend(previewControls);
+  previewMode.addEventListener('change',()=>{sharedPreview=previewMode.value==='coop';refreshPreview();});
+  level.addEventListener('change',()=>{previewLevel=Number(level.value)||1;refreshPreview();});
+  units.addEventListener('click',()=>{showUnits=!showUnits;units.textContent=showUnits?'Hide sample units':'Show sample units';refreshPreview();});
+
   const paint = () => {
     const current = map(); name.value = current.name;
     grid.style.gridTemplateColumns = `repeat(${current.width}, 1fr)`; grid.replaceChildren();

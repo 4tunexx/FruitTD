@@ -15,7 +15,7 @@ export const EXTRA_Z = -7.85;
 export const LEAK_Z = -7.5;
 export const TILE = 1.4;
 
-export interface PadDef { x: number; z: number; main: boolean; floor: boolean; }
+export interface PadDef { x: number; z: number; main: boolean; floor: boolean; enabled?: boolean; }
 function buildPads(): PadDef[] {
   return [
     { x:-6.2, z:WALL_Z, main:false, floor:false }, { x:-3.8, z:WALL_Z, main:false, floor:false },
@@ -27,7 +27,7 @@ function buildPads(): PadDef[] {
 }
 export const PADS: PadDef[] = buildPads();
 export const MAIN_INDEX = PADS.findIndex((p) => p.main);
-export function slotIndexAt(x:number,z:number):number { let best=-1,bestD=0.72; for(let i=0;i<PADS.length;i++){const d=Math.hypot(x-PADS[i].x,z-PADS[i].z);if(d<bestD){bestD=d;best=i;}} return best; }
+export function slotIndexAt(x:number,z:number,pads:readonly PadDef[]=PADS):number { let best=-1,bestD=0.72; for(let i=0;i<pads.length;i++){if(pads[i].enabled===false)continue;const d=Math.hypot(x-pads[i].x,z-pads[i].z);if(d<bestD){bestD=d;best=i;}} return best; }
 export function slicerCost():number { return 50; }
 export function upgradeCost(level:number):number|null { if(level>=MAX_TOWER_LEVEL)return null; return 30 + level*25 + Math.max(0, level-1)*10; }
 export function towerStats(level:number,main:boolean):{range:number;damage:number;fireRate:number} {

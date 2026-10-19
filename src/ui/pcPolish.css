@@ -250,3 +250,4 @@ html[data-ftd-motion] #screen-hub.ftd-hub button:hover::before,html[data-ftd-mot
  #screen-hub.ftd-hub .ftd-pvp:not(.is-battle) .ftd-pvp__queue { background:none!important; box-shadow:none!important; }
  #screen-hub.ftd-hub .ftd-pvp__queue > .ftd-pvp__intro { font-size:14px; line-height:1.65; }
 }
+.ftd-match-preparing { position:fixed; z-index:1000; top:24px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); box-sizing:border-box; padding:14px 20px; border:1px solid #ffe394; background:#202125; color:#ffe394; box-shadow:0 8px 24px #0008; pointer-events:none; }

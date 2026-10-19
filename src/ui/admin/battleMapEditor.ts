@@ -1,3 +1,6 @@
+import { battlefieldArtSource } from '../../game/characterPortraits';
+import { TURRETS, type TurretKind } from '../../game/turrets';
+import type { CombatPreview } from './combatPreview';
 import { defaultMapForMode, normalizeBattleMap, type BattleMap, type BattleMapMode, type MapEntityKind } from '../../game/battleMaps';
 import { fetchAdminBattleMaps, saveAdminBattleMap } from '../../services/battleMaps';
 import { refreshAdminTexture } from '../../game/adminTextureLoader';
@@ -26,6 +29,11 @@ let editorMaps: BattleMap[] = [];
 let selected = 0;
 let tool: Tool = 'select';
 let busy = false;
+let livePreview:CombatPreview|null=null;
+let previewLoading=false;
+let previewRequest=0;
+let drawRequest=0;
+let previewRefresh:ReturnType<typeof setTimeout>|null=null;
 let selectedEntityId: string | null = null;
 let draggingEntity = false;
 let activeRouteId = 'main-route';
@@ -44,11 +52,14 @@ function mapMarkup(): string {
     <button id="map-save" type="button" class="is-primary">Save to MongoDB</button>
   </div>
   <div class="battle-map-library"><span>Map samples</span>${imageLibrary.map((item) => `<button type="button" data-map-sample="${item.path}" data-mode="${item.mode}">${item.label}</button>`).join('')}</div>
+  <div class="battle-map-preview-actions"><button type="button" id="map-open-preview">Show live gameplay preview</button><label>Preview turret<select id="map-preview-turret">${TURRETS.map(def=>`<option value="${def.kind}">${def.name}</option>`).join('')}</select></label><button type="button" id="map-online-workshop">Open Arena / Ranked / online Co-op workshop</button></div>
+  <p id="map-preview-note">Live preview uses your equipped hero and wall skin. Select a gold + to preview a build; select it again to preview an upgrade. These previews do not spend Fruts.</p>
+  <div id="map-live-preview" class="battle-map-live-preview" hidden></div>
   <div class="battle-map-workspace">
-    <div class="battle-map-tools"><label class="map-route-choice">Active route<select id="map-route-choice"></select></label>${(['select', 'route', 'spawn', 'tower', 'opponent-tower', 'solid', 'hazard', 'pit', 'light', 'prop', 'turret-slot'] as Tool[]).map((item) => `<button type="button" data-map-tool="${item}" class="${item === tool ? 'active' : ''}">${item.replace('-', ' ')}</button>`).join('')}<button type="button" id="map-add-route">+ Route</button><button type="button" id="map-remove-entity">Remove selected</button></div>
+    <div class="battle-map-tools"><label class="map-route-choice">Active route<select id="map-route-choice"></select></label>${(['select', 'route', 'spawn', 'solid', 'hazard', 'pit', 'light', 'prop', 'turret-slot'] as Tool[]).map((item) => `<button type="button" data-map-tool="${item}" class="${item === tool ? 'active' : ''}">${item.replace('-', ' ')}</button>`).join('')}<button type="button" id="map-add-route">+ Route</button><button type="button" id="map-remove-entity">Remove selected</button></div>
     <div class="battle-map-canvas-frame"><canvas id="battle-map-canvas" aria-label="Map preview. Tap to place the selected map tool."></canvas></div>
   </div>
-  <p class="battle-map-help">Coordinates are normalized to the map image. Add route points from the enemy entrance toward the tower. Select an entity by tapping it; drag to reposition. PNG backgrounds scale to the authored map without cropping.</p>
+  <p class="battle-map-help">Solo and local Co-op maps: the keep stays anchored at the bottom. Routes, props and up to 32 build pads are authored here. Online modes use the linked match workshop. Coordinates are normalized to the map image. Add route points from the enemy entrance toward the tower. Select an entity by tapping it; drag to reposition. PNG backgrounds scale to the authored map without cropping.</p>
   <div class="battle-map-assets"><strong>Sample assets · available in existing editors</strong>${samples.map((item) => `<article><img src="${item.path}" alt=""><span>${item.label}</span><button type="button" data-import-sample="${item.target}" data-path="${item.path}">Load in ${item.target === 'tower' ? 'Tower' : item.target === 'enemy' ? 'Enemy' : 'Boss'} Editor</button></article>`).join('')}<button type="button" id="map-publish-creator">Publish Creator asset to MongoDB</button></div>
   <div class="battle-map-assets battle-map-tower-skins"><strong>Bottom defense tower · hero remains on the center keep</strong>${towerSkins.map((skin) => `<article><img src="${skin.path}" alt="${skin.name} tower wall material"><span>${skin.name}</span><small>${skin.tag}</small></article>`).join('')}<p>These skins wrap the existing full-width bottom wall. The separate center keep and its hero anchor stay in place; side tower slots are unchanged. Shop cards preview the same textures.</p></div>
   <p id="battle-map-status" role="status" aria-live="polite"></p>`;
@@ -62,19 +73,29 @@ function status(message: string, error = false): void {
 function draw(): void {
   const canvas = el<HTMLCanvasElement>('battle-map-canvas'); const map = current();
   if (!canvas || !map) return;
+  if(previewRefresh)clearTimeout(previewRefresh);
+  if(livePreview&&map.mode!=='pvp')previewRefresh=setTimeout(()=>{livePreview?.setMap(normalizeBattleMap(map));previewRefresh=null;},120);
+  const online=map.mode==='pvp';
+  canvas.closest<HTMLElement>('.battle-map-workspace')!.hidden=online;
+  const save=el<HTMLButtonElement>('map-save');if(save)save.disabled=online||busy;
+  const liveHost=el<HTMLElement>('map-live-preview');if(liveHost){if(online)liveHost.hidden=true;else if(livePreview)liveHost.hidden=false;}
+  const previewButton=el<HTMLButtonElement>('map-open-preview');if(previewButton)previewButton.disabled=online;
+  const note=el<HTMLElement>('map-preview-note');if(note)note.textContent=online?'Arena and Ranked maps are edited in the online match workshop. Open it to preview the actual two-keep battlefield.':map.mode==='coop'?'This map applies to local Co-op. Use the online workshop to inspect the server-controlled shared-wall battlefield.':'Live preview uses your equipped hero and wall skin. Select a gold + to preview a build; select it again to preview an upgrade. No Fruts are spent.';
   const rect = canvas.getBoundingClientRect(); const scale = Math.min(devicePixelRatio || 1, 2);
   canvas.width = Math.max(1, Math.round(rect.width * scale)); canvas.height = Math.max(1, Math.round(rect.height * scale));
   const ctx = canvas.getContext('2d'); if (!ctx) return;
   ctx.scale(scale, scale); ctx.fillStyle = '#202226'; ctx.fillRect(0, 0, rect.width, rect.height);
+  const drawId=++drawRequest;
   const paint = () => {
     if (map.background.startsWith('data:image')) {
-      const image = new Image(); image.onload = () => { ctx.globalAlpha = .88; ctx.drawImage(image, 0, 0, rect.width, rect.height); ctx.globalAlpha = 1; overlay(); };
-      image.src = map.background;
+      const image = new Image(); image.onload = () => { if(drawId!==drawRequest)return;ctx.globalAlpha = .88; ctx.drawImage(image, 0, 0, rect.width, rect.height); ctx.globalAlpha = 1; overlay(); };
+      image.src = battlefieldArtSource(map.background);
     } else {
-      const image = new Image(); image.onload = () => { ctx.globalAlpha = .88; ctx.drawImage(image, 0, 0, rect.width, rect.height); ctx.globalAlpha = 1; overlay(); }; image.onerror = () => overlay(); image.src = map.background;
+      const image = new Image(); image.onload = () => { if(drawId!==drawRequest)return;ctx.globalAlpha = .88; ctx.drawImage(image, 0, 0, rect.width, rect.height); ctx.globalAlpha = 1; overlay(); }; image.onerror = () => overlay(); image.src = battlefieldArtSource(map.background);
     }
   };
   const overlay = () => {
+    if(drawId!==drawRequest)return;
     ctx.strokeStyle = '#ffce38'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
     for (const route of map.routes) {
       ctx.beginPath(); route.points.forEach((p, i) => i ? ctx.lineTo(p.x * rect.width, p.y * rect.height) : ctx.moveTo(p.x * rect.width, p.y * rect.height)); ctx.stroke();
@@ -84,7 +105,11 @@ function draw(): void {
     marker(map.tower.x, map.tower.y, '#f6d44e', 'TOWER'); if (map.opponentTower) marker(map.opponentTower.x, map.opponentTower.y, '#e88369', 'OPPONENT');
     map.spawns.forEach((spawn) => marker(spawn.x, spawn.y, '#76d7ff', 'SPAWN'));
     map.entities.forEach((entity) => {
-      const x = entity.x * rect.width, y = entity.y * rect.height; ctx.fillStyle = entity.kind === 'pit' || entity.kind === 'hazard' ? '#f16849a8' : entity.kind === 'turret-slot' ? '#63b8e9cc' : '#25282dd9';
+      const x = entity.x * rect.width, y = entity.y * rect.height;
+      if(entity.kind==='turret-slot'){
+        if(!entity.visible)return;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#202125';ctx.fill();ctx.strokeStyle=entity.id===selectedEntityId?'#fff':'#ffe394';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#ffe394';ctx.font='bold 17px sans-serif';ctx.textAlign='center';ctx.fillText('+',x,y+6);ctx.textAlign='start';return;
+      }
+      ctx.fillStyle = entity.kind === 'pit' || entity.kind === 'hazard' ? '#f16849a8' : '#25282dd9';
       ctx.strokeStyle = entity.id === selectedEntityId ? '#fff' : '#fff4'; ctx.lineWidth = entity.id === selectedEntityId ? 3 : 1; ctx.fillRect(x - entity.width * rect.width / 2, y - entity.height * rect.height / 2, entity.width * rect.width, entity.height * rect.height); ctx.strokeRect(x - entity.width * rect.width / 2, y - entity.height * rect.height / 2, entity.width * rect.width, entity.height * rect.height);
       ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText(entity.label, x + 7, y - 5);
     });
@@ -114,13 +139,14 @@ function pointEvent(event: PointerEvent): void {
     const hit = [...map.entities].reverse().find((entity) => Math.abs(entity.x - point.x) <= entity.width / 2 + .02 && Math.abs(entity.y - point.y) <= entity.height / 2 + .02);
     selectedEntityId = hit?.id || null; draggingEntity = Boolean(hit); draw(); return;
   }
-  if (tool === 'tower') { map.tower = point; }
+  if (tool === 'tower') { status('The keep stays anchored at the bottom in solo and local Co-op. Move the build pads beside it instead.',true);return; }
   else if (tool === 'opponent-tower') { map.opponentTower = point; }
   else if (tool === 'route') { const route = map.routes.find((item) => item.id === activeRouteId) || map.routes[0]; if (route) route.points.push(point); }
   else if (tool === 'spawn') {
     const spawn = map.spawns[0]; if (spawn) Object.assign(spawn, point, { enabled: true });
     else map.spawns.push({ id: `spawn-${Date.now()}`, routeId: activeRouteId || map.routes[0]?.id || 'main-route', ...point, enabled: true, label: 'Top spawn' });
   } else {
+    if(tool==='turret-slot'&&map.entities.filter(entity=>entity.kind==='turret-slot').length>=32){status('32 build pads maximum. Move or remove an existing pad.',true);return;}
     map.entities.push({ id: `${tool}-${Date.now()}`, kind: tool, ...point, width: .08, height: .06, rotation: 0, visible: true, asset: '', collision: ['solid', 'pit'].includes(tool) ? 'solid' : tool === 'hazard' ? 'trigger' : 'none', damage: ['pit', 'hazard'].includes(tool) ? 1 : 0, slow: 0, label: tool.replace('-', ' ') });
   }
   draw();
@@ -163,15 +189,24 @@ async function importAsset(target: string, path: string): Promise<void> {
 export function installBattleMapEditor(): void {
   const host = el<HTMLElement>('admin-map-studio'); if (!host || host.dataset.mapEditorReady === '1') return;
   host.dataset.mapEditorReady = '1'; host.innerHTML = mapMarkup();
-  const style = document.createElement('style'); style.textContent = `.battle-map-toolbar,.battle-map-library,.battle-map-tools{display:flex;gap:.55rem;align-items:end;flex-wrap:wrap;margin:.75rem 0}.battle-map-toolbar label{display:grid;gap:.25rem;color:#d6d2c8;font-size:.75rem}.battle-map-toolbar input,.battle-map-toolbar select{min-width:130px;background:#22252a;color:#fff;border:1px solid #655d4e;padding:.55rem;border-radius:5px}.battle-map-toolbar button,.battle-map-library button,.battle-map-tools button,.battle-map-assets button{background:#292b30;border:1px solid #665b47;color:#eee;padding:.55rem .7rem;border-radius:5px;min-height:40px}.battle-map-toolbar .is-primary{background:#efbd31;color:#171719;font-weight:800}.battle-map-workspace{display:grid;grid-template-columns:minmax(115px,180px) minmax(0,1fr);gap:.7rem}.battle-map-tools{align-content:start;display:grid;grid-template-columns:1fr}.battle-map-tools button{text-transform:capitalize}.battle-map-tools button.active{background:#edbd34;color:#171719}.battle-map-canvas-frame{width:100%;height:min(68vh,720px);min-height:360px;background:#202226;border:1px solid #786943;border-radius:6px;overflow:hidden}.battle-map-canvas-frame canvas{width:100%;height:100%;touch-action:none}.battle-map-help{color:#aaa;font-size:.78rem;line-height:1.5}.battle-map-library{align-items:center;color:#edc34a}.battle-map-assets{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;border-top:1px solid #55482f;padding-top:.8rem}.battle-map-assets>strong{flex-basis:100%;color:#edc34a}.battle-map-assets article{display:grid;gap:.35rem;width:min(180px,46%);background:#212328;border:1px solid #504a3e;padding:.5rem;border-radius:6px;color:#ddd;font-size:.78rem}.battle-map-assets img{width:100%;height:95px;object-fit:contain;background:#161719}.battle-map-assets button{font-size:.72rem}#battle-map-status{min-height:1.4em;color:#b9d899;font-size:.82rem}#battle-map-status[data-error="true"]{color:#ff927d}@media(max-width:650px){.battle-map-workspace{grid-template-columns:1fr}.battle-map-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.battle-map-canvas-frame{height:60vh;min-height:340px}.battle-map-toolbar label{flex:1}.battle-map-toolbar input,.battle-map-toolbar select{min-width:0;width:100%}}`;
+  const style = document.createElement('style'); style.textContent = `.battle-map-preview-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.battle-map-live-preview{height:520px;border:1px solid #ffe394;background:#202125}.ftd-combat-preview{display:block;width:100%;height:100%;touch-action:none}.battle-map-preview-actions button,.battle-map-preview-actions select{padding:12px;background:#25262a;color:#ffe394;border:1px solid #786b50}.battle-map-toolbar,.battle-map-library,.battle-map-tools{display:flex;gap:.55rem;align-items:end;flex-wrap:wrap;margin:.75rem 0}.battle-map-toolbar label{display:grid;gap:.25rem;color:#d6d2c8;font-size:.75rem}.battle-map-toolbar input,.battle-map-toolbar select{min-width:130px;background:#22252a;color:#fff;border:1px solid #655d4e;padding:.55rem;border-radius:5px}.battle-map-toolbar button,.battle-map-library button,.battle-map-tools button,.battle-map-assets button{background:#292b30;border:1px solid #665b47;color:#eee;padding:.55rem .7rem;border-radius:5px;min-height:40px}.battle-map-toolbar .is-primary{background:#efbd31;color:#171719;font-weight:800}.battle-map-workspace{display:grid;grid-template-columns:minmax(115px,180px) minmax(0,1fr);gap:.7rem}.battle-map-tools{align-content:start;display:grid;grid-template-columns:1fr}.battle-map-tools button{text-transform:capitalize}.battle-map-tools button.active{background:#edbd34;color:#171719}.battle-map-canvas-frame{width:100%;height:min(68vh,720px);min-height:360px;background:#202226;border:1px solid #786943;border-radius:6px;overflow:hidden}.battle-map-canvas-frame canvas{width:100%;height:100%;touch-action:none}.battle-map-help{color:#aaa;font-size:.78rem;line-height:1.5}.battle-map-library{align-items:center;color:#edc34a}.battle-map-assets{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;border-top:1px solid #55482f;padding-top:.8rem}.battle-map-assets>strong{flex-basis:100%;color:#edc34a}.battle-map-assets article{display:grid;gap:.35rem;width:min(180px,46%);background:#212328;border:1px solid #504a3e;padding:.5rem;border-radius:6px;color:#ddd;font-size:.78rem}.battle-map-assets img{width:100%;height:95px;object-fit:contain;background:#161719}.battle-map-assets button{font-size:.72rem}#battle-map-status{min-height:1.4em;color:#b9d899;font-size:.82rem}#battle-map-status[data-error="true"]{color:#ff927d}@media(max-width:650px){.battle-map-workspace{grid-template-columns:1fr}.battle-map-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.battle-map-canvas-frame{height:60vh;min-height:340px}.battle-map-toolbar label{flex:1}.battle-map-toolbar input,.battle-map-toolbar select{min-width:0;width:100%}}`;
   host.append(style);
   host.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement;
     const toolButton = target.closest<HTMLElement>('[data-map-tool]'); if (toolButton) { tool = toolButton.dataset.mapTool as Tool; host.querySelectorAll('[data-map-tool]').forEach((button) => button.classList.toggle('active', button === toolButton)); return; }
-    const sample = target.closest<HTMLElement>('[data-map-sample]'); if (sample) { const map = current(); if (map) { const template = defaultMapForMode(sample.dataset.mode as BattleMapMode); map.background = sample.dataset.mapSample!; map.mode = template.mode; map.routes = structuredClone(template.routes); map.spawns = structuredClone(template.spawns); map.entities = structuredClone(template.entities); map.tower = structuredClone(template.tower); map.opponentTower = template.opponentTower ? structuredClone(template.opponentTower) : undefined; activeRouteId = map.routes[0]?.id || ''; renderMapSelect(); } return; }
+    const sample = target.closest<HTMLElement>('[data-map-sample]'); if (sample) { const map = current(); if (map) { const template = defaultMapForMode(sample.dataset.mode as BattleMapMode); map.background = template.background; map.mode = template.mode; map.routes = structuredClone(template.routes); map.spawns = structuredClone(template.spawns); map.entities = structuredClone(template.entities); map.tower = structuredClone(template.tower); map.opponentTower = template.opponentTower ? structuredClone(template.opponentTower) : undefined; activeRouteId = map.routes[0]?.id || ''; renderMapSelect(); } return; }
     const importButton = target.closest<HTMLElement>('[data-import-sample]'); if (importButton) { try { await importAsset(importButton.dataset.importSample!, importButton.dataset.path!); } catch (error) { status(error instanceof Error ? error.message : 'Sample import failed.', true); } return; }
     if (target.id === 'map-add-route' && current()) { const map = current()!; const route = { id: `route-${Date.now()}`, name: `Route ${map.routes.length + 1}`, width: 4, points: [] }; map.routes.push(route); activeRouteId = route.id; tool = 'route'; renderMapSelect(); }
     if (target.id === 'map-remove-entity' && current()) { const map = current()!; const found = map.entities.findIndex((entity) => entity.id === selectedEntityId); if (found >= 0) map.entities.splice(found, 1); selectedEntityId = null; draw(); }
+    if(target.id==='map-online-workshop')document.querySelector<HTMLButtonElement>('.admin-tab-btn[data-tab="pvp"]')?.click();
+    if(target.id==='map-open-preview'&&!previewLoading&&current()?.mode!=='pvp'){
+      const previewHost=el<HTMLElement>('map-live-preview')!;previewHost.hidden=false;
+      if(livePreview){livePreview.setMap(normalizeBattleMap(current()));return;}
+      previewLoading=true;const request=++previewRequest;
+      try{const {CombatPreview}=await import('./combatPreview');if(request!==previewRequest||!previewHost.isConnected)return;livePreview=new CombatPreview(previewHost);livePreview.setTurret((el<HTMLSelectElement>('map-preview-turret')?.value||'guillotine') as TurretKind);livePreview.setMap(normalizeBattleMap(current()));}
+      catch(error){status(error instanceof Error?`Live preview unavailable: ${error.message}`:'Live preview unavailable.',true);previewHost.hidden=true;}
+      finally{previewLoading=false;}
+    }
     if (target.id === 'map-save') await saveCurrent();
     if (target.id === 'map-publish-creator') document.getElementById('studio-publish')?.click();
     if (target.id === 'map-new') { const mode = el<HTMLSelectElement>('map-mode')?.value as BattleMapMode || 'casual'; editorMaps.push({ ...defaultMapForMode(mode), id: `admin-${mode}-${Date.now()}`, name: `New ${mode} map`, published: true, revision: 1 }); selected = editorMaps.length - 1; renderMapSelect(); }
@@ -180,7 +215,8 @@ export function installBattleMapEditor(): void {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     if (target.id === 'map-choice') { selected = Number(target.value) || 0; renderMapSelect(); }
     if (target.id === 'map-route-choice') { activeRouteId = target.value; }
-    if (target.id === 'map-mode' && current()) { current()!.mode = target.value as BattleMapMode; draw(); }
+    if (target.id === 'map-mode') { const mode=target.value as BattleMapMode;let index=editorMaps.findIndex(map=>map.mode===mode);if(index<0){editorMaps.push(defaultMapForMode(mode));index=editorMaps.length-1;}selected=index;renderMapSelect(); }
+    if(target.id==='map-preview-turret')livePreview?.setTurret(target.value as TurretKind);
     if (target.id === 'map-image-upload') { const file = (target as HTMLInputElement).files?.[0]; if (file && current()) try { current()!.background = await loadImageData(file); draw(); status('Optimized map image loaded. Save to publish it for this mode.'); } catch (error) { status(error instanceof Error ? error.message : 'Image upload failed.', true); } }
   });
   host.addEventListener('input', (event) => { const target = event.target as HTMLInputElement; if (target.id === 'map-name' && current()) current()!.name = target.value; });

@@ -1,3 +1,4 @@
+import { createBuildPad } from '../../game/buildPads';
 import { TurretEffects } from '../../game/turretEffects';
 import { DefenderMotion } from '../../game/defenderMotion';
 import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
@@ -143,6 +144,9 @@ export class PvpBattlefield {
       const b = pvpWorldPoint(map, snapshot.sharedStroke.to.x, snapshot.sharedStroke.to.y, true);
       a.y = b.y = .8; this.remoteTrail.sync([a, b]);
     }
+    for(const pad of this.terrain.children){
+      if(pad.userData.ownerId)pad.visible=!snapshot.players.find(player=>player.userId===pad.userData.ownerId)?.towers.some(tower=>tower.cell===pad.userData.cell);
+    }
     const towerIds = new Set<string>(); const fruitIds = new Set<string>();
     for (const player of snapshot.players) {
       const own = player.side === snapshot.yourSide;
@@ -192,7 +196,7 @@ export class PvpBattlefield {
           rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, type: tower.type, own, cell: tower.cell, level: pvpTowerLevel(tower.level) });
         }
         const entry = this.towers.get(tower.id);
-        if (entry) { entry.level = pvpTowerLevel(tower.level);entry.lastFiredAt=tower.lastFiredAt; entry.rig.group.scale.setScalar(1.15 + (entry.level - 1) * .14); }
+        if (entry) { entry.rig.group.position.copy(this.cellPoint(tower.cell,own));entry.level = pvpTowerLevel(tower.level);entry.lastFiredAt=tower.lastFiredAt; entry.rig.group.scale.setScalar(1.15 + (entry.level - 1) * .14); }
       }
       for (const fruit of player.attackers) {
         fruitIds.add(fruit.id);
@@ -282,7 +286,7 @@ export class PvpBattlefield {
     const shoulderMat = new MeshLambertMaterial({ color: 0x73583b });
     const roadMat = new MeshLambertMaterial({ color: 0x55524b, map:battleTexture('stone') });
     const laneMat = new MeshLambertMaterial({ color: 0xe9d09a });
-    const padMat = new MeshBasicMaterial({ color: 0xffda6b, transparent: true, opacity: .8, depthWrite: false, side: DoubleSide });
+
 
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
@@ -293,13 +297,10 @@ export class PvpBattlefield {
 
       // Both players get ten readable plots; only your own plots are pickable.
       for (const cell of map.buildCells) {
-        const pad = new Mesh(new RingGeometry(.52, .62, 32), padMat); pad.rotation.x = -Math.PI/2;
-        pad.position.copy(this.cellPoint(cell, own)); pad.position.y = .15;
-        pad.userData.cell = cell; this.terrain.add(pad); if (own) this.buildPads.push(pad);
-        for (const angle of [0, Math.PI / 2]) {
-          const plus = new Mesh(new PlaneGeometry(.36, .07), padMat);
-          plus.rotation.set(-Math.PI/2, 0, angle); plus.position.copy(pad.position); plus.position.y += .01; this.terrain.add(plus);
-        }
+        const pad=createBuildPad();
+        pad.position.copy(this.cellPoint(cell, own));pad.position.y=.16;
+        pad.userData.cell=cell;pad.userData.ownerId=player.userId;
+        this.terrain.add(pad);if(own)this.buildPads.push(pad);
       }
 
       // The lane is continuous and readable.
@@ -333,6 +334,7 @@ export class PvpBattlefield {
         (wall.material as MeshLambertMaterial).map = texture; (wall.material as MeshLambertMaterial).color.setHex(0xffffff);
       }
       wall.userData.combatPortrait = true;
+      (wall.material as MeshLambertMaterial).userData.creatorWallAllowed=wallSkin.id===WALL_SKINS[0]!.id;
       this.wallMaterials.push(wall.material as MeshLambertMaterial);
       wall.position.y = .5;
       const keep = new Mesh(new CircleGeometry(1.1, 48), new MeshLambertMaterial({ color: 0xffffff, side: DoubleSide, transparent: true }));
@@ -379,8 +381,9 @@ export class PvpBattlefield {
     if (!hit) return null;
     const radius = HEX_RADIUS * .985;
     for (const pad of this.buildPads) {
-      const dx = Math.abs(hit.x - pad.position.x); const dz = Math.abs(hit.z - pad.position.z);
-      if (dx <= radius * Math.sqrt(3) / 2 && dz <= radius - dx / Math.sqrt(3)) return Number(pad.userData.cell);
+      if(!pad.visible)continue;
+      const dx = hit.x - pad.position.x; const dz = hit.z - pad.position.z;
+      if (Math.hypot(dx,dz) <= radius) return Number(pad.userData.cell);
     }
     return null;
   }
@@ -513,7 +516,7 @@ export class PvpBattlefield {
       if(sheet&&body instanceof Mesh){const material=body.material as MeshLambertMaterial;material.map=sheet;material.color.setHex(0xffffff);material.needsUpdate=true;}
     }
     const wallSheet = sampleStudioTexture('tower-wall');
-    if (wallSheet) for (const material of this.wallMaterials) if (material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
+    if (wallSheet) for (const material of this.wallMaterials) if (material.userData.creatorWallAllowed && material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
     for (const hero of this.heroArt) {
       hero.motion.update(dt);
       const sheet = sampleStudioTexture(hero.key, 'idle');

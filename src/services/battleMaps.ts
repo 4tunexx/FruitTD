@@ -19,7 +19,7 @@ export async function saveAdminBattleMap(map: BattleMap, expectedRevision: numbe
 
 export async function fetchPublishedBattleMap(mode: BattleMapMode): Promise<BattleMap | null> {
   try {
-    const response = await fetch(`/api/maps/${mode}`);
+    const response = await fetch(`/api/maps/${mode}`, { signal: AbortSignal.timeout(5000) });
     const data = await response.json();
     return response.ok && data.success ? data.map : null;
   } catch { return null; }

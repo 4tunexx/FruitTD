@@ -1,3 +1,4 @@
+import { LoadingIndicator } from './ui/components/loading';
 import { heroArt } from './ui/heroArt';
 import { purchaseHeroPerk } from './game/heroPerkPurchase';
 import { installCombatHudLayout } from './ui/combatHudLayout';
@@ -46,7 +47,7 @@ import { StrokeContacts } from './game/strokeContacts';
 import { installCombatDiagnostics } from './game/combatDiagnostics';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
-import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, upgradeCost } from './game/world';
+import { MAIN_INDEX, MAX_TOWER_LEVEL, WALL_Z, upgradeCost } from './game/world';
 import { advanceLocalCoop, type LocalCoopState } from './game/localCoop';
 import { CoopActors } from './game/coopActors';
 import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
@@ -190,16 +191,20 @@ if (save.mode === 'ranked' || save.mode === 'arena') {
   writeSave(save);
 }
 state.mode = save.mode;
-function loadBattleMap(mode: GameMode): void {
+let battleMapRequest=0;
+async function loadBattleMap(mode: GameMode): Promise<void> {
   if (!['casual', 'horde', 'campaign', 'coop'].includes(mode)) return;
+  const request=++battleMapRequest;
   const mapMode = mode as BattleMapMode;
   const fallback = defaultMapForMode(mapMode, state.level);
   field.applyBattleMap(fallback);
+  wall.applyBattleMap(fallback);
   fruits.setBattleMap(fallback);
-  void fetchPublishedBattleMap(mapMode).then((published) => {
-    if (!published || state.mode !== mode || state.running) return;
+  await fetchPublishedBattleMap(mapMode).then((published) => {
+    if (!published || request!==battleMapRequest || state.mode !== mode || state.running) return;
     const map = normalizeBattleMap(published, mapMode);
     field.applyBattleMap(map);
+    wall.applyBattleMap(map);
     fruits.setBattleMap(map);
   });
 }
@@ -1029,7 +1034,7 @@ function maybeOver(): void {
 function tryPlace(kind: TurretKind): void {
   if (!navigation.canInteract() || !state.running) return;
   const slot = wall.selectedSlot();
-  const pad = PADS[slot.index];
+  const pad = slot;
   if (slot.main || slot.filled) return;
   if (!canPlaceTurret(kind, pad)) {
     toast(state, 'That turret needs a front floor pad');
@@ -1506,32 +1511,28 @@ document.getElementById('campaign-victory-map')?.addEventListener('click', () =>
 
 async function restartMatch(): Promise<void> {
   if (restartPending) return;
-  restartPending = true;
-  const screenBeforeRestart = navigation.state;
+  restartPending=true;
+  const screenBeforeRestart=navigation.state;
+  const loading=LoadingIndicator('Preparing battlefield…');loading.classList.add('ftd-match-preparing');
+  document.body.appendChild(loading);
   try {
-    // A manual restart ends the current run. Settle its earned rewards before
-    // restart() clears matchRewards and replaces the one-use run token.
-    if (state.running && (totalFruitsSliced > 0 || state.score > 0)) {
-      persist();
-      const settlement = submitCurrentRun(false);
-      state.running = false;
-      await settlement;
-    } else if (runSettlementPending) {
-      await runSettlementPending;
-    }
-  } catch (error) {
-    console.warn('Run settlement failed during restart; local progress remains saved.', error);
-  } finally {
-    restartPending = false;
-  }
-  if (screenBeforeRestart !== 'MAIN_MENU' && navigation.state !== screenBeforeRestart) return;
-  campaignStoryActive = false;
-  document.getElementById('campaign-story')?.classList.add('hidden');
-  hud.showPause(false);
-  navigation.setState('PLAY');
-  document.getElementById('app')?.classList.remove('sidebar-open');
-  hud.showMenu(false);
-  restart();
+    try {
+      if (state.running && (totalFruitsSliced > 0 || state.score > 0)) {
+        persist();const settlement=submitCurrentRun(false);state.running=false;await settlement;
+      } else if (runSettlementPending) await runSettlementPending;
+    } catch(error) { console.warn('Run settlement failed during restart; local progress remains saved.',error); }
+    if(screenBeforeRestart!=='MAIN_MENU'&&navigation.state!==screenBeforeRestart)return;
+    state.running=false;
+    // Load authored routes, props and build slots before the first wave. Never
+    // silently discard the published map just because the player pressed Play.
+    await loadBattleMap(state.mode);
+    if(navigation.state!==screenBeforeRestart)return;
+    campaignStoryActive=false;
+    document.getElementById('campaign-story')?.classList.add('hidden');
+    hud.showPause(false);navigation.setState('PLAY');
+    document.getElementById('app')?.classList.remove('sidebar-open');
+    hud.showMenu(false);restart();
+  } finally { loading.remove();restartPending=false; }
 }
 
 function showCampaignChapter(clearedStage: number): void {

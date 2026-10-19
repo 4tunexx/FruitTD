@@ -36,7 +36,7 @@ export function sellRefund(kind: TurretKind, level: number): number {
 }
 
 export function canPlaceTurret(kind: TurretKind, pad: PadDef): boolean {
-  if (pad.main) return false;
+  if (pad.main || pad.enabled === false) return false;
   const def = turretDef(kind);
   if (def.floorOnly && !pad.floor) return false;
   return true;

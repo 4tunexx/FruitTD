@@ -1,3 +1,4 @@
+import { WALL_SKINS } from './save';
 import { CHARACTER_ATLAS_URL, PORTRAIT_CELLS } from './characterPortraits';
 import { HERO_ABILITIES } from './heroAbilities';
 import type { EntityStudioData, MediaStudioStore } from '../ui/adminMediaStudio';
@@ -14,7 +15,7 @@ export function builtinEntityArtwork(key:string):Artwork|null {
   if(key.startsWith('power-')){const ability=HERO_ABILITIES.find(a=>`power-${a.id}`===key);return ability?{source:ability.iconUrl,origin:'built-in'}:null;}
   if(key.startsWith('tower-main'))return portraitArtwork('tower');
   const turret=key.match(/^tower-(guillotine|vortex|laser|railgun|sprinkler|blender)(?:-level-\d+)?$/);if(turret)return {source:`/assets/towers/${turret[1]}.svg`,origin:'built-in'};
-  if(key==='tower-wall')return {source:'/assets/maps/samples/tower-keep.webp',origin:'built-in'};
+  if(key==='tower-wall')return {source:WALL_SKINS[0]!.texture,origin:'built-in'};
   const enemies:Record<string,string>={'enemy-normal':'orange','enemy-explosive':'bomb','enemy-armored':'watermelon','enemy-splitter':'kiwi','enemy-swift':'strawberry','enemy-chainburst':'apple'};
   if(enemies[key])return portraitArtwork(enemies[key]!);
   if(key.startsWith('boss-'))return portraitArtwork(key==='boss-watermelon'?'boss-melon':'boss-orange');

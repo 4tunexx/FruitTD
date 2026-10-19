@@ -34,3 +34,7 @@
 @media(max-width:1250px) { #modal-admin .creator-layout { grid-template-columns:minmax(180px,.7fr) minmax(0,1.5fr); } #modal-admin .creator-layout > .studio-panel--preview { grid-column:1/-1; } }
 @media(max-width:760px) { #modal-admin .creator-layout { display:flex;flex-direction:column; } #modal-admin .creator-layout>.studio-panel { width:100%;box-sizing:border-box; } #modal-admin .studio-entity-rail { max-height:260px;grid-template-columns:repeat(2,minmax(0,1fr)); } #modal-admin .studio-rail-item { grid-template-columns:36px minmax(0,1fr);padding:6px;gap:4px; } #modal-admin .studio-rail-thumb { width:36px;height:36px; } #modal-admin .studio-toolbar>.studio-btn { flex:1 1 130px; } }
 .admin-route-grid .is-pad { color:#ffe394; border-color:#ffe394; background:#403723; }
+#modal-admin .studio-combat-preview { grid-column:1/-1; padding:12px; border:1px solid #786b50; background:#202125; margin:12px 0; }
+#modal-admin .studio-combat-preview[hidden] { display:none; }
+#modal-admin .studio-combat-preview__viewport { width:100%; height:280px; }
+#modal-admin .ftd-combat-preview { display:block; width:100%; height:100%; touch-action:none; }

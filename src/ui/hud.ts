@@ -14,7 +14,7 @@ import { powerButton, updatePowerButton } from './powerButton';
 import type { GameState } from '../game/state';
 import { TURRETS, canPlaceTurret, sellRefund, turretDef, turretRange, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
-import { MAX_TOWER_LEVEL, PADS, upgradeCost } from '../game/world';
+import { MAX_TOWER_LEVEL, upgradeCost } from '../game/world';
 import {
   fetchLeaderboard,
   fetchMissions,
@@ -1186,7 +1186,7 @@ export class Hud {
     }
 
     const slot = wall.selectedSlot();
-    const pad = PADS[slot.index];
+    const pad = slot;
     if (wall.moving) {
       this.pick.textContent = 'Click a gold pad to move · click again to cancel';
       this.shop.classList.add('hidden');

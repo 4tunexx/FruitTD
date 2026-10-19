@@ -18,6 +18,7 @@ export class Field {
  private readonly mapSurface=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.mapMaterial);
  private readonly mapEntities=new Group();
  private mapRequest=0;
+ private readonly landscapeListener=(event:Event)=>this.applyLandscape((event as CustomEvent<Partial<Appearance>>).detail);
  private perimeter=battleScenery(ARENA_W,SOLO_ARENA_D);
  private readonly outer=new MeshLambertMaterial({color:DEFAULT.outerGroundColor,emissive:0x1a2a15,emissiveIntensity:.15});
  private readonly inner=new MeshLambertMaterial({color:DEFAULT.groundColor,emissive:DEFAULT.groundGlowColor,emissiveIntensity:.12});
@@ -30,7 +31,12 @@ export class Field {
   const inner=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.inner);inner.rotation.x=-Math.PI/2;inner.position.y=.01;this.legacyGroup.add(inner);
   const lane=new Mesh(new PlaneGeometry(ARENA_W*.46,SOLO_ARENA_D),this.road);lane.rotation.x=-Math.PI/2;lane.position.set(0,.035,0);this.legacyGroup.add(lane);
   this.group.add(this.legacyGroup,this.perimeter);
-  window.addEventListener('fruit-td-landscape-update',e=>this.applyLandscape((e as CustomEvent<Partial<Appearance>>).detail));
+  window.addEventListener('fruit-td-landscape-update',this.landscapeListener);
+ }
+ dispose():void {
+  this.mapRequest++;window.removeEventListener('fruit-td-landscape-update',this.landscapeListener);
+  this.mapMaterial.map?.dispose();this.group.removeFromParent();
+  this.group.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();const materials=Array.isArray(node.material)?node.material:[node.material];materials.forEach(material=>material.dispose());}});this.group.clear();
  }
  applyBattleMap(map: BattleMap):void {
   const request=++this.mapRequest;

@@ -1,3 +1,7 @@
+import { WALL_SKINS } from './save';
+import { createBuildPad, battleMapPads } from './buildPads';
+import type { BattleMap } from './battleMaps';
+import type { PadDef } from './world';
 import { TurretEffects } from './turretEffects';
 import { DefenderMotion } from './defenderMotion';
 import { characterPortrait } from './characterPortraits';
@@ -41,6 +45,7 @@ import {
 
 export interface Slot {
   index: number;
+  enabled: boolean;
   main: boolean;
   filled: boolean;
   level: number;
@@ -70,6 +75,7 @@ export class WallBase {
   private readonly towerHpFill: Mesh;
   private readonly towerHpFillWidth: number;
   private wallSkinPath = '';
+  private readonly fitHealthRail = () => { if(typeof window!=='undefined')this.healthRail.scale.x=window.innerWidth/window.innerHeight<.82?.82:1; };
   private readonly towerHome = new Vector3(0, 3.7, WALL_Z);
   private rangeRequested = false;
   private hitTimer = 0;
@@ -134,9 +140,8 @@ export class WallBase {
     this.healthRail.add(hpFrame, towerHpTrack, this.towerHpFill, hpSegments);
     this.group.add(this.healthRail);
     if (typeof window !== 'undefined') {
-      const fitHealthRail = () => { this.healthRail.scale.x = window.innerWidth / window.innerHeight < .82 ? .82 : 1; };
-      fitHealthRail();
-      window.addEventListener('resize', fitHealthRail);
+      this.fitHealthRail();
+      window.addEventListener('resize', this.fitHealthRail);
     }
 
     this.rangeRing = new Mesh(
@@ -148,23 +153,19 @@ export class WallBase {
     this.rangeRing.visible = false;
     this.group.add(this.rangeRing);
 
-    for (let i = 0; i < PADS.length; i++) {
-      const def = PADS[i];
-      const pad = new Mesh(
-        new RingGeometry(def.main ? .66 : .42, def.main ? .75 : .5, 32),
-        new MeshLambertMaterial({ color: def.main ? 0xf3f4f6 : 0xd6c4a0, side: DoubleSide }),
-      );
-      pad.rotation.x=-Math.PI/2;
-      pad.position.set(def.x,.12,def.z);
-      if(!def.main) {
-        for(const angle of [0,Math.PI/2]){
-          const plus=new Mesh(new PlaneGeometry(.3,.055),new MeshBasicMaterial({color:COMBAT_GOLD,side:DoubleSide}));
-          plus.name='build-plus';plus.rotation.z=angle;pad.add(plus);
-        }
-      }
+    PADS.forEach((def,index)=>this.createSlot(def,index));
+    this.refreshPads();
+    this.rangeRequested = false;
+    this.refreshRange();
+  }
+
+  private createSlot(def:PadDef,index:number):void {
+      const pad=createBuildPad(def.main);
+      pad.position.set(def.x,.16,def.z);
       this.group.add(pad);
       const slot: Slot = {
-        index: i,
+        index,
+        enabled: def.enabled !== false,
         main: def.main,
         filled: def.main,
         level: def.main ? 1 : 0,
@@ -184,18 +185,28 @@ export class WallBase {
         this.group.add(slot.head);
       }
       this.slots.push(slot);
+  }
+
+  /** Apply the same authored slots shown by Map Creator before a new run. */
+  applyBattleMap(map:BattleMap):void {
+    for(const slot of this.slots){
+      slot.turret?.dispose();
+      for(const object of [slot.pad,slot.head])if(object){object.removeFromParent();object.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();const materials=Array.isArray(node.material)?node.material:[node.material];materials.forEach(material=>material.dispose());}});}
     }
-    this.refreshPads();
-    this.rangeRequested = false;
-    this.refreshRange();
+    this.slots.length=0;
+    battleMapPads(map).forEach((def,index)=>this.createSlot(def,index));
+    this.selected=MAIN_INDEX;this.moving=false;this.rangeRequested=false;
+    this.refreshTowerTexture();this.refreshPads();this.refreshRange();
   }
 
   applyWallSkin(hex: number, texturePath = ''): void {
     const material = this.wallMesh.material as MeshLambertMaterial;
     material.color.setHex(hex);
     this.wallSkinPath = texturePath;
+    const wallSheet=(!texturePath||texturePath===WALL_SKINS[0]!.texture)?sampleStudioTexture('tower-wall','idle'):null;
+    if(wallSheet){material.map=wallSheet;material.color.setHex(0xffffff);material.needsUpdate=true;return;}
     if (!texturePath) {
-      material.map = sampleStudioTexture('tower-wall', 'idle');
+      material.map = null;
       if (material.map) material.color.setHex(0xffffff);
       material.needsUpdate = true;
       return;
@@ -310,22 +321,15 @@ export class WallBase {
       return;
     }
 
-    const towerStudio =
-      sampleStudioTexture(`${TOWER_STUDIO_KEY}-level-${this.slots[MAIN_INDEX].level}`, 'idle') || sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') || getAdminTexture('tower-main');
-    if (towerStudio) {
-      this.keepMesh.visible = this.heroOnKeep;
-      mat.map = towerStudio;
-      mat.color.setHex(0xffffff);
-    } else {
-      mat.map = characterPortrait(this.heroOnKeep && this.currentHero ? this.currentHero : 'tower');
-      mat.color.setHex(mat.map ? 0xffffff : 0x34383f);
-    }
+    // A custom keep sprite must never replace a hero with no custom sheet.
+    mat.map = characterPortrait(this.currentHero);
+    mat.color.setHex(mat.map ? 0xffffff : 0x34383f);
     mat.needsUpdate = true;
   }
 
   /** Subtle idle/walk advance for Creator tower + hero packs. */
   private tickStudioSkins(dt: number): void {
-    if (!this.wallSkinPath) {
+    if (!this.wallSkinPath||this.wallSkinPath===WALL_SKINS[0]!.texture) {
       const wallSheet = sampleStudioTexture('tower-wall', 'idle');
       const material = this.wallMesh.material as MeshLambertMaterial;
       if (wallSheet && material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
@@ -362,6 +366,21 @@ export class WallBase {
     }
   }
 
+  dispose():void {
+    this.wallSkinPath='';
+    if(typeof window!=='undefined')window.removeEventListener('resize',this.fitHealthRail);
+    this.combatEffects.clear();
+    for(const slot of this.slots)slot.turret?.dispose();
+    this.group.removeFromParent();
+    this.group.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();const materials=Array.isArray(node.material)?node.material:[node.material];materials.forEach(material=>material.dispose());}});
+    this.group.clear();
+  }
+
+  animatePreview(dt:number):void {
+    this.tickStudioSkins(dt);this.heroMotion.update(dt);this.towerMotion?.update(dt);
+    for(const slot of this.slots)if(slot.turret){slot.turret.animate(dt,true);}
+  }
+
   reset(): void {
     for (const slot of this.slots) {
       slot.cooldown = 0;
@@ -396,8 +415,8 @@ export class WallBase {
 
   placeSlicer(index: number, kind: TurretKind): boolean {
     const slot = this.slots[index];
-    const pad = PADS[index];
-    if (!slot || !pad || slot.main || slot.filled) return false;
+    const pad = this.slots[index];
+    if (!slot || !pad || !slot.enabled || slot.main || slot.filled) return false;
     if (!canPlaceTurret(kind, pad)) return false;
     slot.filled = true;
     slot.level = 1;
@@ -447,10 +466,10 @@ export class WallBase {
   moveTo(index: number): boolean {
     const src = this.slots[this.selected];
     const dest = this.slots[index];
-    const pad = PADS[index];
+    const pad = this.slots[index];
     if (!this.moving || !src || !dest || !pad) return false;
     if (src.main || !src.filled || !src.kind || src.kind === 'main' || !src.turret) return false;
-    if (dest.main || dest.filled) return false;
+    if (!dest.enabled || dest.main || dest.filled) return false;
     if (!canPlaceTurret(src.kind, pad)) return false;
     dest.filled = true;
     dest.level = src.level;
@@ -496,6 +515,12 @@ export class WallBase {
   pickSlot(point:Vector3,camera:Camera):number {
     camera.updateMatrixWorld();this.group.updateMatrixWorld(true);
     const tap=point.clone().applyMatrix4(camera.matrixWorldInverse),center=new Vector3();
+    // Empty build controls take priority over overlapping cosmetic tower artwork.
+    for(const slot of this.slots){
+      if(!slot.enabled||slot.filled||slot.main)continue;
+      slot.pad.getWorldPosition(center).applyMatrix4(camera.matrixWorldInverse);
+      if(Math.hypot(tap.x-center.x,tap.y-center.y)<=.78)return slot.index;
+    }
     for(const slot of this.slots){
       const body=slot.head||slot.turret?.group.children[0];if(!slot.filled||!body)continue;
       body.getWorldPosition(center).applyMatrix4(camera.matrixWorldInverse);
@@ -504,7 +529,7 @@ export class WallBase {
     }
     this.keepMesh.getWorldPosition(center).applyMatrix4(camera.matrixWorldInverse);
     if(this.keepMesh.visible&&Math.hypot(tap.x-center.x,tap.y-center.y)<1.2)return MAIN_INDEX;
-    return slotIndexAt(point.x,point.z);
+    return slotIndexAt(point.x,point.z,this.slots);
   }
 
   selectedSlot(): Slot {
@@ -530,7 +555,7 @@ export class WallBase {
   deselect():void {this.rangeRequested=false;this.moving=false;this.refreshPads();this.refreshRange();}
 
   select(index: number): void {
-    if (index < 0) return;
+    if (index < 0 || !this.slots[index]?.enabled) return;
     this.moving = false;
     this.selected = index;
     this.rangeRequested = true;
@@ -620,16 +645,17 @@ export class WallBase {
   private refreshPads(): void {
     const movingKind = this.moving ? this.slots[this.selected]?.kind : null;
     for (const slot of this.slots) {
-      const mat = slot.pad.material as MeshLambertMaterial;
+      slot.pad.visible=slot.enabled && !slot.main && !slot.filled;
+      const mat = slot.pad.material as MeshBasicMaterial;
       for(const mark of slot.pad.children)mark.visible=!slot.filled;
       if (this.moving && movingKind && movingKind !== 'main' && !slot.filled && !slot.main) {
-        mat.color.setHex(canPlaceTurret(movingKind, PADS[slot.index]) ? 0x38bdf8 : 0x57534e);
+        mat.color.setHex(canPlaceTurret(movingKind, slot) ? 0x38bdf8 : 0x57534e);
         continue;
       }
       if (this.rangeRequested && slot.index === this.selected) mat.color.setHex(0xffc34a);
       else if (slot.main) mat.color.setHex(0xf3f4f6);
       else if (slot.filled) mat.color.setHex(0xf0b429);
-      else mat.color.setHex(0xa78a53);
+      else mat.color.setHex(0xffe394);
     }
   }
 

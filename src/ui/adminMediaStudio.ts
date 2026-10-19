@@ -1,3 +1,4 @@
+import type { CombatPreview } from './admin/combatPreview';
 import { TURRET_WEAPONS, type WeaponId } from '../game/turretWeapons';
 import { builtinEntityArtwork, resolveEntityArtwork, mergeStudioDraft, type Artwork } from '../game/entityArtwork';
 import { getPublishedCreatorMedia } from '../game/creatorMedia';
@@ -76,6 +77,7 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'enemy-armored', label: 'Rind-Plate (enemy-armored)' },
   { key: 'enemy-splitter', label: 'Pod-Spawner (enemy-splitter)' },
   { key: 'enemy-swift', label: 'Juice-Runner (enemy-swift)' },
+  { key: 'enemy-chainburst', label: 'Chain-Burst (enemy-chainburst)' },
   { key: 'tower-main', label: 'Main Tower (tower-main)' },
   { key: 'tower-wall', label: 'Full-width Defense Wall (tower-wall)' },
   ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: TURRET_WEAPONS[kind].name })),
@@ -564,12 +566,35 @@ function loadSheetImage(dataUrl: string | null): Promise<void> {
     img.onerror=()=>{if(request===sheetRequest)setStatus('Image unavailable. Upload a replacement or restore built-in artwork.',false);resolve();};img.src=source;
   });
 }
+let combatPreview:CombatPreview|null=null;
+let combatPreviewRequest=0;
+function renderCombatModel(key:string):void {
+  let previewHost=$('studio-combat-preview');
+  const supported=/^(?:tower-(?:main|guillotine|vortex|laser|railgun|sprinkler|blender)|hero-|enemy-|boss-)/.test(key);
+  if(!supported){if(previewHost)previewHost.hidden=true;return;}
+  if(!previewHost){
+    previewHost=document.createElement('div');previewHost.id='studio-combat-preview';previewHost.className='studio-combat-preview';
+    const button=document.createElement('button');button.type='button';button.className='studio-btn';button.textContent='Show live combat model';
+    previewHost.appendChild(button);$('studio-live-artwork')?.insertAdjacentElement('afterend',previewHost);
+    button.addEventListener('click',()=>{
+      const request=++combatPreviewRequest;button.disabled=true;
+      void import('./admin/combatPreview').then(({CombatPreview})=>{
+        if(request!==combatPreviewRequest||!previewHost!.isConnected)return;
+        const viewport=document.createElement('div');viewport.className='studio-combat-preview__viewport';previewHost!.appendChild(viewport);
+        try{combatPreview=new CombatPreview(viewport);combatPreview.setEntity(store.selectedEntity);button.hidden=true;}
+        catch(error){viewport.remove();setStatus(error instanceof Error?`Live model unavailable: ${error.message}`:'Live model unavailable.',false);button.disabled=false;}
+      }).catch(()=>{button.disabled=false;setStatus('Live model could not load. Reload Creator and try again.',false);});
+    });
+  }
+  previewHost.hidden=false;if(combatPreview)combatPreview.setEntity(key);
+}
 function renderLiveArtwork():void {
   const host=$('studio-live-artwork');if(!host)return;
   const published=getPublishedCreatorMedia();
   let legacy:string|null=null;try{legacy=localStorage.getItem(`admin-sprite-${store.selectedEntity}`);}catch{}
   const live=resolveEntityArtwork(store.selectedEntity,published?.entities||{},legacy);
   host.replaceChildren(artworkPreview(live,'Live game artwork','studio-live-thumb'));
+  renderCombatModel(store.selectedEntity);
   const title=document.createElement('strong');title.textContent='Live in game';const note=document.createElement('small');
   note.textContent=`${live?.origin||'built-in mechanism'} · ${store.selectedEntity}`;host.append(title,note);
 }
