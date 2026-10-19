@@ -1,3 +1,4 @@
+import { TurretEffects } from '../../game/turretEffects';
 import { DefenderMotion } from '../../game/defenderMotion';
 import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
 import { faceCombatPortraits } from '../../game/portraitFacing';
@@ -15,12 +16,12 @@ import { getAdminTexture } from '../../game/adminTextureLoader';
 import { findCatalogItem } from '../../game/catalog';
 import { loadSave, WALL_SKINS } from '../../game/save';
 import { heroDef, type HeroId } from '../../game/heroes';
-import { enemyKindToStudioKey, heroIdToStudioKey, sampleStudioTexture } from '../../game/studioRuntime';
+import { enemyKindToStudioKey, heroIdToStudioKey, sampleStudioTexture, turretLevelTuning, fireStudioEvent, playStudioSound, getStudioEntityData, createStudioAnimForKey, updateStudioAnim, type StudioAnimState } from '../../game/studioRuntime';
 import { pvpTowerLevel, pvpTowerStats, type PvpCommand, type PvpConfig, type PvpMap } from '../../game/pvp';
 import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
-type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
+type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
 export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke };
 const TILE = 1.7;
 const TILE_X = Math.sqrt(3) * TILE / 1.5;
@@ -46,6 +47,7 @@ export class PvpBattlefield {
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly powerVfx = new PowerVfx(this.scene);
+  private readonly turretEffects=new TurretEffects();
   private readonly seenCasts = new Map<string,number>();
   private readonly camera = new OrthographicCamera(-20, 20, 30, -30, 0.1, 200);
   private readonly ground = new Plane(new Vector3(0, 1, 0), 0);
@@ -56,7 +58,7 @@ export class PvpBattlefield {
   private readonly remoteTrail = new BladeTrail();
   private readonly marker = new Mesh(new CircleGeometry(.58, 24), new MeshBasicMaterial({ color: 0xffca28, transparent: true, opacity: .5, side: DoubleSide }));
   private readonly observer: ResizeObserver;
-  private readonly towers = new Map<string, { rig: TurretRig; type: string; own: boolean; cell: number; level?: number }>();
+  private readonly towers = new Map<string, { rig: TurretRig; type: string; own: boolean; cell: number; level?: number;lastFiredAt?:number }>();
   private readonly fruits = new Map<string, { mesh: Mesh; player: PlayerView; progress: number; x?: number; y?: number; boss?: boolean; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; type: string; own: boolean }>();
   private readonly buildPads: Mesh[] = [];
   private readonly rangeMarker = new Mesh(new RingGeometry(.97,1,64),new MeshBasicMaterial({color:0xffda6b,transparent:true,opacity:.7,depthWrite:false}));
@@ -65,7 +67,7 @@ export class PvpBattlefield {
   private readonly mainTowerMaterials: MeshLambertMaterial[] = [];
   private readonly wallMaterials: MeshLambertMaterial[] = [];
   private readonly heroArt: Array<{ key: string; userId:string; material: MeshBasicMaterial; motion:DefenderMotion }> = [];
-  private readonly keepMotion=new Map<string,{motion:DefenderMotion;at:number}>();
+  private readonly keepMotion=new Map<string,{motion:DefenderMotion;at:number;studio?:StudioAnimState}>();
   private snapshot: BattlefieldSnapshot;
   private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number };
   private receivedAt = performance.now();
@@ -114,7 +116,7 @@ export class PvpBattlefield {
     const rim = new DirectionalLight(0x96d5ff, .55); rim.position.set(14, 12, -24); this.scene.add(rim);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
     this.marker.rotation.x = -Math.PI / 2;
-    this.scene.add(this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
+    this.scene.add(this.turretEffects.group,this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
     this.marker.visible = false;
     this.rangeMarker.rotation.x = -Math.PI/2; this.rangeMarker.visible = false; this.scene.add(this.rangeMarker);
     const skin = findCatalogItem(loadSave().bladeSkin || 'blade-default');
@@ -153,7 +155,12 @@ export class PvpBattlefield {
       }
       for(const [id,at] of this.seenCasts)if(Date.now()-at>10000)this.seenCasts.delete(id);
       const keep=this.keepMotion.get(player.userId);
-      if(keep && (player.mainLastFiredAt??0)>keep.at){keep.at=player.mainLastFiredAt!;keep.motion.fire();}
+      if(keep && (player.mainLastFiredAt??0)>keep.at){
+        keep.at=player.mainLastFiredAt!;keep.motion.fire();
+        const source=new Vector3();keep.motion.group.parent?.getWorldPosition(source);
+        const target=[...this.fruits.values()].filter(f=>f.own===own).sort((a,b)=>a.mesh.position.distanceTo(source)-b.mesh.position.distanceTo(source))[0];
+        if(target){const d=target.mesh.position.clone().sub(source);if(keep.motion.group.parent)keep.motion.group.parent.userData.combatAim={x:d.x,z:d.z};this.turretEffects?.shot('main',source,target.mesh.position,player.mainLevel);}
+      }
       const hp = this.health.get(player.userId);
       if (hp) {
         if (hp.userData.lastHealth !== undefined && player.wallHealth < hp.userData.lastHealth) {
@@ -185,7 +192,7 @@ export class PvpBattlefield {
           rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, type: tower.type, own, cell: tower.cell, level: pvpTowerLevel(tower.level) });
         }
         const entry = this.towers.get(tower.id);
-        if (entry) { entry.level = pvpTowerLevel(tower.level); entry.rig.group.scale.setScalar(1.15 + (entry.level - 1) * .14); }
+        if (entry) { entry.level = pvpTowerLevel(tower.level);entry.lastFiredAt=tower.lastFiredAt; entry.rig.group.scale.setScalar(1.15 + (entry.level - 1) * .14); }
       }
       for (const fruit of player.attackers) {
         fruitIds.add(fruit.id);
@@ -236,6 +243,7 @@ export class PvpBattlefield {
         const orb = new Mesh(new PlaneGeometry(.6, .6), new MeshBasicMaterial({ color: 0xc3ff5c, side: DoubleSide }));
         orb.position.copy(entry.mesh.position); this.scene.add(orb); this.effects.push({ object: orb, life: .5, target: cage?.rig.group.position.clone().add(new Vector3(0, .8, 0)) });
       } else if (snapshot.shared || entry.progress < map.pathCells.length - 1) {
+        this.turretEffects?.burst(entry.mesh.position,0xffc95b);
         for (let i = 0; i < 6; i++) {
           const piece = new Mesh(new PlaneGeometry(.22,.22), new MeshBasicMaterial({ color: entry.type === 'armored' ? 0x8aff44 : 0xffa533, side: DoubleSide }));
           piece.position.copy(entry.mesh.position); this.scene.add(piece);
@@ -313,7 +321,7 @@ export class PvpBattlefield {
       keep.add(combatTokenFrame(1.1, 'tower'));
       this.keepMotion.set(player.userId,{motion:new DefenderMotion(keep,'tower'),at:player.mainLastFiredAt??0});
       keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
-      const towerTexture = sampleStudioTexture('tower-main') || getAdminTexture('tower-main') || characterPortrait('tower'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
+      const towerTexture = sampleStudioTexture(`tower-main-level-${pvpTowerLevel(player.mainLevel)}`)||sampleStudioTexture('tower-main') || getAdminTexture('tower-main') || characterPortrait('tower'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
       const hero = heroDef((player.hero || 'jiju') as HeroId);
       const heroKey = heroIdToStudioKey(hero.id);
       const heroTexture = sampleStudioTexture(heroKey, 'idle') || getAdminTexture(`hero-${hero.id}`) || characterPortrait(hero.id);
@@ -321,7 +329,7 @@ export class PvpBattlefield {
       const avatar = new Mesh(new CircleGeometry(1.25, 48), heroMaterial);
       avatar.userData.combatPortrait=true;
       avatar.add(combatTokenFrame(1.25, 'hero'));
-      avatar.position.set(gateX + 2.2, 1.7, own ? -.4 : .4); base.add(avatar);
+      avatar.position.set(gateX, 4, 0); base.add(avatar);
       const motion=new DefenderMotion(avatar,'hero',hero.color);motion.setHero(hero.id,hero.color);
       this.heroArt.push({key:heroKey,userId:player.userId,material:heroMaterial,motion});
       for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
@@ -406,23 +414,24 @@ export class PvpBattlefield {
     this.stroke.points.push(world); if (this.stroke.points.length > 16) this.stroke.points.shift();
     this.trail.sync(this.stroke.points); this.trailUntil = performance.now() + 200;
     if (performance.now() - this.sharedStrokeAt > 120 && Math.hypot(point.x - this.stroke.from.x, point.y - this.stroke.from.y) >= .5) {
-      this.sharedStrokeAt = performance.now(); this.command({ type: 'slash', from: this.stroke.from, to: point });
+      this.selectCell(null);this.sharedStrokeAt = performance.now(); this.command({ type: 'slash', from: this.stroke.from, to: point });
       this.stroke.from = point; this.stroke.sliced = true;
     }
   }
   private pointerUp(event: PointerEvent): void {
-    if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const tower=this.towerCell(event);if(tower!==null){this.select?.(tower);return;}const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}}return;}
+    if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const tower=this.towerCell(event);if(tower!==null){this.select?.(tower);return;}const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}else this.selectCell(null);}return;}
     const stroke = this.stroke; this.stroke = null;
     if (!stroke || stroke.id !== event.pointerId) return;
     const to = this.point(event); if (!to) return;
     const distance = Math.hypot(to.x - stroke.from.x, to.y - stroke.from.y);
+    if(this.snapshot.shared&&distance>=.5)this.selectCell(null);
     if (this.snapshot.shared && distance >= .5 && performance.now() - this.sharedStrokeAt >= 100) this.command({ type: 'slash', from: stroke.from, to });
     else if (!stroke.sliced && distance < .5) {
       const cell = this.buildCell(event);
       if (cell !== null) {
         if (this.select) this.select(cell);
         else this.command({ type: 'build', tower: this.element.dataset.tower || 'guillotine', cell });
-      }
+      }else this.selectCell(null);
     }
   }
   selectCell(cell: number | null): void {
@@ -482,9 +491,15 @@ export class PvpBattlefield {
   private animate = (now: number) => {
     if (this.disposed) return;
     const dt = Math.min(.05, (now - this.previousAt) / 1000); this.previousAt = now;
-    for(const keep of this.keepMotion.values())keep.motion.update(dt);
-    const towerSheet = sampleStudioTexture('tower-main');
-    if (towerSheet) for (const material of this.mainTowerMaterials) if (material.map !== towerSheet) { material.map = towerSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
+    for(const [id,keep] of this.keepMotion){
+      keep.motion.update(dt);
+      const levelKey=`tower-main-level-${pvpTowerLevel(this.snapshot.players.find(player=>player.userId===id)?.mainLevel)}`;
+      const key=getStudioEntityData(levelKey)?.sheetDataUrl?levelKey:'tower-main';
+      if(!keep.studio||keep.studio.entityKey!==key||!keep.studio.active)keep.studio=createStudioAnimForKey(key);
+      const sheet=keep.studio.active?updateStudioAnim(keep.studio,dt,0,0):sampleStudioTexture(key);
+      const body=keep.motion.group.parent;
+      if(sheet&&body instanceof Mesh){const material=body.material as MeshLambertMaterial;material.map=sheet;material.color.setHex(0xffffff);material.needsUpdate=true;}
+    }
     const wallSheet = sampleStudioTexture('tower-wall');
     if (wallSheet) for (const material of this.wallMaterials) if (material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
     for (const hero of this.heroArt) {
@@ -528,17 +543,20 @@ export class PvpBattlefield {
       for(let i=0;i<4;i++){const spark=new Mesh(new PlaneGeometry(.12,.12),new MeshBasicMaterial({color:i%2?0xff7e32:0xffe097,side:DoubleSide}));spark.position.copy(entry.mesh.position).lerp(impact,.5);this.scene.add(spark);this.effects.push({object:spark,life:.35,velocity:new Vector3(Math.sin(i*3)*3,2,Math.cos(i*3)*3)});}
     }
     for (const entry of this.towers.values()) {
-      entry.rig.refreshAppearance();
+      entry.rig.refreshAppearance(entry.level);
       const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.visible && (this.snapshot.shared || fruit.progress >= 0) && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).range : 0)) * TILE);
+      if(target){const d=target.mesh.position.clone().sub(entry.rig.group.position);entry.rig.aimAt(d.x,d.z);}
       entry.rig.animate(dt,Boolean(target));
       entry.rig.group.rotation.y = 0;
-      const cooldown = this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).cooldownMs : 1000;
       const shotId = entry.rig.group.uuid;
-      if (target && now - (this.shots.get(shotId) || 0) >= cooldown) {
-        this.shots.set(shotId, now);
+      if (target && (entry.lastFiredAt??0)>(this.shots.get(shotId)||0)) {
+        this.shots.set(shotId,entry.lastFiredAt!);
         const a = entry.rig.group.position.clone(); a.y = 1;
-        const beam = new Line(new BufferGeometry().setFromPoints([a, target.mesh.position.clone()]), new LineBasicMaterial({ color: entry.own ? COLORS.blue : COLORS.red, transparent: true, opacity: 1 }));
-        this.scene.add(beam); this.effects.push({ object: beam, life: .16 });
+        const tuning=turretLevelTuning(entry.type,entry.level||1);
+        const color=tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):undefined;
+        this.turretEffects.shot(entry.rig.kind,a,target.mesh.position,entry.level,color,tuning.effectScale);
+        if(!(fireStudioEvent(`tower-${entry.type}-level-${entry.level||1}`,'onAttack',a)||fireStudioEvent(`tower-${entry.type}`,'onAttack',a)))playStudioSound(`turret-${entry.type}`);
+        fireStudioEvent(`tower-${entry.type}-level-${entry.level||1}`,'onImpact',target.mesh.position)||fireStudioEvent(`tower-${entry.type}`,'onImpact',target.mesh.position);
       }
     }
     for (let i = this.effects.length - 1; i >= 0; i--) {
@@ -549,7 +567,7 @@ export class PvpBattlefield {
     }
     if (!this.stroke && now > this.trailUntil) this.trail.reset();
     if (Date.now() - this.remoteAt > 300) this.remoteTrail.reset();
-    this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
+    this.turretEffects.update(dt);this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
     faceCombatPortraits(this.scene,this.camera);
     this.renderer.render(this.scene, this.camera); this.frame = requestAnimationFrame(this.animate);
   };
@@ -561,7 +579,7 @@ export class PvpBattlefield {
     if (this.disposed) return; this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect();
     this.release(this.terrain); this.release(this.pieces);
     for (const trail of [this.trail, this.remoteTrail]) { this.release(trail.line); this.release(trail.glowLine); trail.sparks.geometry.dispose(); (trail.sparks.material as MeshBasicMaterial).dispose(); }
-    this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
+    this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
     this.effects.forEach((effect) => this.release(effect.object));
   }
 }

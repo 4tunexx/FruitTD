@@ -1,3 +1,4 @@
+import { turretVictims } from './turretTargets';
 import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
 import { pvpTowerLevel, pvpTowerStats, pvpUpgradeCost, pvpSellRefund, PVP_MAX_TOWER_LEVEL, type PvpConfig } from './pvp';
 import type { HeroId } from './heroes';
@@ -91,11 +92,17 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
     match.remainingSpawns--;match.spawnAt=now+config.spawnGapMs;
   }
   for(const fruit of match.fruits) fruit.y+=balance.attacks[fruit.type]!.speed*delta*(fruit.boss?config.bossSpeedMultiplier:config.fruitSpeedMultiplier)*(now<(fruit.slowUntil??0)?fruit.slowMultiplier??.45:1);
-  const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number):boolean=>{
+  const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number,type='main'):boolean=>{
     if(now-last<stats.cooldownMs) return false;
-    const fruit=match.fruits.filter(f=>f.hp>0&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false; fruit.hp-=stats.damage;return true;
+    const fruit=match.fruits.filter(f=>f.hp>0&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false;
+    const victims=turretVictims(type,{x,y},fruit,match.fruits.filter(f=>f.hp>0),f=>f,stats.range);
+    for(const target of victims){target.hp-=Math.round(stats.damage*(target===fruit||type!=='sprinkler'?1:.65));
+      if(type==='vortex'||type==='sprinkler'){target.slowUntil=Math.max(target.slowUntil||0,now+1200);target.slowMultiplier=type==='vortex'?.6:.45;}
+      if(type==='railgun')target.y=Math.max(0,target.y-.45);
+    }
+    return true;
   };
-  for(const tower of match.towers) if(fire(tower.cell%10+.5,Math.floor(tower.cell/10)+.5,pvpTowerStats(balance.towers[tower.type]!,tower.level),tower.lastFiredAt)) tower.lastFiredAt=now;
+  for(const tower of match.towers) if(fire(tower.cell%10+.5,Math.floor(tower.cell/10)+.5,pvpTowerStats(balance.towers[tower.type]!,tower.level),tower.lastFiredAt,tower.type)) tower.lastFiredAt=now;
   const towerLevel=towerLevelFromXp(match.towerXp??0);
   if(fire(5,13.5,{...balance.mainTower,damage:Math.round(balance.mainTower.damage*(1+(towerLevel-1)*.1))},match.mainLastFiredAt)) match.mainLastFiredAt=now;
   collectKills(match,balance);

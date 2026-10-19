@@ -1,3 +1,4 @@
+import { normalizeTurretTuning } from './turretTuning';
 import type {
   ClipDef,
   EntityStudioData,
@@ -66,6 +67,8 @@ export function normalizeEvents(raw: unknown): StudioEntityEvents {
     onSpawn: events.onSpawn !== undefined ? normalizeEventHook(events.onSpawn) : defaults.onSpawn,
     onHit: events.onHit !== undefined ? normalizeEventHook(events.onHit) : defaults.onHit,
     onDeath: events.onDeath !== undefined ? normalizeEventHook(events.onDeath) : defaults.onDeath,
+    onAttack: events.onAttack !== undefined ? normalizeEventHook(events.onAttack) : undefined,
+    onImpact: events.onImpact !== undefined ? normalizeEventHook(events.onImpact) : undefined,
   };
 }
 
@@ -100,6 +103,7 @@ function normalizeEntityData(raw: unknown): EntityStudioData {
     clips,
     label: typeof entity.label === 'string' ? entity.label : undefined,
     events: normalizeEvents(entity.events),
+    turret: normalizeTurretTuning(entity.turret),
   };
 }
 
@@ -114,7 +118,7 @@ function migrateStoreToV2(raw: unknown): MediaStudioStore {
   const selectedEntity = typeof source.selectedEntity === 'string' && isSafeEntityKey(source.selectedEntity)
     ? source.selectedEntity
     : 'enemy-normal';
-  return { version: 2, entities, selectedEntity };
+  return { version: 2, entities, sounds:source.sounds as Record<string,string>|undefined, selectedEntity };
 }
 
 export function loadStudioStore(): MediaStudioStore {

@@ -48,3 +48,19 @@ test('Co-op bombs resist slashes and powers while empty offensive casts preserve
  applyCoopCommand(room,'one',1,{type:'slash',from:{x:4,y:5},to:{x:6,y:5}},2100,DEFAULT_PVP_CONFIG);
  assert.equal(room.fruits[0]!.hp,150);assert.equal(room.wallHealth,978);
 });
+
+test('online turret signatures change server damage shapes, slow and knockback',()=>{
+ for(const type of ['laser','railgun','sprinkler','vortex','guillotine','blender']){
+  const room=match();room.status='playing';room.remainingSpawns=1;room.spawnAt=100000;room.mainLastFiredAt=5000;
+  room.towers=[{id:'turret',type,cell:121,level:1,lastFiredAt:0,placedBy:'one'} as any];
+  room.fruits=[{id:'front',type:'normal',x:1.5,y:11.5,hp:1000,boss:false},{id:'behind',type:'normal',x:1.5,y:10.5,hp:1000,boss:false},{id:'side',type:'normal',x:2.3,y:11.5,hp:1000,boss:false}];
+  advanceCoopMatch(room,0,5000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
+  const [front,behind,side]=room.fruits;
+  assert.ok(front!.hp<1000,`${type} hits its target`);
+  if(type==='laser'||type==='railgun'){assert.ok(behind!.hp<1000);assert.equal(side!.hp,1000,'piercing excludes enemies outside the aim line');}
+  if(type==='sprinkler'){assert.ok(side!.hp<1000);assert.ok(front!.slowUntil!>5000);}
+  if(type==='vortex'){assert.equal(behind!.hp,1000);assert.ok(front!.slowUntil!>5000);}
+  if(type==='railgun')assert.ok(front!.y<11.5,'heavy cannon pushes enemies back');
+  if(type==='guillotine'||type==='blender')assert.ok(side!.hp<1000);
+ }
+});

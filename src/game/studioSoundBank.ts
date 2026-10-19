@@ -1,3 +1,4 @@
+import { getPublishedCreatorMedia } from './creatorMedia';
 /** Shared Creator Hub sound-bank data and persistence used by the editor and runtime audio. */
 export const SOUND_BANK_STORAGE_KEY = 'admin-media-studio-sfx-v1';
 
@@ -8,6 +9,7 @@ export interface SoundBankStore {
 
 /** SFX slots correspond to the named banks in src/audio/sfx.ts. */
 export const SOUND_BANK_SLOTS: { id: string; label: string; file: string }[] = [
+  ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).map((kind,i)=>({id:`turret-${kind}`,label:`Turret · ${kind} attack`,file:['Bonus-Firework-Launch.wav','Sword-swipe-1.wav','blade-lightning-1.wav','blade-rainbow-1.wav','Bonus-Firework-Explode.wav','Impact-Orange.wav','Critical.wav'][i]!})),
   { id: 'swipe', label: 'Swipe', file: 'Sword-swipe-1.wav' },
   { id: 'swipeBlitz', label: 'Swipe Blitz', file: 'blade-rainbow-1.wav' },
   { id: 'cleanSlice', label: 'Clean Slice', file: 'Clean-Slice-1.wav' },
@@ -29,16 +31,17 @@ export const SOUND_BANK_SLOTS: { id: string; label: string; file: string }[] = [
 ];
 
 export function loadSoundBank(): SoundBankStore {
+  const shared=getPublishedCreatorMedia()?.sounds||{};
   try {
     const raw = localStorage.getItem(SOUND_BANK_STORAGE_KEY);
-    if (!raw) return { version: 1, replacements: {} };
+    if (!raw) return { version: 1, replacements: shared };
     const parsed = JSON.parse(raw) as SoundBankStore;
     if (!parsed || parsed.version !== 1 || !parsed.replacements || typeof parsed.replacements !== 'object') {
-      return { version: 1, replacements: {} };
+      return { version: 1, replacements: shared };
     }
-    return parsed;
+    return {...parsed,replacements:{...parsed.replacements,...shared}};
   } catch {
-    return { version: 1, replacements: {} };
+    return { version: 1, replacements: shared };
   }
 }
 

@@ -1,4 +1,4 @@
-import { AdditiveBlending, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, RingGeometry } from 'three';
+import { AdditiveBlending, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, RingGeometry, Shape, ShapeGeometry } from 'three';
 import { COMBAT_GOLD } from './combatTokens';
 
 /** Layered moving parts keep portrait art alive without changing combat positions. */
@@ -23,6 +23,10 @@ export class DefenderMotion {
       face.position.z=.008;rim.add(face);this.group.add(rim);return rim;
     };
     if(kind==='tower') {
+      const keep=new Shape();keep.moveTo(-1.2,-.95);keep.lineTo(-1.2,.45);keep.lineTo(-.82,.45);keep.lineTo(-.82,.12);keep.lineTo(-.42,.12);keep.lineTo(-.42,.45);keep.lineTo(.42,.45);keep.lineTo(.42,.12);keep.lineTo(.82,.12);keep.lineTo(.82,.45);keep.lineTo(1.2,.45);keep.lineTo(1.2,-.95);keep.closePath();
+      const rim=new Mesh(new ShapeGeometry(keep),new MeshBasicMaterial({color:COMBAT_GOLD,side:DoubleSide}));rim.position.z=-.13;
+      const face=new Mesh(rim.geometry.clone(),new MeshBasicMaterial({color:0x24282c,side:DoubleSide}));face.scale.set(.93,.91,1);face.position.z=.015;rim.add(face);this.group.add(rim);
+
       part(1.6,.24,0,-.9);
       for(const x of [-.72,.72]) {
         const barrel=part(.24,.78,x,.28);this.barrels.push(barrel);

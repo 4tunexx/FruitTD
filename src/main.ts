@@ -45,7 +45,7 @@ import { StrokeContacts } from './game/strokeContacts';
 import { installCombatDiagnostics } from './game/combatDiagnostics';
 import { canPlaceTurret, turretDef, type TurretKind } from './game/turrets';
 import { WallBase } from './game/wall';
-import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, slotIndexAt, upgradeCost } from './game/world';
+import { MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, upgradeCost } from './game/world';
 import { advanceLocalCoop, type LocalCoopState } from './game/localCoop';
 import { CoopActors } from './game/coopActors';
 import { BladeInput, MIN_SLICE_SPEED, type Slash } from './input/blade';
@@ -168,6 +168,7 @@ const debris = new SliceDebris((g) => renderer.scene.add(g));
 const juice = new JuiceSystem();
 const bank = new JuiceBank();
 const wall = new WallBase();
+for(const id of ['btn-sidebar-close','btn-sidebar-hide'])document.getElementById(id)?.addEventListener('click',()=>wall.deselect());
 const blade = new BladeInput(canvas, renderer.camera, renderer);
 const trail = new BladeTrail();
 const guestTrail = new BladeTrail();
@@ -762,6 +763,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   debris.spawnPair(fruit, swipe, cutNormal);
+  wall.combatEffects.burst(fruit.group.position,FRUIT_DEFS[fruit.kind].splash);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
@@ -890,8 +892,8 @@ function showGameOverOverlay(): void {
   const overMenu = document.getElementById('btn-over-menu');
   const campaignDefeat = state.mode === 'campaign';
   card?.classList.toggle('is-campaign-defeat', campaignDefeat);
-  if (title) title.textContent = campaignDefeat ? 'WALL BREACHED' : 'Game Over';
-  if (subtitle) subtitle.textContent = campaignDefeat ? `STAGE ${String(state.level).padStart(2, '0')} · ${campaignBoss(state.level, getLiveConfig().campaignBosses).name}` : 'Final score';
+  if (title) title.textContent = campaignDefeat ? 'WALL BREACHED' : 'DEFENCE FALLEN';
+  if (subtitle) subtitle.textContent = campaignDefeat ? `STAGE ${String(state.level).padStart(2, '0')} · ${campaignBoss(state.level, getLiveConfig().campaignBosses).name}` : 'RUN COMPLETE · FINAL SCORE';
   if (overMenu) overMenu.textContent = campaignDefeat ? 'Campaign map' : 'Main menu';
   const oldFaceoff = card?.querySelector('.campaign-defeat-faceoff');
   if (oldFaceoff && !campaignDefeat) oldFaceoff.remove();
@@ -1034,6 +1036,7 @@ function tryPlace(kind: TurretKind): void {
   }
   if (wall.placeSlicer(slot.index, kind)) {
     state.currency -= def.cost;
+    hud.setSidebarOpen(false);
     sfx.place();
     toast(state, `${def.name} built`);
     emit({ type: 'turret_place', turretKind: kind });
@@ -1713,7 +1716,7 @@ function simulate(dt: number): void {
 
   const tap = blade.consumeClick();
   if (tap) {
-    const idx = slotIndexAt(tap.x, tap.z);
+    const idx = wall.pickSlot(tap,renderer.camera);
     if (wall.moving) {
       if (idx === wall.selected) {
         wall.cancelMove();
@@ -1726,15 +1729,19 @@ function simulate(dt: number): void {
         toast(state, 'Need an empty pad that fits');
       }
     } else if (idx >= 0) {
+      const repeated=wall.hasSelection&&wall.selected===idx;
       wall.select(idx);
+      hud.setSidebarOpen(!wall.selectedSlot().filled||repeated);
       sfx.select();
-    } else if (state.hero === 'ki') {
-      kiPulse(tap.x, tap.z);
+    } else {
+      wall.deselect();hud.setSidebarOpen(false);
+      if(state.hero==='ki')kiPulse(tap.x,tap.z);
     }
   }
 
   const slash = blade.consumeSlash();
   if (slash) {
+    wall.deselect();hud.setSidebarOpen(false);
     sfx.swipe(false);
     resolveSlash(slash);
   }
@@ -1891,7 +1898,7 @@ function simulate(dt: number): void {
 
   tickGuest(dt);
 
-  const didShoot = wall.update(dt, fruits.fruits, juice, bank, (hit) => {
+  wall.update(dt, fruits.fruits, juice, bank, (hit) => {
     if (hit.impulseX) hit.fruit.impulseX += hit.impulseX;
     if (hit.impulseZ) hit.fruit.impulseZ += hit.impulseZ;
     if (hit.brittle) hit.fruit.brittle = Math.max(hit.fruit.brittle, 2.4);
@@ -1910,7 +1917,6 @@ function simulate(dt: number): void {
     }
   });
   if (!state.running) return;
-  if (didShoot) sfx.fire();
 
   juice.update(dt);
   debris.update(dt);

@@ -25,13 +25,17 @@ test('all six turrets have visible mechanisms; online presentation cannot spend 
 });
 
 test('sprinkler consumes orange fuel and stops when empty', async () => {
-  const { TurretRig, JuiceBank, JuiceSystem } = await combat();
+  const { TurretRig, JuiceBank, JuiceSystem, FruitField } = await combat();
   const rig = new TurretRig('sprinkler'), bank = new JuiceBank();
   let shots = 0;
   const ctx = { dt: .25, fruits: [], bank, juice: new JuiceSystem(), onHit: () => {}, shoot: () => { shots++; } };
   assert.equal(rig.tick(0,0,1,ctx), false);
   bank.orange = 1;
-  assert.equal(rig.tick(0,0,1,ctx), true);
+  assert.equal(rig.tick(0,0,1,ctx),false,'idle sprinkler conserves fuel');
+  assert.equal(bank.orange,1);
+  const fruit=new FruitField(()=>{}).spawn('orange')!;fruit.group.position.set(0,.7,1);
+  const occupied={...ctx,fruits:[fruit]};
+  assert.equal(rig.tick(0,0,1,occupied), true);
   assert.equal(bank.orange, 0);
   assert.equal(rig.tick(0,0,1,ctx), false);
   assert.equal(shots, 1);

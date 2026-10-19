@@ -1,3 +1,4 @@
+import { normalizeTurretTuning, DEFAULT_TURRET_TUNING, type TurretTuning } from '../game/turretTuning';
 /**
  * FruitTD Creator Hub v2 — sprite sheet editor, clip timeline, event hooks, sound bank.
  * Storage: fruittd-creator-v2 (read-fallback from admin-media-studio-v1).
@@ -16,7 +17,7 @@ export const CREATOR_STORAGE_KEY = 'fruittd-creator-v2';
 export type StudioDirection = 'down' | 'left' | 'right' | 'up';
 export type StudioState = 'idle' | 'walk' | 'run' | 'hit' | 'death';
 export type FxPreset = 'none' | 'juice-burst' | 'spark' | 'dark-pulse' | 'screen-shake';
-export type StudioHookKind = 'onSpawn' | 'onHit' | 'onDeath';
+export type StudioHookKind = 'onSpawn' | 'onHit' | 'onDeath' | 'onAttack' | 'onImpact';
 
 export interface ClipDef {
   startFrame: number;
@@ -37,6 +38,8 @@ export interface StudioEntityEvents {
   onSpawn?: StudioEventHook;
   onHit?: StudioEventHook;
   onDeath?: StudioEventHook;
+  onAttack?: StudioEventHook;
+  onImpact?: StudioEventHook;
 }
 
 export interface EntityStudioData {
@@ -49,12 +52,14 @@ export interface EntityStudioData {
   /** Display label override (pack browser rename). */
   label?: string;
   events?: StudioEntityEvents;
+  turret?: TurretTuning;
 }
 
 export interface MediaStudioStore {
   version: 1 | 2;
   entities: Record<string, EntityStudioData>;
   selectedEntity: string;
+  sounds?:Record<string,string>;
 }
 
 export const FX_PRESETS: FxPreset[] = ['none', 'juice-burst', 'spark', 'dark-pulse', 'screen-shake'];
@@ -68,6 +73,7 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'tower-main', label: 'Main Tower (tower-main)' },
   { key: 'tower-wall', label: 'Full-width Defense Wall (tower-wall)' },
   ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: `${kind} tower` })),
+  ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).flatMap(kind=>Array.from({length:10},(_,i)=>({key:`tower-${kind}-level-${i+1}`,label:`${kind} · Level ${i+1} artwork / attack / impact`}))),
   { key: 'hero-jiju', label: 'Master Jiju (hero-jiju)' },
   { key: 'hero-topfu', label: 'Topfu (hero-topfu)' },
   { key: 'hero-lagen', label: 'Lagen (hero-lagen)' },
@@ -225,6 +231,8 @@ export function normalizeEvents(raw: unknown): StudioEntityEvents {
     onSpawn: e.onSpawn !== undefined ? normalizeEventHook(e.onSpawn) : d.onSpawn,
     onHit: e.onHit !== undefined ? normalizeEventHook(e.onHit) : d.onHit,
     onDeath: e.onDeath !== undefined ? normalizeEventHook(e.onDeath) : d.onDeath,
+    onAttack: e.onAttack !== undefined ? normalizeEventHook(e.onAttack) : undefined,
+    onImpact: e.onImpact !== undefined ? normalizeEventHook(e.onImpact) : undefined,
   };
 }
 
@@ -248,6 +256,7 @@ export function normalizeEntityData(raw: unknown): EntityStudioData {
     clips,
     label: typeof e.label === 'string' ? e.label : undefined,
     events: normalizeEvents(e.events),
+    turret: normalizeTurretTuning(e.turret),
   };
 }
 
@@ -270,7 +279,7 @@ export function migrateStoreToV2(raw: unknown): MediaStudioStore {
     typeof s.selectedEntity === 'string' && isSafeEntityKey(s.selectedEntity)
       ? s.selectedEntity
       : 'enemy-normal';
-  return { version: 2, entities, selectedEntity: selected };
+  return { version: 2, entities, sounds:s.sounds as Record<string,string>|undefined, selectedEntity: selected };
 }
 
 export function coverageForEntity(ent: EntityStudioData): { key: string; ok: boolean }[] {
@@ -494,8 +503,11 @@ function syncClipInputs(): void {
 
 function syncEventInputs(): void {
   const ent = currentEntity();
+  const settings=$('studio-turret-settings');if(settings)settings.hidden=!store.selectedEntity.startsWith('tower-');
+  const tuning=ent.turret||DEFAULT_TURRET_TUNING;
+  for(const key of Object.keys(DEFAULT_TURRET_TUNING) as Array<keyof TurretTuning>){const input=$(`studio-turret-${key}`) as HTMLInputElement|null;if(input)input.value=String(tuning[key]);}
   if (!ent.events) ent.events = defaultEvents();
-  for (const kind of ['onSpawn', 'onHit', 'onDeath'] as StudioHookKind[]) {
+  for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact'] as StudioHookKind[]) {
     const hook = ent.events[kind] ?? defaultEventHook();
     const sfx = $(`studio-evt-${kind}-sfx`) as HTMLSelectElement | null;
     const flash = $(`studio-evt-${kind}-flash`) as HTMLInputElement | null;
@@ -511,11 +523,12 @@ function syncEventInputs(): void {
 function readEventInputsIntoEntity(): void {
   const ent = currentEntity();
   const events: StudioEntityEvents = {};
-  for (const kind of ['onSpawn', 'onHit', 'onDeath'] as StudioHookKind[]) {
+  for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact'] as StudioHookKind[]) {
     const sfx = ($(`studio-evt-${kind}-sfx`) as HTMLSelectElement | null)?.value || undefined;
     const flash = Boolean(($(`studio-evt-${kind}-flash`) as HTMLInputElement | null)?.checked);
     const shake = Number(($(`studio-evt-${kind}-shake`) as HTMLInputElement | null)?.value || 0);
     const fx = (($(`studio-evt-${kind}-fx`) as HTMLSelectElement | null)?.value || 'none') as FxPreset;
+    if((kind==='onAttack'||kind==='onImpact')&&!sfx&&!flash&&!shake&&fx==='none')continue;
     events[kind] = normalizeEventHook({ sfxSlot: sfx, flash, shake, fx });
   }
   ent.events = events;
@@ -808,7 +821,7 @@ function playAllStates(): void {
   advancePlayAll();
 }
 
-function firePreviewHook(kind: StudioHookKind | null): void {
+async function firePreviewHook(kind: StudioHookKind | null): Promise<void> {
   if (!kind) return;
   const ent = currentEntity();
   const hook = ent.events?.[kind];
@@ -817,7 +830,7 @@ function firePreviewHook(kind: StudioHookKind | null): void {
   if (hook.sfxSlot) {
     parts.push(`sfx:${hook.sfxSlot}`);
     const slot = SOUND_BANK_SLOTS.find((s) => s.id === hook.sfxSlot);
-    const src = (hook.sfxSlot && soundStore.replacements[hook.sfxSlot]) || (slot ? `/Sound/${slot.file}` : '');
+    const src = (hook.sfxSlot && soundStore.replacements[hook.sfxSlot]) || (slot ? (await import('../audio/sfx')).studioSoundUrl(slot.file) : '');
     if (src) {
       if (previewAudio) {
         previewAudio.pause();
@@ -1087,7 +1100,7 @@ function fillSfxSelects(): void {
   const opts =
     `<option value="">(none)</option>` +
     SOUND_BANK_SLOTS.map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
-  for (const kind of ['onSpawn', 'onHit', 'onDeath']) {
+  for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact']) {
     const sel = $(`studio-evt-${kind}-sfx`) as HTMLSelectElement | null;
     if (sel && !sel.dataset.filled) {
       sel.innerHTML = opts;
@@ -1100,7 +1113,7 @@ function fillSfxSelects(): void {
     clipFx.innerHTML = fxOpts;
     clipFx.dataset.filled = '1';
   }
-  for (const kind of ['onSpawn', 'onHit', 'onDeath']) {
+  for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact']) {
     const fx = $(`studio-evt-${kind}-fx`) as HTMLSelectElement | null;
     if (fx && !fx.dataset.filled) {
       fx.innerHTML = fxOpts;
@@ -1135,11 +1148,11 @@ function renderSoundBank(): void {
   }
 
   list.querySelectorAll<HTMLButtonElement>('[data-sfx-play]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.dataset.sfxPlay!;
       const slot = SOUND_BANK_SLOTS.find((s) => s.id === id);
       if (!slot) return;
-      const src = soundStore.replacements[id] || `/Sound/${slot.file}`;
+      const src = soundStore.replacements[id] || (await import('../audio/sfx')).studioSoundUrl(slot.file);
       if (previewAudio) {
         previewAudio.pause();
         previewAudio = null;
@@ -1155,12 +1168,17 @@ function renderSoundBank(): void {
       const file = input.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const dataUrl = reader.result as string;
-        soundStore.replacements[id] = dataUrl;
+        try {
+        const response=await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getAuthToken()}`},body:JSON.stringify({audio:dataUrl})});
+        const result=await response.json();if(!response.ok||!result.success)throw new Error(result.error||'Sound upload failed');
+        soundStore.replacements[id] = result.url;
+        store.sounds={...(store.sounds||{}),[id]:result.url};saveStudioStore(store);notifyStudioRuntimeChanged();
         saveSoundBank(soundStore);
         renderSoundBank();
-        setStatus(`SFX ${id} replaced locally (~${approxDataUrlKb(dataUrl)} KB)`);
+        setStatus(`SFX ${id} uploaded. Publish pack to share with all players.`);
+        }catch(error){setStatus(error instanceof Error?error.message:'Sound upload failed',false);}
       };
       reader.readAsDataURL(file);
     });
@@ -1170,6 +1188,7 @@ function renderSoundBank(): void {
     btn.addEventListener('click', () => {
       const id = btn.dataset.sfxClear!;
       delete soundStore.replacements[id];
+      if(store.sounds)delete store.sounds[id];saveStudioStore(store);notifyStudioRuntimeChanged();
       saveSoundBank(soundStore);
       renderSoundBank();
       setStatus(`Cleared custom SFX for ${id}`);
@@ -1226,6 +1245,8 @@ function bindControls(): void {
         const url = result.url as string;
         if (!store.entities[entityKey]) store.entities[entityKey] = emptyEntityData();
         store.entities[entityKey].sheetDataUrl = url;
+        if(!Object.keys(store.entities[entityKey].clips).length){store.entities[entityKey].cols=1;store.entities[entityKey].rows=1;store.entities[entityKey].clips={idle:{startFrame:0,frameCount:1}};}
+
         // The image is already stored remotely. Keep its small URL in the
         // editor draft so a refresh before Publish does not lose the upload.
         let draftSaved = true;
@@ -1236,6 +1257,7 @@ function bindControls(): void {
         }
         await loadSheetImage(url);
         selectedFrame = 0;
+        syncGridInputs();syncClipInputs();
         drawSheet();
         drawPreviewFrame(0);
         renderEntityRail();
@@ -1325,6 +1347,10 @@ function bindControls(): void {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) importEntityPackFile(file);
   });
+  for(const key of Object.keys(DEFAULT_TURRET_TUNING))$(`studio-turret-${key}`)?.addEventListener('change',()=>{
+    const raw:Record<string,string>={};for(const field of Object.keys(DEFAULT_TURRET_TUNING))raw[field]=($(`studio-turret-${field}`) as HTMLInputElement)?.value||'';
+    currentEntity().turret=normalizeTurretTuning(raw);saveStudioStore(store);notifyStudioRuntimeChanged();setStatus('Turret settings saved to draft. Publish pack to share.');
+  });
   $('studio-duplicate')?.addEventListener('click', () => duplicateEntity());
   $('studio-clear-entity')?.addEventListener('click', async () => {
     store.entities[store.selectedEntity] = emptyEntityData();
@@ -1332,7 +1358,7 @@ function bindControls(): void {
     setStatus(`Cleared Creator data for ${store.selectedEntity}`);
   });
 
-  for (const kind of ['onSpawn', 'onHit', 'onDeath']) {
+  for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact']) {
     for (const suffix of ['sfx', 'flash', 'shake', 'fx']) {
       $(`studio-evt-${kind}-${suffix}`)?.addEventListener('change', () => readEventInputsIntoEntity());
     }
@@ -1345,7 +1371,7 @@ function bindControls(): void {
 export function installMediaStudio(published?: MediaStudioStore): void {
   if (!$('admin-media-studio')) return;
   store = published ? migrateStoreToV2(published) : loadStudioStore();
-  soundStore = loadSoundBank();
+  soundStore = {version:1,replacements:{...loadSoundBank().replacements,...store.sounds}};
   fillSfxSelects();
   if (!installed) {
     fillEntitySelect();

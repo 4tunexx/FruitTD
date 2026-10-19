@@ -1,3 +1,4 @@
+import { turretVictims } from './turretTargets';
 import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
 /** Shared Arena/Ranked PvP contracts and deterministic server rules. */
 export type PvpQueue = 'arena' | 'ranked';
@@ -330,11 +331,11 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
         return true;
       }
       const hit = (attacker: typeof target, mul = 1) => { attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === 'armored' && type !== 'laser' && type !== 'railgun' ? .55 : 1)); };
-      hit(target);
-      if (type === 'sprinkler' || type === 'blender') {
-        const targetCell = path[Math.floor(Math.max(0, Math.min(path.length - 1, target.progress)))]!;
-        const nearby = player.attackers.filter(item => item !== target && item.hp > 0 && item.progress >= 0 && pvpHexDistance(path[Math.floor(Math.min(path.length - 1, item.progress))]!, targetCell, map.width) <= 1).slice(0, type === 'blender' ? 3 : 2);
-        for (const item of nearby) hit(item, type === 'blender' ? 1 : .65);
+      const point=(attacker:typeof target)=>{const c=path[Math.max(0,Math.min(path.length-1,Math.floor(attacker.progress)))]!;return {x:c%map.width+.5,y:Math.floor(c/map.width)+.5};};
+      const victims=turretVictims(type,{x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5},target,player.attackers.filter(unit=>unit.hp>0&&unit.progress>=0),point,stats.range);
+      for(const victim of victims){hit(victim,type==='sprinkler'&&victim!==target?.65:1);
+        if(type==='sprinkler'||type==='vortex'){victim.slowUntil=Math.max(victim.slowUntil||0,now+1200);victim.slowMultiplier=type==='vortex'?.6:.45;}
+        if(type==='railgun')victim.progress=Math.max(0,victim.progress-.45);
       }
       return true;
     };

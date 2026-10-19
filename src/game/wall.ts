@@ -1,8 +1,10 @@
+import { TurretEffects } from './turretEffects';
 import { DefenderMotion } from './defenderMotion';
 import { characterPortrait } from './characterPortraits';
 import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
 import {
   CanvasTexture,
+  Camera,
   CircleGeometry,
   DoubleSide,
   Group,
@@ -20,7 +22,7 @@ import { fruitAtlas } from './atlas';
 import type { Fruit } from './fruits';
 import type { JuiceBank, JuiceSystem } from './juice';
 import { TurretRig, canPlaceTurret, sellRefund, turretRange, type TurretHit, type TurretKind } from './turrets';
-import { ARENA_W, EXTRA_Z, MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, towerStats } from './world';
+import { ARENA_W, EXTRA_Z, MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, towerStats, slotIndexAt } from './world';
 import { getAdminTexture } from './adminTextureLoader';
 import { getTowerXpState } from './towerProgression';
 import { getTowerMilestoneBonuses } from './towerMilestones';
@@ -31,6 +33,8 @@ import {
   heroIdToStudioKey,
   resetStudioAnimForKey,
   sampleStudioTexture,
+  getStudioEntityData,
+  fireStudioEvent, playStudioSound, turretLevelTuning,
   updateStudioAnim,
   type StudioAnimState,
 } from './studioRuntime';
@@ -50,34 +54,23 @@ export interface Slot {
   turret: TurretRig | null;
 }
 
-interface Shot {
-  mesh: Mesh;
-  life: number;
-  maxLife: number;
-  x: number;
-  z: number;
-  tx: number;
-  tz: number;
-}
-
 const _aim = new Vector3();
-const MAX_SHOTS = 36;
 const wallSkinTextures = new Map<string, Texture>();
 
 export class WallBase {
   readonly group = new Group();
   readonly healthRail = new Group();
+  readonly combatEffects=new TurretEffects();
   readonly slots: Slot[] = [];
   selected = MAIN_INDEX;
   moving = false;
-  private readonly shots: Shot[] = [];
   private readonly wallMesh: Mesh;
   private readonly rangeRing: Mesh;
   private readonly keepMesh: Mesh;
   private readonly towerHpFill: Mesh;
   private readonly towerHpFillWidth: number;
   private wallSkinPath = '';
-  private readonly towerHome = new Vector3(0, 1.15, WALL_Z);
+  private readonly towerHome = new Vector3(0, 3.7, WALL_Z);
   private rangeRequested = false;
   private hitTimer = 0;
   private readonly heroMotion:DefenderMotion;
@@ -110,7 +103,8 @@ export class WallBase {
     );
     this.keepMesh.userData.combatPortrait=true;
     this.keepMesh.add(combatTokenFrame(1.05, 'tower'));
-    this.keepMesh.position.set(0, 1.15, WALL_Z);
+    this.keepMesh.position.copy(this.towerHome);
+    this.group.add(this.combatEffects.group);
     this.group.add(this.keepMesh);
     this.heroMotion=new DefenderMotion(this.keepMesh,'hero',0xffc45c);
     // A framed segmented bar sits just below the wall and remains attached to
@@ -146,7 +140,7 @@ export class WallBase {
     }
 
     this.rangeRing = new Mesh(
-      new RingGeometry(0.7, 0.92, 40),
+      new RingGeometry(.98, 1, 64),
       new MeshBasicMaterial({ color: COMBAT_GOLD, transparent: true, opacity: 0.4, depthWrite: false }),
     );
     this.rangeRing.rotation.x = -Math.PI / 2;
@@ -185,7 +179,7 @@ export class WallBase {
       };
       if (def.main) {
         slot.head = this.makeHead(0, 0, 0.68);
-        slot.head.position.set(def.x, 3.3, def.z);
+        slot.head.position.set(def.x, 1.3, def.z);
         this.towerMotion=new DefenderMotion(slot.head,'tower');
         this.group.add(slot.head);
       }
@@ -240,10 +234,10 @@ export class WallBase {
     if (!main) return;
     const mat = main.material as MeshLambertMaterial;
     const studioTex =
-      sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') ||
+      sampleStudioTexture(`${TOWER_STUDIO_KEY}-level-${this.slots[MAIN_INDEX].level}`, 'idle') || sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') ||
       (this.towerStudio.active ? updateStudioAnim(this.towerStudio, 0, 0, 0) : null);
     if (studioTex) {
-      this.keepMesh.visible = true;
+      this.keepMesh.visible = this.heroOnKeep;
       main.visible = true;
       mat.map = studioTex;
       mat.color.setHex(0xffffff);
@@ -252,7 +246,7 @@ export class WallBase {
     }
     const adminTex = getAdminTexture('tower-main');
     if (adminTex) {
-      main.visible = true; this.keepMesh.visible = true;
+      main.visible = true; this.keepMesh.visible = this.heroOnKeep;
       mat.map = adminTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -275,6 +269,7 @@ export class WallBase {
 
   setHeroOnKeep(visible: boolean): void {
     this.heroOnKeep = visible;
+    this.keepMesh.visible=visible;
     this.heroMotion.group.visible=visible;
     if (!visible) {
       const mat = this.keepMesh.material as MeshLambertMaterial;
@@ -299,7 +294,7 @@ export class WallBase {
       (this.heroStudio.active ? updateStudioAnim(this.heroStudio, 0, 0, 0) : null);
 
     if (studioTex) {
-      this.keepMesh.visible = true;
+      this.keepMesh.visible = this.heroOnKeep;
       mat.map = studioTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -308,7 +303,7 @@ export class WallBase {
 
     const heroTex = getAdminTexture(`hero-${this.currentHero}` as any);
     if (heroTex) {
-      this.keepMesh.visible = true;
+      this.keepMesh.visible = this.heroOnKeep;
       mat.map = heroTex;
       mat.color.setHex(0xffffff);
       mat.needsUpdate = true;
@@ -316,9 +311,9 @@ export class WallBase {
     }
 
     const towerStudio =
-      sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') || getAdminTexture('tower-main');
+      sampleStudioTexture(`${TOWER_STUDIO_KEY}-level-${this.slots[MAIN_INDEX].level}`, 'idle') || sampleStudioTexture(TOWER_STUDIO_KEY, 'idle') || getAdminTexture('tower-main');
     if (towerStudio) {
-      this.keepMesh.visible = true;
+      this.keepMesh.visible = this.heroOnKeep;
       mat.map = towerStudio;
       mat.color.setHex(0xffffff);
     } else {
@@ -336,6 +331,9 @@ export class WallBase {
       if (wallSheet && material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
     }
     const main = this.slots[MAIN_INDEX]?.head;
+    const levelKey=`tower-main-level-${this.slots[MAIN_INDEX].level}`;
+    const studioKey=getStudioEntityData(levelKey)?.sheetDataUrl?levelKey:TOWER_STUDIO_KEY;
+    if(this.towerStudio.entityKey!==studioKey||!this.towerStudio.active)resetStudioAnimForKey(this.towerStudio,studioKey);
     if (main && this.towerStudio.active) {
       const tex = updateStudioAnim(this.towerStudio, dt, 0, 0);
       if (tex) {
@@ -385,8 +383,7 @@ export class WallBase {
         slot.kind = null;
       }
     }
-    for (const s of this.shots) this.group.remove(s.mesh);
-    this.shots.length = 0;
+    this.combatEffects.clear();
     this.setTowerHealth(1);
     this.selected = MAIN_INDEX;
     this.moving = false;
@@ -429,7 +426,7 @@ export class WallBase {
     if (slot.level >= MAX_TOWER_LEVEL) return false;
     slot.level += 1;
     this.resizeHead(slot);
-    if (slot.turret) slot.turret.group.scale.setScalar(1 + (slot.level - 1) * 0.08);
+    if (slot.turret) {slot.turret.group.scale.setScalar(1 + (slot.level - 1) * 0.04);slot.turret.refreshAppearance(slot.level);}
     this.refreshRange();
     return true;
   }
@@ -495,6 +492,21 @@ export class WallBase {
     return refund;
   }
 
+  /** Hit the visible portrait before the ground pad; tall heroes no longer shift tap targets. */
+  pickSlot(point:Vector3,camera:Camera):number {
+    camera.updateMatrixWorld();this.group.updateMatrixWorld(true);
+    const tap=point.clone().applyMatrix4(camera.matrixWorldInverse),center=new Vector3();
+    for(const slot of this.slots){
+      const body=slot.head||slot.turret?.group.children[0];if(!slot.filled||!body)continue;
+      body.getWorldPosition(center).applyMatrix4(camera.matrixWorldInverse);
+      const radius=(slot.main?.8:.7)*(slot.head?.scale.x||slot.turret?.group.scale.x||1);
+      if(Math.hypot(tap.x-center.x,tap.y-center.y)<=radius)return slot.index;
+    }
+    this.keepMesh.getWorldPosition(center).applyMatrix4(camera.matrixWorldInverse);
+    if(this.keepMesh.visible&&Math.hypot(tap.x-center.x,tap.y-center.y)<1.2)return MAIN_INDEX;
+    return slotIndexAt(point.x,point.z);
+  }
+
   selectedSlot(): Slot {
     return this.slots[this.selected];
   }
@@ -512,6 +524,10 @@ export class WallBase {
   damageFeedback(): void {
     this.hitTimer = 0.24;
   }
+
+  get hasSelection():boolean {return this.rangeRequested;}
+
+  deselect():void {this.rangeRequested=false;this.moving=false;this.refreshPads();this.refreshRange();}
 
   select(index: number): void {
     if (index < 0) return;
@@ -537,6 +553,7 @@ export class WallBase {
     }
     this.tickStudioSkins(dt);
     this.heroMotion.update(dt);this.towerMotion?.update(dt);
+    this.combatEffects.update(dt);
     let shot = false;
     for (const slot of this.slots) {
       if (!slot.filled) continue;
@@ -547,7 +564,7 @@ export class WallBase {
           juice,
           bank,
           onHit,
-          shoot: (tx, tz, hex) => this.spawnShot(slot.x, slot.z, _aim.set(tx, 1.35, tz), hex),
+          shoot: (tx, tz, hex) => {const tuning=turretLevelTuning(slot.kind!,slot.level);this.combatEffects.shot(slot.kind as TurretKind,new Vector3(slot.x,1.15,slot.z),_aim.set(tx,1.1,tz),slot.level,tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):slot.kind==='sprinkler'?0x9de7ff:hex,tuning.effectScale);},
         });
         if (fired) shot = true;
         continue;
@@ -555,7 +572,7 @@ export class WallBase {
       slot.cooldown = Math.max(0, slot.cooldown - dt);
       const stats = towerStats(slot.level, slot.main);
       let best: Fruit | null = null;
-      let bestD = stats.range;
+      let bestD = stats.range*turretLevelTuning('main',slot.level).rangeMultiplier;
       for (const fruit of fruits) {
         if (!fruit.alive) continue;
         const d = Math.hypot(fruit.group.position.x - slot.x, fruit.group.position.z - slot.z);
@@ -564,28 +581,19 @@ export class WallBase {
           best = fruit;
         }
       }
+      if(best&&slot.head)slot.head.userData.combatAim={x:best.group.position.x-slot.x,z:best.group.position.z-slot.z};
       if (!best || slot.cooldown > 0) continue;
       const fireMul = getTowerMilestoneBonuses(getTowerXpState().level).defenceFireRateMultiplier;
-      slot.cooldown = 1 / (stats.fireRate * fireMul);
+      const tuning=turretLevelTuning('main',slot.level);
+      slot.cooldown = tuning.cooldownMultiplier / (stats.fireRate * fireMul);
       // Portraits face the camera; projectiles aim at the actual target.
       if(slot.main)this.towerMotion?.fire();
-      this.spawnShot(slot.x, slot.z, best.group.position, 0xf4d35e);
-      onHit({ fruit: best, damage: stats.damage });
+      this.combatEffects.shot('main',new Vector3(slot.x,1.5,slot.z),best.group.position,slot.level);
+      onHit({ fruit: best, damage: stats.damage*tuning.damageMultiplier });
+      if(!(fireStudioEvent(`tower-main-level-${slot.level}`,'onAttack',this.towerHome)||fireStudioEvent('tower-main','onAttack',this.towerHome)))playStudioSound('turret-main');
       shot = true;
     }
 
-    for (let i = this.shots.length - 1; i >= 0; i--) {
-      const s = this.shots[i];
-      s.life -= dt;
-      const t = 1 - s.life / s.maxLife;
-      s.mesh.position.set(s.x + (s.tx - s.x) * t, 1.45, s.z + (s.tz - s.z) * t);
-      const fade = Math.max(0.15, s.life / s.maxLife);
-      (s.mesh.material as MeshBasicMaterial).opacity = fade;
-      if (s.life <= 0) {
-        this.group.remove(s.mesh);
-        this.shots.splice(i, 1);
-      }
-    }
     return shot;
   }
 
@@ -603,23 +611,10 @@ export class WallBase {
   }
 
   private resizeHead(slot: Slot): void {
+    if(slot.main)this.refreshTowerTexture();
     if (!slot.head) return;
     const grow = 1 + (slot.level - 1) * 0.1;
     slot.head.scale.setScalar(grow);
-  }
-
-  private spawnShot(x: number, z: number, to: Vector3, hex = 0xf4d35e): void {
-    while (this.shots.length >= MAX_SHOTS) {
-      const old = this.shots.shift();
-      if (old) this.group.remove(old.mesh);
-    }
-    const mesh = new Mesh(
-      new PlaneGeometry(0.28, 0.28),
-      new MeshBasicMaterial({ color: hex, transparent: true, opacity: 1, depthWrite: false }),
-    );
-    mesh.position.set(x, 1.45, z);
-    this.group.add(mesh);
-    this.shots.push({ mesh, life: 0.2, maxLife: 0.2, x, z, tx: to.x, tz: to.z });
   }
 
   private refreshPads(): void {
@@ -631,7 +626,7 @@ export class WallBase {
         mat.color.setHex(canPlaceTurret(movingKind, PADS[slot.index]) ? 0x38bdf8 : 0x57534e);
         continue;
       }
-      if (slot.index === this.selected) mat.color.setHex(0xffc34a);
+      if (this.rangeRequested && slot.index === this.selected) mat.color.setHex(0xffc34a);
       else if (slot.main) mat.color.setHex(0xf3f4f6);
       else if (slot.filled) mat.color.setHex(0xf0b429);
       else mat.color.setHex(0xa78a53);
@@ -653,7 +648,7 @@ export class WallBase {
       this.rangeRing.visible = false;
       return;
     }
-    const r = turretRange(kind, slot.level);
+    const r = kind==='main'?towerStats(slot.level,true).range*turretLevelTuning('main',slot.level).rangeMultiplier:turretRange(kind,slot.level);
     this.rangeRing.visible = true;
     this.rangeRing.position.set(slot.x, 0.08, slot.z);
     this.rangeRing.scale.setScalar(r);

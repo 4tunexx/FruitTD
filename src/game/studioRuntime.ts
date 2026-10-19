@@ -1,3 +1,4 @@
+import { DEFAULT_TURRET_TUNING, type TurretTuning } from './turretTuning';
 import { getPublishedCreatorMedia, publishedCreatorRevision } from './creatorMedia';
 /**
  * Runtime bridge: Creator Hub / Media Studio sheets/clips → live fruit textures + event hooks.
@@ -53,6 +54,7 @@ export const STUDIO_FLASH_SECONDS = 0.12;
 const sheetImages = new Map<string, HTMLImageElement | null | 'loading'>();
 const frameTextures = new Map<string, CanvasTexture>();
 let cachedStoreSig: string | null = null;
+let cacheCheckedAt=-Infinity;
 let cachedEntities: Record<string, EntityStudioData> = {};
 
 export interface StudioFxCallbacks {
@@ -63,6 +65,8 @@ export interface StudioFxCallbacks {
 }
 
 let fxCallbacks: StudioFxCallbacks = {};
+
+export function playStudioSound(slotId:string):void {fxCallbacks.playSfxSlot?.(slotId);}
 
 export function setStudioFxCallbacks(cb: StudioFxCallbacks): void {
   fxCallbacks = cb || {};
@@ -148,6 +152,9 @@ function storeSignature(): string | null {
 
 function refreshStoreCache(): Record<string, EntityStudioData> {
   try {
+    const now=typeof performance!=='undefined'?performance.now():Date.now();
+    if(cachedStoreSig!==null&&now-cacheCheckedAt<200)return cachedEntities;
+    cacheCheckedAt=now;
     const sig = `${publishedCreatorRevision()}:${storeSignature()}`;
     if (sig === cachedStoreSig) return cachedEntities;
     cachedStoreSig = sig;
@@ -165,6 +172,7 @@ function refreshStoreCache(): Record<string, EntityStudioData> {
 
 /** Invalidate localStorage cache (e.g. after admin save). */
 export function invalidateStudioRuntimeCache(): void {
+  cacheCheckedAt=-Infinity;
   cachedStoreSig = null;
   cachedEntities = {};
 }
@@ -175,6 +183,10 @@ subscribeStudioRuntimeInvalidation(invalidateStudioRuntimeCache);
 export function getStudioEntityData(entityKey: string): EntityStudioData | null {
   const entities = refreshStoreCache();
   return entities[entityKey] || null;
+}
+
+export function turretLevelTuning(kind:string,level:number):TurretTuning {
+  return getStudioEntityData(`tower-${kind}-level-${level}`)?.turret||getStudioEntityData(`tower-${kind}`)?.turret||DEFAULT_TURRET_TUNING;
 }
 
 export function getStudioEntity(entityKey: string): EntityStudioData | null {

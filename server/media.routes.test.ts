@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { createApp } from './app';
-import { decodeSpriteImage } from './routes/media';
+import { decodeSpriteImage, decodeSound } from './routes/media';
 
 test('sprite media accepts image signatures and rejects disguised content', () => {
   const png = Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), Buffer.from('safe')]);
@@ -24,4 +24,12 @@ test('sprite upload needs an authenticated admin', async (t) => {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: 'data:image/png;base64,iVBORw0KGgo=' }),
   });
   assert.equal(response.status, 403);
+});
+
+test('published sound media validates audio signatures, formats and size',()=>{
+  const wav=Buffer.from('RIFF0000WAVEfmt safe');
+  assert.equal(decodeSound(`data:audio/wav;base64,${wav.toString('base64')}`)?.contentType,'audio/wav');
+  for(const [mime,source,type] of [['mpeg','ID3safe','audio/mpeg'],['ogg','OggSsafe','audio/ogg']] as const)assert.equal(decodeSound(`data:audio/${mime};base64,${Buffer.from(source).toString('base64')}`)?.contentType,type);
+  assert.equal(decodeSound('data:audio/wav;base64,PHNjcmlwdD4='),null);
+  assert.equal(decodeSound(`data:audio/wav;base64,${Buffer.concat([wav,Buffer.alloc(1_000_001)]).toString('base64')}`),null);
 });

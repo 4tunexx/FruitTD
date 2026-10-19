@@ -11,7 +11,7 @@ import { SKILLS, type SkillId } from '../game/skills';
 import { heroAbility } from '../game/heroAbilities';
 import { powerButton, updatePowerButton } from './powerButton';
 import type { GameState } from '../game/state';
-import { TURRETS, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
+import { TURRETS, canPlaceTurret, sellRefund, turretDef, turretRange, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
 import { MAX_TOWER_LEVEL, PADS, upgradeCost } from '../game/world';
 import {
@@ -159,6 +159,7 @@ export class Hud {
       btn.dataset.turret = def.kind;
       btn.className = 'turret-btn';
       btn.append(lucideIcon(({ guillotine: 'Swords', vortex: 'Tornado', laser: 'Zap', railgun: 'Target', sprinkler: 'Droplets', blender: 'Scissors', catcher: 'Shield' } as Record<string, string>)[def.kind] || 'TowerControl', 'turret-btn__glyph', 20), document.createElement('span'));
+      const detail=document.createElement('small');detail.className='turret-btn__detail';detail.textContent=def.blurb+(def.fuel==='none'?'':` Uses ${def.fuel} juice.`);btn.appendChild(detail);
       btn.addEventListener('click', () => this.onPlace?.(def.kind));
       this.shop.appendChild(btn);
     }
@@ -192,7 +193,7 @@ export class Hud {
     });
   }
 
-  private setSidebarOpen(open: boolean): void {
+  setSidebarOpen(open: boolean): void {
     const app = document.getElementById('app');
     const toggle = document.getElementById('btn-sidebar-toggle');
     const backdrop = document.getElementById('btn-sidebar-close');
@@ -1203,7 +1204,7 @@ export class Hud {
       this.setUpgrade(state.currency, slot.level, 'main');
     } else if (slot.filled && slot.kind && slot.kind !== 'main') {
       const def = turretDef(slot.kind);
-      this.pick.textContent = `${def.name}  ·  Lv ${slot.level}/${MAX_TOWER_LEVEL}`;
+      this.pick.textContent = `${def.name}  ·  Lv ${slot.level}/${MAX_TOWER_LEVEL}\n${def.blurb}\nRadius ${turretRange(slot.kind,slot.level).toFixed(1)} · ${def.fuel==='none'?'No fuel needed':`${def.fuel} juice: ${bank[def.fuel]}`}`;
       this.shop.classList.add('hidden');
       this.upgrade.classList.remove('hidden');
       this.sell.classList.remove('hidden');
@@ -1258,7 +1259,7 @@ export class Hud {
   private setUpgrade(money: number, level: number, label: string): void {
     const cost = upgradeCost(level);
     if (cost == null) {
-      this.upgrade.textContent = `${label} maxed  ★ Lv 5`;
+      this.upgrade.textContent = `${label} maxed  ★ Lv ${MAX_TOWER_LEVEL}`;
       this.upgrade.toggleAttribute('disabled', true);
       return;
     }

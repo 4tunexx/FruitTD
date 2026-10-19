@@ -1,3 +1,4 @@
+import { subscribeStudioRuntimeInvalidation } from '../game/studioRuntimeSignals';
 import type { FruitKind } from '../game/fruits';
 import { loadSoundBank, SOUND_BANK_SLOTS } from '../game/studioSoundBank';
 
@@ -17,6 +18,8 @@ const urlByName = new Map<string, string>();
 for (const [path, url] of Object.entries(wavUrls)) {
   urlByName.set(fileKey(path), url);
 }
+
+export function studioSoundUrl(file:string):string {return urlByName.get(fileKey(file))||'';}
 
 function names(...list: string[]): string[] {
   return list.filter((n) => urlByName.has(n.toLowerCase()));
@@ -150,6 +153,7 @@ export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private readonly buffers = new Map<string, AudioBuffer>();
+  private readonly studioSources=new Map<string,string>();
   private readonly inflight = new Map<string, Promise<AudioBuffer | null>>();
   /** Admin Media Studio sound-bank overrides keyed by BANKS array identity. */
   private readonly studioByBank = new WeakMap<string[], string>();
@@ -215,6 +219,7 @@ export class Sfx {
     ];
     await this.preload(priority);
     this.ready = true;
+    subscribeStudioRuntimeInvalidation(()=>{void this.loadStudioSoundBank();});
     void this.loadStudioSoundBank();
   }
 
@@ -225,14 +230,16 @@ export class Sfx {
       const bankMap = BANKS as Record<string, string[]>;
       for (const slot of SOUND_BANK_SLOTS) {
         const dataUrl = store.replacements[slot.id];
-        if (!dataUrl) continue;
+        if (!dataUrl) {this.studioSources.delete(slot.id);this.buffers.delete(`studio:${slot.id}`.toLowerCase());const oldBank=bankMap[slot.id];if(oldBank)this.studioByBank.delete(oldBank);continue;}
+        if(this.studioSources.get(slot.id)===dataUrl)continue;
         const bank = bankMap[slot.id];
-        if (!bank) continue;
+
         const buf = await this.decodeDataUrl(dataUrl);
         if (!buf) continue;
-        const key = `studio:${slot.id}`;
+        const key = `studio:${slot.id}`.toLowerCase();
+        this.studioSources.set(slot.id,dataUrl);
         this.buffers.set(key, buf);
-        this.studioByBank.set(bank, key);
+        if(bank)this.studioByBank.set(bank, key);
       }
     } catch {
       /* studio sound bank is optional */
@@ -346,7 +353,7 @@ export class Sfx {
   /** Play a Creator Hub / sound-bank slot by id (custom override or BANKS fallback). */
   playStudioSlot(slotId: string, opts?: { volume?: number; rate?: number; interrupt?: boolean; ui?: boolean }): void {
     if (!slotId) return;
-    const studioKey = `studio:${slotId}`;
+    const studioKey = `studio:${slotId}`.toLowerCase();
     if (this.buffers.has(studioKey)) {
       this.play(studioKey, opts ?? { volume: 0.35 });
       return;
@@ -363,7 +370,7 @@ export class Sfx {
       gameOver: 'Game-over',
       critical: 'Critical',
     };
-    const name = oneShots[slotId];
+    const name = oneShots[slotId] || SOUND_BANK_SLOTS.find(slot=>slot.id===slotId)?.file.replace(/\.wav$/i,'');
     if (name) this.play(name, opts ?? { volume: 0.35 });
   }
 

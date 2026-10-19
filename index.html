@@ -1200,8 +1200,9 @@
                       </div>
                       <p id="studio-event-log" class="studio-event-log">Hooks idle</p>
 
+                      <section id="studio-turret-settings" hidden><h4 class="studio-section-label">Turret level</h4><p class="studio-hint">Select a tower or a specific level in the entity list. Upload PNG or a sprite sheet for that level. Missing level art uses the base tower. Arena and online Co-op balance is set under match settings.</p><div class="studio-events"><label class="studio-label">Solo damage ×<input id="studio-turret-damageMultiplier" class="studio-input" type="number" min="0.1" max="10" step="0.1" value="1"></label><label class="studio-label">Solo radius ×<input id="studio-turret-rangeMultiplier" class="studio-input" type="number" min="0.25" max="3" step="0.05" value="1"></label><label class="studio-label">Solo cooldown ×<input id="studio-turret-cooldownMultiplier" class="studio-input" type="number" min="0.2" max="5" step="0.1" value="1"></label><label class="studio-label">Shot size ×<input id="studio-turret-effectScale" class="studio-input" type="number" min="0.5" max="3" step="0.1" value="1"></label><label class="studio-label">Shot color (blank = signature)<input id="studio-turret-effectColor" class="studio-input" placeholder="#ffe394" maxlength="7"></label></div></section>
                       <h4 class="studio-section-label">Event hooks</h4>
-                      <p class="studio-hint">Fired at runtime on spawn / hurt / kill. SFX uses sound-bank slots; shake/flash/FX are best-effort.</p>
+                      <p class="studio-hint">Fired at runtime on spawn / hurt / kill / turret fire / turret impact. SFX uses sound-bank slots; shake/flash/FX are best-effort.</p>
                       <div class="studio-events">
                         <div class="studio-event-row">
                           <strong>onSpawn</strong>
@@ -1223,6 +1224,18 @@
                           <label class="studio-label studio-check"><input id="studio-evt-onDeath-flash" type="checkbox" /> Flash</label>
                           <label class="studio-label">Shake <input id="studio-evt-onDeath-shake" class="studio-input studio-input--num" type="number" min="0" max="4" step="0.05" value="0" /></label>
                           <label class="studio-label">FX <select id="studio-evt-onDeath-fx" class="studio-input"></select></label>
+                        </div>
+                        <div class="studio-event-row"><strong>Turret fires</strong>
+                          <label class="studio-label">SFX <select id="studio-evt-onAttack-sfx" class="studio-input"></select></label>
+                          <label class="studio-label studio-check"><input id="studio-evt-onAttack-flash" type="checkbox" /> Flash</label>
+                          <label class="studio-label">Shake <input id="studio-evt-onAttack-shake" class="studio-input studio-input--num" type="number" min="0" max="3" step="0.05" value="0" /></label>
+                          <label class="studio-label">FX <select id="studio-evt-onAttack-fx" class="studio-input"></select></label>
+                        </div>
+                        <div class="studio-event-row"><strong>Turret hits enemy</strong>
+                          <label class="studio-label">SFX <select id="studio-evt-onImpact-sfx" class="studio-input"></select></label>
+                          <label class="studio-label studio-check"><input id="studio-evt-onImpact-flash" type="checkbox" /> Flash</label>
+                          <label class="studio-label">Shake <input id="studio-evt-onImpact-shake" class="studio-input studio-input--num" type="number" min="0" max="3" step="0.05" value="0" /></label>
+                          <label class="studio-label">FX <select id="studio-evt-onImpact-fx" class="studio-input"></select></label>
                         </div>
                       </div>
                     </div>
