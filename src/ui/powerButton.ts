@@ -7,7 +7,7 @@ export function cooldownProgress(readyAt: number, duration: number, now = Date.n
   return Math.max(0, Math.min(1, 1 - Math.max(0, readyAt - now) / Math.max(1, duration)));
 }
 
-export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt: number, funds = Infinity, busy = false): void {
+export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt: number, funds = Infinity, busy = false, resource:'juice'|'fruts'='juice'): void {
   const ability = heroAbility(id);
   if (!ability) return;
   const now = Date.now(), wait = Math.max(0, readyAt - now);
@@ -22,11 +22,11 @@ export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt
     button.style.setProperty('--recharge-duration', `${ability.cooldownMs}ms`);
     button.style.setProperty('--recharge-delay', `${-progress * ability.cooldownMs}ms`);
   }
-  const status = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} F` : 'READY';
+  const status = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} ${resource==='juice'?'J':'F'}` : 'READY';
   const label = button.querySelector('.hero-ability-slot__cooldown')!;
   if (label.textContent !== status) label.textContent = status;
   button.title = `${ability.name} · ${status} · ${ability.description}`;
-  button.setAttribute('aria-label', `${ability.name}, ${wait ? `recharging, ${Math.ceil(wait / 1000)} seconds` : funds < ability.juiceCost ? 'not enough juice' : 'ready'}`);
+  button.setAttribute('aria-label', `${ability.name}, ${wait ? `recharging, ${Math.ceil(wait / 1000)} seconds` : funds < ability.juiceCost ? `not enough ${resource}` : 'ready'}`);
 }
 
 export function powerButton(id: string, onUse: () => void): HTMLButtonElement {

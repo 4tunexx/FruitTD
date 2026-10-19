@@ -1,3 +1,4 @@
+import { DefenderMotion } from './defenderMotion';
 import { characterPortrait } from './characterPortraits';
 import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
 import {
@@ -23,7 +24,7 @@ import { ARENA_W, EXTRA_Z, MAIN_INDEX, MAX_TOWER_LEVEL, PADS, WALL_Z, towerStats
 import { getAdminTexture } from './adminTextureLoader';
 import { getTowerXpState } from './towerProgression';
 import { getTowerMilestoneBonuses } from './towerMilestones';
-import type { HeroId } from './heroes';
+import { heroDef, type HeroId } from './heroes';
 import {
   TOWER_STUDIO_KEY,
   createStudioAnimForKey,
@@ -79,6 +80,8 @@ export class WallBase {
   private readonly towerHome = new Vector3(0, 1.15, WALL_Z);
   private rangeRequested = false;
   private hitTimer = 0;
+  private readonly heroMotion:DefenderMotion;
+  private towerMotion:DefenderMotion|null=null;
   private currentHero: HeroId | null = null;
   private heroOnKeep = true;
   private towerStudio: StudioAnimState = createStudioAnimForKey(TOWER_STUDIO_KEY);
@@ -109,6 +112,7 @@ export class WallBase {
     this.keepMesh.add(combatTokenFrame(1.05, 'tower'));
     this.keepMesh.position.set(0, 1.15, WALL_Z);
     this.group.add(this.keepMesh);
+    this.heroMotion=new DefenderMotion(this.keepMesh,'hero',0xffc45c);
     // A framed segmented bar sits just below the wall and remains attached to
     // the tower as the camera moves.
     const hpZ = WALL_Z - 1.45;
@@ -182,6 +186,7 @@ export class WallBase {
       if (def.main) {
         slot.head = this.makeHead(0, 0, 0.68);
         slot.head.position.set(def.x, 3.3, def.z);
+        this.towerMotion=new DefenderMotion(slot.head,'tower');
         this.group.add(slot.head);
       }
       this.slots.push(slot);
@@ -259,6 +264,7 @@ export class WallBase {
   }
 
   setHero(heroId: HeroId): void {
+    this.heroMotion.setHero(heroId,heroDef(heroId).color);
     if (this.currentHero === heroId) {
       this.refreshHeroTexture();
       return;
@@ -269,6 +275,7 @@ export class WallBase {
 
   setHeroOnKeep(visible: boolean): void {
     this.heroOnKeep = visible;
+    this.heroMotion.group.visible=visible;
     if (!visible) {
       const mat = this.keepMesh.material as MeshLambertMaterial;
       mat.map = characterPortrait(this.heroOnKeep && this.currentHero ? this.currentHero : 'tower');
@@ -500,6 +507,8 @@ export class WallBase {
     (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf04c42 : t <= 0.6 ? 0xf59e0b : 0x9be458);
   }
 
+  heroAttack():void { this.heroMotion.fire(); }
+
   damageFeedback(): void {
     this.hitTimer = 0.24;
   }
@@ -527,6 +536,7 @@ export class WallBase {
       this.keepMesh.position.copy(this.towerHome);
     }
     this.tickStudioSkins(dt);
+    this.heroMotion.update(dt);this.towerMotion?.update(dt);
     let shot = false;
     for (const slot of this.slots) {
       if (!slot.filled) continue;
@@ -558,6 +568,7 @@ export class WallBase {
       const fireMul = getTowerMilestoneBonuses(getTowerXpState().level).defenceFireRateMultiplier;
       slot.cooldown = 1 / (stats.fireRate * fireMul);
       // Portraits face the camera; projectiles aim at the actual target.
+      if(slot.main)this.towerMotion?.fire();
       this.spawnShot(slot.x, slot.z, best.group.position, 0xf4d35e);
       onHit({ fruit: best, damage: stats.damage });
       shot = true;

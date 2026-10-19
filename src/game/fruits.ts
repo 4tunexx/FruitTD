@@ -1,6 +1,6 @@
 import { enemyPortrait } from './characterPortraits';
 import { combatTokenFrame, setCombatTokenKind } from './combatTokens';
-import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3 } from 'three';
+import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RingGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
 import { ARENA_D, ARENA_W, LEAK_Z } from './world';
 import { modeRules } from './modes';
@@ -65,8 +65,8 @@ export interface Fruit {
 // Flat billboard placeholders can be replaced by uploaded enemy and boss sheets.
 const BODY_GEO = new CircleGeometry(1, 48);
 const BAR_GEO = new PlaneGeometry(1, 1);
-const HAZARD_GEO = new PlaneGeometry(2.4, 2.4);
-const ARMOR_GEO = new PlaneGeometry(2.2, 2.2);
+const HAZARD_GEO = new RingGeometry(1.27, 1.36, 48);
+const ARMOR_GEO = new RingGeometry(1.04, 1.1, 48);
 
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
@@ -109,13 +109,15 @@ function makeFruit(): Fruit {
   hpBar.renderOrder = 81;
   
   // Visual hazard indicator for explosive enemies
-  const hazardMat = new MeshBasicMaterial({ color: 0xff3b30, wireframe: true, side: DoubleSide, transparent: true, opacity: 0.6, depthWrite: false });
+  const hazardMat = new MeshBasicMaterial({ color: 0xff943b, side: DoubleSide, transparent: true, opacity: 0.6, depthWrite: false });
   const hazardRing = new Mesh(HAZARD_GEO, hazardMat);
+  hazardRing.userData.combatPortrait=true;
   hazardRing.visible = false;
 
   // Visual armor plating indicator
   const armorMat = new MeshLambertMaterial({ color: 0x94a3b8, transparent: true, side: DoubleSide, opacity: 0.3, depthWrite: false });
   const armorRing = new Mesh(ARMOR_GEO, armorMat);
+  armorRing.userData.combatPortrait=true;
   armorRing.visible = false;
 
   const group = new Group();

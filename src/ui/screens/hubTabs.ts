@@ -1,3 +1,4 @@
+import { renderHeroPerkTree } from './heroPerkTree';
 import { heroArt } from '../heroArt';
 import { lucideIcon } from '../lucideIcon';
 import { MODE_ICONS } from '../modeIcons';
@@ -33,8 +34,6 @@ import {
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../../game/heroes';
 import { getHeroXpState, nextHeroMilestone, type HeroAvailability } from '../../game/progression';
 import { getAllHeroStatuses } from '../../game/progression/heroStatus';
-import { HERO_PERKS } from '../../game/heroProgression';
-import { heroPerkRank } from '../../game/heroPerkSave';
 import { currentSeasonLabel } from '../../game/rankSeason';
 import { Backpack, Home, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
 import type { GameMode, SaveData } from '../../game/save';
@@ -333,18 +332,7 @@ function heroesSub(cb: HeroScreenCallbacks) {
       ]),
     ]);
 
-    const perks = el('div', { class: 'ftd-hero-perks' }, [el('p', { class: 'ftd-hero-perks__label', text: 'ABILITIES' })]);
-    for (const perk of HERO_PERKS) {
-      const rank = heroPerkRank(heroId, perk.id);
-      const unlocked = xp.level >= perk.unlockLevel;
-      perks.appendChild(
-        el('div', { class: `ftd-hero-perk${unlocked ? '' : ' is-locked'}` }, [
-          el('span', { class: 'ftd-hero-perk__name', text: perk.name }),
-          el('span', { class: 'ftd-hero-perk__rank', text: unlocked ? `${rank}/${perk.maxRank}` : `Lv ${perk.unlockLevel}` }),
-        ]),
-      );
-    }
-    detail.appendChild(perks);
+  detail.appendChild(renderHeroPerkTree(save,heroId,cb.onUpgradePerk));
 
     detail.appendChild(renderHeroPowerTree(save, heroId, xp.level, status.availability === 'owned', {
       onToggleAbility: cb.onToggleAbility,

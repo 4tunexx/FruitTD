@@ -1,3 +1,5 @@
+import { purchaseHeroPerk } from './game/heroPerkPurchase';
+import { installCombatHudLayout } from './ui/combatHudLayout';
 import { PowerVfx } from './game/powerVfx';
 import { powerStats, powerTargets } from './game/powerCombat';
 import { finishCampaignAttempt } from './game/campaignAttempt';
@@ -18,7 +20,7 @@ import { JuiceBank, JuiceSystem, juiceHueFromKind } from './game/juice';
 import { WALL_SKINS, defaultAvatar, loadSave, writeSave, mergeSaves, type GameMode, type SaveData } from './game/save';
 import { findSlicer, hexToNumber } from './game/slicers';
 import { SKILLS, type SkillId } from './game/skills';
-import { heroAbility, MAX_HERO_ABILITY_RANK } from './game/heroAbilities';
+import { heroAbility, heroAbilityRank, MAX_HERO_ABILITY_RANK } from './game/heroAbilities';
 import { SlashFx } from './game/slashfx';
 import { strokeHitsFruit, strokeHitsHalf, SliceDebris } from './game/slicer';
 import { modeRules } from './game/modes';
@@ -129,18 +131,7 @@ const renderer = new GameRenderer(canvas);
 const combatImpact = new CombatImpact(document.getElementById('combat-impact'));
 const profileChip = document.getElementById('player-chip');
 const profileToggle = document.getElementById('btn-profile-toggle') as HTMLButtonElement | null;
-const superWrap = document.getElementById('super-wrap');
-if (profileChip && superWrap) {
-  const alignSuperBar = () => {
-    const panel = profileChip.getBoundingClientRect();
-    superWrap.style.left = `${panel.left}px`;
-    superWrap.style.top = `${panel.bottom + 2}px`;
-    superWrap.style.width = `${panel.width}px`;
-  };
-  new ResizeObserver(alignSuperBar).observe(profileChip);
-  window.addEventListener('resize', alignSuperBar, { passive: true });
-  alignSuperBar();
-}
+installCombatHudLayout();
 if (profileChip && profileToggle) {
   const setCollapsed = (collapsed: boolean) => {
     profileChip.classList.toggle('is-collapsed', collapsed);
@@ -1120,7 +1111,7 @@ function restart(): void {
   guestTrailLife = 0;
   guestAttackHeld = false;
   coopActors.reset();
-  coopActors.setPlayerOneColor(heroDef(state.hero).color);
+  coopActors.setPlayerOneHero(state.hero);
   coopActors.setVisible(rules.guest);
   guestCursor?.classList.toggle('hidden', !rules.guest);
   guestHelp?.classList.toggle('hidden', !rules.guest);
@@ -1359,6 +1350,8 @@ function resolveSlash(slash: Slash): void {
   }
 
   if (hits > 0 && state.lives === livesBefore && state.running) {
+    wall.heroAttack();
+    if(state.mode==='coop'&&slash.id>=0)coopActors.attackPlayerOne();
     const comboBefore = state.combo;
     state.combo += hits;
     // One-off bonus for each newly crossed combo tier (data-driven thresholds).
@@ -1381,13 +1374,14 @@ function tryHeroAbility(id: string): void {
   if (!ability || ability.hero !== state.hero || (save.heroAbilityRanks?.[id] ?? 0) < 1 && id !== 'jiju-1' || !loadout.includes(id) || !navigation.canInteract() || !state.running) return;
   if ((heroAbilityReadyAt[id] ?? 0) > Date.now()) { sfx.denied(); return; }
   if (state.superJuice < ability.juiceCost) { toast(state, 'Need more juice', 1.4); sfx.denied(); return; }
-  state.superJuice -= ability.juiceCost;
-  heroAbilityReadyAt[id] = Date.now() + ability.cooldownMs;
   const swipe = new Vector3(0, 0.4, 1);
-  const living = fruits.fruits.filter((fruit) => fruit.alive);
+  const living = fruits.fruits.filter((fruit) => fruit.alive && fruit.enemyKind!=='explosive');
   const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
   const stats=powerStats(ability,rank);const damage=stats.damage;
-  const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:fruit.group.position.z}));
+  const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:-fruit.group.position.z}));
+  if(!targets.length&&!stats.healFraction){toast(state,'No vulnerable targets',1.2);sfx.denied();return;}
+  state.superJuice-=stats.cost;heroAbilityReadyAt[id]=Date.now()+ability.cooldownMs;
+  wall.heroAttack();
   powerVfx.spawn(ability,stats.rank,new Vector3(0,.7,WALL_Z),targets.map(fruit=>fruit.group.position.clone()));
   renderer.impulseShake(ability.effect === 'shock' ? 1.4 : 0.8);
   if (ability.effect === 'guard') { state.lives = Math.min(state.maxLives, state.lives + Math.max(1,Math.round(state.maxLives*stats.healFraction))); wall.setTowerHealth(state.lives / state.maxLives); }
@@ -1614,7 +1608,9 @@ function tickGuest(dt: number): void {
     guestTrailLife = Math.max(0, guestTrailLife - dt);
     if (guestTrailLife === 0) guestTrail.reset();
   }
+  coopActors.update(dt);
   if (!next.slash) return;
+  coopActors.attackPlayerTwo();
   const moved = Math.hypot(guestControl.x - before.x, guestControl.z - before.z) > 0.12;
   const from = new Vector3(moved ? before.x : guestControl.x - 1.15, 0, before.z);
   const to = new Vector3(moved ? guestControl.x : guestControl.x + 1.15, 0, guestControl.z);
@@ -2122,11 +2118,17 @@ installGameScreens({
     save.heroAbilityLoadouts[ability.hero] = equipped.includes(id) ? equipped.filter((item) => item !== id) : [...equipped, id];
     persist(); refreshCurrentScreen();
   },
+  onUpgradePerk:(id)=>{
+    if(getAuthToken()){void performSignedInCatalogueAction('buy-perk',id);return;}
+    const [hero,perk]=id.split(':');const error=purchaseHeroPerk(save,hero??'',perk??'');
+    if(error){toast(state,error,1.8);sfx.denied();return;}
+    persist();refreshCurrentScreen();sfx.unlockItem();
+  },
   onUpgradeAbility: (id) => {
     if (getAuthToken()) { void performSignedInCatalogueAction('buy-ability', id); return; }
     const ability = heroAbility(id); if (!ability || !save.ownedHeroes.includes(ability.hero) || heroXpToLevel(save.xp[ability.hero] ?? 0) < ability.unlockLevel || save.skillPoints < 1 || (save.heroAbilityRanks?.[id] ?? 0) >= MAX_HERO_ABILITY_RANK) { sfx.denied(); return; }
     const level = heroXpToLevel(save.xp[ability.hero] ?? 0); if (level < ability.unlockLevel) { sfx.denied(); return; }
-    save.skillPoints -= 1; save.heroAbilityRanks ??= {}; save.heroAbilityRanks[id] = (save.heroAbilityRanks[id] ?? 0) + 1;
+    save.skillPoints -= 1; save.heroAbilityRanks ??= {}; save.heroAbilityRanks[id] = heroAbilityRank(id,save.heroAbilityRanks) + 1;
     if (save.heroAbilityRanks[id] === 1 && (save.heroAbilityLoadouts?.[ability.hero] ?? []).length < 3) { save.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] }; save.heroAbilityLoadouts[ability.hero] = [...(save.heroAbilityLoadouts[ability.hero] ?? []), id]; }
     persist(); refreshCurrentScreen(); sfx.unlockItem();
   },

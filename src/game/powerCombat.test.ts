@@ -31,3 +31,25 @@ test('insufficient funds and unequipped casts leave both online match states unc
   const coop=newCoopMatch('coop',{userId:'a',name:'A',hero:'jiju',abilityLoadout:['jiju-2'],abilityRanks:{'jiju-2':1},sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0},cfg);coop.status='playing';coop.fruts=0;
   const initial=structuredClone(coop);assert.throws(()=>applyCoopCommand(coop,'a',1,{type:'ability',abilityId:'jiju-2'},2000,cfg),/Fruts/);assert.deepEqual(coop,initial);
 });
+
+test('all online powers respect turret-only bombs; empty offensive casts never spend resources or cooldowns',()=>{
+ for(const ability of HERO_ABILITIES){
+  const stats=powerStats(ability,5),own=createPvpPlayer('a','A','blue',cfg);
+  Object.assign(own,{hero:ability.hero,abilityLoadout:[ability.id],abilityRanks:{[ability.id]:5},fruts:500,wallHealth:50});
+  own.attackers=[{id:'bomb',type:'explosive',hp:150,progress:4}];
+  const arena=newPvpMatch('immune','arena',[own,createPvpPlayer('b','B','red',cfg)],1000,cfg);
+  arena.status='active';arena.map=cfg.map;arena.endsAt=100000;
+  const coop=newCoopMatch('immune',{userId:'a',name:'A',hero:ability.hero,abilityLoadout:[ability.id],abilityRanks:{[ability.id]:5},sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0},cfg);
+  coop.status='playing';coop.fruts=500;coop.fruits=[{id:'bomb',type:'explosive',x:5,y:5,hp:150,boss:false}];
+  if(stats.healFraction){
+   applyPvpCommand(arena,'a',{type:'ability',abilityId:ability.id},1,2000,cfg);
+   applyCoopCommand(coop,'a',1,{type:'ability',abilityId:ability.id},2000,cfg);
+  }else{
+   const beforeArena=structuredClone(arena),beforeCoop=structuredClone(coop);
+   assert.throws(()=>applyPvpCommand(arena,'a',{type:'ability',abilityId:ability.id},1,2000,cfg),/No vulnerable/);
+   assert.throws(()=>applyCoopCommand(coop,'a',1,{type:'ability',abilityId:ability.id},2000,cfg),/No vulnerable/);
+   assert.deepEqual(arena,beforeArena);assert.deepEqual(coop,beforeCoop);
+  }
+  assert.equal(own.attackers[0]!.hp,150);assert.equal(coop.fruits[0]!.hp,150);
+ }
+});

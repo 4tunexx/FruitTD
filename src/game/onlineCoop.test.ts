@@ -18,3 +18,33 @@ test('boss introduction counts down and creates an actual high-health boss',()=>
 test('wall leaks end match; disconnect grace ends abandoned matches; no unearned rewards',()=>{const room=match();room.status='playing';room.wallHealth=1;room.remainingSpawns=1;room.spawnAt=10000;room.fruits=[{id:'leak',type:'normal',x:5,y:14,hp:50,boss:false}];advanceCoopMatch(room,.2,2000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(room.status,'complete');assert.deepEqual(coopRewards(room,DEFAULT_COOP_CONFIG),{coins:0,gems:0,xp:0,towerXp:0});const abandoned=match();advanceCoopMatch(abandoned,.2,47000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(abandoned.reason,'disconnect');});
 
 test('equipped hero power damages the authoritative Co-op field and enforces cooldowns',()=>{const room=match();room.status='playing';room.fruits=[{id:'fruit',type:'normal',x:5,y:5,hp:100,boss:false}];const one=room.players[0]!;one.abilityLoadout=['jiju-1'];one.abilityRanks={'jiju-1':1};applyCoopCommand(room,'one',1,{type:'ability',abilityId:'jiju-1'},2000,DEFAULT_PVP_CONFIG);assert.equal(room.fruits[0]!.hp,82);assert.throws(()=>applyCoopCommand(room,'one',2,{type:'ability',abilityId:'jiju-1'},2500,DEFAULT_PVP_CONFIG),/cooling down/);});
+
+test('shared turret upgrades spend once, change damage, cap at three and sell at a loss',()=>{
+ const room=match();room.fruts=1000;room.status='countdown';
+ applyCoopCommand(room,'one',1,{type:'build',tower:'guillotine',cell:121},2000,DEFAULT_PVP_CONFIG);
+ const id=room.towers[0]!.id;
+ applyCoopCommand(room,'two',1,{type:'upgrade',towerId:id},2100,DEFAULT_PVP_CONFIG);
+ applyCoopCommand(room,'one',2,{type:'upgrade',towerId:id},2200,DEFAULT_PVP_CONFIG);
+ assert.equal(room.towers[0]!.level,3);assert.equal(room.fruts,752);
+ const before=structuredClone(room);
+ assert.throws(()=>applyCoopCommand(room,'one',3,{type:'upgrade',towerId:id},2300,DEFAULT_PVP_CONFIG),/fully upgraded/);
+ assert.deepEqual(room,before);
+ room.status='playing';room.remainingSpawns=1;room.spawnAt=10000;
+ room.fruits=[{id:'target',type:'normal',x:1.5,y:12.5,hp:1000,boss:false}];
+ advanceCoopMatch(room,0,3000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
+ assert.equal(room.fruits[0]!.hp,936,'upgraded turret applies rank-three damage');
+ applyCoopCommand(room,'one',3,{type:'sell',towerId:id},3100,DEFAULT_PVP_CONFIG);
+ assert.equal(room.towers.length,0);assert.equal(room.fruts,900,'buy/upgrade/sell cannot print Fruts');
+ assert.throws(()=>applyCoopCommand(room,'two',2,{type:'sell',towerId:id},3200,DEFAULT_PVP_CONFIG),/Choose/);
+});
+
+test('Co-op bombs resist slashes and powers while empty offensive casts preserve the match',()=>{
+ const room=match();room.status='playing';room.remainingSpawns=1;room.spawnAt=10000;
+ room.fruits=[{id:'bomb',type:'explosive',x:5,y:5,hp:150,boss:false}];
+ const one=room.players[0]!;one.abilityLoadout=['jiju-1'];one.abilityRanks={'jiju-1':1};
+ const before=structuredClone(room);
+ assert.throws(()=>applyCoopCommand(room,'one',1,{type:'ability',abilityId:'jiju-1'},2000,DEFAULT_PVP_CONFIG),/No vulnerable/);
+ assert.deepEqual(room,before);
+ applyCoopCommand(room,'one',1,{type:'slash',from:{x:4,y:5},to:{x:6,y:5}},2100,DEFAULT_PVP_CONFIG);
+ assert.equal(room.fruits[0]!.hp,150);assert.equal(room.wallHealth,978);
+});

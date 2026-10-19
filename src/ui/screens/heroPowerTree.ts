@@ -1,4 +1,4 @@
-import { HERO_ABILITIES, MAX_HERO_ABILITY_RANK } from '../../game/heroAbilities';
+import { HERO_ABILITIES, heroAbilityRank, MAX_HERO_ABILITY_RANK } from '../../game/heroAbilities';
 import type { HeroId } from '../../game/heroes';
 import type { SaveData } from '../../game/save';
 import { el } from '../components/dom';
@@ -15,7 +15,7 @@ export function renderHeroPowerTree(save:SaveData,heroId:HeroId,heroLevel:number
  ]);
  const rows=el('div',{class:'ftd-hero-power-tree__rows'});
  for(const ability of abilities){
-  const rank=Math.max(0,Math.min(MAX_HERO_ABILITY_RANK,save.heroAbilityRanks?.[ability.id]??0));
+  const rank=heroAbilityRank(ability.id,save.heroAbilityRanks);
   const unlocked=heroOwned&&heroLevel>=ability.unlockLevel,loadout=save.heroAbilityLoadouts?.[heroId]??[],equipped=loadout.includes(ability.id);
   const canEquip=rank>0||ability.id==='jiju-1',atLimit=!equipped&&loadout.length>=3;
   const icon=el('img',{class:'ftd-power-row__icon',src:powerIconSource(ability.id,ability.iconUrl),alt:`${ability.name} power icon`,loading:'lazy','data-power-icon':ability.id,'data-power-default':ability.iconUrl});

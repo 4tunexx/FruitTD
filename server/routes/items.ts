@@ -1,3 +1,4 @@
+import { purchaseHeroPerk } from '../../src/game/heroPerkPurchase';
 import { Router, type Request, type Response } from 'express';
 import type { Collection } from 'mongodb';
 import { getCollection, type CloudSaveDoc } from '../db';
@@ -8,10 +9,10 @@ import { HEROES, heroXpToLevel, type HeroId } from '../../src/game/heroes';
 import { canEquipHero, purchaseHeroAtomic } from '../../src/game/progression/heroStatus';
 import type { CatalogSlicer } from '../../src/game/slicers';
 import { SKILLS } from '../../src/game/skills';
-import { heroAbility, MAX_HERO_ABILITY_RANK } from '../../src/game/heroAbilities';
+import { heroAbility, heroAbilityRank, MAX_HERO_ABILITY_RANK } from '../../src/game/heroAbilities';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
-type ItemAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill' | 'buy-ability' | 'equip-ability';
+type ItemAction = 'buy' | 'equip' | 'unequip' | 'sell' | 'buy-vip' | 'buy-skill' | 'buy-ability' | 'equip-ability' | 'buy-perk';
 const VIP_FALLBACK: Record<'bronze' | 'silver' | 'gold', { price: number; coins: number }> = {
   bronze: { price: 500, coins: 1000 }, silver: { price: 1500, coins: 2500 }, gold: { price: 5000, coins: 5000 },
 };
@@ -46,7 +47,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
 
       const action = req.body?.action as ItemAction;
       const id = req.body?.id;
-      if (!['buy', 'equip', 'unequip', 'sell', 'buy-vip', 'buy-skill', 'buy-ability', 'equip-ability'].includes(action) || typeof id !== 'string' || id.length > 120) {
+      if (!['buy', 'equip', 'unequip', 'sell', 'buy-vip', 'buy-skill', 'buy-ability', 'equip-ability', 'buy-perk'].includes(action) || typeof id !== 'string' || id.length > 120) {
         return res.status(400).json({ success: false, error: 'Invalid gear action' });
       }
 
@@ -55,7 +56,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith('hero:') ? id.slice(5) as HeroId : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
-      if (!['buy-vip', 'buy-skill', 'buy-ability', 'equip-ability'].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: 'Gear not found' });
+      if (!['buy-vip', 'buy-skill', 'buy-ability', 'equip-ability', 'buy-perk'].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: 'Gear not found' });
 
       const col = await deps.collection<CloudSaveDoc>('cloud_saves');
       const current = await col.findOne({ userId: user.userId });
@@ -68,7 +69,11 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       const ownedHeroes: string[] = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
       const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
 
-      if (action === 'buy-vip') {
+      if(action==='buy-perk') {
+        const [heroId,perkId]=id.split(':');
+        const error=purchaseHeroPerk(saveData as SaveData,heroId??'',perkId??'');
+        if(error)return res.status(422).json({success:false,error});
+      } else if (action === 'buy-vip') {
         if (!['bronze', 'silver', 'gold'].includes(id)) return res.status(400).json({ success: false, error: 'Invalid VIP tier' });
         const tier = id as keyof typeof VIP_FALLBACK;
         const configCol = await deps.collection<Record<string, any>>('admin_config');
@@ -90,7 +95,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
         if (heroXpToLevel(Number(saveData.xp?.[ability.hero] || 0)) < ability.unlockLevel) return res.status(403).json({ success: false, error: `Unlocks at hero level ${ability.unlockLevel}` });
         saveData.heroAbilityRanks ??= {};
         saveData.heroAbilityLoadouts ??= { jiju: ['jiju-1'], topfu: [], lagen: [], tripos: [], ki: [] };
-        const rank = Number(saveData.heroAbilityRanks[id] || 0);
+        const rank = heroAbilityRank(id,saveData.heroAbilityRanks);
         if (action === 'buy-ability') {
           if (rank >= MAX_HERO_ABILITY_RANK) return res.status(409).json({ success: false, error: 'Ability is fully upgraded' });
           if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: 'Not enough skill points' });

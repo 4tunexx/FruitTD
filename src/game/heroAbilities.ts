@@ -15,3 +15,8 @@ export function heroAbility(id:string):HeroAbility|undefined{return HERO_ABILITI
 export function emptyHeroAbilityRanks():Record<string,number>{return Object.fromEntries(HERO_ABILITIES.map(a=>[a.id,0]));}
 export function emptyHeroAbilityLoadouts():Record<HeroId,string[]>{return {jiju:['jiju-1'],topfu:[],lagen:[],tripos:[],ki:[]};}
 export function normaliseHeroAbilityLoadouts(raw:unknown):Record<HeroId,string[]>{const base=emptyHeroAbilityLoadouts(),input=raw&&typeof raw==='object'?raw as Partial<Record<HeroId,unknown>>:{};for(const hero of Object.keys(base) as HeroId[]){const rows=Array.isArray(input[hero])?input[hero] as unknown[]:base[hero];base[hero]=[...new Set(rows.filter((id):id is string=>typeof id==='string'&&heroAbility(id)?.hero===hero))].slice(0,MAX_HERO_ABILITIES_EQUIPPED);}return base;}
+
+/** Blue Arc starts at rank one even in older saves that stored zero. */
+export function heroAbilityRank(id:string,ranks:Record<string,number>|undefined):number {
+ const raw=Math.floor(Number(ranks?.[id])||0);return Math.max(id==='jiju-1'?1:0,Math.min(MAX_HERO_ABILITY_RANK,raw));
+}

@@ -389,7 +389,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const ability=heroAbility(id); if(!ability)continue;
       const power = powerButton(id, () => issue({type:'ability',abilityId:id}));
       power.dataset.testid = `arena-ability-${id}`;
-      updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy);
+      updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy,'fruts');
       actionRail.appendChild(power);
     }
     tray.append(resource,actionRail);

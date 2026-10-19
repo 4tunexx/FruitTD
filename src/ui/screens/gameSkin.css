@@ -901,3 +901,14 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
     filter: drop-shadow(1px 0 0 var(--ftd-art-stroke)) drop-shadow(-1px 0 0 var(--ftd-art-stroke)) drop-shadow(0 1px 0 var(--ftd-art-stroke)) drop-shadow(0 -1px 0 var(--ftd-art-stroke)) !important;
   }
 }
+.ftd-hero-perks__hint { color:#c9bea4; font-size:.7rem; line-height:1.4; }
+.ftd-hero-perk { gap:10px; align-items:center; }
+.ftd-hero-perk > div { min-width:0; flex:1; }
+.ftd-hero-perk p { margin:4px 0; font-size:.7rem; color:#d6cdbb; line-height:1.4; }
+.ftd-hero-perk small { color:#ffe394; font-size:.65rem; }
+.ftd-perk-upgrade { flex-shrink:0; max-width:105px; border:1px solid #ffe394; background:#34302a; color:#ffe394; padding:8px; font-size:.65rem; font-weight:800; }
+.ftd-perk-upgrade:disabled { opacity:.45; cursor:default; }
+.ftd-hero-portrait.has-atlas { height:auto!important; aspect-ratio:1; }
+.ftd-hero-portrait__atlas { position:absolute; inset:0; border-radius:50%; border:2px solid #ffe394; background-repeat:no-repeat; background-color:#202125; box-shadow:0 3px #101215; animation:ftd-portrait-breathe 3.6s ease-in-out infinite; }
+@keyframes ftd-portrait-breathe { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-3px) rotate(1deg); } }
+@media(prefers-reduced-motion:reduce) { .ftd-hero-portrait__atlas { animation:none; } }

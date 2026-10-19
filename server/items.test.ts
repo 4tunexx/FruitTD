@@ -110,7 +110,7 @@ test('power upgrades spend skill points through rank five and stop at the cap', 
   if (!address || typeof address === 'string') throw new Error('Failed to bind test server');
   const base = `http://127.0.0.1:${address.port}`;
 
-  for (let rank = 1; rank <= 5; rank += 1) {
+  for (let rank = 2; rank <= 5; rank += 1) {
     const response = await fetch(`${base}/api/items/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,7 +119,7 @@ test('power upgrades spend skill points through rank five and stop at the cap', 
     assert.equal(response.status, 200);
     const body = await response.json() as any;
     assert.equal(body.saveData.heroAbilityRanks['jiju-1'], rank);
-    assert.equal(body.saveData.skillPoints, 5 - rank);
+    assert.equal(body.saveData.skillPoints, 6 - rank);
   }
   const capped = await fetch(`${base}/api/items/action`, {
     method: 'POST',
@@ -127,4 +127,16 @@ test('power upgrades spend skill points through rank five and stop at the cap', 
     body: JSON.stringify({ action: 'buy-ability', id: 'jiju-1' }),
   });
   assert.equal(capped.status, 409);
+  for(let rank=1;rank<=3;rank++){
+    const response=await fetch(`${base}/api/items/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'buy-perk',id:'jiju:combo'})});
+    assert.equal(response.status,200);
+    const body=await response.json() as any;
+    assert.equal(body.saveData.heroPerkRanks.jiju.combo,rank);
+    assert.equal(body.saveData.skillPoints,1,'passive mastery does not spend active power points');
+    assert.equal(cloud.saveData.heroPerkRanks.jiju.combo,rank,'mastery survives a cloud reload');
+  }
+  const before=structuredClone(cloud);
+  const cappedPerk=await fetch(`${base}/api/items/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'buy-perk',id:'jiju:combo'})});
+  assert.equal(cappedPerk.status,422);assert.deepEqual(cloud,before);
+
 });

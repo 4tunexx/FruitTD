@@ -24,7 +24,7 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
     (canvas as any).getBoundingClientRect = () => ({ width, height, left: 0, top: 0 });
     const field: any = Object.create(PvpBattlefield.prototype);
     const scene = new Scene(); const terrain = new Group(); scene.add(terrain);
-    Object.assign(field, { element: canvas, canvas, snapshot: { id: 'hex-test', map, yourSide: side, players }, config, terrain, health: new Map(), buildPads: [], mainTowerMaterials: [], wallMaterials: [], heroArt: [], renderer: { setSize: () => undefined }, camera: new OrthographicCamera(-20, 20, 30, -30, .1, 200), zoom: 1, focusOwn: false, ray: new Raycaster(), sideColors:{blue:0x38bdf8,red:0xef5350}, cameraX:0,cameraZ:0 });
+    Object.assign(field, { element: canvas, canvas, snapshot: { id: 'hex-test', map, yourSide: side, players }, config, terrain, health: new Map(), buildPads: [], mainTowerMaterials: [], wallMaterials: [], heroArt: [], keepMotion:new Map(), renderer: { setSize: () => undefined }, camera: new OrthographicCamera(-20, 20, 30, -30, .1, 200), zoom: 1, focusOwn: false, ray: new Raycaster(), sideColors:{blue:0x38bdf8,red:0xef5350}, cameraX:0,cameraZ:0 });
     field.buildTerrain(map); scene.updateMatrixWorld(true);
     for (const focused of [false, true]) {
       field.focusOwn = focused; field.resize(); field.camera.updateMatrixWorld();

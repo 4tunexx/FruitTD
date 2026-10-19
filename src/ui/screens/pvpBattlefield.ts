@@ -1,3 +1,4 @@
+import { DefenderMotion } from '../../game/defenderMotion';
 import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
 import { faceCombatPortraits } from '../../game/portraitFacing';
 import { combatTokenFrame } from '../../game/combatTokens';
@@ -19,7 +20,7 @@ import { pvpTowerLevel, pvpTowerStats, type PvpCommand, type PvpConfig, type Pvp
 import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
-type PlayerView = { powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
+type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
 export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke };
 const TILE = 1.7;
 const TILE_X = Math.sqrt(3) * TILE / 1.5;
@@ -63,7 +64,8 @@ export class PvpBattlefield {
   private readonly health = new Map<string, Mesh>();
   private readonly mainTowerMaterials: MeshLambertMaterial[] = [];
   private readonly wallMaterials: MeshLambertMaterial[] = [];
-  private readonly heroArt: Array<{ key: string; material: MeshBasicMaterial }> = [];
+  private readonly heroArt: Array<{ key: string; userId:string; material: MeshBasicMaterial; motion:DefenderMotion }> = [];
+  private readonly keepMotion=new Map<string,{motion:DefenderMotion;at:number}>();
   private snapshot: BattlefieldSnapshot;
   private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number };
   private receivedAt = performance.now();
@@ -146,9 +148,12 @@ export class PvpBattlefield {
         if(this.seenCasts.has(cast.id))continue;this.seenCasts.set(cast.id,cast.at);
         const ability=heroAbility(cast.abilityId);if(!ability)continue;
         const origin=pvpWorldPoint(map,map.width/2,map.height+.5,own);origin.y=.7;
+        this.heroArt.find(hero=>hero.userId===player.userId)?.motion.fire();
         this.powerVfx.spawn(ability,cast.rank,origin,cast.targets.map(point=>{const p=point.progress!==undefined?pvpArmyPoint(map,point.progress,own):pvpWorldPoint(map,point.x,point.y,own);p.y=.7;return p;}),Math.max(0,(Date.now()-cast.at)/1000));
       }
       for(const [id,at] of this.seenCasts)if(Date.now()-at>10000)this.seenCasts.delete(id);
+      const keep=this.keepMotion.get(player.userId);
+      if(keep && (player.mainLastFiredAt??0)>keep.at){keep.at=player.mainLastFiredAt!;keep.motion.fire();}
       const hp = this.health.get(player.userId);
       if (hp) {
         if (hp.userData.lastHealth !== undefined && player.wallHealth < hp.userData.lastHealth) {
@@ -248,7 +253,7 @@ export class PvpBattlefield {
 
   private buildTerrain(map: PvpMap): void {
     while (this.terrain.children.length) this.release(this.terrain.children[0] as Group);
-    this.health.clear(); this.buildPads.length = 0; this.mainTowerMaterials.length = 0; this.wallMaterials.length = 0; this.heroArt.length = 0;
+    this.health.clear(); this.buildPads.length = 0; this.mainTowerMaterials.length = 0; this.wallMaterials.length = 0; this.heroArt.length = 0; this.keepMotion.clear();
     const fullLength = (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2);
     const fullWidth = map.width * TILE_X + 5;
     const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), new MeshBasicMaterial({ color:0xffffff, map:battlefieldTexture(), side:DoubleSide }));
@@ -306,6 +311,7 @@ export class PvpBattlefield {
       this.mainTowerMaterials.push(keep.material as MeshLambertMaterial);
       keep.userData.combatPortrait=true;
       keep.add(combatTokenFrame(1.1, 'tower'));
+      this.keepMotion.set(player.userId,{motion:new DefenderMotion(keep,'tower'),at:player.mainLastFiredAt??0});
       keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
       const towerTexture = sampleStudioTexture('tower-main') || getAdminTexture('tower-main') || characterPortrait('tower'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
       const hero = heroDef((player.hero || 'jiju') as HeroId);
@@ -316,7 +322,8 @@ export class PvpBattlefield {
       avatar.userData.combatPortrait=true;
       avatar.add(combatTokenFrame(1.25, 'hero'));
       avatar.position.set(gateX + 2.2, 1.7, own ? -.4 : .4); base.add(avatar);
-      this.heroArt.push({ key: heroKey, material: heroMaterial });
+      const motion=new DefenderMotion(avatar,'hero',hero.color);motion.setHero(hero.id,hero.color);
+      this.heroArt.push({key:heroKey,userId:player.userId,material:heroMaterial,motion});
       for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
         const turret = new Mesh(new CircleGeometry(.85, 40), new MeshLambertMaterial({ color: teamColor, side: DoubleSide }));
         turret.userData.combatPortrait=true;
@@ -475,11 +482,13 @@ export class PvpBattlefield {
   private animate = (now: number) => {
     if (this.disposed) return;
     const dt = Math.min(.05, (now - this.previousAt) / 1000); this.previousAt = now;
+    for(const keep of this.keepMotion.values())keep.motion.update(dt);
     const towerSheet = sampleStudioTexture('tower-main');
     if (towerSheet) for (const material of this.mainTowerMaterials) if (material.map !== towerSheet) { material.map = towerSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
     const wallSheet = sampleStudioTexture('tower-wall');
     if (wallSheet) for (const material of this.wallMaterials) if (material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
     for (const hero of this.heroArt) {
+      hero.motion.update(dt);
       const sheet = sampleStudioTexture(hero.key, 'idle');
       if (sheet && hero.material.map !== sheet) { hero.material.map = sheet; hero.material.color.setHex(0xffffff); hero.material.needsUpdate = true; }
     }

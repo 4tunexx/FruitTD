@@ -7,7 +7,7 @@ import { LoadingIndicator } from '../components/loading';
 import type { PvpBattlefield } from './pvpBattlefield';
 import type { CoopMatch, CoopConfig, CoopCommand } from '../../game/onlineCoop';
 import { towerLevelFromXp } from '../../game/towerProgression';
-import type { PvpConfig } from '../../game/pvp';
+import { pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, PVP_MAX_TOWER_LEVEL, type PvpConfig } from '../../game/pvp';
 import { turretDef, type TurretKind } from '../../game/turrets';
 import type { Realtime } from 'ably';
 import { recordRun } from '../../game/runStats';
@@ -26,7 +26,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  heading.querySelector('button')?.addEventListener('click',()=>openScreen('MAIN_MENU'));
  host.append(heading);
  const notice=el('p',{role:'status',class:'ftd-pvp__intro'});const body=el('div');host.append(notice,body);
- let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let sceneLoadingId='';let selected='guillotine';let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
+ let room:CoopMatch|null=null;let balance:PvpConfig;let coop:CoopConfig;let yourId='';let scene:PvpBattlefield|null=null;let sceneId='';let sceneLoadingId='';let selected='guillotine';let towerManagerOpen=false;let working=false;let disposed=false;let client:Realtime|null=null;let connectedRoom='';let attaching=false;let inviteCode=pendingInviteCode;pendingInviteCode='';let attemptedInvite=false;
  const dispose=()=>{disposed=true;clearInterval(timer);scene?.dispose();scene=null;sceneId='';client?.close();client=null;connectedRoom='';};
  const canAttachRoom=(id:string)=>Boolean(room&&room.id===id&&room.status!=='complete');
  const attach=async()=>{if(!room||room.status==='complete'||attaching||connectedRoom===room.id)return;attaching=true;const id=room.id;
@@ -73,7 +73,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   }
   void attach();
   const other=room.players.find(p=>p.userId!==yourId);
-  const snapshot={id:room.id,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStroke:other?.lastStroke,players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y}))}]};
+  const snapshot={id:room.id,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStroke:other?.lastStroke,players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,mainLevel:towerLevelFromXp(room.towerXp??0),mainLastFiredAt:room.mainLastFiredAt,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y}))}]};
   if(sceneId!==room.id){scene?.dispose();scene=null;sceneId=room.id;sceneLoadingId=room.id;const loadingRoom=room.id;void import('./pvpBattlefield').then(({PvpBattlefield})=>{if(disposed||!body.isConnected||room?.id!==loadingRoom||room.status==='complete'){if(sceneLoadingId===loadingRoom)sceneLoadingId='';return;}scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneLoadingId='';render();}).catch(error=>{if(sceneLoadingId===loadingRoom)sceneLoadingId='';if(!disposed&&room?.id===loadingRoom)notice.textContent=error instanceof Error?`Battlefield could not start: ${error.message}`:'Battlefield could not start.';});}
   if(!scene){body.append(LoadingIndicator('Loading Co-op battlefield…'));return;}
   scene.update(snapshot,balance);scene.element.dataset.tower=selected;
@@ -81,10 +81,21 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   const powers=own.abilityLoadout??(own.hero==='jiju'?['jiju-1']:[]);
   body.append(el('div',{class:'hero-ability-bar hero-ability-bar--coop'},powers.slice(0,3).filter(id=>heroAbility(id)).map(id=>{
     const button=powerButton(id,()=>command({type:'ability',abilityId:id}));
-    updatePowerButton(button,id,(own.abilityReadyAt??{})[id]??0,room!.fruts);
+    updatePowerButton(button,id,(own.abilityReadyAt??{})[id]??0,room!.fruts,room!.status!=='playing'&&room!.status!=='boss-intro','fruts');
     return button;
   })));
   if(room.status==='boss-intro'||room.status==='countdown')body.append(el('div',{class:'ftd-coop-phase',role:'status'},[el('strong',{text:room.status==='boss-intro'?'OVERLORD APPROACHING':'NEXT WAVE'}),el('span',{text:`${Math.max(0,Math.ceil((room.phaseUntil-Date.now())/1000))}s`})]));
+  const management=el('details',{class:'ftd-coop-tower-manager',open:towerManagerOpen},[el('summary',{text:`TEAM TOWERS · ${room.towers.length}/8`})]);
+  management.addEventListener('toggle',()=>{if(management.isConnected)towerManagerOpen=management.open;});
+  for(const tower of room.towers){
+    const stats=balance.towers[tower.type];if(!stats)continue;const level=pvpTowerLevel(tower.level);
+    const cost=pvpUpgradeCost(stats.cost,level),name=turretDef(tower.type as TurretKind)?.name||tower.type;
+    management.append(el('div',{},[el('strong',{text:`${name} · Pad ${tower.cell-120} · Lv ${level}`}),
+      GameButton({label:level>=PVP_MAX_TOWER_LEVEL?'MAX':`Upgrade · ${cost} F`,disabled:level>=PVP_MAX_TOWER_LEVEL||room.fruts<cost,onClick:()=>command({type:'upgrade',towerId:tower.id})}),
+      GameButton({label:`Sell · ${pvpSellRefund(stats.cost,level)} F`,variant:'ghost',onClick:()=>command({type:'sell',towerId:tower.id})}),
+    ]));
+  }
+  body.append(management);
   body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls'},[el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. Both blades appear live.'}),...Object.entries(balance.towers).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;render();}}))])]));
  };
  body.append(LoadingIndicator('Connecting to online Co-op…'));

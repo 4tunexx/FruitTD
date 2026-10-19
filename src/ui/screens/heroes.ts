@@ -1,3 +1,4 @@
+import { renderHeroPerkTree } from './heroPerkTree';
 import { heroArt } from '../heroArt';
 /**
  * HERO SCREEN (§5).
@@ -12,11 +13,8 @@ import { GameButton } from '../components/primitives';
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../../game/heroes';
 import { getHeroXpState, nextHeroMilestone, type HeroAvailability } from '../../game/progression';
 import { getAllHeroStatuses } from '../../game/progression/heroStatus';
-import { HERO_PERKS } from '../../game/heroProgression';
-import { heroPerkRank } from '../../game/heroPerkSave';
 import type { SaveData } from '../../game/save';
 import { renderHeroPowerTree } from './heroPowerTree';
-import { extractedIcon } from '../extractedIcons';
 
 export interface HeroScreenCallbacks {
   onEquip: (id: HeroId) => void;
@@ -24,6 +22,7 @@ export interface HeroScreenCallbacks {
   onLockedInfo?: (message: string) => void;
   onToggleAbility?: (id: string) => void;
   onUpgradeAbility?: (id: string) => void;
+  onUpgradePerk?: (id: string) => void;
 }
 
 let selected: HeroId | null = null;
@@ -87,24 +86,7 @@ function heroDetail(save: SaveData, heroId: HeroId, cb: HeroScreenCallbacks): HT
   ]);
 
   // Perks
-  const perks = el('div', { class: 'ftd-hero-perks' }, [
-    el('p', { class: 'ftd-hero-perks__label', text: 'HERO MASTERY · PASSIVE SKILLS' }),
-  ]);
-  for (const perk of HERO_PERKS) {
-    const rank = heroPerkRank(heroId, perk.id);
-    const perkGlyph: Record<string, string> = { combo: 'skill-01-09', juice: 'creative-09-07', tower: 'hero-01-03', critical: 'skill-01-01', survival: 'skill-01-10' };
-    const unlocked = xp.level >= perk.unlockLevel;
-    perks.appendChild(
-      el('div', { class: `ftd-hero-perk${unlocked ? '' : ' is-locked'}` }, [
-        el('span', { class: 'ftd-hero-perk__name' }, [extractedIcon(perkGlyph[perk.id] ?? 'skill-01-01', 'ftd-hero-perk__glyph', 30), el('span', { text: perk.name })]),
-        el('span', {
-          class: 'ftd-hero-perk__rank',
-          text: unlocked ? `${rank}/${perk.maxRank}` : `Lv ${perk.unlockLevel}`,
-        }),
-      ]),
-    );
-  }
-  detail.appendChild(perks);
+  detail.appendChild(renderHeroPerkTree(save,heroId,cb.onUpgradePerk));
   detail.appendChild(renderHeroPowerTree(save, heroId, xp.level, status.availability === 'owned', {
     onToggleAbility: cb.onToggleAbility,
     onUpgradeAbility: cb.onUpgradeAbility,

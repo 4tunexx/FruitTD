@@ -223,7 +223,8 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     if(player.fruts<stats.cost)throw new Error('Not enough match Fruts');
     const map=match.map??config.map;
     const point=(attacker:PvpPlayer['attackers'][number])=>{const cell=map.pathCells[Math.min(map.pathCells.length-1,Math.max(0,Math.round(attacker.progress)))]??0;return {x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5,progress:attacker.progress};};
-    const targets=powerTargets(player.attackers.filter(a=>a.hp>0),ability,point);
+    const targets=powerTargets(player.attackers.filter(a=>a.hp>0&&a.type!=='explosive'),ability,point);
+    if(!targets.length&&!stats.healFraction)throw new Error('No vulnerable targets.');
     player.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
     player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+(player.wallMaxHealth??config.wallHealth)*stats.healFraction);
     player.powerCasts=appendPowerCast(player.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(point)});
