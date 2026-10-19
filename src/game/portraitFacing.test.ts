@@ -39,11 +39,12 @@ test('retired sample scenery upgrades while custom admin maps retain their exact
   assert.equal(new Set(['jiju','topfu','lagen','tripos','ki'].map(hero=>String(PORTRAIT_CELLS[hero]))).size,5);
 });
 
-test('every power ships a semantic glyph rather than an unrelated menu pictogram',()=>{
-  for(const ability of HERO_ABILITIES){
-    assert.ok(ability.iconUrl.startsWith('/assets/powers/combat-'));
+test('hero powers retain their original distinct sigil artwork',()=>{
+  assert.equal(new Set(HERO_ABILITIES.map(ability=>ability.iconUrl)).size,30);
+  for(const [index,ability] of HERO_ABILITIES.entries()){
+    assert.equal(ability.iconUrl,`/assets/icons/sigil-${String(index+1).padStart(2,'0')}.svg`);
     const source=readFileSync(`public${ability.iconUrl}`,'utf8');
-    assert.ok(source.includes('<svg') && source.includes('<path'));
+    assert.ok(source.includes('<svg'));
   }
 });
 
