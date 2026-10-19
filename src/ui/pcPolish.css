@@ -58,3 +58,56 @@ body > .ftd-pvp.is-battle { box-sizing:border-box; width:100vw; max-width:none; 
 .ftd-pvp.is-battle .ftd-btn { border:1px solid #ffe394; border-radius:0; background:#25262a; color:#ffe394; }
 .ftd-pvp.is-battle .ftd-btn.ftd-tone-primary { background:linear-gradient(110deg,#ffda59,#ffb62d); color:#17191c; }
 .ftd-pvp.is-battle .ftd-btn:hover:not(:disabled) { filter:brightness(1.08); }
+/* Interaction feedback belongs to the button surface. Artwork keeps its own colors. */
+html[data-ftd-motion] #screen-hub.ftd-hub :is(button,.ftd-hero-tile):not(:disabled):hover { filter:none!important; transform:none!important; outline:none!important; box-shadow:inset 0 0 0 1px #bda36b!important; }
+html[data-ftd-motion] #screen-hub.ftd-hub :is(button,.ftd-hero-tile):hover :is(.ftd-hero-portrait,.ftd-extracted-icon,.ftd-game-glyph,.ftd-btn__icon,.ftd-hub-tab__icon,.ftd-mode-card__icon,svg,img) { transform:none!important; filter:none!important; }
+#screen-hub.ftd-hub :is(.ftd-hero-detail,.ftd-hero-art):hover .ftd-hero-portrait { transform:none!important; filter:none!important; }
+#screen-hub.ftd-hub button:focus-visible { outline:2px solid #ffe394!important; outline-offset:3px; }
+#daily-countdown-text { font-variant-numeric:tabular-nums; animation:none!important; transform:none!important; filter:none!important; text-shadow:none!important; }
+@media(min-width:1000px) {
+ #screen-hub.ftd-hub[data-hub-page='HEROES'] .ftd-hub__body { grid-template-columns:minmax(340px,.9fr) minmax(480px,1.1fr); }
+ #screen-hub.ftd-hub[data-hub-page='HEROES'] .ftd-hub__sub { height:100%; align-self:stretch; }
+ #screen-hub.ftd-hub .ftd-hero-roster--hub { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+ #screen-hub.ftd-hub .ftd-hero-roster--hub .ftd-hero-tile { display:grid; grid-template-columns:84px minmax(0,1fr); align-content:center; text-align:left; min-height:140px; padding:18px; gap:7px 14px; }
+ #screen-hub.ftd-hub .ftd-hero-tile .ftd-hero-portrait { width:78px; height:78px; grid-row:1/4; margin:0; }
+ #screen-hub.ftd-hub .ftd-hero-detail { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; }
+ #screen-hub.ftd-hub .ftd-hero-art { height:200px; min-height:0; width:100%; background:radial-gradient(ellipse,#51442c55,#202125 72%); }
+ #screen-hub.ftd-hub .ftd-hero-art > .ftd-hero-portrait { width:176px; height:176px; }
+ #screen-hub.ftd-hub .ftd-hero-art__glow { display:none; }
+ #screen-hub.ftd-hub .ftd-hero-detail__name { font-size:28px; overflow-wrap:normal; word-break:normal; }
+ #screen-hub.ftd-hub .ftd-hero-detail__blurb { max-width:65ch; font-size:14px; line-height:1.55; }
+}
+@media(min-width:1100px) and (min-height:600px) {
+ body[data-ftd-screen='PLAY'] #app { background:radial-gradient(ellipse at center,#38322b,#181b1e 70%); }
+ body[data-ftd-screen='PLAY'] #game-canvas { border:1px solid #8c7850; box-shadow:0 0 40px #0008; box-sizing:border-box; }
+ body[data-ftd-screen='PLAY'] #player-chip { left:24px; top:18px; max-width:340px; }
+ body[data-ftd-screen='PLAY'] #player-chip .player-chip__identity { display:block; }
+ body[data-ftd-screen='PLAY'] #battle-status { top:18px!important; left:calc(var(--combat-left) + 12px); right:auto; width:calc(var(--combat-width) - 24px); }
+ body[data-ftd-screen='PLAY'] #battle-status > span { font-size:16px; padding:12px; }
+ body[data-ftd-screen='PLAY'] #battle-status small { font-size:11px; }
+ body[data-ftd-screen='PLAY'] #super-wrap { top:82px!important; left:calc(var(--combat-left) + 12px); width:calc(var(--combat-width) - 24px); }
+ body[data-ftd-screen='PLAY'] #sidebar { left:18px; top:104px; bottom:18px; width:calc(var(--combat-left) - 36px); max-width:380px; max-height:none; visibility:visible; opacity:1; pointer-events:auto; transform:none!important; background:linear-gradient(145deg,#2a2c2f,#181b1e); border:1px solid #8c7850; border-radius:0; padding:18px; box-sizing:border-box; }
+ body[data-ftd-screen='PLAY'] #btn-sidebar-toggle,body[data-ftd-screen='PLAY'] #btn-sidebar-hide,body[data-ftd-screen='PLAY'] #btn-sidebar-close { display:none!important; }
+ body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { top:160px; left:auto; right:24px; width:calc(var(--combat-left) - 48px); max-width:280px; gap:14px; padding:18px; border:1px solid #8c7850; background:#202125ee; box-sizing:border-box; }
+ body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot { width:100%; min-height:82px; grid-template-columns:60px minmax(0,1fr); grid-template-rows:auto auto; gap:8px; text-align:left; justify-items:start; padding:10px; }
+ body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot__portrait { grid-row:1/3; width:56px; height:56px; }
+ body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot__name { font-size:12px; white-space:normal; }
+ body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot__cooldown { font-size:12px; }
+ body[data-ftd-screen='PLAY'] #boss-health { top:114px!important; left:calc(var(--combat-left) + 24px); right:calc(var(--combat-left) + 24px); }
+ body[data-ftd-screen='PLAY'] #hud-toast { top:148px!important; left:calc(var(--combat-left) + 24px); right:calc(var(--combat-left) + 24px); }
+ body[data-ftd-screen='PLAY'] #hud-mission-tracker { right:24px; left:auto; width:260px; }
+ body[data-ftd-screen='PLAY'] .turret-btn { min-height:68px; padding:10px; }
+ body[data-ftd-screen='PLAY'] #sidebar-title { font-size:22px; }
+}
+@media(min-width:1000px) {
+ #screen-hub.ftd-hub .ftd-hero-detail { grid-template-areas:none; }
+ #screen-hub.ftd-hub .ftd-hero-detail > * { grid-area:auto!important; min-width:0; }
+ #screen-hub.ftd-hub .ftd-hero-detail__head { flex-wrap:wrap; gap:12px; }
+}
+html[data-ftd-motion] #screen-hub.ftd-hub button:hover::before,html[data-ftd-motion] #screen-hub.ftd-hub button:hover::after { animation:none!important; opacity:0!important; }
+@media(min-width:1100px) and (min-height:600px) {
+ body[data-ftd-screen='PLAY'] #battle-status strong { font-size:20px; }
+ body[data-ftd-screen='PLAY'] #sidebar { left:max(18px,calc(var(--combat-left) - 398px)); }
+ body[data-ftd-screen='PLAY'] #player-chip { left:max(24px,calc(var(--combat-left) - 392px)); }
+ body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { right:auto; left:calc(var(--combat-left) + var(--combat-width) + 20px); }
+}

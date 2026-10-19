@@ -41,7 +41,7 @@ test('sprinkler consumes orange fuel and stops when empty', async () => {
   assert.equal(shots, 1);
 });
 
-test('cannon hits once per projectile and swept contact survives a slow frame', async () => {
+test('rocket follows its target and applies blast damage once', async () => {
   const { TurretRig, JuiceBank, JuiceSystem, FruitField } = await combat();
   const rig = new TurretRig('railgun'), bank = new JuiceBank();
   const fruit = new FruitField(() => {}).spawn('orange')!;
@@ -51,7 +51,7 @@ test('cannon hits once per projectile and swept contact survives a slow frame', 
   const ctx = { dt: .05, fruits: [fruit], bank, juice: new JuiceSystem(), onHit: () => { hits++; }, shoot: () => {} };
   rig.charge = 3;
   rig.tick(0,0,1,ctx); // launch
-  ctx.dt = .1;
+  ctx.dt = .3;
   rig.tick(0,0,1,ctx); // projectile crosses target between frames
   fruit.group.position.z = 3;
   rig.tick(0,0,1,ctx); // still intersecting this projectile

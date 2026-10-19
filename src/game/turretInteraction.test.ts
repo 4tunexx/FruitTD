@@ -54,9 +54,9 @@ test('each turret has visible signature effects and all transient geometry expir
 test('server attack shapes distinguish piercing, splash and radial cutters',()=>{
   const a={x:0,y:2},behind={x:0,y:4},near={x:.8,y:2},off={x:3,y:4},units=[a,behind,near,off],point=(v:typeof a)=>v;
   assert.deepEqual(turretVictims('laser',{x:0,y:0},a,units,point,5),[a,behind]);
-  assert.deepEqual(turretVictims('railgun',{x:0,y:0},a,units,point,5),[a,behind]);
-  assert.deepEqual(turretVictims('sprinkler',{x:0,y:0},a,units,point,5),[a,near]);
-  assert.deepEqual(turretVictims('vortex',{x:0,y:0},a,units,point,5),[a]);
+  assert.deepEqual(turretVictims('railgun',{x:0,y:0},a,units,point,5),[a,near]);
+  assert.deepEqual(turretVictims('sprinkler',{x:0,y:0},a,units,point,5),units);
+  assert.deepEqual(turretVictims('vortex',{x:0,y:0},a,units,point,5),[a,behind,near]);
   assert.deepEqual(turretVictims('guillotine',{x:0,y:0},a,units,point,3),[a,near]);
 });
 

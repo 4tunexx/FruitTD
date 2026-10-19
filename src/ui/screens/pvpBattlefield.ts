@@ -24,7 +24,7 @@ type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at
 type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
 export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke };
 const TILE = 1.7;
-const TILE_X = Math.sqrt(3) * TILE / 1.5;
+const TILE_X = TILE;
 const HEX_RADIUS = TILE / 1.5;
 const COLORS = { blue: 0xffda6b, red: 0xffda6b };
 
@@ -566,7 +566,7 @@ export class PvpBattlefield {
         const a = entry.rig.group.position.clone(); a.y = 1;
         const tuning=turretLevelTuning(entry.type,entry.level||1);
         const color=tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):undefined;
-        this.turretEffects.shot(entry.rig.kind,a,target.mesh.position,entry.level,color,tuning.effectScale);
+        this.turretEffects.shot(entry.rig.kind,a,target.mesh.position,entry.level,color,tuning.effectScale,(this.config.towers[entry.type]?pvpTowerStats(this.config.towers[entry.type]!,entry.level).range:3)*TILE);
         if(!(fireStudioEvent(`tower-${entry.type}-level-${entry.level||1}`,'onAttack',a)||fireStudioEvent(`tower-${entry.type}`,'onAttack',a)))playStudioSound(`turret-${entry.type}`);
         fireStudioEvent(`tower-${entry.type}-level-${entry.level||1}`,'onImpact',target.mesh.position)||fireStudioEvent(`tower-${entry.type}`,'onImpact',target.mesh.position);
       }

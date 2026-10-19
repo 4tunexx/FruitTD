@@ -48,5 +48,6 @@ it('turret counters distinguish armor piercing, splash, and slow instead of raw 
   assert.equal(simulate('guillotine')[0]!.hp, 260 - Math.round(config.towers.guillotine!.damage * .55));
   assert.equal(simulate('laser')[0]!.hp, 260 - config.towers.laser!.damage);
   assert.ok(simulate('sprinkler')[1]!.hp < 100);
-  assert.ok(simulate('vortex', 1)[0]!.progress < simulate('guillotine', 1)[0]!.progress);
+  assert.ok(simulate('sprinkler')[0]!.slowUntil! > 3000);
+  assert.equal(simulate('vortex')[0]!.slowUntil,undefined);
 });

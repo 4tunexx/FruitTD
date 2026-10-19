@@ -23,6 +23,12 @@ export function arenaFrustum(width: number, height: number, zoomHeight = 20) {
   return { left: -viewWidth / 2, right: viewWidth / 2, top: viewHeight / 2, bottom: -viewHeight / 2 };
 }
 
+export function combatViewport(width:number,height:number) {
+ if(width<1100||height<600)return {left:0,top:0,width,height};
+ const top=104,h=height-top-16,w=Math.min(width-480,h*1.38);
+ return {left:Math.round((width-w)/2),top,width:Math.round(w),height:h};
+}
+
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene: Scene;
@@ -199,15 +205,21 @@ export class GameRenderer {
   }
 
   resize(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const viewport=combatViewport(window.innerWidth,window.innerHeight);
+    const w=viewport.width,h=viewport.height;
+    const canvas=this.renderer.domElement;
+    if(canvas){Object.assign(canvas.style,{position:'absolute',left:`${viewport.left}px`,top:`${viewport.top}px`,width:`${w}px`,height:`${h}px`});}
+    if(typeof document!=='undefined'){
+      const style=document.documentElement.style;
+      for(const [key,value] of Object.entries(viewport))style.setProperty(`--combat-${key}`,`${value}px`);
+    }
     // Portrait phones need the wall lower in the playable viewport, with room
     // for the compact top HUD. Keep landscape/desktop composition unchanged.
     this.renderer.setSize(w, h, false);
     // Fit the full tower width and compact approach at every screen ratio.
     const portrait = w / Math.max(1, h) < .82;
     this.cameraBase.set(0, portrait ? 32 : 26, portrait ? -24 : -32);
-    Object.assign(this.camera, arenaFrustum(w, h, this.viewH * (portrait ? 20 / 28 : 1)));
+    Object.assign(this.camera, arenaFrustum(w, h, this.viewH * (portrait ? 20 / 28 : window.innerWidth>=1100 ? 24 / 28 : 1)));
     // Keep a fixed cinematic pitch. Re-aiming the camera to fit the wall was
     // flattening the world and changing the input projection on every resize.
     this.lookZ = 1.5;

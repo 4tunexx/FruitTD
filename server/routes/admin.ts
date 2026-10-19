@@ -1,3 +1,4 @@
+import { migrateLegacyWeaponBalance } from '../../src/game/turretWeapons';
 import { normalizeCoopConfig, type CoopConfig } from '../../src/game/onlineCoop';
 import { normalizeCreatorMedia } from '../../src/game/creatorMedia';
 import type { MediaStudioStore } from '../../src/ui/adminMediaStudio';
@@ -385,7 +386,7 @@ function normalizePvpConfig(input: unknown): PvpConfig {
   const bounded = (value: unknown, fallback: number, min: number, max: number) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
   const maps = normalizePvpMaps(row.maps);
   const towers = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.towers).map(([id, base]) => {
-    const item = row.towers?.[id];
+    const item = migrateLegacyWeaponBalance(id,row.towers?.[id]);
     return [id, {
       cost: bounded(item?.cost, base.cost, 1, 10000), damage: bounded(item?.damage, base.damage, 1, 10000),
       range: bounded(item?.range, base.range, 1, 24), cooldownMs: bounded(item?.cooldownMs, base.cooldownMs, 100, 60000),

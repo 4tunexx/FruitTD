@@ -1,3 +1,4 @@
+import { TURRET_WEAPONS } from '../../game/turretWeapons';
 import { heroArt } from '../heroArt';
 import { heroDef, type HeroId } from '../../game/heroes';
 import { powerButton, updatePowerButton } from '../powerButton';
@@ -368,7 +369,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const fighter = (player: typeof own, rival: boolean) => el('div', { class: `ftd-clash-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}` }, [playerPortrait(player), el('strong', { text: player.name }), el('small', { text: rival ? 'OPPONENT' : 'YOU' })]);
       body.append(el('div', { class:'ftd-vs-clash', role:'status', 'aria-live':'polite' }, [fighter(own, false), el('strong', { class:'ftd-vs-clash__mark', text:'VS' }), fighter(opponent, true), el('span', { class:'ftd-vs-clash__caption', text:match.queue === 'ranked' ? 'RANKED BATTLE · BUILD YOUR DEFENCE' : 'ARENA BATTLE · BUILD YOUR DEFENCE' })]));
     }
-    const towerIcons: Record<string, string> = { guillotine: 'Swords', vortex: 'Tornado', laser: 'Zap', railgun: 'Target', sprinkler: 'Droplets', blender: 'Scissors', catcher: 'Fence' };
+    const towerIcons: Record<string, string> = {...Object.fromEntries(Object.entries(TURRET_WEAPONS).map(([id,w])=>[id,w.icon])),catcher:'Fence'};
     const attackIcons: Record<string, string> = { normal: 'Citrus', swift: 'Cherry', armored: 'Shield', explosive: 'Bomb' };
     const towerName = (id: string) => id === 'catcher' ? 'Catcher' : turretDef(id as TurretKind)?.name || id;
     const rallyWait = Math.max(0, Math.ceil(((own.rallyReadyAt ?? 0) - Date.now()) / 1000));

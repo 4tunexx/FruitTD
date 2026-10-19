@@ -30,5 +30,6 @@ test('circular combat art preserves fruit collision sizes and tower attack range
   assert.equal(boss.body.getObjectByName('token-boss-rim')!.visible, true);
   const tower = new TurretRig('laser');
   assert.ok(tower.group.getObjectByName('combat-token-frame'));
-  assert.equal(turretRange('laser', 1), 7.55);
+  assert.equal(turretRange('laser', 1), 7.2);
+  assert.ok(turretRange('laser',10)>turretRange('laser',1));
 });

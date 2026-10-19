@@ -1424,8 +1424,8 @@ const _scr = new Vector3();
 function worldPct(x: number, y: number, z: number): { nx: number; ny: number } {
   _scr.set(x, y, z).project(renderer.camera);
   return {
-    nx: (_scr.x * 0.5 + 0.5) * 100,
-    ny: (-_scr.y * 0.5 + 0.5) * 100,
+    nx: (canvas.getBoundingClientRect().left + (_scr.x * .5 + .5) * canvas.getBoundingClientRect().width) / window.innerWidth * 100,
+    ny: (canvas.getBoundingClientRect().top + (-_scr.y * .5 + .5) * canvas.getBoundingClientRect().height) / window.innerHeight * 100,
   };
 }
 

@@ -1,3 +1,4 @@
+import { migrateLegacyWeaponBalance } from '../game/turretWeapons';
 import { normalizeCoopConfig, type CoopConfig } from '../game/onlineCoop';
 import { normalizeCreatorMedia } from '../game/creatorMedia';
 import type { MediaStudioStore } from '../ui/adminMediaStudio';
@@ -192,7 +193,7 @@ function mergePvpConfig(raw: unknown): PvpConfig {
   const maps = normalizePvpMaps(value.maps);
   const towers = { ...DEFAULT_PVP_CONFIG.towers };
   for (const [id, fallback] of Object.entries(towers)) {
-    const row = value.towers?.[id];
+    const row = migrateLegacyWeaponBalance(id,value.towers?.[id]);
     if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), damage: bounded(row.damage, fallback.damage, 1, 10000), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 60000) };
   }
   const attacks = { ...DEFAULT_PVP_CONFIG.attacks };

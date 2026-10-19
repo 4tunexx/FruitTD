@@ -564,7 +564,7 @@ export class WallBase {
           juice,
           bank,
           onHit,
-          shoot: (tx, tz, hex) => {const tuning=turretLevelTuning(slot.kind!,slot.level);this.combatEffects.shot(slot.kind as TurretKind,new Vector3(slot.x,1.15,slot.z),_aim.set(tx,1.1,tz),slot.level,tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):slot.kind==='sprinkler'?0x9de7ff:hex,tuning.effectScale);},
+          shoot: (tx, tz, hex) => {const tuning=turretLevelTuning(slot.kind!,slot.level);this.combatEffects.shot(slot.kind as TurretKind,new Vector3(slot.x,1.15,slot.z),_aim.set(tx,1.1,tz),slot.level,tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):hex,tuning.effectScale,turretRange(slot.kind as TurretKind,slot.level));},
         });
         if (fired) shot = true;
         continue;

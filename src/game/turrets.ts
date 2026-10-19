@@ -1,3 +1,5 @@
+import { weaponStats, TURRET_WEAPONS, projectileTravelSeconds } from './turretWeapons';
+import { turretVictims } from './turretTargets';
 import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, RingGeometry, Shape, ShapeGeometry } from 'three';
 import type { Fruit } from './fruits';
@@ -17,12 +19,12 @@ export interface TurretDef {
 }
 
 export const TURRETS: TurretDef[] = [
-  { kind: 'guillotine', name: 'Fire Blade', cost: 70, blurb: 'Flaming slicer. Area split damage.', fuel: 'none', floorOnly: true },
-  { kind: 'vortex', name: 'Vortex Drain', cost: 55, blurb: 'Pulls juice. Weak damage + pull.', fuel: 'none', floorOnly: false },
-  { kind: 'laser', name: 'Lemon Laser', cost: 80, blurb: 'Yellow juice. Fast beam down lane.', fuel: 'yellow', floorOnly: false },
-  { kind: 'railgun', name: 'Berry Cannon', cost: 90, blurb: 'Pink juice. Pierce shot + knockback.', fuel: 'pink', floorOnly: false },
-  { kind: 'sprinkler', name: 'Frost Sprinkler', cost: 50, blurb: 'Orange juice. Slows + brittle.', fuel: 'orange', floorOnly: false },
-  { kind: 'blender', name: 'Spike Trap', cost: 65, blurb: 'Close-range spikes. Open/close from its controls.', fuel: 'none', floorOnly: true },
+  {kind:'guillotine',name:TURRET_WEAPONS.guillotine.name,cost:70,blurb:'Close defence. Rotating blades cut every enemy inside the ring.',fuel:'none',floorOnly:true},
+  {kind:'vortex',name:TURRET_WEAPONS.vortex.name,cost:85,blurb:'Aimed short-range flame cone. Burns clustered enemies, never the whole radius.',fuel:'none',floorOnly:false},
+  {kind:'laser',name:TURRET_WEAPONS.laser.name,cost:80,blurb:'Long-range piercing beam. Line enemies up for maximum damage.',fuel:'yellow',floorOnly:false},
+  {kind:'railgun',name:TURRET_WEAPONS.railgun.name,cost:110,blurb:'Guided rocket. Heavy splash at impact; slow reload.',fuel:'pink',floorOnly:false},
+  {kind:'sprinkler',name:TURRET_WEAPONS.sprinkler.name,cost:50,blurb:'Rotating fertiliser mist. Slows and weakens enemies inside its radius.',fuel:'orange',floorOnly:false},
+  {kind:'blender',name:TURRET_WEAPONS.blender.name,cost:95,blurb:'Lobs a bomb into a group. Wide explosion; fast runners can escape the landing zone.',fuel:'none',floorOnly:false},
 ];
 
 export function turretDef(kind: TurretKind): TurretDef {
@@ -41,14 +43,8 @@ export function canPlaceTurret(kind: TurretKind, pad: PadDef): boolean {
 }
 
 function baseTurretRange(kind: TurretKind | 'main', level: number): number {
-  const lv = Math.max(1, level);
-  if (kind === 'main') return 5.1 + lv * 0.45;
-  if (kind === 'guillotine') return 1.05 + lv * 0.12;
-  if (kind === 'vortex') return 2.8 + lv * 0.28;
-  if (kind === 'laser') return 7.2 + lv * 0.35;
-  if (kind === 'railgun') return 8.4 + lv * 0.4;
-  if (kind === 'sprinkler') return 1.9 + lv * 0.18;
-  return 0.7 + lv * 0.08;
+  if (kind === 'main') return 5.1 + Math.max(1,level) * .45;
+  return weaponStats(kind,level).range;
 }
 
 export function turretRange(kind:TurretKind|'main',level:number):number {return baseTurretRange(kind,level)*turretLevelTuning(kind,level).rangeMultiplier;}
@@ -84,21 +80,16 @@ export class TurretRig {
   private readonly beam: Mesh | null = null;
   private readonly lid: Mesh | null = null;
   private readonly lever: Mesh | null = null;
-  private readonly slug: Mesh | null = null;
-  private slugZ = 0;
-  private slugDx=0;
-  private slugDz=1;
   private visualLevel=1;
   private readonly levelMarks:Mesh[]=[];
   private skinAnim=createStudioAnimForKey('tower-main');
-  private slugLive = 0;
   private readonly placeholder: Mesh;
   private readonly mechanism = new Group();
-  private readonly slugHits = new Set<Fruit>();
+  private projectile: {target:Fruit;x:number;z:number;left:number;level:number} | null = null;
 
   constructor(kind: TurretKind) {
     this.kind = kind;
-    const colors: Record<TurretKind, number> = { guillotine: 0xff6622, vortex: 0x6ec6c0, laser: 0xffee55, railgun: 0xd48aa0, sprinkler: 0xff8a2a, blender: 0x888888 };
+    const colors = Object.fromEntries(Object.entries(TURRET_WEAPONS).map(([id,weapon])=>[id,weapon.color])) as Record<TurretKind,number>;
     const placeholder = new Mesh(new CircleGeometry(.55, 40), new MeshBasicMaterial({ color: 0x25282c, side: DoubleSide, transparent: true, opacity: 0.98 }));
     placeholder.userData.combatPortrait=true;
     placeholder.add(combatTokenFrame(.55, 'tower'));
@@ -125,29 +116,27 @@ export class TurretRig {
         const blade=part(new ShapeGeometry(shape),0xffdb9c);blade.rotation.z=i*Math.PI/2;this.spin.attach(blade);
       }
       part(new CircleGeometry(.13,16),0xffa52e).position.z=.12;
-    } else if(kind==='vortex'||kind==='sprinkler') {
-      this.spin=new Group(); this.spin.position.z=.06; this.mechanism.add(this.spin);
-      for(let i=0;i<4;i++) {
-        const arm=part(new PlaneGeometry(.16,.43),colors[kind],Math.sin(i*Math.PI/2)*.19,Math.cos(i*Math.PI/2)*.19);
-        arm.rotation.z=-i*Math.PI/2+.4; this.spin.attach(arm);
-      }
-      part(new CircleGeometry(.12,16),0xffedc2).position.z=.1;
-    } else if(kind==='laser'||kind==='railgun') {
-      part(new PlaneGeometry(.3,.58),0x34383f,0,.2);
-      part(new PlaneGeometry(.13,.45),colors[kind],0,.28).position.z=.07;
-      this.beam=part(new CircleGeometry(.11,16),0xfff2a4,0,.53);
-      if(kind==='railgun') {
-        this.slug=new Mesh(new CircleGeometry(.15,16),new MeshBasicMaterial({color:0xffb8db,side:DoubleSide}));
-        this.slug.visible=false; this.group.add(this.slug);
-      }
+    } else if(kind==='sprinkler') {
+      this.spin=new Group();this.spin.position.z=.08;this.mechanism.add(this.spin);
+      for(let i=0;i<4;i++) {const arm=part(new PlaneGeometry(.12,.4),0xb9d783,Math.sin(i*Math.PI/2)*.18,Math.cos(i*Math.PI/2)*.18);arm.rotation.z=-i*Math.PI/2;this.spin.attach(arm);}
+      part(new CircleGeometry(.19,16),0x687e48).position.z=.12;
+    } else if(kind==='vortex') {
+      part(new PlaneGeometry(.2,.48),0x9a6331,-.24,-.12);part(new PlaneGeometry(.2,.48),0x9a6331,.24,-.12);
+      part(new PlaneGeometry(.28,.6),0x42484b,0,.18);part(new PlaneGeometry(.18,.2),0xffa23d,0,.49).position.z=.06;
+      this.beam=part(new CircleGeometry(.095,12),0xffdc88,0,.59);
+    } else if(kind==='railgun') {
+      part(new PlaneGeometry(.46,.37),0x4a5050,0,-.12);
+      for(const x of [-.2,.2]) {part(new PlaneGeometry(.18,.64),0x6c735e,x,.2);part(new PlaneGeometry(.12,.13),0x111619,x,.51).position.z=.08;part(new PlaneGeometry(.12,.14),0xd5ad59,x,.02).position.z=.08;}
+      part(new CircleGeometry(.11,12),0xffd36b,0,-.17).position.z=.12;
+    } else if(kind==='laser') {
+      part(new PlaneGeometry(.33,.54),0x34383f,0,.14);part(new PlaneGeometry(.13,.44),colors[kind],0,.25).position.z=.07;
+      this.beam=part(new CircleGeometry(.13,16),0xfff2a4,0,.51);
     } else {
-      this.lid=part(new PlaneGeometry(.66,.18),0x4a4d52,0,-.22);
-      this.lever=part(new PlaneGeometry(.1,.43),0xffde98,.27,.02);
-      for(let i=0;i<3;i++) {
-        const spike=new Shape();spike.moveTo(-.09,0);spike.lineTo(0,.36);spike.lineTo(.09,0);spike.closePath();
-        part(new ShapeGeometry(spike),0xffe7a9,(i-1)*.2,0);
-      }
-      this.setOpen(true);
+      part(new PlaneGeometry(.52,.38),0x62694e,0,-.15);
+      part(new PlaneGeometry(.38,.47),0x3c4345,0,.14).rotation.z=-.14;
+      part(new CircleGeometry(.2,20),0x141a1c,0,.39).position.z=.08;
+      for(const x of [-.3,.3])part(new CircleGeometry(.12,16),0xe0b856,x,-.2).position.z=.08;
+
     }
   }
 
@@ -195,126 +184,43 @@ export class TurretRig {
 
   tick(x: number, z: number, level: number, ctx: TurretTick): boolean {
     this.refreshAppearance(level);
-    const { dt, fruits, juice, bank } = ctx;
-    const tuning=turretLevelTuning(this.kind,level);
-    const onHit=(hit:TurretHit)=>{ctx.onHit({...hit,damage:hit.damage*tuning.damageMultiplier});fireStudioEvent(`tower-${this.kind}-level-${level}`,'onImpact',hit.fruit.group.position)||fireStudioEvent(`tower-${this.kind}`,'onImpact',hit.fruit.group.position);};
-    const tracked=nearest(fruits,x,z,turretRange(this.kind,level));
+    const {dt,fruits,bank,juice}=ctx,tuning=turretLevelTuning(this.kind,level),stats=weaponStats(this.kind,level);
+    const range=turretRange(this.kind,level);
+    const tracked=nearest(fruits,x,z,range);
     if(tracked)this.aimAt(tracked.group.position.x-x,tracked.group.position.z-z);
-    this.animate(dt, fruits.some(f=>f.alive && Math.hypot(f.group.position.x-x,f.group.position.z-z)<turretRange(this.kind,level)));
-    this.cooldown = Math.max(0, this.cooldown - dt);
-    let noisy = false;
-
-    const range = turretRange(this.kind, level);
-    if (this.kind === 'guillotine') {
-      if (this.cooldown <= 0) {
-        const pack = fruits.filter((f) => f.alive && Math.hypot(f.group.position.x - x, f.group.position.z - z) <= range);
-        if (pack.length) {
-          this.cooldown = 0.7;
-          for (const fruit of pack) {
-            onHit({ fruit, damage: 20 + level * 7, split: true });
-            ctx.shoot(fruit.group.position.x, fruit.group.position.z, 0xff5522);
-          }
-          juice.floorSplash(x, z, 0xff6622, 10 + pack.length * 3);
-          noisy = true;
+    if(this.beam)this.beam.visible=!!tracked;
+    this.animate(dt,!!tracked);this.cooldown=Math.max(0,this.cooldown-dt);this.charge+=dt;
+    const onHit=(fruit:Fruit,damage:number)=>{
+      ctx.onHit({fruit,damage:damage*tuning.damageMultiplier,brittle:this.kind==='sprinkler',split:this.kind==='guillotine'});
+      fireStudioEvent(`tower-${this.kind}-level-${level}`,'onImpact',fruit.group.position)||fireStudioEvent(`tower-${this.kind}`,'onImpact',fruit.group.position);
+    };
+    if(this.projectile){
+      const shot=this.projectile;shot.left-=dt;
+      if(this.kind==='railgun'&&shot.target.alive){shot.x=shot.target.group.position.x;shot.z=shot.target.group.position.z;}
+      if(shot.left<=0){
+        const blast=weaponStats(this.kind,shot.level).blast;
+        for(const fruit of fruits)if(fruit.alive&&Math.hypot(fruit.group.position.x-shot.x,fruit.group.position.z-shot.z)<=blast)onHit(fruit,weaponStats(this.kind,shot.level).damage);
+        juice.floorSplash(shot.x,shot.z,TURRET_WEAPONS[this.kind].color,12);
+        if(!fireStudioEvent(`tower-${this.kind}`,'onImpact',{x:shot.x,y:.7,z:shot.z}))playStudioSound('bombExplode');
+        this.projectile=null;
+      }
+    }
+    let noisy=false;
+    if(tracked&&this.cooldown<=0&&!this.projectile){
+      const fuel=turretDef(this.kind).fuel,need=this.kind==='railgun'?6:1;
+      if(fuel!=='none'&&!bank.take(fuel,need))return false;
+      this.cooldown=stats.cooldown;
+      const tx=tracked.group.position.x,tz=tracked.group.position.z;
+      if(this.kind==='railgun'||this.kind==='blender'){
+        this.projectile={target:tracked,x:tx,z:tz,left:projectileTravelSeconds(this.kind,Math.hypot(tx-x,tz-z)),level};
+      }else {
+        const victims=turretVictims(this.kind,{x,y:z},tracked,fruits.filter(f=>f.alive),f=>({x:f.group.position.x,y:f.group.position.z}),range,level);
+        for(const fruit of victims){
+          if(this.kind==='sprinkler'){fruit.brittle=1.8;juice.floorSplash(fruit.group.position.x,fruit.group.position.z,0xb9d783,2);}
+          onHit(fruit,stats.damage);
         }
       }
-    } else if (this.kind === 'vortex') {
-
-      const sucked = juice.suckToward(x, z, range, x, 0.7, z, dt);
-      bank.deposit(sucked);
-      if (this.cooldown <= 0) {
-        const target = nearest(fruits, x, z, range);
-        if (target) {
-          this.cooldown = 0.55;
-          onHit({ fruit: target, damage: 5 + level * 2 });
-          ctx.shoot(target.group.position.x, target.group.position.z, 0x6ec6c0);
-          noisy = true;
-        }
-      }
-      for (const fruit of fruits) {
-        if (!fruit.alive) continue;
-        const d = Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z);
-        if (d < range && d > 0.2) {
-          fruit.impulseX += ((x - fruit.group.position.x) / d) * 1.6 * dt;
-          fruit.impulseZ += ((z - fruit.group.position.z) / d) * 1.6 * dt;
-        }
-      }
-    } else if (this.kind === 'laser') {
-      const target=nearest(fruits,x,z,range);
-      const fueled = bank.yellow > 0;
-      if (this.beam) this.beam.visible = fueled;
-      if (target && fueled && this.cooldown <= 0 && bank.take('yellow',1)) {
-        this.cooldown=Math.max(.18,.38-level*.03);
-        const dx=target.group.position.x-x,dz=target.group.position.z-z,d=Math.hypot(dx,dz),ux=d?dx/d:0,uz=d?dz/d:1;
-        for(const fruit of fruits) {
-          if(!fruit.alive)continue;
-          const fx=fruit.group.position.x-x,fz=fruit.group.position.z-z,along=fx*ux+fz*uz;
-          if(along<0||along>range||Math.abs(fx*uz-fz*ux)>.48)continue;
-          onHit({fruit,damage:6+level*3});
-        }
-        ctx.shoot(x+ux*range,z+uz*range,0xffee44);noisy=true;
-      }
-    } else if (this.kind === 'railgun') {
-      this.charge += dt;
-      const need = Math.max(1.6, 2.4 - level * 0.12)*tuning.cooldownMultiplier;
-      if (this.slugLive > 0) {
-        this.slugLive -= dt;
-        const previousZ=this.slugZ;
-        this.slugZ += 22 * dt;
-        if (this.slug) {
-          this.slug.position.set(this.slugDx*this.slugZ, 0.95, this.slugDz*this.slugZ);
-          this.slug.userData.combatPortrait=true;
-          this.slug.visible = this.slugLive > 0;
-        }
-        for (const fruit of fruits) {
-          if (!fruit.alive) continue;
-          const fx=fruit.group.position.x-x,fz=fruit.group.position.z-z;
-          if(Math.abs(fx*this.slugDz-fz*this.slugDx)>.55)continue;
-          const localZ=fx*this.slugDx+fz*this.slugDz;
-          if (localZ<previousZ-.55 || localZ>this.slugZ+.55 || localZ>range) continue;
-          if(this.slugHits.has(fruit))continue;
-          this.slugHits.add(fruit);
-          onHit({ fruit, damage: 18 + level * 7, pierce: true, impulseX: this.slugDx*(7+level), impulseZ: this.slugDz*(7+level) });
-        }
-        if (this.slug && this.slugLive <= 0) this.slug.visible = false;
-      } else if (tracked && this.charge >= need && bank.take('pink', 6)) {
-        const dx=tracked.group.position.x-x,dz=tracked.group.position.z-z,d=Math.hypot(dx,dz);
-        this.slugDx=d?dx/d:0;this.slugDz=d?dz/d:1;
-        this.charge = 0;
-        this.slugHits.clear();
-        this.slugLive = 0.55;
-        this.slugZ = 0.4;
-        ctx.shoot(x+this.slugDx*range,z+this.slugDz*range,0xeaa2ee);
-        if (this.slug) { this.slug.position.set(this.slugDx*this.slugZ,.95,this.slugDz*this.slugZ); this.slug.visible = true; }
-        noisy = true;
-      }
-    } else if (this.kind === 'sprinkler') {
-      if (tracked && this.cooldown <= 0 && bank.take('orange', 1)) {
-        this.cooldown = 0.2;
-        const ang = tracked?Math.atan2(tracked.group.position.x-x,tracked.group.position.z-z):this.phase*3.4;
-        const reach = tracked?Math.min(range,Math.hypot(tracked.group.position.x-x,tracked.group.position.z-z)):range;
-        const rx = x + Math.sin(ang) * reach;
-        const rz = z + Math.cos(ang) * reach;
-        juice.floorSplash(rx, rz, 0xff8a1a, 4);
-        ctx.shoot(rx, rz, 0xff8a1a);
-        for (const fruit of fruits) {
-          if (!fruit.alive) continue;
-          if (Math.hypot(fruit.group.position.x - rx, fruit.group.position.z - rz) > 0.7) continue;
-          fruit.brittle = 2.4;
-          onHit({ fruit, damage: 3 + level, brittle: true });
-        }
-        noisy = true;
-      }
-    } else if (this.kind === 'blender' && this.open) {
-      for (const fruit of fruits) {
-        if (!fruit.alive) continue;
-        const d = Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z);
-        if (d > range) continue;
-        onHit({ fruit, damage: 999, puddle: true });
-        ctx.shoot(fruit.group.position.x, fruit.group.position.z, 0xff5533);
-        juice.floorSplash(x, z, 0xff3355, 32);
-        noisy = true;
-      }
+      ctx.shoot(tx,tz,TURRET_WEAPONS[this.kind].color);noisy=true;
     }
 
     if(noisy){this.cooldown*=tuning.cooldownMultiplier;if(!(fireStudioEvent(`tower-${this.kind}-level-${level}`,'onAttack',{x,y:1,z})||fireStudioEvent(`tower-${this.kind}`,'onAttack',{x,y:1,z})))playStudioSound(`turret-${this.kind}`);}

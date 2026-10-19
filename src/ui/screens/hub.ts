@@ -491,6 +491,7 @@ function buildFooter(active: NavState, root: HTMLElement): HTMLElement {
  */
 function paintTab(root: HTMLElement, tab: HubTab, save: SaveData, direction: 'forward' | 'back' | 'none'): void {
   root.classList.remove('is-pvp-battle');
+  root.dataset.hubPage = tab.id;
   const mainHost = root.querySelector('.ftd-hub__main') as HTMLElement | null;
   const subHost = root.querySelector('.ftd-hub__sub') as HTMLElement | null;
   if (!mainHost) return;

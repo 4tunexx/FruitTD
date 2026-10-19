@@ -55,11 +55,11 @@ export const DEFAULT_PVP_CONFIG: PvpConfig = {
   mainTower: { damage: 18, range: 2, cooldownMs: 1000 },
   towers: {
     guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
-    vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
+    vortex: { cost: 120, damage: 8, range: 3.5, cooldownMs: 250 },
     laser: { cost: 180, damage: 62, range: 6, cooldownMs: 1600 },
     railgun: { cost: 220, damage: 110, range: 8, cooldownMs: 2600 },
-    sprinkler: { cost: 150, damage: 12, range: 3, cooldownMs: 350 },
-    blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 },
+    sprinkler: { cost: 150, damage: 5, range: 3, cooldownMs: 650 },
+    blender: { cost: 200, damage: 60, range: 5, cooldownMs: 1800 },
     catcher: { cost: 150, damage: 8, range: 3, cooldownMs: 1800 },
   },
   attacks: {
@@ -150,13 +150,13 @@ export function pvpSellRefund(baseCost: number, level = 1): number {
 }
 
 export function pvpTowerRole(type: string): string {
-  return ({ guillotine: 'Rapid', vortex: 'Slow', laser: 'Pierce', railgun: 'Heavy pierce', sprinkler: 'Splash', blender: 'Close splash', catcher: 'Capture' } as Record<string, string>)[type] || 'Defence';
+  return ({guillotine:'Radial saw',vortex:'Flame cone',laser:'Piercing beam',railgun:'Rocket splash',sprinkler:'Slow mist',blender:'Bomb splash',catcher:'Capture'} as Record<string,string>)[type] || 'Defence';
 }
-export function pvpHexDistance(a: number, b: number, width: number): number {
-  const axial = (cell: number) => { const r = Math.floor(cell / width); return { r, q: cell % width - (r - (r & 1)) / 2 }; };
-  const x = axial(a); const y = axial(b); const dq = x.q - y.q; const dr = x.r - y.r;
-  return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
+/** Euclidean grid radius matches the circular world-space selection ring. */
+export function pvpHexDistance(a:number,b:number,width:number):number {
+  return Math.hypot(a%width-b%width,Math.floor(a/width)-Math.floor(b/width));
 }
+
 export function calculateArenaRating(points: number, opponent: number, outcome: 'win' | 'tie' | 'loss', config: PvpConfig = DEFAULT_PVP_CONFIG): PvpRatingResult {
   const expected = 1 / (1 + 10 ** ((opponent - points) / 400));
   const actual = outcome === 'win' ? 1 : outcome === 'tie' ? .5 : 0;
@@ -303,9 +303,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
     for(const unit of player.attackers){
       before.set(unit.id,unit.progress);unit.fighting=false;delete unit.fightTargetId;
       if(unit.hp<=0)continue;
-      const cell=path[Math.max(0,Math.min(path.length-1,Math.floor(unit.progress)))]!;
-      const slowed=unit.progress>=0&&player.towers.some(tower=>tower.type==='vortex'&&pvpHexDistance(tower.cell,cell,map.width)<=pvpTowerStats(config.towers.vortex!,tower.level).range);
-      unit.progress+=config.attacks[unit.type]!.speed*dt*Math.max(1,(path.length-1)/13)*Math.min(slowed?.6:1,now<(unit.slowUntil??0)?unit.slowMultiplier??.45:1);
+      unit.progress+=config.attacks[unit.type]!.speed*dt*Math.max(1,(path.length-1)/13)*(now<(unit.slowUntil??0)?unit.slowMultiplier??.55:1);
     }
   }
   const [a,b]=match.players;const reach=.8;
@@ -342,9 +340,9 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
       }
       const hit = (attacker: typeof target, mul = 1) => { attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === 'armored' && type !== 'laser' && type !== 'railgun' ? .55 : 1)); };
       const point=(attacker:typeof target)=>{const c=path[Math.max(0,Math.min(path.length-1,Math.floor(attacker.progress)))]!;return {x:c%map.width+.5,y:Math.floor(c/map.width)+.5};};
-      const victims=turretVictims(type,{x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5},target,player.attackers.filter(unit=>unit.hp>0&&unit.progress>=0),point,stats.range);
+      const victims=turretVictims(type,{x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5},target,player.attackers.filter(unit=>unit.hp>0&&unit.progress>=0),point,stats.range,level);
       for(const victim of victims){hit(victim,type==='sprinkler'&&victim!==target?.65:1);
-        if(type==='sprinkler'||type==='vortex'){victim.slowUntil=Math.max(victim.slowUntil||0,now+1200);victim.slowMultiplier=type==='vortex'?.6:.45;}
+        if(type==='sprinkler'){victim.slowUntil=Math.max(victim.slowUntil||0,now+1200);victim.slowMultiplier=.55;}
         if(type==='railgun')victim.progress=Math.max(0,victim.progress-.45);
       }
       return true;

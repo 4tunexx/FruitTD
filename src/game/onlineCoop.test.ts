@@ -57,9 +57,10 @@ test('online turret signatures change server damage shapes, slow and knockback',
   advanceCoopMatch(room,0,5000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
   const [front,behind,side]=room.fruits;
   assert.ok(front!.hp<1000,`${type} hits its target`);
-  if(type==='laser'||type==='railgun'){assert.ok(behind!.hp<1000);assert.equal(side!.hp,1000,'piercing excludes enemies outside the aim line');}
+  if(type==='laser'){assert.ok(behind!.hp<1000);assert.equal(side!.hp,1000,'piercing excludes enemies outside the aim line');}
   if(type==='sprinkler'){assert.ok(side!.hp<1000);assert.ok(front!.slowUntil!>5000);}
-  if(type==='vortex'){assert.equal(behind!.hp,1000);assert.ok(front!.slowUntil!>5000);}
+  if(type==='vortex'){assert.ok(behind!.hp<1000);assert.equal(front!.slowUntil,undefined,'flames do damage rather than invisible passive slow');}
+  if(type==='railgun'||type==='blender')assert.ok(side!.hp<1000,'explosives hit the blast zone');
   if(type==='railgun')assert.ok(front!.y<11.5,'heavy cannon pushes enemies back');
   if(type==='guillotine'||type==='blender')assert.ok(side!.hp<1000);
  }

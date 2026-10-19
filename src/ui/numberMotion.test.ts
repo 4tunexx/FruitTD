@@ -26,3 +26,7 @@ test('shared number motion ignores digits embedded in identifiers without lookbe
     { value: 24, decimals: 0, grouped: false },
   ]);
 });
+
+test('daily countdown units never enter the number tween or restart its glow',()=>{
+ for(const label of ['Next reward in 4 hours, 2 minutes, 9 seconds','Reward ready — next reset in 0 hours, 0 minutes, 1 seconds','03:24:52'])assert.deepEqual(parseCountValues(label),[]);
+});

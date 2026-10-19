@@ -3,7 +3,7 @@ import {
   CalendarDays, Castle, ChartNoAxesCombined, Cherry, ChevronsUp, Circle, CircleDot,
   Citrus, Coins, Crown, Diamond, Droplets, Flame, Gamepad2, Gauge, Gem, Gift,
   GitBranch, Hammer, Infinity, Landmark, Leaf, Link, LockKeyhole, Mail, Map, Medal, Move, Palette, Pause, Play, Plus,
-  RotateCcw, ScanLine, Scissors, ScrollText, Settings, Shield, ShieldCheck, ShoppingBag, ShoppingCart, Skull, Slice,
+  Rocket, Sprout, RotateCcw, ScanLine, Scissors, ScrollText, Settings, Shield, ShieldCheck, ShoppingBag, ShoppingCart, Skull, Slice,
   Sparkles, Sword, Swords, Target, Tornado, TowerControl, Trophy, UserRound, UsersRound,
   User, UserPlus, Users, Volume2, VolumeX, Waves, X, Zap, createElement, type IconNode,
 } from 'lucide';
@@ -16,7 +16,7 @@ const ICONS: Record<string, IconNode> = {
   CalendarDays, Castle, ChartNoAxesCombined, Cherry, ChevronsUp, Circle, CircleDot,
   Citrus, Coins, Crown, Diamond, Droplets, Flame, Gamepad2, Gauge, Gem, Gift,
   GitBranch, Hammer, Infinity, Landmark, Leaf, Link, LockKeyhole, Mail, Map, Medal, Move, Palette, Pause, Play, Plus,
-  RotateCcw, ScanLine, Scissors, ScrollText, Settings, Shield, ShieldCheck, ShoppingBag, ShoppingCart, Skull, Slice,
+  Rocket, Sprout, RotateCcw, ScanLine, Scissors, ScrollText, Settings, Shield, ShieldCheck, ShoppingBag, ShoppingCart, Skull, Slice,
   Sparkles, Sword, Swords, Target, Tornado, TowerControl, Trophy, UserRound, UsersRound,
   User, UserPlus, Users, Volume2, VolumeX, Waves, X, Zap,
 };

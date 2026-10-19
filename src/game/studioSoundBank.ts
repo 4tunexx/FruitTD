@@ -1,3 +1,4 @@
+import { TURRET_WEAPONS, type WeaponId } from './turretWeapons';
 import { getPublishedCreatorMedia } from './creatorMedia';
 /** Shared Creator Hub sound-bank data and persistence used by the editor and runtime audio. */
 export const SOUND_BANK_STORAGE_KEY = 'admin-media-studio-sfx-v1';
@@ -9,7 +10,7 @@ export interface SoundBankStore {
 
 /** SFX slots correspond to the named banks in src/audio/sfx.ts. */
 export const SOUND_BANK_SLOTS: { id: string; label: string; file: string }[] = [
-  ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).map((kind,i)=>({id:`turret-${kind}`,label:`Turret · ${kind} attack`,file:['Bonus-Firework-Launch.wav','Sword-swipe-1.wav','blade-lightning-1.wav','blade-rainbow-1.wav','Bonus-Firework-Explode.wav','Impact-Orange.wav','Critical.wav'][i]!})),
+  ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).map((kind,i)=>({id:`turret-${kind}`,label:`${kind==='main'?'Main Tower':TURRET_WEAPONS[kind as WeaponId].name} · fire`,file:['Bonus-Firework-Launch.wav','Sword-swipe-1.wav','blade-lightning-1.wav','blade-rainbow-1.wav','Bonus-Firework-Launch.wav','Impact-Orange.wav','Bonus-Firework-Launch.wav'][i]!})),
   { id: 'swipe', label: 'Swipe', file: 'Sword-swipe-1.wav' },
   { id: 'swipeBlitz', label: 'Swipe Blitz', file: 'blade-rainbow-1.wav' },
   { id: 'cleanSlice', label: 'Clean Slice', file: 'Clean-Slice-1.wav' },

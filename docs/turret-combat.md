@@ -1,25 +1,30 @@
-# Turret controls and Creator editing
+# Arsenal and combat controls
 
-Tap an empty + pad to open the compatible turret choices. Tap a built turret or the center keep once to inspect its range, then again to open upgrades. Tap outside or slice to dismiss the selection. The hero is above the keep, with the tower and its guns below.
+Tap an empty + pad to choose its turret. Tap a built turret or the keep to inspect its firing range, then again for upgrades. Clicking outside or slicing dismisses selection. The hero stands above the central keep.
 
-| Turret | Attack |
-| --- | --- |
-| Fire Blade | Spins while enemies are in range; cuts a nearby group, with fiery arcs. |
-| Vortex Drain | Pulls enemies and loose juice in solo; slows targets online, with inward particles. |
-| Lemon Laser | Aims a bright, piercing beam through enemies in a straight line. Uses yellow juice in solo. |
-| Berry Cannon | Aims a heavy piercing shot that pushes enemies back. Uses pink juice in solo. |
-| Frost Sprinkler | Fires frost at enemies, slows them and makes them brittle in solo; splashes and slows online. Uses orange juice in solo. |
-| Spike Trap | Hits enemies in close range with a spike burst; can be opened/closed in solo. |
+| Weapon | Attack and counter | Solo level 1 range | Resource |
+| --- | --- | ---: | --- |
+| Rotor Saw | Spins while enemies enter its close defence ring; cuts all targets inside. | 1.6 | No fuel |
+| Flamethrower | Aims a 60-degree flame cone; cannot hit enemies beside or behind its nozzle. | 3.8 | No fuel |
+| Lemon Laser | Long piercing beam; rewards lining targets up. | 7.2 | 1 yellow juice |
+| Rocket Launcher | Travels toward a tracked target, then explodes in a 1.4-unit blast. | 8.0 | 6 pink juice |
+| Fertiliser Sprinkler | Rotating green mist slows and weakens enemies inside the ring. | 3.6 | 1 orange juice |
+| Bomb Thrower | Lobs at a fixed landing zone with a 1.8-unit blast; moving runners can escape. | 6.0 | No fuel |
 
-Online damage, range and cooldown remain server controlled through the existing match balance settings. Solo upgrades increase damage/range, change the mechanism and level markers, and use distinct level artwork when supplied.
+Upgrades increase damage and firing reach, reduce reload time and enlarge explosive blast radii. New art can be assigned to every level. Bombs replace the retired instant-kill spike trap. Rockets replace the old piercing cannon; the laser retains piercing. Only fertiliser slows targets: the flamethrower no longer applies an invisible passive slow.
 
-## Admin → Creator Hub
+Solo projectiles apply damage at impact. Online modes use the shared cone, blast, beam and radial target rules with server-owned match balance. They do not run local damage simulation. Circular online firing ranges now use the same Euclidean distance as the square map grid and selection ring.
 
-- Select `tower-<kind>` for the base artwork/settings, or `tower-<kind>-level-<1…10>` for a specific level, including `tower-main`.
-- Upload PNG/WebP/JPEG artwork. New images without clips automatically become a one-frame idle sprite. For an animated sheet, set its grid and clips after upload.
-- Missing level artwork falls back to the base turret, then its built-in mechanism.
-- Turret settings control solo damage, radius and cooldown multipliers, plus shot color and size. Online balance uses match settings.
-- **Turret fires** and **Turret hits enemy** hooks select sound-bank slots and optional impact effects/shake. Empty level hooks inherit the base turret hook; absent fire hooks use the built-in turret sound.
-- Upload WAV/MP3/OGG sounds up to 1 MB in Sound Bank. Sounds are stored through authenticated Admin media uploads. **Publish pack** shares artwork, level settings, hooks and sounds with players; saving a draft alone does not publish them.
+## Admin compatibility
 
-Effects are cosmetic and bounded; online rendering cannot deal damage or spend currency. Server tests cover piercing/splash/cutter shapes, frost slow, cannon knockback, upgrades and refund limits. Presentation tests cover visible portrait picking, target-facing mechanisms, range dismissal, effect cleanup and published media normalization. A real mobile WebGL playthrough is still required for visual and performance acceptance.
+Existing save, audio and Creator IDs are retained: `guillotine` = saw, `vortex` = flames, `laser` = laser, `railgun` = rockets, `sprinkler` = fertiliser, `blender` = bombs. This preserves already-published uploads and equipped save data. The editor and sound-bank labels show weapon names.
+
+Select `tower-<id>` or `tower-<id>-level-<1…10>` in Asset Workshop for PNG/WebP/JPEG/sprite artwork, damage/range/reload multipliers, effect color/size, attack/impact hooks and sound replacements. Missing level artwork inherits the base. Publish shares the pack; a draft is local. Online balance is edited in Arena / Ranked workshop. All weapon icons, including Rocket and Sprout, remain assignable in the icon library.
+
+## PC and mobile
+
+At 1100px wide and 600px tall, solo combat uses a bounded stage with a persistent command panel on the left and expanded ability controls on the right. The canvas rectangle, pointer projection and damage-number projection share the same screen bounds. Smaller screens retain the full viewport and collapsible build controls. Heroes uses balanced desktop panels and a single-column detail card with larger artwork. Hover changes the control border, not the artwork brightness or outline. The daily countdown is excluded from numeric tweening.
+
+## Verification limits
+
+Automated tests cover cone direction, blast timing and escape, fuel consumption, hit-once behavior, upgrades, range geometry, online combat counters, opening affordability, timer exclusions and PC camera bounds. A real GPU desktop/mobile playthrough is still needed to approve visual quality, sound mix and sustained frame rate. Deployment/build success is not Steam release certification.

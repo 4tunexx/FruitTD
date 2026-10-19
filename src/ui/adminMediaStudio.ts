@@ -1,3 +1,4 @@
+import { TURRET_WEAPONS, type WeaponId } from '../game/turretWeapons';
 import { builtinEntityArtwork, resolveEntityArtwork, mergeStudioDraft, type Artwork } from '../game/entityArtwork';
 import { getPublishedCreatorMedia } from '../game/creatorMedia';
 import { artworkPreview } from './entityArtworkPreview';
@@ -77,8 +78,8 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'enemy-swift', label: 'Juice-Runner (enemy-swift)' },
   { key: 'tower-main', label: 'Main Tower (tower-main)' },
   { key: 'tower-wall', label: 'Full-width Defense Wall (tower-wall)' },
-  ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: `${kind} tower` })),
-  ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).flatMap(kind=>Array.from({length:10},(_,i)=>({key:`tower-${kind}-level-${i+1}`,label:`${kind} · Level ${i+1} artwork / attack / impact`}))),
+  ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: TURRET_WEAPONS[kind].name })),
+  ...(['main','guillotine','vortex','laser','railgun','sprinkler','blender'] as const).flatMap(kind=>Array.from({length:10},(_,i)=>({key:`tower-${kind}-level-${i+1}`,label:`${kind==='main'?'Main Tower':TURRET_WEAPONS[kind as WeaponId].name} · Level ${i+1} artwork / attack / impact`}))),
   ...['jiju','topfu','lagen','tripos','ki'].flatMap(hero=>Array.from({length:6},(_,i)=>({key:`power-${hero}-${i+1}`,label:`${hero} · Ability ${i+1} icon`}))),
   { key: 'hero-jiju', label: 'Master Jiju (hero-jiju)' },
   { key: 'hero-topfu', label: 'Topfu (hero-topfu)' },

@@ -1,3 +1,4 @@
+import { TURRET_WEAPONS } from '../game/turretWeapons';
 import type { JuiceBank } from '../game/juice';
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../game/heroes';
 import { getTowerXpState } from '../game/towerProgression';
@@ -158,7 +159,7 @@ export class Hud {
       btn.type = 'button';
       btn.dataset.turret = def.kind;
       btn.className = 'turret-btn';
-      btn.append(lucideIcon(({ guillotine: 'Swords', vortex: 'Tornado', laser: 'Zap', railgun: 'Target', sprinkler: 'Droplets', blender: 'Scissors', catcher: 'Shield' } as Record<string, string>)[def.kind] || 'TowerControl', 'turret-btn__glyph', 20), document.createElement('span'));
+      btn.append(lucideIcon(TURRET_WEAPONS[def.kind].icon || 'TowerControl', 'turret-btn__glyph', 20), document.createElement('span'));
       const detail=document.createElement('small');detail.className='turret-btn__detail';detail.textContent=def.blurb+(def.fuel==='none'?'':` Uses ${def.fuel} juice.`);btn.appendChild(detail);
       btn.addEventListener('click', () => this.onPlace?.(def.kind));
       this.shop.appendChild(btn);
@@ -1187,7 +1188,7 @@ export class Hud {
     const slot = wall.selectedSlot();
     const pad = PADS[slot.index];
     if (wall.moving) {
-      this.pick.textContent = 'Click a blue pad to move · click again to cancel';
+      this.pick.textContent = 'Click a gold pad to move · click again to cancel';
       this.shop.classList.add('hidden');
       this.upgrade.classList.add('hidden');
       this.sell.classList.add('hidden');
@@ -1211,10 +1212,10 @@ export class Hud {
       this.sell.textContent = `Sell  +${sellRefund(slot.kind, slot.level)} F`;
       this.move.classList.remove('hidden');
       this.move.textContent = 'Move  M';
-      this.toggle.classList.toggle('hidden', slot.kind !== 'blender');
+      this.toggle.classList.add('hidden');
       this.setUpgrade(state.currency, slot.level, def.name);
     } else {
-      this.pick.textContent = pad.floor ? 'Floor pad — pit / blade' : 'Wall pad — turret';
+      this.pick.textContent = pad.floor ? 'Ground defence pad' : 'Wall pad — turret';
       this.shop.classList.remove('hidden');
       this.upgrade.classList.add('hidden');
       this.sell.classList.add('hidden');
@@ -1852,7 +1853,11 @@ export class Hud {
 
   private startDailyCountdown(canClaim: boolean): void {
     this.stopDailyCountdown();
+    const openedDay=new Date().getUTCDate();
     const tick = () => {
+      const modal=document.getElementById('modal-daily');
+      if(!modal||modal.classList.contains('hidden')){this.stopDailyCountdown();return;}
+      if(new Date().getUTCDate()!==openedDay){this.stopDailyCountdown();void this.openDailyModal();return;}
       const el = document.getElementById('daily-countdown-text');
       if (el) el.textContent = this.formatCountdown(canClaim);
     };
