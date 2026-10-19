@@ -38,6 +38,15 @@ body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { display:flex!important; posit
 body[data-ftd-screen='PLAY'] #sidebar { left:76px; right:auto; top:110px; bottom:68px; width:min(300px,calc(100vw - 88px)); max-height:calc(100dvh - 178px); overflow-y:auto; overscroll-behavior:contain; visibility:hidden; transform:translateX(-12px)!important; opacity:0; pointer-events:none; transition:opacity .16s,transform .16s,visibility .16s; }
 body[data-ftd-screen='PLAY'] #app.sidebar-open #sidebar { visibility:visible; opacity:1; pointer-events:auto; transform:none!important; }
 body[data-ftd-screen='PLAY'] #btn-sidebar-hide { display:grid!important; }
+.sidebar-build-phase { display:none; }
+@media (max-width:860px) {
+  body[data-ftd-screen='PLAY'] #app.sidebar-open .sidebar-build-phase {
+    display:inline-flex; align-items:center; gap:4px; margin:6px 0 0; padding:4px 7px;
+    border-left:3px solid #ffcf4b; background:#ffca281c; color:#ffe294;
+    font-size:9px; font-weight:900; letter-spacing:.08em;
+  }
+  body[data-ftd-screen='PLAY'] .sidebar-build-phase span { color:#fff2ce; }
+}
 
 /* Online matches: actions left, battlefield uses remaining space, tray anchored beside rail. */
 .ftd-pvp.is-battle .ftd-pvp__body { display:flex; flex-direction:column; width:100%; height:100%; }
