@@ -1,23 +1,25 @@
+import { artworkPreview } from '../entityArtworkPreview';
+import { portraitArtwork } from '../../game/entityArtwork';
 import { battlefieldArtSource } from '../../game/characterPortraits';
 import { TURRETS, type TurretKind } from '../../game/turrets';
 import type { CombatPreview } from './combatPreview';
-import { defaultMapForMode, normalizeBattleMap, type BattleMap, type BattleMapMode, type MapEntityKind } from '../../game/battleMaps';
+import { BATTLEFIELD_ART_URL, defaultMapForMode, normalizeBattleMap, type BattleMap, type BattleMapMode, type MapEntityKind } from '../../game/battleMaps';
 import { fetchAdminBattleMaps, saveAdminBattleMap } from '../../services/battleMaps';
 import { refreshAdminTexture } from '../../game/adminTextureLoader';
 import { importStudioImageSample } from '../adminMediaStudio';
 
 const modes: BattleMapMode[] = ['casual', 'horde', 'campaign', 'coop', 'pvp'];
 const imageLibrary = [
-  { label: 'Ashen Road · Casual', path: '/assets/maps/samples/casual-fallen-orchard.webp', mode: 'casual' as BattleMapMode },
-  { label: 'Scrapline · Horde', path: '/assets/maps/samples/horde-night-harvest.webp', mode: 'horde' as BattleMapMode },
-  { label: 'Ruined Causeway · Campaign', path: '/assets/maps/samples/campaign-old-orchard.webp', mode: 'campaign' as BattleMapMode },
-  { label: 'Broken Junction · Co-op', path: '/assets/maps/samples/coop-shared-grove.webp', mode: 'coop' as BattleMapMode },
-  { label: 'Twin Wastes · PvP', path: '/assets/maps/samples/pvp-twin-pass.webp', mode: 'pvp' as BattleMapMode },
+  { label: 'Ashen Road · Casual', path: BATTLEFIELD_ART_URL, mode: 'casual' as BattleMapMode },
+  { label: 'Scrapline · Horde', path: BATTLEFIELD_ART_URL, mode: 'horde' as BattleMapMode },
+  { label: 'Ruined Causeway · Campaign', path: BATTLEFIELD_ART_URL, mode: 'campaign' as BattleMapMode },
+  { label: 'Broken Junction · Co-op', path: BATTLEFIELD_ART_URL, mode: 'coop' as BattleMapMode },
+  { label: 'Twin Wastes · PvP', path: BATTLEFIELD_ART_URL, mode: 'pvp' as BattleMapMode },
 ];
 const samples = [
-  { label: 'Keep tower', path: '/assets/maps/samples/tower-keep.webp', target: 'tower' },
-  { label: 'Rotten apple', path: '/assets/maps/samples/enemy-apple-zombie.webp', target: 'enemy' },
-  { label: 'Watermelon boss', path: '/assets/maps/samples/boss-watermelon.webp', target: 'boss' },
+  { label: 'Current keep tower', ...portraitArtwork('tower')!, target: 'tower' },
+  { label: 'Current rot-walker', ...portraitArtwork('orange')!, target: 'enemy' },
+  { label: 'Current melon boss', ...portraitArtwork('boss-melon')!, target: 'boss' },
 ];
 const towerSkins = [
   { name: 'Ashbrick Bastion', tag: 'Default', path: '/assets/towers/wall-ashbrick.webp' },
@@ -60,7 +62,7 @@ function mapMarkup(): string {
     <div class="battle-map-canvas-frame"><canvas id="battle-map-canvas" aria-label="Map preview. Tap to place the selected map tool."></canvas></div>
   </div>
   <p class="battle-map-help">Solo and local Co-op maps: the keep stays anchored at the bottom. Routes, props and up to 32 build pads are authored here. Online modes use the linked match workshop. Coordinates are normalized to the map image. Add route points from the enemy entrance toward the tower. Select an entity by tapping it; drag to reposition. PNG backgrounds scale to the authored map without cropping.</p>
-  <div class="battle-map-assets"><strong>Sample assets · available in existing editors</strong>${samples.map((item) => `<article><img src="${item.path}" alt=""><span>${item.label}</span><button type="button" data-import-sample="${item.target}" data-path="${item.path}">Load in ${item.target === 'tower' ? 'Tower' : item.target === 'enemy' ? 'Enemy' : 'Boss'} Editor</button></article>`).join('')}<button type="button" id="map-publish-creator">Publish Creator asset to MongoDB</button></div>
+  <div class="battle-map-assets"><strong>Sample assets · available in existing editors</strong>${samples.map((item) => `<article><span data-map-sample-art="${item.target}"></span><span>${item.label}</span><button type="button" data-import-sample="${item.target}" data-path="${item.source}" data-portrait="${item.target==='tower'?'tower':item.target==='enemy'?'orange':'boss-melon'}">Load in ${item.target === 'tower' ? 'Tower' : item.target === 'enemy' ? 'Enemy' : 'Boss'} Editor</button></article>`).join('')}<button type="button" id="map-publish-creator">Publish Creator asset to MongoDB</button></div>
   <div class="battle-map-assets battle-map-tower-skins"><strong>Bottom defense tower · hero remains on the center keep</strong>${towerSkins.map((skin) => `<article><img src="${skin.path}" alt="${skin.name} tower wall material"><span>${skin.name}</span><small>${skin.tag}</small></article>`).join('')}<p>These skins wrap the existing full-width bottom wall. The separate center keep and its hero anchor stay in place; side tower slots are unchanged. Shop cards preview the same textures.</p></div>
   <p id="battle-map-status" role="status" aria-live="polite"></p>`;
 }
@@ -152,18 +154,18 @@ function pointEvent(event: PointerEvent): void {
   draw();
 }
 
-async function loadImageData(file: File): Promise<string> {
+async function loadImageData(file: File, crop?: {x:number;y:number;width:number;height:number}): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('Choose a PNG, WebP, or JPEG image.');
-  const bitmap = await createImageBitmap(file); const maxSide = 1600; const ratio = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas'); canvas.width = Math.round(bitmap.width * ratio); canvas.height = Math.round(bitmap.height * ratio);
-  const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Could not read this image.'); ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+  const bitmap = await createImageBitmap(file); const maxSide = 1600; const cropWidth=bitmap.width*(crop?.width??1),cropHeight=bitmap.height*(crop?.height??1);const ratio = Math.min(1, maxSide / Math.max(cropWidth,cropHeight));
+  const canvas = document.createElement('canvas'); canvas.width = Math.max(1,Math.round(cropWidth * ratio)); canvas.height = Math.max(1,Math.round(cropHeight * ratio));
+  const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Could not read this image.'); ctx.drawImage(bitmap,(crop?.x??0)*bitmap.width,(crop?.y??0)*bitmap.height,cropWidth,cropHeight,0,0,canvas.width,canvas.height); bitmap.close();
   const data = canvas.toDataURL('image/webp', .82); if (data.length > 1_100_000) throw new Error('Image is still too large after optimization. Choose a simpler background under 1 MB.'); return data;
 }
 
-async function importAsset(target: string, path: string): Promise<void> {
+async function importAsset(target: string, path: string, portrait?:string): Promise<void> {
   const response = await fetch(path); if (!response.ok) throw new Error('Could not load sample image.');
   const file = new File([await response.blob()], path.split('/').pop() || 'sample.webp', { type: 'image/webp' });
-  const data = await loadImageData(file);
+  const data = await loadImageData(file,portrait?portraitArtwork(portrait)?.crop:undefined);
   if (target === 'tower') {
     localStorage.setItem('admin-sprite-tower-main', data); refreshAdminTexture('tower-main');
     importStudioImageSample('tower-main', 'Keep Tower', data);
@@ -189,13 +191,14 @@ async function importAsset(target: string, path: string): Promise<void> {
 export function installBattleMapEditor(): void {
   const host = el<HTMLElement>('admin-map-studio'); if (!host || host.dataset.mapEditorReady === '1') return;
   host.dataset.mapEditorReady = '1'; host.innerHTML = mapMarkup();
-  const style = document.createElement('style'); style.textContent = `.battle-map-preview-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.battle-map-live-preview{height:520px;border:1px solid #ffe394;background:#202125}.ftd-combat-preview{display:block;width:100%;height:100%;touch-action:none}.battle-map-preview-actions button,.battle-map-preview-actions select{padding:12px;background:#25262a;color:#ffe394;border:1px solid #786b50}.battle-map-toolbar,.battle-map-library,.battle-map-tools{display:flex;gap:.55rem;align-items:end;flex-wrap:wrap;margin:.75rem 0}.battle-map-toolbar label{display:grid;gap:.25rem;color:#d6d2c8;font-size:.75rem}.battle-map-toolbar input,.battle-map-toolbar select{min-width:130px;background:#22252a;color:#fff;border:1px solid #655d4e;padding:.55rem;border-radius:5px}.battle-map-toolbar button,.battle-map-library button,.battle-map-tools button,.battle-map-assets button{background:#292b30;border:1px solid #665b47;color:#eee;padding:.55rem .7rem;border-radius:5px;min-height:40px}.battle-map-toolbar .is-primary{background:#efbd31;color:#171719;font-weight:800}.battle-map-workspace{display:grid;grid-template-columns:minmax(115px,180px) minmax(0,1fr);gap:.7rem}.battle-map-tools{align-content:start;display:grid;grid-template-columns:1fr}.battle-map-tools button{text-transform:capitalize}.battle-map-tools button.active{background:#edbd34;color:#171719}.battle-map-canvas-frame{width:100%;height:min(68vh,720px);min-height:360px;background:#202226;border:1px solid #786943;border-radius:6px;overflow:hidden}.battle-map-canvas-frame canvas{width:100%;height:100%;touch-action:none}.battle-map-help{color:#aaa;font-size:.78rem;line-height:1.5}.battle-map-library{align-items:center;color:#edc34a}.battle-map-assets{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;border-top:1px solid #55482f;padding-top:.8rem}.battle-map-assets>strong{flex-basis:100%;color:#edc34a}.battle-map-assets article{display:grid;gap:.35rem;width:min(180px,46%);background:#212328;border:1px solid #504a3e;padding:.5rem;border-radius:6px;color:#ddd;font-size:.78rem}.battle-map-assets img{width:100%;height:95px;object-fit:contain;background:#161719}.battle-map-assets button{font-size:.72rem}#battle-map-status{min-height:1.4em;color:#b9d899;font-size:.82rem}#battle-map-status[data-error="true"]{color:#ff927d}@media(max-width:650px){.battle-map-workspace{grid-template-columns:1fr}.battle-map-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.battle-map-canvas-frame{height:60vh;min-height:340px}.battle-map-toolbar label{flex:1}.battle-map-toolbar input,.battle-map-toolbar select{min-width:0;width:100%}}`;
+  for(const sample of samples)host.querySelector(`[data-map-sample-art="${sample.target}"]`)?.appendChild(artworkPreview(sample,sample.label,'map-sample-thumbnail'));
+  const style = document.createElement('style'); style.textContent = `.map-sample-thumbnail{display:block;width:80px;height:80px}.battle-map-preview-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.battle-map-live-preview{height:520px;border:1px solid #ffe394;background:#202125}.ftd-combat-preview{display:block;width:100%;height:100%;touch-action:none}.battle-map-preview-actions button,.battle-map-preview-actions select{padding:12px;background:#25262a;color:#ffe394;border:1px solid #786b50}.battle-map-toolbar,.battle-map-library,.battle-map-tools{display:flex;gap:.55rem;align-items:end;flex-wrap:wrap;margin:.75rem 0}.battle-map-toolbar label{display:grid;gap:.25rem;color:#d6d2c8;font-size:.75rem}.battle-map-toolbar input,.battle-map-toolbar select{min-width:130px;background:#22252a;color:#fff;border:1px solid #655d4e;padding:.55rem;border-radius:5px}.battle-map-toolbar button,.battle-map-library button,.battle-map-tools button,.battle-map-assets button{background:#292b30;border:1px solid #665b47;color:#eee;padding:.55rem .7rem;border-radius:5px;min-height:40px}.battle-map-toolbar .is-primary{background:#efbd31;color:#171719;font-weight:800}.battle-map-workspace{display:grid;grid-template-columns:minmax(115px,180px) minmax(0,1fr);gap:.7rem}.battle-map-tools{align-content:start;display:grid;grid-template-columns:1fr}.battle-map-tools button{text-transform:capitalize}.battle-map-tools button.active{background:#edbd34;color:#171719}.battle-map-canvas-frame{width:100%;height:min(68vh,720px);min-height:360px;background:#202226;border:1px solid #786943;border-radius:6px;overflow:hidden}.battle-map-canvas-frame canvas{width:100%;height:100%;touch-action:none}.battle-map-help{color:#aaa;font-size:.78rem;line-height:1.5}.battle-map-library{align-items:center;color:#edc34a}.battle-map-assets{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;border-top:1px solid #55482f;padding-top:.8rem}.battle-map-assets>strong{flex-basis:100%;color:#edc34a}.battle-map-assets article{display:grid;gap:.35rem;width:min(180px,46%);background:#212328;border:1px solid #504a3e;padding:.5rem;border-radius:6px;color:#ddd;font-size:.78rem}.battle-map-assets img{width:100%;height:95px;object-fit:contain;background:#161719}.battle-map-assets button{font-size:.72rem}#battle-map-status{min-height:1.4em;color:#b9d899;font-size:.82rem}#battle-map-status[data-error="true"]{color:#ff927d}@media(max-width:650px){.battle-map-workspace{grid-template-columns:1fr}.battle-map-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.battle-map-canvas-frame{height:60vh;min-height:340px}.battle-map-toolbar label{flex:1}.battle-map-toolbar input,.battle-map-toolbar select{min-width:0;width:100%}}`;
   host.append(style);
   host.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement;
     const toolButton = target.closest<HTMLElement>('[data-map-tool]'); if (toolButton) { tool = toolButton.dataset.mapTool as Tool; host.querySelectorAll('[data-map-tool]').forEach((button) => button.classList.toggle('active', button === toolButton)); return; }
     const sample = target.closest<HTMLElement>('[data-map-sample]'); if (sample) { const map = current(); if (map) { const template = defaultMapForMode(sample.dataset.mode as BattleMapMode); map.background = template.background; map.mode = template.mode; map.routes = structuredClone(template.routes); map.spawns = structuredClone(template.spawns); map.entities = structuredClone(template.entities); map.tower = structuredClone(template.tower); map.opponentTower = template.opponentTower ? structuredClone(template.opponentTower) : undefined; activeRouteId = map.routes[0]?.id || ''; renderMapSelect(); } return; }
-    const importButton = target.closest<HTMLElement>('[data-import-sample]'); if (importButton) { try { await importAsset(importButton.dataset.importSample!, importButton.dataset.path!); } catch (error) { status(error instanceof Error ? error.message : 'Sample import failed.', true); } return; }
+    const importButton = target.closest<HTMLElement>('[data-import-sample]'); if (importButton) { try { await importAsset(importButton.dataset.importSample!, importButton.dataset.path!, importButton.dataset.portrait); } catch (error) { status(error instanceof Error ? error.message : 'Sample import failed.', true); } return; }
     if (target.id === 'map-add-route' && current()) { const map = current()!; const route = { id: `route-${Date.now()}`, name: `Route ${map.routes.length + 1}`, width: 4, points: [] }; map.routes.push(route); activeRouteId = route.id; tool = 'route'; renderMapSelect(); }
     if (target.id === 'map-remove-entity' && current()) { const map = current()!; const found = map.entities.findIndex((entity) => entity.id === selectedEntityId); if (found >= 0) map.entities.splice(found, 1); selectedEntityId = null; draw(); }
     if(target.id==='map-online-workshop')document.querySelector<HTMLButtonElement>('.admin-tab-btn[data-tab="pvp"]')?.click();

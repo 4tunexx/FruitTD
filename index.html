@@ -1809,12 +1809,12 @@
                   <p style="font-size: 0.7rem; color: #fca5a5; margin: 0.65rem 0;">JSON must be valid. Invalid settings are rejected. Prefer studio forms; back up before major edits.</p>
 
                   <h3 style="font-size: 0.875rem; font-weight: 700; color: #ffca28; margin-top: 0.75rem; margin-bottom: 0.5rem;">Fruit Types</h3>
-                  <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">JSON array of fruit configurations (id, name, health, score, color, etc.):</p>
+                  <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">Published fruit balance: kind, hp, speed, radius, score, color. Applies to new spawns in Casual, Horde, Campaign and local Co-op. Online modes use their dedicated balance editors.</p>
                   <textarea id="admin-fruits-json" rows="8" class="admin-input font-mono" style="font-size: 0.7rem;" placeholder='[{"id":"apple","name":"Apple","health":1,...}]'></textarea>
                   <button id="btn-save-fruits" class="admin-btn-action" style="margin-top: 0.5rem;">Save Fruits</button>
 
                   <h3 style="font-size: 0.875rem; font-weight: 700; color: #ffca28; margin-top: 1.5rem; margin-bottom: 0.5rem;">Enemy Configs</h3>
-                  <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">JSON array of enemy types (normal, explosive, armored) with health/speed modifiers:</p>
+                  <p style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.5rem;">Published enemy balance: kind, hpMultiplier, speedMultiplier, towerDamageOnLeak, scoreMultiplier, xpMultiplier. Empty array restores defaults.</p>
                   <textarea id="admin-enemies-json" rows="6" class="admin-input font-mono" style="font-size: 0.7rem;" placeholder='[{"type":"normal","healthMul":1,...}]'></textarea>
                   <button id="btn-save-enemies" class="admin-btn-action" style="margin-top: 0.5rem;">Save Enemies</button>
                 </details>

@@ -1,12 +1,11 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import type { Collection } from 'mongodb';
 import { DEFAULT_BATTLE_MAPS, normalizeBattleMap, type BattleMap, type BattleMapMode } from '../../src/game/battleMaps';
 import { getCollection } from '../db';
 import { resolveRequestUser } from '../auth';
 
 type StoredBattleMap = BattleMap & { updatedAt: Date };
 const MODES = new Set<BattleMapMode>(['casual', 'horde', 'campaign', 'coop', 'pvp']);
-export const mapsRouter = Router();
-export const adminMapsRouter = Router();
 
 function validAdmin(user: Awaited<ReturnType<typeof resolveRequestUser>>): boolean {
   return Boolean(process.env.ADMIN_STEAM_ID && user?.steamId === process.env.ADMIN_STEAM_ID);
@@ -23,11 +22,19 @@ function mapError(map: BattleMap): string | null {
   return null;
 }
 
+export interface MapRouteDependencies {
+ authorize:(req:Request)=>Promise<boolean>;
+ collection:()=>Promise<Pick<Collection<StoredBattleMap>,'findOne'|'find'|'bulkWrite'|'replaceOne'|'insertOne'>>;
+}
+export function createMapRouters(dependencies:Partial<MapRouteDependencies>={}){
+ const mapsRouter=Router(),adminMapsRouter=Router();
+ const authorize=dependencies.authorize??(async(req:Request)=>validAdmin(await resolveRequestUser(req)));
+ const collection=dependencies.collection??(()=>getCollection<StoredBattleMap>('battle_maps'));
 mapsRouter.get('/:mode', async (req, res) => {
   const mode = req.params.mode as BattleMapMode;
   if (!MODES.has(mode)) return res.status(404).json({ success: false, error: 'Map mode not found.' });
   try {
-    const col = await getCollection<StoredBattleMap>('battle_maps');
+    const col = await collection();
     const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 }, sort: { updatedAt: -1, id: 1 } });
     return res.json({ success: true, map: map || DEFAULT_BATTLE_MAPS[mode] });
   } catch (error) {
@@ -37,10 +44,9 @@ mapsRouter.get('/:mode', async (req, res) => {
 });
 
 adminMapsRouter.get('/', async (req, res) => {
-  const user = await resolveRequestUser(req);
-  if (!validAdmin(user)) return res.status(403).json({ success: false, error: 'Admin access required.' });
+  if (!(await authorize(req))) return res.status(403).json({ success: false, error: 'Admin access required.' });
   try {
-    const col = await getCollection<StoredBattleMap>('battle_maps');
+    const col = await collection();
     await col.bulkWrite(Object.values(DEFAULT_BATTLE_MAPS).map((map) => ({
       updateOne: { filter: { id: map.id }, update: { $setOnInsert: { ...map, updatedAt: new Date() } }, upsert: true },
     })));
@@ -53,8 +59,7 @@ adminMapsRouter.get('/', async (req, res) => {
 });
 
 adminMapsRouter.post('/', async (req, res) => {
-  const user = await resolveRequestUser(req);
-  if (!validAdmin(user)) return res.status(403).json({ success: false, error: 'Admin access required.' });
+  if (!(await authorize(req))) return res.status(403).json({ success: false, error: 'Admin access required.' });
   try {
     const raw = req.body?.map;
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return res.status(400).json({ success: false, error: 'Map data is required.' });
@@ -63,7 +68,7 @@ adminMapsRouter.post('/', async (req, res) => {
     const map = normalizeBattleMap(raw, mode);
     const error = mapError(map);
     if (error) return res.status(400).json({ success: false, error });
-    const col = await getCollection<StoredBattleMap>('battle_maps');
+    const col = await collection();
     const existing = await col.findOne({ id: map.id });
     const expected = Number(req.body?.expectedRevision);
     if (existing && (!Number.isSafeInteger(expected) || expected !== existing.revision)) {
@@ -83,3 +88,7 @@ adminMapsRouter.post('/', async (req, res) => {
     return res.status(500).json({ success: false, error: 'Could not save the map to MongoDB.' });
   }
 });
+
+ return {mapsRouter,adminMapsRouter};
+}
+export const {mapsRouter,adminMapsRouter}=createMapRouters();

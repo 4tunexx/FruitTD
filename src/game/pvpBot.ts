@@ -6,8 +6,9 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
   const map = match.map;
+  const opponent=match.players.find(player=>player.userId!==botUserId)!;
   if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15000)) return { type: 'rally' };
-  const captured = bot.captured?.find(item => bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost, config.attacks[item.type]!.packSize));
+  const captured = bot.captured?.find(item => opponent.attackers.length<128 && bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost, config.attacks[item.type]!.packSize));
   if (captured) return { type: 'release', capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < .75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: 'upgrade-main' };
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
@@ -23,7 +24,7 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   }
   const upgrade = bot.towers.find(tower => pvpTowerLevel(tower.level) < 3 && bot.fruts >= pvpUpgradeCost(config.towers[tower.type]!.cost, pvpTowerLevel(tower.level)));
   if (upgrade && bot.attackers.length >= 2) return { type: 'upgrade', towerId: upgrade.id };
-  const attacks = Object.entries(config.attacks).filter(([, stats]) => bot.fruts >= stats.cost);
+  const attacks = Object.entries(config.attacks).filter(([, stats]) => bot.fruts >= stats.cost && opponent.attackers.length+Math.max(1,Math.min(8,Math.floor(stats.packSize||1)))<=128);
   if (attacks.length) {
     const index = Math.min(Math.floor(bot.sequence / 3) % attacks.length, attacks.length - 1);
     return { type: 'send', enemy: attacks[index]![0] };

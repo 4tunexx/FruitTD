@@ -1,3 +1,5 @@
+import { setEnemyBalance } from '../game/enemies';
+import { setFruitBalance } from '../game/fruitDefinitions';
 import { setPublishedCreatorMedia } from '../game/creatorMedia';
 import { DEFAULT_ADMIN_CONFIG, fetchAdminConfig, mergeAdminConfig, type AdminConfig } from './admin';
 import { setLiveWavesConfig } from '../game/creatorWaves';
@@ -126,6 +128,8 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
 
 export function setLiveConfig(config: AdminConfig): void {
   cached = config;
+  setEnemyBalance(config.enemies);
+  setFruitBalance(config.fruits);
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('fruit-td-icons-update'));
   applyMenuAppearance(config);
   setLiveWavesConfig(cached.waves);

@@ -4,7 +4,7 @@ import { normalizeCreatorMedia } from '../../src/game/creatorMedia';
 import type { MediaStudioStore } from '../../src/ui/adminMediaStudio';
 import { Router, Request, Response } from 'express';
 import { getCollection, DailyBonusDoc, LeaderboardDoc } from '../db';
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Collection } from 'mongodb';
 import { invalidateCatalogCache } from '../catalog';
 import {
   DEFAULT_ACHIEVEMENTS,
@@ -81,6 +81,7 @@ export interface AdminConfigDoc {
   ranks?: any[];
   slicers?: any[];
   enemies?: any[];
+  fruits?: any[];
   waves?: any;
   campaignBosses?: any[];
   campaignStories?: CampaignChapter[];
@@ -255,6 +256,7 @@ export const DEFAULT_ADMIN_CONFIG: Omit<AdminConfigDoc, 'updatedAt'> = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
+  fruits: [],
   waves: { version: 1, levels: {} },
   campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
   iconOverrides: {},
@@ -268,10 +270,19 @@ async function isAuthorized(req: Request): Promise<boolean> {
   return Boolean(ADMIN_STEAM_ID && user?.steamId === ADMIN_STEAM_ID);
 }
 
+export interface AdminConfigDependencies {
+  authorize:(req:Request)=>Promise<boolean>;
+  collection:()=>Promise<Pick<Collection<AdminConfigDoc>,'findOne'|'insertOne'|'updateOne'>>;
+}
+/** Production defaults retain Steam authorization; tests can exercise real HTTP flows with an isolated store. */
+export function createAdminConfigRouter(dependencies:Partial<AdminConfigDependencies>={}):Router {
+  const router=Router();
+  const authorize=dependencies.authorize??isAuthorized;
+  const configCollection=dependencies.collection??(()=>getCollection<AdminConfigDoc>('admin_config'));
 // GET /api/admin/config (Public or admin)
-adminRouter.get('/config', async (_req: Request, res: Response) => {
+router.get('/config', async (_req: Request, res: Response) => {
   try {
-    const col = await getCollection<AdminConfigDoc>('admin_config');
+    const col = await configCollection();
     let doc = await col.findOne({ configKey: 'game_config' });
     if (!doc) {
       const seed: AdminConfigDoc = {
@@ -313,8 +324,8 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
 });
 
 // POST /api/admin/verify (Verify admin status - Steam ID only)
-adminRouter.post('/verify', async (req: Request, res: Response) => {
-  const valid = await isAuthorized(req);
+router.post('/verify', async (req: Request, res: Response) => {
+  const valid = await authorize(req);
   res.json({
     success: true,
     isAdmin: valid,
@@ -322,8 +333,8 @@ adminRouter.post('/verify', async (req: Request, res: Response) => {
 });
 
 // POST /api/admin/config (Save changes to MongoDB)
-adminRouter.post('/config', async (req: Request, res: Response) => {
-  if (!(await isAuthorized(req))) {
+router.post('/config', async (req: Request, res: Response) => {
+  if (!(await authorize(req))) {
     return res.status(403).json({ success: false, error: 'Unauthorized: Admin privileges required.' });
   }
 
@@ -337,7 +348,8 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
     if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
     const storyError = campaignStories === undefined ? null : campaignStoriesError(campaignStories);
     if (storyError) return res.status(400).json({ success: false, error: storyError });
-    const col = await getCollection<AdminConfigDoc>('admin_config');
+    if (req.body.fruits !== undefined && (!Array.isArray(req.body.fruits) || req.body.fruits.length > 100)) return res.status(400).json({success:false,error:'Fruits must be an array of up to 100 balance rows.'});
+    const col = await configCollection();
     const existing = await col.findOne({ configKey: 'game_config' });
 
     const updated = {
@@ -357,6 +369,7 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
       badges: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES), DEFAULT_BADGES, req.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
       ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
       slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
+      fruits: Array.isArray(req.body.fruits) ? req.body.fruits : existing?.fruits || [],
       enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
       coopConfig: normalizeCoopConfig(req.body.coopConfig ?? existing?.coopConfig),
       creatorMedia: normalizeCreatorMedia(req.body.creatorMedia === undefined ? existing?.creatorMedia : req.body.creatorMedia),
@@ -380,6 +393,10 @@ adminRouter.post('/config', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+  return router;
+}
+adminRouter.use(createAdminConfigRouter());
 
 function normalizePvpConfig(input: unknown): PvpConfig {
   const row = input && typeof input === 'object' ? input as Partial<PvpConfig> : {};

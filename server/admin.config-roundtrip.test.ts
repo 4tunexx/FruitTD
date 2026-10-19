@@ -1,0 +1,45 @@
+import { FRUIT_DEFS, setFruitBalance } from '../src/game/fruitDefinitions';
+import { ENEMY_RULES, setEnemyBalance } from '../src/game/enemies';
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import express from 'express';
+import {createServer} from 'node:http';
+import {createAdminConfigRouter,DEFAULT_ADMIN_CONFIG,type AdminConfigDoc} from './routes/admin';
+import {mergeAdminConfig} from '../src/services/admin';
+import {resolveEntityArtwork} from '../src/game/entityArtwork';
+import {defaultCampaignBoss} from '../src/game/campaign';
+
+test('authorized Admin save/reload preserves gameplay, Creator, icons and economy without touching live storage',async t=>{
+ let stored:AdminConfigDoc|null=null,writes=0;
+ const collection={findOne:async()=>stored?structuredClone(stored):null,insertOne:async(value:AdminConfigDoc)=>{stored=structuredClone(value);writes++;return{};},updateOne:async(_q:unknown,update:{$set:AdminConfigDoc})=>{stored={...stored,...structuredClone(update.$set)};writes++;return{matchedCount:1};}};
+ const app=express();app.use(express.json({limit:'4mb'}));app.use('/api/admin',createAdminConfigRouter({authorize:async req=>req.headers.authorization==='local-test-admin',collection:async()=>collection as any}));
+ const server=createServer(app);await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise<void>(r=>server.close(()=>r())));
+ const address=server.address();assert.ok(address&&typeof address!=='string');const base=`http://127.0.0.1:${address.port}/api/admin`;
+ const get=async()=>{const response=await fetch(base+'/config');assert.equal(response.status,200);return response.json();};
+ const post=(value:object,auth=true)=>fetch(base+'/config',{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:'local-test-admin'}:{})},body:JSON.stringify(value)});
+ const initial=await get();assert.equal(initial.offline,undefined);assert.equal(writes,1);
+ assert.equal((await post({gameplayConfig:{startLives:4}},false)).status,403);assert.equal(writes,1);
+ const media='/api/media/0123456789abcdef01234567';
+ const config=structuredClone(DEFAULT_ADMIN_CONFIG);
+ config.pvpConfig={...DEFAULT_ADMIN_CONFIG.pvpConfig!,towers:{...DEFAULT_ADMIN_CONFIG.pvpConfig!.towers,railgun:{...DEFAULT_ADMIN_CONFIG.pvpConfig!.towers.railgun!,damage:177,range:7}}};
+ config.coopConfig={...mergeAdminConfig({}).coopConfig!,spawnGapMs:900,fruitSpeedMultiplier:.6};
+ config.campaignBosses=Array.from({length:100},(_,i)=>defaultCampaignBoss(i+1));config.campaignBosses[24]!.name='Roundtrip boss';
+ config.fruits=[{kind:'apple',hp:123,speed:6}];config.enemies=[{kind:'swift',hpMultiplier:3}];
+ config.iconOverrides={ModeCasual:'rune-01-03'};
+ config.creatorMedia={version:2,selectedEntity:'tower-railgun-level-3',sounds:{'turret-railgun':media},entities:{'tower-railgun-level-3':{sheetDataUrl:media,cols:1,rows:1,frameW:0,frameH:0,clips:{idle:{startFrame:0,frameCount:1}},turret:{damageMultiplier:1.7,rangeMultiplier:1.3,cooldownMultiplier:.8,effectScale:1.2,effectColor:'#ffe394'},events:{onAttack:{sfxSlot:'turret-railgun'},onImpact:{fx:'spark'}}}}};
+ config.menuConfig.panelBackgrounds={HEROES:media,horde:media};
+ const saved=await post(config);assert.equal(saved.status,200);assert.equal((await saved.json()).success,true);
+ const publicResult=await get(),runtime=mergeAdminConfig(publicResult.config);
+ setFruitBalance(runtime.fruits);setEnemyBalance(runtime.enemies);
+ assert.equal(FRUIT_DEFS.apple.hp,123);assert.equal(ENEMY_RULES.swift.hpMultiplier,3);setFruitBalance([]);setEnemyBalance([]);
+ assert.equal(publicResult.offline,undefined);assert.equal(runtime.pvpConfig.towers.railgun!.damage,177);assert.equal(runtime.pvpConfig.towers.railgun!.range,7);
+ assert.equal(runtime.coopConfig!.spawnGapMs,900);assert.equal(runtime.creatorMedia!.sounds!['turret-railgun'],media);
+ assert.equal(runtime.creatorMedia!.entities['tower-railgun-level-3']!.turret!.rangeMultiplier,1.3);
+ assert.equal(resolveEntityArtwork('tower-railgun-level-3',runtime.creatorMedia!.entities)!.source,media);
+ assert.equal(runtime.iconOverrides!.ModeCasual,'rune-01-03');assert.equal(runtime.menuConfig.panelBackgrounds!.HEROES,media);
+ assert.equal(runtime.campaignBosses![24]!.name,'Roundtrip boss');assert.equal(runtime.campaignStories!.length,20);
+ // A partial save must retain previously published Creator and match settings.
+ assert.equal((await post({menuConfig:{title:'Roundtrip title'}})).status,200);
+ const partial=mergeAdminConfig((await get()).config);assert.equal(partial.menuConfig.title,'Roundtrip title');assert.deepEqual(partial.creatorMedia,runtime.creatorMedia);assert.deepEqual(partial.pvpConfig,runtime.pvpConfig);assert.deepEqual(partial.fruits,runtime.fruits);assert.deepEqual(partial.enemies,runtime.enemies);
+ const before=structuredClone(stored);assert.equal((await post({creatorMedia:{entities:{bad:{sheetDataUrl:'javascript:bad'}}}})).status,400);assert.deepEqual(stored,before);
+});

@@ -1,10 +1,8 @@
-import { Router } from 'express';
-import { ObjectId, type Binary } from 'mongodb';
+import { Router, type Request } from 'express';
+import { ObjectId, type Binary, type Collection } from 'mongodb';
 import { getCollection } from '../db';
 import { resolveRequestUser } from '../auth';
 
-export const mediaRouter = Router();
-export const adminMediaRouter = Router();
 const MAX_IMAGE_BYTES = 1_000_000;
 const MAX_GIF_BYTES = 2_500_000;
 const TYPES: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
@@ -36,13 +34,20 @@ export function decodeSound(value:unknown):{contentType:string;bytes:Buffer}|nul
 
 type MediaDoc = { contentType: string; bytes: Buffer | Binary; createdAt: Date };
 
+export interface MediaRouteDependencies {
+ authorize:(req:Request)=>Promise<boolean>;
+ collection:()=>Promise<Pick<Collection<MediaDoc>,'findOne'|'insertOne'>>;
+}
+export function createMediaRouters(dependencies:Partial<MediaRouteDependencies>={}){
+ const mediaRouter=Router(),adminMediaRouter=Router();
+ const authorize=dependencies.authorize??(async(req:Request)=>{const user=await resolveRequestUser(req);return Boolean(process.env.ADMIN_STEAM_ID&&user?.steamId===process.env.ADMIN_STEAM_ID);});
+ const collection=dependencies.collection??(()=>getCollection<MediaDoc>('media_assets'));
 adminMediaRouter.post('/', async (req, res) => {
-  const user = await resolveRequestUser(req);
-  if (!process.env.ADMIN_STEAM_ID || user?.steamId !== process.env.ADMIN_STEAM_ID) return res.status(403).json({ success: false, error: 'Admin access required.' });
+  if (!(await authorize(req))) return res.status(403).json({ success: false, error: 'Admin access required.' });
   const image = req.body?.audio ? decodeSound(req.body.audio) : decodeSpriteImage(req.body?.image);
   if (!image) return res.status(400).json({ success: false, error: 'Upload an image or WAV, MP3 or OGG under 1 MB (GIF under 2.5 MB).' });
   try {
-    const col = await getCollection<MediaDoc>('media_assets');
+    const col = await collection();
     const result = await col.insertOne({ contentType: image.contentType, bytes: image.bytes, createdAt: new Date() });
     return res.json({ success: true, url: `/api/media/${result.insertedId.toHexString()}` });
   } catch (error) {
@@ -54,7 +59,7 @@ adminMediaRouter.post('/', async (req, res) => {
 mediaRouter.get('/:id', async (req, res) => {
   if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(404).end();
   try {
-    const col = await getCollection<MediaDoc>('media_assets');
+    const col = await collection();
     const image = await col.findOne({ _id: new ObjectId(req.params.id) });
     if (!image || ![...Object.values(TYPES),'audio/wav','audio/mpeg','audio/ogg'].includes(image.contentType)) return res.status(404).end();
     res.set('Content-Type', image.contentType);
@@ -66,3 +71,7 @@ mediaRouter.get('/:id', async (req, res) => {
     return res.status(503).end();
   }
 });
+
+ return {mediaRouter,adminMediaRouter};
+}
+export const {mediaRouter,adminMediaRouter}=createMediaRouters();

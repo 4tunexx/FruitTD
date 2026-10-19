@@ -1,3 +1,5 @@
+import { FRUIT_DEFS } from '../game/fruitDefinitions';
+import { ENEMY_RULES } from '../game/enemies';
 import { normalizeCoopConfig } from '../game/onlineCoop';
 import { renderConfigForm } from './admin/configForm';
 import { currentStudioDraft, loadPublishedStudioDraft } from './adminMediaStudio';
@@ -1024,8 +1026,8 @@ export class AdminController {
     
     try {
       const data = JSON.parse(textarea.value);
-      if (type !== 'fruits' && this.config) {
-        if (type === 'enemies' && !Array.isArray(data)) throw new Error('Enemies must be a JSON array.');
+      if (this.config) {
+        if (type !== 'waves' && !Array.isArray(data)) throw new Error('Balance settings must be a JSON array.');
         if (type === 'waves' && (!data || typeof data !== 'object' || Array.isArray(data))) throw new Error('Waves must be a JSON object.');
         const updated = { ...this.config, [type]: data };
         const result = await saveAdminConfig({ [type]: data });
@@ -1037,7 +1039,7 @@ export class AdminController {
       localStorage.setItem(`admin-${type}-config`, JSON.stringify(data));
       const statusEl = document.getElementById('admin-save-status');
       if (statusEl) {
-        statusEl.textContent = type === 'fruits' ? 'Fruit JSON saved on this device only.' : `${type.charAt(0).toUpperCase() + type.slice(1)} config published to MongoDB.`;
+        statusEl.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} config published to MongoDB.`;
         statusEl.className = 'admin-status-ok';
       }
     } catch (e: any) {
@@ -1082,11 +1084,10 @@ export class AdminController {
     const wavesTextarea = document.getElementById('admin-waves-json') as HTMLTextAreaElement | null;
     
     if (fruitsTextarea) {
-      const stored = localStorage.getItem('admin-fruits-config');
-      if (stored) fruitsTextarea.value = stored;
+      fruitsTextarea.value = JSON.stringify(this.config?.fruits?.length ? this.config.fruits : Object.values(FRUIT_DEFS), null, 2);
     }
     if (enemiesTextarea) {
-      enemiesTextarea.value = JSON.stringify(this.config?.enemies ?? [], null, 2);
+      enemiesTextarea.value = JSON.stringify(this.config?.enemies?.length ? this.config.enemies : Object.values(ENEMY_RULES), null, 2);
     }
     if (wavesTextarea) {
       wavesTextarea.value = JSON.stringify(this.config?.waves ?? { version: 1, levels: {} }, null, 2);

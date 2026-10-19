@@ -88,6 +88,7 @@ export interface AdminConfig {
   ranks: RankTier[];
   slicers: CatalogSlicer[];
   enemies: any[];
+  fruits?: any[];
   /** Creator-published wave/level packs (fruittd-creator-waves-v1 shape). */
   waves?: any;
   /** Per-stage boss description and reveal art. Boss animation sprites use Media Studio. */
@@ -147,6 +148,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
+  fruits: [],
   waves: { version: 1, levels: {} },
   campaignBosses: [],
   campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES) as CampaignChapter[],
@@ -174,6 +176,7 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
     badges: structuredClone(migrateCoopCatalog(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG.badges, DEFAULT_BADGES, src.coopCatalogVersion)),
     ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks), DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
+    fruits: structuredClone(Array.isArray(src.fruits) ? src.fruits.slice(0,100) : []),
     enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
     waves: src.waves && typeof src.waves === 'object'
       ? structuredClone(src.waves)

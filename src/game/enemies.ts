@@ -1,3 +1,4 @@
+import { applyBalanceRows } from './contentBalance';
 import type { FruitKind } from './fruits';
 
 /** Special enemy behaviour layered on top of normal fruit targets. */
@@ -69,6 +70,12 @@ export const ENEMY_RULES: Record<EnemyKind, EnemyRule> = {
     scoreMultiplier: 1.8, xpMultiplier: 1.7, colour: 0x55d8ff,
   },
 };
+
+const DEFAULT_ENEMIES = structuredClone(ENEMY_RULES);
+
+export function setEnemyBalance(rows: unknown): void {
+  applyBalanceRows(ENEMY_RULES, DEFAULT_ENEMIES, rows, {towerDamageOnLeak:[0,100],towerDamageOnHit:[0,100],hpMultiplier:[0.1,20],speedMultiplier:[0.1,5],scoreMultiplier:[0,20],xpMultiplier:[0,20],colour:[0,0xffffff]}, {healthMul:'hpMultiplier',speedMul:'speedMultiplier',color:'colour'});
+}
 
 export function enemyRule(kind: EnemyKind): EnemyRule {
   return ENEMY_RULES[kind] ?? ENEMY_RULES.normal;
