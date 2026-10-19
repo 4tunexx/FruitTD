@@ -32,12 +32,19 @@ export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt
 export function powerButton(id: string, onUse: () => void): HTMLButtonElement {
   const ability = heroAbility(id)!;
   const button = el('button', { type:'button', class:'hero-ability-slot', 'data-power':id, 'data-no-count':'' }, [
-    el('span', { class:'hero-ability-slot__sweep', 'aria-hidden':'true' }),
-    el('img', { class:'hero-ability-slot__icon', src:powerIconSource(id, ability.iconUrl), alt:'', draggable:'false', 'data-power-icon':id, 'data-power-default':ability.iconUrl }),
+    el('span', { class:'hero-ability-slot__portrait', 'aria-hidden':'true' }, [
+      el('img', { class:'hero-ability-slot__icon', src:powerIconSource(id, ability.iconUrl), alt:'', draggable:'false', 'data-power-icon':id, 'data-power-default':ability.iconUrl }),
+      el('span', { class:'hero-ability-slot__sweep' }),
+    ]),
     el('span', { class:'hero-ability-slot__name', text:ability.name }),
     el('span', { class:'hero-ability-slot__cooldown' }),
   ]);
-  button.addEventListener('click', onUse);
+  button.addEventListener('click', () => {
+    if (button.disabled) return;
+    button.classList.add('is-casting');
+    window.setTimeout(() => button.classList.remove('is-casting'), 360);
+    onUse();
+  });
   return button;
 }
 

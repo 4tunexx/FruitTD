@@ -1,3 +1,4 @@
+import { MODE_ICONS } from '../modeIcons';
 import { getAuthToken } from '../../services/auth';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
@@ -10,10 +11,10 @@ type BoardEntry = { rank: number; name: string; value: number; detail: string; i
 
 const categories: Array<{ id: BoardCategory; label: string; icon: string }> = [
   { id: 'ranked', label: 'Ranked FR', icon: 'Swords' },
-  { id: 'casual', label: 'Casual', icon: 'Target' },
-  { id: 'horde', label: 'Horde', icon: 'Waves' },
-  { id: 'coop', label: 'Co-op', icon: 'Users' },
-  { id: 'campaign', label: 'Campaign', icon: 'Map' },
+  { id: 'casual', label: 'Casual', icon: MODE_ICONS.casual },
+  { id: 'horde', label: 'Horde', icon: MODE_ICONS.horde },
+  { id: 'coop', label: 'Co-op', icon: MODE_ICONS.coop },
+  { id: 'campaign', label: 'Campaign', icon: MODE_ICONS.campaign },
   { id: 'coins', label: 'Coins', icon: 'Coins' },
   { id: 'gems', label: 'Gems', icon: 'Gem' },
 ];

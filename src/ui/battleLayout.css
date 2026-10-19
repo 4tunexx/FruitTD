@@ -109,3 +109,24 @@ body[data-ftd-screen='PLAY'] :is(.ftd-number-bump,.ftd-number-counting) { animat
 
 body[data-ftd-screen='PLAY'] #hud-toast { top:18px; bottom:auto; max-width:calc(100vw - 350px); padding:6px 10px; border-radius:0; background:none!important; border:0; box-shadow:none; backdrop-filter:none; text-shadow:0 2px 2px #112019; white-space:normal; text-align:center; }
 @media(max-width:860px) { body[data-ftd-screen='PLAY'] #hud-toast { top:82px; left:76px; right:8px; max-width:none; transform:none; font-size:10px; padding:4px; } }
+
+/* Portrait-sized powers stay on the combat edge, with the recharge drawn over the art. */
+.hero-ability-slot { width: 64px; min-height: 82px; grid-template-rows: 44px auto auto; gap: 3px; padding: 5px 3px; }
+.hero-ability-slot__portrait { position: relative; display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden; border: 1px solid #b68c43; background: #101712; }
+.hero-ability-slot__icon { width: 42px; height: 42px; object-fit: contain; transform: none !important; }
+.hero-ability-slot__sweep { z-index: 2; background: conic-gradient(from -90deg, transparent var(--charge), #08100cdd 0); }
+.hero-ability-slot__name { font-size: 8px; }
+.hero-ability-slot__cooldown { font-size: 11px; }
+.hero-ability-slot.is-ready .hero-ability-slot__portrait { border-color: #ffe17d; box-shadow: inset 0 0 8px #ffcb2838; }
+.hero-ability-slot.is-casting .hero-ability-slot__portrait { animation: power-cast-flash 360ms ease-out; }
+.hero-ability-bar--solo { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); top: max(130px, 22dvh); width: 64px; gap: 10px; }
+@keyframes power-cast-flash { 0% { filter: brightness(2); transform: scale(.88); } 45% { filter: brightness(1.5); transform: scale(1.08); } 100% { filter: none; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .hero-ability-slot.is-casting .hero-ability-slot__portrait { animation: none; } }
+
+@media (max-height: 520px) {
+  .hero-ability-bar--solo { top: 90px; gap: 6px; }
+  .hero-ability-slot { min-height: 62px; grid-template-rows: 36px auto; }
+  .hero-ability-slot__portrait { width: 36px; height: 36px; }
+  .hero-ability-slot__icon { width: 34px; height: 34px; }
+  .hero-ability-slot__name { display: none; }
+}

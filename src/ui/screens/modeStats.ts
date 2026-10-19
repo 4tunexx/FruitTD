@@ -1,3 +1,4 @@
+import { MODE_ICONS } from '../modeIcons';
 import { runHistory } from '../../game/runStats';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
@@ -38,6 +39,6 @@ export function renderModeStats(root: HTMLElement): void {
     const values = [['Runs', rows.length], ['Best wave', Math.max(...rows.map(row => row.wave))], ['Best combo', Math.max(...rows.map(row => row.combo))], ['Fruit destroyed', rows.reduce((sum, row) => sum + row.kills, 0)]];
     body.appendChild(el('div', { class: 'ftd-stat-grid ftd-run-kpis' }, values.map(([label, value]) => el('div', { class: 'ftd-stat' }, [el('p', { class: 'ftd-stat__label', text: String(label) }), el('strong', { class: 'ftd-stat__value', text: typeof value === 'number' ? value.toLocaleString() : value })]))));
   };
-  modes.forEach(mode => { const button = GameButton({ label: mode === 'coop' ? 'Co-op' : mode[0].toUpperCase() + mode.slice(1), onClick: () => show(mode) }); button.dataset.mode = mode; tabs.appendChild(button); }); show('casual');
+  modes.forEach(mode => { const button = GameButton({ icon: MODE_ICONS[mode], label: mode === 'coop' ? 'Co-op' : mode[0].toUpperCase() + mode.slice(1), onClick: () => show(mode) }); button.dataset.mode = mode; tabs.appendChild(button); }); show('casual');
 }
 

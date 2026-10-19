@@ -1,4 +1,4 @@
-import { BufferGeometry, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, RingGeometry, Scene, Vector3 } from 'three';
+import { AdditiveBlending, CatmullRomCurve3, TubeGeometry, BufferGeometry, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, RingGeometry, Scene, Vector3 } from 'three';
 import { heroDef } from './heroes';
 import type { HeroAbility } from './heroAbilities';
 
@@ -14,7 +14,8 @@ export class PowerVfx {
     const ring=(point:Vector3,size:number)=>{const mesh=new Mesh(new RingGeometry(size*.88,size,40),new MeshBasicMaterial({color,transparent:true,opacity:.85,depthWrite:false}));mesh.rotation.x=-Math.PI/2;mesh.position.copy(point);mesh.position.y=.15;mesh.userData.ring=true;group.add(mesh);};
     for(let i=1;i<variant;i++){const p=origin.clone();p.x+=Math.cos(i*Math.PI*2/variant)*1.5;p.z+=Math.sin(i*Math.PI*2/variant)*1.5;ring(p,.3+rank*.06);}
     ring(origin,(1+(rank-1)*.08)*(ability.effect==='guard'?3:1.5));
-    const points=targets.slice(0,64);
+    // Cap visual targets independently of combat damage to keep busy mobile casts readable.
+    const points=targets.slice(0,24);
     for(const [index,target] of points.entries()) {
       ring(target,ability.effect==='burst'?1.7:.65);
       const path=[origin.clone(),target.clone()];
@@ -22,7 +23,16 @@ export class PowerVfx {
         path.splice(1,0,...Array.from({length:5},(_,i)=>{const p=origin.clone().lerp(target,(i+1)/6);p.x+=Math.sin(index*3+i*7)*.7;p.y=.7+Math.cos(i)*.15;return p;}));
       }
       if(ability.effect==='pierce'||ability.effect==='shock'||ability.hero==='tripos') {
-        const beam=new Line(new BufferGeometry().setFromPoints(path),new LineBasicMaterial({color,transparent:true,opacity:1,depthWrite:false}));group.add(beam);
+        // WebGL line widths are usually one pixel. Actual tubes preserve a clear
+        // bright core and colored halo on phone screens as well as desktop.
+        const curve = new CatmullRomCurve3(path);
+        for (const layer of [{ radius: .17, tint: color, opacity: .3 }, { radius: .055, tint: 0xfff9d8, opacity: .95 }]) {
+          const beam = new Mesh(new TubeGeometry(curve, Math.max(6, path.length * 3), layer.radius, 4, false),
+            new MeshBasicMaterial({ color: layer.tint, transparent: true, opacity: layer.opacity,
+              blending: AdditiveBlending, depthWrite: false }));
+          beam.userData.baseOpacity = layer.opacity;
+          group.add(beam);
+        }
       }
       if(ability.effect==='frost')for(let i=0;i<3;i++) {
         const a=target.clone(),b=target.clone(),angle=i*Math.PI/3;a.x-=Math.cos(angle);a.z-=Math.sin(angle);b.x+=Math.cos(angle);b.z+=Math.sin(angle);a.y=b.y=.3;
@@ -36,7 +46,7 @@ export class PowerVfx {
     for(let i=this.casts.length-1;i>=0;i--){const cast=this.casts[i]!;cast.age+=dt;const t=cast.age/cast.duration;
       if(t>=1){this.release(cast.group);this.casts.splice(i,1);continue;}
       cast.group.children.forEach((object,index)=>{
-        if(object instanceof Mesh||object instanceof Line){const material=object.material as MeshBasicMaterial;material.opacity=Math.max(0,(1-t)*(cast.effect==='guard'?.7+.3*Math.sin(cast.age*12):1));}
+        if(object instanceof Mesh||object instanceof Line){const material=object.material as MeshBasicMaterial;material.opacity=Math.max(0,(object.userData.baseOpacity ?? 1)*(1-t)*(cast.effect==='guard'?.7+.3*Math.sin(cast.age*12):1));}
         if(object.userData.ring)object.scale.setScalar(.5+t*(cast.effect==='burst'?3:1.6)+Math.sin(cast.age*8+index)*.05);
       });
     }

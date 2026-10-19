@@ -1,5 +1,6 @@
 import { heroArt } from '../heroArt';
 import { lucideIcon } from '../lucideIcon';
+import { MODE_ICONS } from '../modeIcons';
 import { insigniaBadge, openInsigniaVault } from '../insigniaVault';
 import { bindArenaRating } from '../../services/pvpRating';
 import { renderHeroPowerTree } from './heroPowerTree';
@@ -35,7 +36,7 @@ import { getAllHeroStatuses } from '../../game/progression/heroStatus';
 import { HERO_PERKS } from '../../game/heroProgression';
 import { heroPerkRank } from '../../game/heroPerkSave';
 import { currentSeasonLabel } from '../../game/rankSeason';
-import { Backpack, Home, Map as MapIcon, ShoppingCart, Shield, Swords, UserRound, UsersRound, Waves } from 'lucide';
+import { Backpack, Home, ShoppingCart, Swords, UserRound, UsersRound } from 'lucide';
 import type { GameMode, SaveData } from '../../game/save';
 import { modeRules } from '../../game/modes';
 import type { HeroScreenCallbacks } from './heroes';
@@ -524,15 +525,15 @@ export function coopHubTab(onStart?: () => void): HubTab {
  * is exactly what used to be `.ftd-mainmenu__stage` before the hub existed.
  */
 function modeGlyph(mode: GameMode, className = 'ftd-mode-card__icon', size = 23): HTMLElement | SVGElement {
-  return lucideIcon(({ casual: 'Shield', horde: 'Skull', campaign: 'Map', coop: 'Users', arena: 'Swords' } as Record<string, string>)[mode] || 'Target', className, size);
+  return lucideIcon(MODE_ICONS[mode] || 'Target', className, size);
 }
 
-const HOME_MODES: Array<{ id: GameMode; name: string; note: string; icon: typeof Swords; testId: string }> = [
-  { id: 'casual', name: 'Casual', note: 'Learn the lanes', icon: Shield, testId: 'mode-casual' },
-  { id: 'horde', name: 'Horde', note: 'Endless · highest wave wins', icon: Waves, testId: 'mode-horde' },
-  { id: 'campaign', name: 'Campaign', note: '100 stages · bosses · rewards', icon: MapIcon, testId: 'campaign-open' },
-  { id: 'coop', name: 'Co-op', note: 'Squad up · play together', icon: UsersRound, testId: 'mode-coop' },
-  { id: 'arena', name: 'Arena PvP', note: 'Tower siege · Normal or Ranked', icon: Swords, testId: 'mode-arena' },
+const HOME_MODES: Array<{ id: GameMode; name: string; note: string; testId: string }> = [
+  { id: 'casual', name: 'Casual', note: 'Learn the lanes', testId: 'mode-casual' },
+  { id: 'horde', name: 'Horde', note: 'Endless · highest wave wins', testId: 'mode-horde' },
+  { id: 'campaign', name: 'Campaign', note: '100 stages · bosses · rewards', testId: 'campaign-open' },
+  { id: 'coop', name: 'Co-op', note: 'Squad up · play together', testId: 'mode-coop' },
+  { id: 'arena', name: 'Arena PvP', note: 'Tower siege · Normal or Ranked', testId: 'mode-arena' },
 ];
 
 function launchHomeMode(mode: GameMode, onPlay: () => void, onCampaign?: () => void): void {

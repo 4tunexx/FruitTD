@@ -1,3 +1,4 @@
+import { EXTRACTED_ICON_BOUNDS } from './extractedIconBounds';
 /** Individual transparent crops from the three icon sheets supplied for FruitTD. */
 const groups: Record<string, number[]> = {
   rune: Array(11).fill(6),
@@ -29,9 +30,9 @@ export const ICON_ASSETS: Record<string, string> = {
   Droplets: 'creative-10-09', Tornado: 'creative-04-03', Waves: 'rune-11-01',
   Coins: 'lobby-01-09', Gem: 'creative-07-01', Diamond: 'creative-07-01', Crown: 'lobby-01-04',
   Backpack: 'lobby-01-10', ShoppingBag: 'creative-09-08', ShoppingCart: 'creative-09-08',
-  Map: 'quest-01-03', ScrollText: 'lobby-01-08',
+  Map: 'creative-07-04', ScrollText: 'lobby-01-08',
   Trophy: 'stat-01-01', Medal: 'creative-05-09', Hammer: 'creative-05-07', Bomb: 'creative-02-04',
-  Gift: 'creative-09-08', Skull: 'creative-03-07', LockKeyhole: 'creative-06-01',
+  Gift: 'creative-09-08', Skull: 'stat-01-09', LockKeyhole: 'creative-06-01',
   Heart: 'creative-06-10', ChevronRight: 'misc-02-09', ChevronsUp: 'misc-02-06',
   ArrowUpCircle: 'misc-02-06', ChartNoAxesCombined: 'stat-02-01', Gauge: 'stat-02-01',
   UserRound: 'lobby-01-03', User: 'lobby-01-03',
@@ -59,6 +60,19 @@ export function extractedIcon(id: string, className = '', size = 20): HTMLElemen
   }
   const icon = document.createElement('span');
   icon.className = 'ftd-asset-glyph';
+  const bounds = EXTRACTED_ICON_BOUNDS[safeId];
+  if (bounds) {
+    const [width, height, x, y, inkWidth, inkHeight] = bounds;
+    const scale = .9 / Math.max(inkWidth, inkHeight);
+    const position = (size: number, center: number) => Math.abs(1 - size * scale) < .001
+      ? 50 : 100 * (.5 - center * scale) / (1 - size * scale);
+    const maskSize = `${width * scale * 100}% ${height * scale * 100}%`;
+    const maskPosition = `${position(width, x + inkWidth / 2)}% ${position(height, y + inkHeight / 2)}%`;
+    icon.style.maskSize = maskSize;
+    icon.style.maskPosition = maskPosition;
+    icon.style.setProperty('-webkit-mask-size', maskSize);
+    icon.style.setProperty('-webkit-mask-position', maskPosition);
+  }
   icon.style.maskImage = `url("${path}")`;
   icon.style.setProperty('-webkit-mask-image', `url("${path}")`);
   frame.appendChild(icon);
