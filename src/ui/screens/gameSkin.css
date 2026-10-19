@@ -285,8 +285,13 @@
   flex-direction: column;
   gap: .75rem;
   color: #f3eee4;
+  min-width: 0;
+  height: fit-content;
+  flex-shrink: 0;
 }
-.ftd-board-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+/* Filters and empty states must keep their height inside the scrolling hub. */
+.ftd-board > * { flex-shrink: 0; }
+.ftd-board-tabs { display: flex; flex: 0 0 auto; min-width: 0; flex-wrap: wrap; align-items: center; gap: .45rem; }
 .ftd-board-tabs .ftd-btn {
   min-height: 39px !important;
   padding: .35rem .7rem !important;
@@ -682,26 +687,33 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 }
 
 @media (max-width: 900px) {
+  /* Keep the compact flex sizing from hub.css; never create a second row. */
   #screen-hub .ftd-hub__header {
-    display: grid;
-    grid-template-columns: 54px minmax(0, 1fr);
-    grid-template-rows: 50px 48px;
+    display: flex;
+    flex-wrap: nowrap;
     align-items: stretch;
-    gap: 5px;
+    gap: 2px;
     padding: 0;
     border: 0;
+    min-width: 0;
   }
-  #screen-hub .ftd-hub-identity-slot { grid-column: 1; grid-row: 1; width: 54px; height: 50px; }
-  #screen-hub .ftd-hub-identity { height: 50px; min-height: 50px; }
+  #screen-hub .ftd-hub__header > .ftd-hub-identity-slot {
+    order: 0; flex: 0 0 46px; width: 46px; min-width: 46px; height: 44px;
+  }
+  #screen-hub .ftd-hub__header > .ftd-hub-currency {
+    order: 1; flex: 1 1 0; width: auto; min-width: 0; height: 44px;
+  }
+  #screen-hub .ftd-hub__header > .ftd-hub-actions {
+    order: 2; display: block; flex: 0 0 44%; width: auto; min-width: 0; height: 44px;
+    grid-column: auto !important; grid-row: auto !important;
+  }
+  #screen-hub .ftd-hub__header > .ftd-hub-actions > .ftd-hub-utils {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: stretch;
+    width: 100%; height: 44px; min-width: 0; gap: 2px; padding: 0;
+  }
   #screen-hub .ftd-hub-identity__insignia { display: none; }
-  #screen-hub .ftd-hub-currency { grid-column: 2; grid-row: 1; height: 50px; gap: 5px; }
-  #screen-hub .ftd-hub-currency__button { height: 50px; min-height: 50px; font-size: .86rem; }
-  #screen-hub .ftd-hub-actions { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 48px; }
-  #screen-hub .ftd-hub-actions .ftd-hub-utils { height: 48px; gap: 5px; }
-  #screen-hub .ftd-hub-utility { height: 48px; min-height: 48px; }
   #screen-hub .ftd-hub-social__icon,
-  #screen-hub .ftd-hub-utility svg { width: 23px; height: 23px; }
-  #screen-hub .ftd-hub-community-slot { height: 48px; }
+  #screen-hub .ftd-hub-utility svg { width: 19px; height: 19px; }
   #screen-hub .ftd-hub__footer { display: flex; width: 100%; justify-content: space-between; align-items: stretch; gap: 5px; padding: 4px; }
   #screen-hub .ftd-hub__footer .ftd-hub-tab { flex: 1 1 0; min-width: 0; min-height: 58px; padding: 6px 2px; flex-direction: column; gap: 1px; }
   #screen-hub .ftd-hub__footer .ftd-hub-tab.is-active { flex: 1.65 1 0; }
