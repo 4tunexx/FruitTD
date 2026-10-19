@@ -109,7 +109,7 @@
     <div id="app">
       <canvas id="game-canvas" data-testid="combat-canvas" aria-label="Tower defense battlefield"></canvas>
       <div id="combat-impact" aria-hidden="true"></div>
-      <button id="btn-game-menu-quick" type="button" aria-label="Pause and open game menu" title="Pause and open game menu">☰ <span>MENU</span></button>
+      <button id="btn-game-menu-quick" type="button" aria-label="Pause and open game menu" title="Pause and open game menu"><span data-lucide="Pause" aria-hidden="true"></span><span class="sr-only">Pause</span></button>
       <div id="coop-guest-cursor" class="hidden" aria-hidden="true"><span>P2</span></div>
       <div id="coop-guest-help" class="hidden" aria-hidden="true">PLAYER 2 · ARROW KEYS MOVE · ENTER SLASH</div>
 
@@ -137,6 +137,12 @@
           <button id="btn-mute" class="chip-btn" title="Mute"><span data-lucide="Volume2" aria-hidden="true"></span></button>
           <button id="btn-profile-toggle" class="chip-btn" type="button" aria-label="Collapse profile" aria-expanded="true" title="Collapse profile"><span data-lucide="ChevronsLeft" aria-hidden="true"></span></button>
           <button id="btn-game-settings" class="chip-btn" type="button" title="Game menu" aria-label="Game menu"><span data-lucide="Settings" aria-hidden="true"></span></button>
+        </div>
+
+        <div id="battle-status" aria-label="Match status">
+          <span><small>WAVE</small><strong id="battle-status-wave">1</strong></span>
+          <span><small>FRUTS</small><strong id="battle-status-fruts">0</strong></span>
+          <span><small>WALL</small><strong id="battle-status-lives">15</strong></span>
         </div>
 
         <!-- Super juice bar (left side) -->

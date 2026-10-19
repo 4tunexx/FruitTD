@@ -1116,6 +1116,10 @@ export class Hud {
     this.currency.textContent = `${state.currency} F`;
     this.lives.textContent = String(state.lives);
     this.wave.textContent = String(state.wave);
+    for(const [id,value] of [['wave',state.wave],['fruts',state.currency],['lives',state.lives]] as const){
+      const element=document.getElementById(`battle-status-${id}`);
+      if(element && element.textContent!==String(value))element.textContent=String(value);
+    }
     this.fps.textContent = `${Math.round(fps)} FPS`;
     this.juice.textContent = `Y ${bank.yellow}  P ${bank.pink}  O ${bank.orange}  G ${bank.green}`;
     this.points.textContent = points > 0 ? `${points} skill point${points !== 1 ? 's' : ''} available` : '';

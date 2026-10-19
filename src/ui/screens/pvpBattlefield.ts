@@ -1,3 +1,5 @@
+import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
+import { faceCombatPortraits } from '../../game/portraitFacing';
 import { combatTokenFrame } from '../../game/combatTokens';
 import { battleScenery, battleTexture } from '../../game/battleArt';
 import { PowerVfx } from '../../game/powerVfx';
@@ -104,7 +106,7 @@ export class PvpBattlefield {
     }
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    this.scene.background = new Color(snapshot.shared ? 0x263626 : 0x17191c);
+    this.scene.background = new Color(0x202529);
     this.scene.add(new AmbientLight(0xc7deee, .85));
     const sun = new DirectionalLight(0xffd878, 1.75); sun.position.set(-18, 30, 12); this.scene.add(sun);
     const rim = new DirectionalLight(0x96d5ff, .55); rim.position.set(14, 12, -24); this.scene.add(rim);
@@ -186,10 +188,11 @@ export class PvpBattlefield {
         if (!entry) {
           const kind = fruit.type === 'swift' ? 'strawberry' : fruit.type === 'armored' ? 'watermelon' : fruit.type === 'explosive' ? 'bomb' : 'orange';
           const def = FRUIT_DEFS[kind];
-          const texture = sampleStudioTexture(enemyKindToStudioKey(fruit.type as Parameters<typeof enemyKindToStudioKey>[0])) || getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || fruitAtlas.tile(...def.skin);
+          const texture = sampleStudioTexture(enemyKindToStudioKey(fruit.type as Parameters<typeof enemyKindToStudioKey>[0])) || getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || enemyPortrait(kind,fruit.boss) || fruitAtlas.tile(...def.skin);
           const teamColor = player.side === 'blue' ? COLORS.red : COLORS.blue;
           const size = fruit.type === 'armored' ? 1.36 : .96;
           const mesh = new Mesh(new CircleGeometry(size / 2, 40), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, transparent: true, side: DoubleSide, depthWrite: false }));
+          mesh.userData.combatPortrait=true;
           mesh.add(combatTokenFrame(size / 2, fruit.boss ? 'boss' : 'fruit'));
           const shadow = new Mesh(new CircleGeometry(fruit.type === 'armored' ? .78 : .58, 16), new MeshBasicMaterial({color:0x06130d,transparent:true,opacity:.28,depthWrite:false}));
           shadow.rotation.x = -Math.PI / 2; shadow.position.y = -.56; mesh.add(shadow);
@@ -248,13 +251,13 @@ export class PvpBattlefield {
     this.health.clear(); this.buildPads.length = 0; this.mainTowerMaterials.length = 0; this.wallMaterials.length = 0; this.heroArt.length = 0;
     const fullLength = (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2);
     const fullWidth = map.width * TILE_X + 5;
-    const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), new MeshLambertMaterial({ color: this.snapshot.shared ? 0x497b42 : 0x46794a, side: DoubleSide }));
+    const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), new MeshBasicMaterial({ color:0xffffff, map:battlefieldTexture(), side:DoubleSide }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -.05;
     if (this.snapshot.shared) floor.position.z = (map.height + 2) * TILE / 2;
     this.terrain.add(floor,battleScenery(fullWidth,fullLength,floor.position.z));
 
     const shoulderMat = new MeshLambertMaterial({ color: 0x73583b });
-    const roadMat = new MeshLambertMaterial({ color: 0xb18a55, map:battleTexture('stone') });
+    const roadMat = new MeshLambertMaterial({ color: 0x55524b, map:battleTexture('stone') });
     const laneMat = new MeshLambertMaterial({ color: 0xe9d09a });
     const padMat = new MeshBasicMaterial({ color: 0xf0dcaa, transparent: true, opacity: .16, depthWrite: false });
 
@@ -301,19 +304,22 @@ export class PvpBattlefield {
       wall.position.y = .5;
       const keep = new Mesh(new CircleGeometry(1.1, 48), new MeshLambertMaterial({ color: teamColor, side: DoubleSide, transparent: true }));
       this.mainTowerMaterials.push(keep.material as MeshLambertMaterial);
+      keep.userData.combatPortrait=true;
       keep.add(combatTokenFrame(1.1, 'tower'));
       keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
-      const towerTexture = sampleStudioTexture('tower-main') || getAdminTexture('tower-main'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
+      const towerTexture = sampleStudioTexture('tower-main') || getAdminTexture('tower-main') || characterPortrait('tower'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
       const hero = heroDef((player.hero || 'jiju') as HeroId);
       const heroKey = heroIdToStudioKey(hero.id);
-      const heroTexture = sampleStudioTexture(heroKey, 'idle') || getAdminTexture(`hero-${hero.id}`);
+      const heroTexture = sampleStudioTexture(heroKey, 'idle') || getAdminTexture(`hero-${hero.id}`) || characterPortrait(hero.id);
       const heroMaterial = new MeshBasicMaterial({ color: heroTexture ? 0xffffff : hero.color, map: heroTexture, transparent: true, side: DoubleSide });
       const avatar = new Mesh(new CircleGeometry(1.25, 48), heroMaterial);
+      avatar.userData.combatPortrait=true;
       avatar.add(combatTokenFrame(1.25, 'hero'));
       avatar.position.set(gateX + 2.2, 1.7, own ? -.4 : .4); base.add(avatar);
       this.heroArt.push({ key: heroKey, material: heroMaterial });
       for (const x of [-map.width * TILE_X / 2 + 1, map.width * TILE_X / 2 - 1]) {
         const turret = new Mesh(new CircleGeometry(.85, 40), new MeshLambertMaterial({ color: teamColor, side: DoubleSide }));
+        turret.userData.combatPortrait=true;
         turret.add(combatTokenFrame(.85, 'tower'));
         turret.position.set(x, 1, 0); base.add(turret);
       }
@@ -535,6 +541,7 @@ export class PvpBattlefield {
     if (!this.stroke && now > this.trailUntil) this.trail.reset();
     if (Date.now() - this.remoteAt > 300) this.remoteTrail.reset();
     this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
+    faceCombatPortraits(this.scene,this.camera);
     this.renderer.render(this.scene, this.camera); this.frame = requestAnimationFrame(this.animate);
   };
   private release(object: Group | Mesh | Line): void {

@@ -1,3 +1,4 @@
+import { battlefieldArtSource, BATTLEFIELD_ART_URL } from './characterPortraits';
 import { battleScenery } from './battleArt';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, TextureLoader, SRGBColorSpace } from 'three';
 import type { AdminConfig } from '../services/admin';
@@ -6,7 +7,7 @@ import { SOLO_ARENA_D, ARENA_W } from './world';
 
 type Appearance = AdminConfig['landscapeConfig'];
 const DEFAULT: Appearance = {
- locationName:'Fallen Orchard', skyColor:'#4a5f3e', outerGroundColor:'#5a8a42', groundColor:'#6fa052',
+ locationName:'Fallen Orchard', skyColor:'#202529', outerGroundColor:'#29302c', groundColor:'#34383b',
  groundGlowColor:'#2a3a1f', foliageColor:'#3d8b3a', ambientLight:.92, sunLight:.85, foliageEnabled:true,
 };
 function color(value: unknown, fallback: string): string { return typeof value==='string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback; }
@@ -37,14 +38,17 @@ export class Field {
   this.perimeter.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();(node.material as MeshBasicMaterial).dispose();}});
   this.perimeter=battleScenery(map.world.width,map.world.depth);this.group.add(this.perimeter);
   this.renderMapEntities(map,request);
+  this.perimeter.visible=battlefieldArtSource(map.background)!==BATTLEFIELD_ART_URL;
   const loader=new TextureLoader();
-  loader.load(map.background,(texture)=>{
+  const background=battlefieldArtSource(map.background);
+  loader.load(background,(texture)=>{
    if(request!==this.mapRequest){texture.dispose();return;}
    texture.colorSpace=SRGBColorSpace;
    // Plane UVs are reversed along world Z after rotation; this keeps image top north.
    texture.flipY=false;
    this.mapMaterial.map?.dispose();this.mapMaterial.map=texture;this.mapMaterial.needsUpdate=true;
-   this.mapSurface.geometry.dispose();this.mapSurface.geometry=new PlaneGeometry(map.world.width,map.world.depth);
+   this.mapSurface.geometry.dispose();this.mapSurface.geometry=new PlaneGeometry(map.world.width,map.world.depth+(background===BATTLEFIELD_ART_URL?10:0));
+   this.mapSurface.position.z=background===BATTLEFIELD_ART_URL?5:0;
    this.mapSurface.visible=true;this.legacyGroup.visible=false;
   },undefined,()=>{
    if(request===this.mapRequest){this.mapSurface.visible=false;this.legacyGroup.visible=true;}

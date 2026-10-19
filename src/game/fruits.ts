@@ -1,3 +1,4 @@
+import { enemyPortrait } from './characterPortraits';
 import { combatTokenFrame, setCombatTokenKind } from './combatTokens';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
@@ -92,16 +93,18 @@ function layoutHp(fruit: Fruit, t: number): void {
 }
 
 function makeFruit(): Fruit {
-  const body = new Mesh(BODY_GEO, new MeshLambertMaterial({ color: 0xffffff, transparent: true, side: DoubleSide, depthWrite: false }));
+  const body = new Mesh(BODY_GEO, new MeshBasicMaterial({ color: 0xffffff, transparent: true, side: DoubleSide, depthWrite: false }));
+  body.userData.combatPortrait=true;
   body.add(combatTokenFrame(1));
   const outline = new Mesh(BODY_GEO, new MeshBasicMaterial({ color: 0x080b07, side: DoubleSide, transparent: true, depthWrite: false }));
+  outline.userData.combatPortrait=true;
   outline.position.z = 0.02;
   outline.scale.setScalar(1.075);
   outline.visible = false;
   const hpBackMat = new MeshBasicMaterial({ color: 0x140f0c, depthWrite: false, depthTest: false });
   const hpBack = new Mesh(BAR_GEO, hpBackMat);
   const hpBar = new Mesh(BAR_GEO, new MeshBasicMaterial({ color: 0x8eea4e, depthWrite: false, depthTest: false }));
-  hpBack.rotation.x = hpBar.rotation.x = -2.2;
+  hpBack.userData.combatPortrait=hpBar.userData.combatPortrait=true;
   hpBack.renderOrder = 80;
   hpBar.renderOrder = 81;
   
@@ -142,7 +145,7 @@ function paintStatic(fruit: Fruit, def: FruitDef): void {
   if (adminTexture) {
     mat.map = adminTexture;
   } else {
-    mat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
+    mat.map = enemyPortrait(fruit.kind,fruit.boss) || fruitAtlas.tile(def.skin[0], def.skin[1]);
   }
 
   // If no admin texture, apply themed tinting so special enemies are instantly identifiable

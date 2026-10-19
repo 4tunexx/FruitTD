@@ -1,13 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_BATTLE_MAPS, defaultMapForMode, mapPointToWorld, normalizeBattleMap } from './battleMaps';
+import { BATTLEFIELD_ART_URL, DEFAULT_BATTLE_MAPS, defaultMapForMode, mapPointToWorld, normalizeBattleMap } from './battleMaps';
 
 describe('authored battle map skeletons', () => {
   it('provides independent maps for each shared game mode with top spawns', () => {
     for (const mode of ['casual', 'horde', 'campaign', 'coop', 'pvp'] as const) {
       const map = DEFAULT_BATTLE_MAPS[mode];
       assert.equal(map.mode, mode);
-      assert.ok(map.background.endsWith('.svg'));
+      assert.equal(map.background,BATTLEFIELD_ART_URL);
       assert.equal(map.world.depth, mode === 'pvp' ? 132 : 44);
       assert.ok(map.routes.every((route) => route.points.length >= 2));
       assert.ok(map.spawns.every((spawn) => spawn.y < .1));

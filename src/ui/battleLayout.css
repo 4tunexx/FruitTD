@@ -143,3 +143,54 @@ body[data-ftd-screen='PLAY'] #super-bar-track { border-color: #f48120; backgroun
 body[data-ftd-screen='PLAY'] #boss-health { box-shadow: 0 3px 0 #101113; }
 .ftd-pvp.is-battle :is(.ftd-duel-hud, .ftd-duel-dock) { border-color: #f48120; }
 @media (max-height: 520px) { .hero-ability-slot__icon { width: 30px; height: 30px; } }
+
+/* Match the playable screen to the graphite/gold command UI. */
+body[data-ftd-screen='PLAY'] #hud::before {
+  content:''; position:absolute; inset:0 0 auto; height:118px; z-index:0; pointer-events:none;
+  background:linear-gradient(#111418ed,#171b20a8 65%,transparent);
+}
+body[data-ftd-screen='PLAY'] #player-chip {
+  left:10px; top:10px; right:auto; max-width:calc(100% - 66px); min-height:38px;
+  border:1px solid #ffe39488; background:#202125ee; box-shadow:0 3px 0 #111315; gap:6px;
+}
+body[data-ftd-screen='PLAY'] #btn-game-menu-quick {
+  display:grid; place-items:center; width:40px; min-width:40px; height:40px; min-height:40px;
+  top:10px; right:10px; padding:9px; border:1px solid #ffe394; background:#202125f5;
+  box-shadow:0 3px 0 #111315; color:#ffe394;
+}
+body[data-ftd-screen='PLAY'] #btn-game-menu-quick svg { width:20px; height:20px; }
+#battle-status { display:none; }
+body[data-ftd-screen='PLAY'] #battle-status {
+  position:absolute; top:62px; left:10px; right:10px; z-index:20; display:flex; gap:6px; pointer-events:none;
+}
+#battle-status > span {
+  display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; flex:1;
+  padding:6px 9px; border:1px solid #b28c4e80; border-bottom:2px solid #d69b3c;
+  background:#202125ec; color:#fff0cd; box-shadow:0 2px #111315;
+}
+#battle-status small { font-size:8px; font-weight:800; letter-spacing:.12em; color:#d8c496; }
+#battle-status strong { font-size:13px; font-variant-numeric:tabular-nums; }
+body[data-ftd-screen='PLAY'] #super-wrap,
+body[data-ftd-screen='PLAY'] #player-chip.is-collapsed + #super-wrap {
+  top:100px; left:10px; width:calc(100% - 20px); max-width:none; height:6px;
+}
+body[data-ftd-screen='PLAY'] #super-bar-track { height:6px; border:1px solid #ffe3948a; background:#17191e; }
+body[data-ftd-screen='PLAY'] #btn-super { left:auto; right:0; top:12px; border:1px solid #ffe394; background:#ffbd33; color:#17191e; }
+.hero-ability-bar--solo { top:max(145px,24dvh); right:8px; gap:9px; }
+.hero-ability-slot { width:58px; min-height:76px; grid-template-rows:44px auto auto; gap:2px; }
+.hero-ability-slot__name { padding:3px 4px; border-radius:3px; background:#202125e8; color:#fff0cd; font-size:8px; text-shadow:none; }
+.hero-ability-slot__cooldown { font-size:10px; padding:0 4px 2px; background:#202125e8; color:#ffe394; border-radius:3px; }
+.hero-ability-slot__portrait { width:46px; height:46px; box-shadow:0 3px 0 #111315,0 0 0 2px #202125; }
+.hero-ability-slot__icon { width:42px; height:42px; }
+body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { border:1px solid #ffe394; background:#202125f5; color:#ffe394; bottom:42px; }
+body[data-ftd-screen='PLAY'] #boss-health { top:118px; left:76px; right:76px; max-width:none; border-color:#ffe394; }
+@media(max-height:520px) {
+  body[data-ftd-screen='PLAY'] #battle-status { top:10px; left:220px; right:62px; }
+  #battle-status > span { padding:5px; gap:5px; }
+  body[data-ftd-screen='PLAY'] #super-wrap { top:59px; }
+  .hero-ability-bar--solo { top:82px; gap:3px; }
+  .hero-ability-slot { min-height:57px; grid-template-rows:36px auto; }
+  .hero-ability-slot__portrait { width:36px; height:36px; }
+  .hero-ability-slot__icon { width:32px; height:32px; }
+  .hero-ability-slot__name { display:none; }
+}

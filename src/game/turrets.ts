@@ -94,19 +94,20 @@ export class TurretRig {
     this.kind = kind;
     const colors: Record<TurretKind, number> = { guillotine: 0xff6622, vortex: 0x6ec6c0, laser: 0xffee55, railgun: 0xd48aa0, sprinkler: 0xff8a2a, blender: 0x888888 };
     const placeholder = new Mesh(new CircleGeometry(.55, 40), new MeshBasicMaterial({ color: colors[kind], side: DoubleSide, transparent: true, opacity: 0.9 }));
+    placeholder.userData.combatPortrait=true;
     placeholder.add(combatTokenFrame(.55, 'tower'));
     placeholder.position.y = 0.6;
     this.group.add(placeholder);
     this.placeholder = placeholder;
     placeholder.add(this.mechanism);
-    this.mechanism.position.z = -.07;
+    this.mechanism.position.z = .07;
     // Original, gold-contoured mechanical silhouettes; published studio art
     // replaces these parts while retaining the shared token frame.
     const part = (geometry: PlaneGeometry | CircleGeometry | RingGeometry | ShapeGeometry, color: number, x=0, y=0): Mesh => {
       const rim = new Mesh(geometry, new MeshBasicMaterial({ color: COMBAT_GOLD, side: DoubleSide }));
-      rim.position.set(x,y,-.02); rim.scale.setScalar(1.13);
+      rim.position.set(x,y,.02); rim.scale.setScalar(1.13);
       const face = new Mesh(geometry.clone(), new MeshBasicMaterial({ color, side: DoubleSide }));
-      face.position.z=-.012; face.scale.setScalar(1/1.13); rim.add(face); this.mechanism.add(rim); return rim;
+      face.position.z=.012; face.scale.setScalar(1/1.13); rim.add(face); this.mechanism.add(rim); return rim;
     };
     part(new CircleGeometry(.36,24),0x202125);
     if(kind==='guillotine') {
@@ -114,15 +115,15 @@ export class TurretRig {
       const blade = new Shape(); blade.moveTo(-.38,.08); blade.lineTo(.4,.08); blade.lineTo(.22,-.22); blade.lineTo(-.38,-.07); blade.closePath();
       this.blade=part(new ShapeGeometry(blade),0xffe6a5,0,.23);
     } else if(kind==='vortex'||kind==='sprinkler') {
-      this.spin=new Group(); this.spin.position.z=-.06; this.mechanism.add(this.spin);
+      this.spin=new Group(); this.spin.position.z=.06; this.mechanism.add(this.spin);
       for(let i=0;i<4;i++) {
         const arm=part(new PlaneGeometry(.16,.43),colors[kind],Math.sin(i*Math.PI/2)*.19,Math.cos(i*Math.PI/2)*.19);
         arm.rotation.z=-i*Math.PI/2+.4; this.spin.attach(arm);
       }
-      part(new CircleGeometry(.12,16),0xffedc2).position.z=-.1;
+      part(new CircleGeometry(.12,16),0xffedc2).position.z=.1;
     } else if(kind==='laser'||kind==='railgun') {
       part(new PlaneGeometry(.3,.58),0x34383f,0,.2);
-      part(new PlaneGeometry(.13,.45),colors[kind],0,.28).position.z=-.07;
+      part(new PlaneGeometry(.13,.45),colors[kind],0,.28).position.z=.07;
       this.beam=part(new CircleGeometry(.11,16),0xfff2a4,0,.53);
       if(kind==='railgun') {
         this.slug=new Mesh(new CircleGeometry(.15,16),new MeshBasicMaterial({color:0xffb8db,side:DoubleSide}));

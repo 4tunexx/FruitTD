@@ -13,7 +13,7 @@ test('solo camera stays angled and anchors wall HP near the lower safe edge on e
   const pitch=Math.abs(field.camera.getWorldDirection(new Vector3()).y);
   assert.ok(width/height<.82 ? pitch>.75&&pitch<.85 : pitch>.5&&pitch<.7,'mode-appropriate 2.5D pitch');
   const hp=new Vector3(0,.15,-10.6).project(field.camera);
-  const target=1-6/height;
+  const target=1-24/height;
   assert.ok(Math.abs((1-hp.y)/2-target)<.001,'health rail stays near the lower safe edge');
   if(width/height<.82){
    const spawn=new Vector3(0,.7,SOLO_ARENA_D/2-SOLO_ARENA_D*.025).project(field.camera);

@@ -1,3 +1,4 @@
+import { characterPortrait } from './characterPortraits';
 import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
 import {
   CanvasTexture,
@@ -88,6 +89,7 @@ export class WallBase {
       new PlaneGeometry(ARENA_W - 2, 1.15),
       new MeshLambertMaterial({ color: 0x9a4034, side: DoubleSide, transparent: true }),
     );
+    this.wallMesh.userData.combatPortrait=true;
     this.wallMesh.position.set(0, 0.52, (WALL_Z + EXTRA_Z) / 2);
     this.group.add(this.wallMesh);
 
@@ -103,6 +105,7 @@ export class WallBase {
       new CircleGeometry(1.05, 48),
       keepMat,
     );
+    this.keepMesh.userData.combatPortrait=true;
     this.keepMesh.add(combatTokenFrame(1.05, 'tower'));
     this.keepMesh.position.set(0, 1.15, WALL_Z);
     this.group.add(this.keepMesh);
@@ -150,10 +153,17 @@ export class WallBase {
     for (let i = 0; i < PADS.length; i++) {
       const def = PADS[i];
       const pad = new Mesh(
-        new PlaneGeometry(def.main ? 1.4 : 0.84, def.main ? 0.4 : 0.3),
+        new RingGeometry(def.main ? .66 : .42, def.main ? .75 : .5, 32),
         new MeshLambertMaterial({ color: def.main ? 0xf3f4f6 : 0xd6c4a0, side: DoubleSide }),
       );
-      pad.position.set(def.x, def.main ? 2.24 : 1.1, def.z);
+      pad.rotation.x=-Math.PI/2;
+      pad.position.set(def.x,.12,def.z);
+      if(!def.main) {
+        for(const angle of [0,Math.PI/2]){
+          const plus=new Mesh(new PlaneGeometry(.3,.055),new MeshBasicMaterial({color:COMBAT_GOLD,side:DoubleSide}));
+          plus.name='build-plus';plus.rotation.z=angle;pad.add(plus);
+        }
+      }
       this.group.add(pad);
       const slot: Slot = {
         index: i,
@@ -170,8 +180,8 @@ export class WallBase {
         turret: null,
       };
       if (def.main) {
-        slot.head = this.makeHead(0, 0, 0.48);
-        slot.head.position.set(def.x, 2.78, def.z);
+        slot.head = this.makeHead(0, 0, 0.68);
+        slot.head.position.set(def.x, 3.3, def.z);
         this.group.add(slot.head);
       }
       this.slots.push(slot);
@@ -243,7 +253,7 @@ export class WallBase {
       mat.needsUpdate = true;
       return;
     }
-    mat.map = fruitAtlas.tile(0, 0);
+    mat.map = characterPortrait('tower') || fruitAtlas.tile(0, 0);
     mat.color.setHex(0xffffff);
     mat.needsUpdate = true;
   }
@@ -261,8 +271,8 @@ export class WallBase {
     this.heroOnKeep = visible;
     if (!visible) {
       const mat = this.keepMesh.material as MeshLambertMaterial;
-      mat.map = null;
-      mat.color.setHex(0x6e3128);
+      mat.map = characterPortrait(this.heroOnKeep && this.currentHero ? this.currentHero : 'tower');
+      mat.color.setHex(mat.map ? 0xffffff : 0x34383f);
       mat.needsUpdate = true;
     } else if (this.currentHero) this.refreshHeroTexture();
   }
@@ -305,8 +315,8 @@ export class WallBase {
       mat.map = towerStudio;
       mat.color.setHex(0xffffff);
     } else {
-      mat.map = null;
-      mat.color.setHex(0x6e3128);
+      mat.map = characterPortrait(this.heroOnKeep && this.currentHero ? this.currentHero : 'tower');
+      mat.color.setHex(mat.map ? 0xffffff : 0x34383f);
     }
     mat.needsUpdate = true;
   }
@@ -547,7 +557,7 @@ export class WallBase {
       if (!best || slot.cooldown > 0) continue;
       const fireMul = getTowerMilestoneBonuses(getTowerXpState().level).defenceFireRateMultiplier;
       slot.cooldown = 1 / (stats.fireRate * fireMul);
-      if (slot.head) slot.head.lookAt(best.group.position);
+      // Portraits face the camera; projectiles aim at the actual target.
       this.spawnShot(slot.x, slot.z, best.group.position, 0xf4d35e);
       onHit({ fruit: best, damage: stats.damage });
       shot = true;
@@ -576,6 +586,7 @@ export class WallBase {
       mat.needsUpdate = true;
     }
     const portrait = new Mesh(new CircleGeometry(radius, 48), mat);
+    portrait.userData.combatPortrait=true;
     portrait.add(combatTokenFrame(radius, 'hero'));
     return portrait;
   }
@@ -604,14 +615,15 @@ export class WallBase {
     const movingKind = this.moving ? this.slots[this.selected]?.kind : null;
     for (const slot of this.slots) {
       const mat = slot.pad.material as MeshLambertMaterial;
+      for(const mark of slot.pad.children)mark.visible=!slot.filled;
       if (this.moving && movingKind && movingKind !== 'main' && !slot.filled && !slot.main) {
         mat.color.setHex(canPlaceTurret(movingKind, PADS[slot.index]) ? 0x38bdf8 : 0x57534e);
         continue;
       }
-      if (slot.index === this.selected) mat.color.setHex(0x4ade80);
+      if (slot.index === this.selected) mat.color.setHex(0xffc34a);
       else if (slot.main) mat.color.setHex(0xf3f4f6);
       else if (slot.filled) mat.color.setHex(0xf0b429);
-      else mat.color.setHex(0xd6c4a0);
+      else mat.color.setHex(0xa78a53);
     }
   }
 

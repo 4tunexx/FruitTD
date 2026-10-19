@@ -130,7 +130,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
     loadingBackgroundImage: '',
   },
   landscapeConfig: {
-    locationName: 'Fallen Orchard', skyColor: '#4a5f3e', outerGroundColor: '#5a8a42', groundColor: '#6fa052',
+    locationName: 'Fallen Orchard', skyColor: '#202529', outerGroundColor: '#29302c', groundColor: '#34383b',
     groundGlowColor: '#2a3a1f', foliageColor: '#3d8b3a', ambientLight: 0.92, sunLight: 0.85, foliageEnabled: true,
   },
   gameplayConfig: {

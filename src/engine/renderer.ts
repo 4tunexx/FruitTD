@@ -1,3 +1,4 @@
+import { faceCombatPortraits } from '../game/portraitFacing';
 import {
   ACESFilmicToneMapping,
   AmbientLight,
@@ -11,7 +12,7 @@ import {
 } from 'three';
 import { ARENA_W } from '../game/world';
 
-const CLEAR = new Color(0x4a5f3e);
+const CLEAR = new Color(0x202529);
 
 /** Preserve all spawn lanes at default zoom, including narrow portrait screens. */
 export function arenaFrustum(width: number, height: number, zoomHeight = 20) {
@@ -80,9 +81,9 @@ export class GameRenderer {
       const config = (event as CustomEvent<Partial<{ skyColor: string; ambientLight: number; sunLight: number }>>).detail;
       if (!config) return;
       if (typeof config.skyColor === 'string' && /^#[0-9a-f]{6}$/i.test(config.skyColor)) {
-        this.scene.background = new Color(config.skyColor);
-        (this.scene.fog as Fog).color.set(config.skyColor);
-        this.renderer.setClearColor(config.skyColor, 1);
+        this.scene.background = new Color(config.skyColor === '#4a5f3e' ? '#202529' : config.skyColor);
+        (this.scene.fog as Fog).color.copy(this.scene.background as Color);
+        this.renderer.setClearColor(this.scene.background as Color, 1);
       }
       if (Number.isFinite(config.ambientLight)) this.ambientLight.intensity = Math.max(.1, Math.min(1.5, Number(config.ambientLight)));
       if (Number.isFinite(config.sunLight)) this.keyLight.intensity = Math.max(.1, Math.min(1.5, Number(config.sunLight)));
@@ -218,7 +219,7 @@ export class GameRenderer {
     const wall = new Vector3(0, .15, -10.6).project(this.camera);
     // Portrait play keeps the full-width keep and its health rail close to the
     // bottom safe edge. Desktop framing keeps the existing cinematic margin.
-    const wallTargetY = 1 - 6 / Math.max(1, h);
+    const wallTargetY = 1 - 24 / Math.max(1, h);
     const shift = (wall.y - (1 - 2 * wallTargetY)) * (this.camera.top - this.camera.bottom) / 2;
     this.camera.top += shift; this.camera.bottom += shift;
     this.camera.updateProjectionMatrix();
@@ -280,6 +281,7 @@ export class GameRenderer {
   }
 
   render(): void {
+    faceCombatPortraits(this.scene,this.camera);
     this.renderer.render(this.scene, this.camera);
   }
 }

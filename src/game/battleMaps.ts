@@ -1,5 +1,7 @@
 import { ARENA_D, SOLO_ARENA_D, ARENA_W, LEAK_Z, PADS, WALL_Z } from './world';
 
+export const BATTLEFIELD_ART_URL='/assets/battle/orchard-outpost-v1.webp';
+
 /** Gameplay coordinates are normalized to the authored map, never CSS pixels. */
 export type BattleMapMode = 'casual' | 'horde' | 'campaign' | 'coop' | 'pvp';
 export type MapEntityKind = 'prop' | 'solid' | 'hazard' | 'pit' | 'light' | 'spawn' | 'turret-slot';
@@ -58,11 +60,11 @@ const baseWorld = { width: ARENA_W, depth: ARENA_D, columns: 11, rows: 132 };
 const routeEndY = .5 - LEAK_Z / ARENA_D;
 const topGateY = .025;
 const laneRoutes: Array<{ id: string; xs: number[] }> = [
-  { id: 'west-outer', xs: [.12, .18, .31, .42, .5] },
-  { id: 'west-inner', xs: [.31, .38, .26, .42, .5] },
+  { id: 'west-outer', xs: [.23, .27, .36, .44, .5] },
+  { id: 'west-inner', xs: [.36, .41, .33, .44, .5] },
   { id: 'center', xs: [.5, .44, .56, .48, .5] },
-  { id: 'east-inner', xs: [.69, .62, .77, .58, .5] },
-  { id: 'east-outer', xs: [.88, .82, .67, .56, .5] },
+  { id: 'east-inner', xs: [.64, .59, .69, .56, .5] },
+  { id: 'east-outer', xs: [.77, .73, .62, .54, .5] },
 ];
 const standardRoutes = (): BattleMapRoute[] => laneRoutes.map((lane) => ({
   id: lane.id, name: lane.id.replace('-', ' '), width: 5,
@@ -85,10 +87,6 @@ function standardMap(mode: BattleMapMode, name: string, background: string): Bat
       label: `${['West', 'West-center', 'Center', 'East-center', 'East'][i]} top spawn`,
     })),
     entities: [
-      entity('left-lantern', 'light', .16, .43, .08, .08, { collision: 'none', damage: 0, label: 'Path light' }),
-      entity('right-ruin', 'prop', .84, .62, .14, .1, { collision: 'none', label: 'Ruin prop' }),
-      entity('rock-blocker', 'solid', .15, .73, .1, .07, { asset: '/assets/maps/samples/sample-rock.svg', label: 'Solid rock sample' }),
-      entity('pit-hazard', 'pit', .83, .3, .12, .08, { asset: '/assets/maps/samples/sample-pit.svg', label: 'Pit sample' }),
       ...PADS.filter((pad) => !pad.main).map((pad, i) => entity(
         `tower-slot-${i + 1}`, 'turret-slot', (pad.x / ARENA_W) + .5,
         .5 - (pad.z / depth), .05, .04,
@@ -101,22 +99,22 @@ function standardMap(mode: BattleMapMode, name: string, background: string): Bat
 }
 
 export const DEFAULT_BATTLE_MAPS: Record<BattleMapMode, BattleMap> = {
-  casual: standardMap('casual', 'Ashen Road', '/assets/maps/samples/casual-fallen-orchard.svg'),
-  horde: standardMap('horde', 'Scrapline', '/assets/maps/samples/horde-night-harvest.svg'),
-  campaign: standardMap('campaign', 'Ruined Causeway', '/assets/maps/samples/campaign-old-orchard.svg'),
+  casual: standardMap('casual', 'Ashen Road', BATTLEFIELD_ART_URL),
+  horde: standardMap('horde', 'Scrapline', BATTLEFIELD_ART_URL),
+  campaign: standardMap('campaign', 'Ruined Causeway', BATTLEFIELD_ART_URL),
   coop: {
-    ...standardMap('coop', 'Broken Junction', '/assets/maps/samples/coop-shared-grove.svg'),
+    ...standardMap('coop', 'Broken Junction', BATTLEFIELD_ART_URL),
     routes: [
-      { id: 'west-route', name: 'West approach', width: 5, points: [{ x: .18, y: .025 }, { x: .3, y: .2 }, { x: .22, y: .38 }, { x: .5, y: .5 - LEAK_Z / SOLO_ARENA_D }] },
-      { id: 'east-route', name: 'East approach', width: 5, points: [{ x: .82, y: .025 }, { x: .7, y: .2 }, { x: .78, y: .38 }, { x: .5, y: .5 - LEAK_Z / SOLO_ARENA_D }] },
+      { id: 'west-route', name: 'West approach', width: 5, points: [{ x: .27, y: .025 }, { x: .3, y: .2 }, { x: .3, y: .38 }, { x: .5, y: .5 - LEAK_Z / SOLO_ARENA_D }] },
+      { id: 'east-route', name: 'East approach', width: 5, points: [{ x: .73, y: .025 }, { x: .7, y: .2 }, { x: .7, y: .38 }, { x: .5, y: .5 - LEAK_Z / SOLO_ARENA_D }] },
     ],
     spawns: [
-      { id: 'west-gate', routeId: 'west-route', x: .18, y: .025, enabled: true, label: 'West spawn' },
-      { id: 'east-gate', routeId: 'east-route', x: .82, y: .025, enabled: true, label: 'East spawn' },
+      { id: 'west-gate', routeId: 'west-route', x: .27, y: .025, enabled: true, label: 'West spawn' },
+      { id: 'east-gate', routeId: 'east-route', x: .73, y: .025, enabled: true, label: 'East spawn' },
     ],
   },
   pvp: {
-    ...standardMap('pvp', 'Twin Wastes', '/assets/maps/samples/pvp-twin-pass.svg'),
+    ...standardMap('pvp', 'Twin Wastes', BATTLEFIELD_ART_URL),
     tower: { x: .5, y: .94 },
     opponentTower: { x: .5, y: .06 },
     routes: [{ id: 'duel-route', name: 'Duel route', width: 4.5, points: [{ x: .5, y: .94 }, { x: .38, y: .72 }, { x: .62, y: .5 }, { x: .38, y: .28 }, { x: .5, y: .06 }] }],
@@ -173,7 +171,11 @@ export function normalizeBattleMap(raw: unknown, fallbackMode: BattleMapMode = '
   })) : fallback.entities;
   const point = (p: unknown, def: MapPoint): MapPoint => p && typeof p === 'object' ? { x: unit((p as MapPoint).x, def.x), y: unit((p as MapPoint).y, def.y) } : def;
   const suppliedBackground = safeAsset(row.background) && row.background ? row.background : fallback.background;
-  const bg = /^\/assets\/maps\/samples\/(casual-fallen-orchard|campaign-old-orchard|horde-night-harvest|coop-shared-grove|pvp-twin-pass)\.webp$/.test(suppliedBackground) ? suppliedBackground.replace(/\.webp$/, '.svg') : suppliedBackground;
+  const retiredSample=suppliedBackground.startsWith('/assets/maps/samples/');
+  const bg = retiredSample ? BATTLEFIELD_ART_URL : suppliedBackground;
+  const retiredIds=new Set(['left-lantern','right-ruin','rock-blocker','pit-hazard']);
+  const migratedEntities=retiredSample && row.id===`sample-${mode}`
+    ? entities.filter(entity=>!retiredIds.has(entity.id)) : entities;
   // Match the physical world and tower anchors; responsive layouts come from
   // normalized coordinates, not from stretching gameplay physics per map.
   const width = ARENA_W;
@@ -187,7 +189,11 @@ export function normalizeBattleMap(raw: unknown, fallbackMode: BattleMapMode = '
     background: bg,
     ...(safeAsset(row.nightBackground) && row.nightBackground ? { nightBackground: row.nightBackground } : {}),
     world: { width, depth, columns: Math.max(4, Math.min(64, Math.floor(Number(row.world?.columns) || fallback.world.columns))), rows: Math.max(8, Math.min(256, rows)) },
-    routes, spawns, entities,
+    routes:retiredSample && row.id===`sample-${mode}` && mode!=='pvp'
+      ? routes.map(route=>({...route,points:route.points.map(point=>({...point,x:.5+(point.x-.5)*.72}))})) : routes,
+    spawns:retiredSample && row.id===`sample-${mode}` && mode!=='pvp'
+      ? spawns.map(spawn=>({...spawn,x:.5+(spawn.x-.5)*.72})) : spawns,
+    entities:migratedEntities,
     tower: mode === 'pvp' ? point(row.tower, fallback.tower) : { x: .5, y: .5 - WALL_Z / depth },
     ...(mode === 'pvp' ? { opponentTower: row.opponentTower && storedDepth < ARENA_D ? { ...point(row.opponentTower, fallback.opponentTower!), y: migrateY(row.opponentTower.y, fallback.opponentTower!.y) } : point(row.opponentTower, fallback.opponentTower!) } : {}),
     published: row.published !== false,
