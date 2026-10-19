@@ -1,4 +1,4 @@
-import { combatTokenFrame, COMBAT_ORANGE } from './combatTokens';
+import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
 import {
   CanvasTexture,
   CircleGeometry,
@@ -109,7 +109,7 @@ export class WallBase {
     // A framed segmented bar sits just below the wall and remains attached to
     // the tower as the camera moves.
     const hpZ = WALL_Z - 1.45;
-    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.58), new MeshBasicMaterial({ color: COMBAT_ORANGE, depthWrite: false, depthTest: false }));
+    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.58), new MeshBasicMaterial({ color: COMBAT_GOLD, depthWrite: false, depthTest: false }));
     hpFrame.rotation.x = -Math.PI / 2;
     hpFrame.position.set(0, 0.135, hpZ);
     const towerHpTrack = new Mesh(new PlaneGeometry(ARENA_W - 1.95, 0.4), new MeshBasicMaterial({ color: 0x303d28, depthWrite: false, depthTest: false }));
@@ -140,7 +140,7 @@ export class WallBase {
 
     this.rangeRing = new Mesh(
       new RingGeometry(0.7, 0.92, 40),
-      new MeshBasicMaterial({ color: COMBAT_ORANGE, transparent: true, opacity: 0.4, depthWrite: false }),
+      new MeshBasicMaterial({ color: COMBAT_GOLD, transparent: true, opacity: 0.4, depthWrite: false }),
     );
     this.rangeRing.rotation.x = -Math.PI / 2;
     this.rangeRing.position.y = 0.08;
@@ -362,7 +362,7 @@ export class WallBase {
           slot.head = null;
         }
         if (slot.turret) {
-          this.group.remove(slot.turret.group);
+          slot.turret.dispose();
           slot.turret = null;
         }
         slot.kind = null;
@@ -465,7 +465,7 @@ export class WallBase {
       slot.head = null;
     }
     if (slot.turret) {
-      this.group.remove(slot.turret.group);
+      slot.turret.dispose();
       slot.turret = null;
     }
     slot.filled = false;

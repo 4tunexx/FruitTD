@@ -1,5 +1,5 @@
-import { combatTokenFrame } from './combatTokens';
-import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
+import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
+import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, RingGeometry, Shape, ShapeGeometry } from 'three';
 import type { Fruit } from './fruits';
 import type { JuiceBank, JuiceSystem } from './juice';
 import type { PadDef } from './world';
@@ -87,6 +87,8 @@ export class TurretRig {
   private slugZ = 0;
   private slugLive = 0;
   private readonly placeholder: Mesh;
+  private readonly mechanism = new Group();
+  private readonly slugHits = new Set<Fruit>();
 
   constructor(kind: TurretKind) {
     this.kind = kind;
@@ -96,6 +98,50 @@ export class TurretRig {
     placeholder.position.y = 0.6;
     this.group.add(placeholder);
     this.placeholder = placeholder;
+    placeholder.add(this.mechanism);
+    this.mechanism.position.z = -.07;
+    // Original, gold-contoured mechanical silhouettes; published studio art
+    // replaces these parts while retaining the shared token frame.
+    const part = (geometry: PlaneGeometry | CircleGeometry | RingGeometry | ShapeGeometry, color: number, x=0, y=0): Mesh => {
+      const rim = new Mesh(geometry, new MeshBasicMaterial({ color: COMBAT_GOLD, side: DoubleSide }));
+      rim.position.set(x,y,-.02); rim.scale.setScalar(1.13);
+      const face = new Mesh(geometry.clone(), new MeshBasicMaterial({ color, side: DoubleSide }));
+      face.position.z=-.012; face.scale.setScalar(1/1.13); rim.add(face); this.mechanism.add(rim); return rim;
+    };
+    part(new CircleGeometry(.36,24),0x202125);
+    if(kind==='guillotine') {
+      part(new PlaneGeometry(.12,.7),0x34383f,0,-.02);
+      const blade = new Shape(); blade.moveTo(-.38,.08); blade.lineTo(.4,.08); blade.lineTo(.22,-.22); blade.lineTo(-.38,-.07); blade.closePath();
+      this.blade=part(new ShapeGeometry(blade),0xffe6a5,0,.23);
+    } else if(kind==='vortex'||kind==='sprinkler') {
+      this.spin=new Group(); this.spin.position.z=-.06; this.mechanism.add(this.spin);
+      for(let i=0;i<4;i++) {
+        const arm=part(new PlaneGeometry(.16,.43),colors[kind],Math.sin(i*Math.PI/2)*.19,Math.cos(i*Math.PI/2)*.19);
+        arm.rotation.z=-i*Math.PI/2+.4; this.spin.attach(arm);
+      }
+      part(new CircleGeometry(.12,16),0xffedc2).position.z=-.1;
+    } else if(kind==='laser'||kind==='railgun') {
+      part(new PlaneGeometry(.3,.58),0x34383f,0,.2);
+      part(new PlaneGeometry(.13,.45),colors[kind],0,.28).position.z=-.07;
+      this.beam=part(new CircleGeometry(.11,16),0xfff2a4,0,.53);
+      if(kind==='railgun') {
+        this.slug=new Mesh(new CircleGeometry(.15,16),new MeshBasicMaterial({color:0xffb8db,side:DoubleSide}));
+        this.slug.visible=false; this.group.add(this.slug);
+      }
+    } else {
+      this.lid=part(new PlaneGeometry(.66,.18),0x4a4d52,0,-.22);
+      this.lever=part(new PlaneGeometry(.1,.43),0xffde98,.27,.02);
+      for(let i=0;i<3;i++) {
+        const spike=new Shape();spike.moveTo(-.09,0);spike.lineTo(0,.36);spike.lineTo(.09,0);spike.closePath();
+        part(new ShapeGeometry(spike),0xffe7a9,(i-1)*.2,0);
+      }
+      this.setOpen(true);
+    }
+  }
+
+  dispose():void {
+    this.group.removeFromParent();
+    this.group.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();(node.material as MeshBasicMaterial).dispose();}});
   }
 
   setOpen(open: boolean): void {
@@ -108,21 +154,32 @@ export class TurretRig {
     const texture = sampleStudioTexture(`tower-${this.kind}`);
     if (texture) {
       const material = this.placeholder.material as MeshBasicMaterial;
+      this.mechanism.visible = false;
       if (material.map !== texture) { material.map = texture; material.color.setHex(0xffffff); material.needsUpdate = true; }
+    } else {
+      this.mechanism.visible = true;
+      const material=this.placeholder.material as MeshBasicMaterial;
+      if(material.map){material.map=null;material.color.setHex(0x34383f);material.needsUpdate=true;}
     }
+  }
+
+  /** Pure presentation: online snapshots must never run local combat rules. */
+  animate(dt:number, active=false):void {
+    this.phase += dt;
+    if(this.blade)this.blade.rotation.z=-.35+Math.sin(this.phase*3.2)*(active?1.05:.18);
+    if(this.spin)this.spin.rotation.z+=dt*(active?5.5:1.2);
+    this.mechanism.scale.setScalar(1+(active?.045:0)*Math.sin(this.phase*22));
   }
 
   tick(x: number, z: number, level: number, ctx: TurretTick): boolean {
     this.refreshAppearance();
     const { dt, fruits, juice, bank, onHit } = ctx;
-    this.phase += dt;
+    this.animate(dt, fruits.some(f=>f.alive && Math.hypot(f.group.position.x-x,f.group.position.z-z)<turretRange(this.kind,level)));
     this.cooldown = Math.max(0, this.cooldown - dt);
     let noisy = false;
 
     const range = turretRange(this.kind, level);
     if (this.kind === 'guillotine') {
-      const swing = Math.sin(this.phase * 3.2);
-      if (this.blade) this.blade.rotation.z = -0.7 + swing * 1.15;
       if (this.cooldown <= 0) {
         const pack = fruits.filter((f) => f.alive && Math.hypot(f.group.position.x - x, f.group.position.z - z) <= range);
         if (pack.length) {
@@ -136,7 +193,7 @@ export class TurretRig {
         }
       }
     } else if (this.kind === 'vortex') {
-      if (this.spin) this.spin.rotation.y += dt * 5.5;
+
       const sucked = juice.suckToward(x, z, range, x, 0.7, z, dt);
       bank.deposit(sucked);
       if (this.cooldown <= 0) {
@@ -177,6 +234,7 @@ export class TurretRig {
       const need = Math.max(1.6, 2.4 - level * 0.12);
       if (this.slugLive > 0) {
         this.slugLive -= dt;
+        const previousZ=this.slugZ;
         this.slugZ += 22 * dt;
         if (this.slug) {
           this.slug.position.set(0, 0.55, this.slugZ);
@@ -185,20 +243,23 @@ export class TurretRig {
         for (const fruit of fruits) {
           if (!fruit.alive) continue;
           if (Math.abs(fruit.group.position.x - x) > 0.55) continue;
-          if (Math.abs(fruit.group.position.z - (z + this.slugZ)) > 0.55) continue;
+          const localZ=fruit.group.position.z-z;
+          if (localZ<previousZ-.55 || localZ>this.slugZ+.55) continue;
+          if(this.slugHits.has(fruit))continue;
+          this.slugHits.add(fruit);
           onHit({ fruit, damage: 18 + level * 7, pierce: true, impulseX: 0, impulseZ: 7 + level });
         }
         if (this.slug && this.slugLive <= 0) this.slug.visible = false;
       } else if (this.charge >= need && bank.take('pink', 6)) {
         this.charge = 0;
+        this.slugHits.clear();
         this.slugLive = 0.55;
         this.slugZ = 0.4;
-        if (this.slug) this.slug.visible = true;
+        if (this.slug) { this.slug.position.set(0,.55,this.slugZ); this.slug.visible = true; }
         noisy = true;
       }
     } else if (this.kind === 'sprinkler') {
-      if (this.spin) this.spin.rotation.y += dt * 3.4;
-      if (this.cooldown <= 0) {
+      if (this.cooldown <= 0 && bank.take('orange', 1)) {
         this.cooldown = 0.2;
         const ang = this.phase * 3.4;
         const reach = range;

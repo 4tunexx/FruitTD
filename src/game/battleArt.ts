@@ -1,4 +1,4 @@
-import { CanvasTexture, Group, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
+import { CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, Group, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
 
 const textures = new Map<string, Texture>();
 /** Small original ink textures: generated once, shared by both battle renderers. */
@@ -27,5 +27,25 @@ export function battleTexture(kind: 'ground' | 'stone'): Texture | null {
   const texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;texture.wrapS=texture.wrapT=RepeatWrapping;texture.repeat.set(kind==='ground'?5:3,kind==='ground'?8:2);textures.set(kind,texture);return texture;
 }
 
-/** Empty scenery group until the authored map supplies its own artwork. */
-export function battleScenery(_width: number, _length: number, _centerZ=0): Group { return new Group(); }
+/** Flat inked perimeter: no props in lanes, build pads or authored collision areas. */
+export function battleScenery(width: number, length: number, centerZ=0): Group {
+  const group=new Group();group.name='orchard-perimeter';
+  const plate=(w:number,h:number,x:number,z:number,color:number)=>{
+    const mesh=new Mesh(new PlaneGeometry(w,h),new MeshBasicMaterial({color,side:DoubleSide}));
+    mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.045,z);group.add(mesh);return mesh;
+  };
+  for(const side of [-1,1]) {
+    const x=side*(width/2+.42);
+    plate(.7,length,x,centerZ,0x202125);
+    plate(.055,length,x-side*.31,centerZ,0xf48120);
+    const count=Math.min(20,Math.max(3,Math.floor(length/4)));
+    for(let i=0;i<count;i++) {
+      const z=centerZ-length/2+(i+.5)*length/count;
+      const mark=plate(.32,.75,x,z,0xffb344);mark.rotation.z=.45*side;
+      // Charcoal debris beyond the perimeter, never covering the play surface.
+      const rubble=plate(.45+(i%3)*.15,.55,side*(width/2+1.2+(i%2)*.3),z+.6,0x343a34);
+      rubble.rotation.z=i*1.7;
+    }
+  }
+  return group;
+}

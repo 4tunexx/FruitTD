@@ -515,6 +515,7 @@ export class PvpBattlefield {
     for (const entry of this.towers.values()) {
       entry.rig.refreshAppearance();
       const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.visible && (this.snapshot.shared || fruit.progress >= 0) && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).range : 0)) * TILE);
+      entry.rig.animate(dt,Boolean(target));
       entry.rig.group.rotation.y = 0;
       const cooldown = this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).cooldownMs : 1000;
       const shotId = entry.rig.group.uuid;

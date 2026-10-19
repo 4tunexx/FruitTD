@@ -143,7 +143,7 @@
 }
 #screen-hub .ftd-hub__footer .ftd-hub-tab.is-active,
 #screen-hub .ftd-hub__footer .ftd-hub-tab[aria-selected='true'] {
-  border-color: #ffe394;
+  border-color: var(--ftd-button-gold);
   background: linear-gradient(140deg, #ffdf63, #f6961c 75%);
   box-shadow: inset 0 2px #fff1b9, 0 4px #8e4514, 0 0 20px #f7922440;
 }
@@ -210,7 +210,7 @@
   background: linear-gradient(145deg, #503b28, #262629) !important;
 }
 #screen-hub .ftd-mode-card.is-active {
-  border-color: #ffe58a !important;
+  border-color: var(--ftd-button-gold) !important;
   background: linear-gradient(145deg, #ffe073, #f69b25) !important;
 }
 #screen-hub .ftd-mode-card.is-active .ftd-mode-card__icon {
@@ -873,8 +873,8 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 #screen-hub .ftd-hub__footer .ftd-hub-tab__label { font-size: .62rem; }
 @media (max-width: 640px) { #screen-hub.ftd-hub.is-home .ftd-mode-card__copy strong { font-size: .62rem; } }
 
-/* Solid orange contour on artwork that rises above its button frame. */
-:root { --ftd-art-stroke: #f48120; }
+/* Raised artwork uses the same gold stroke as its button frame. */
+:root { --ftd-button-gold: #ffe394; --ftd-art-stroke: var(--ftd-button-gold); }
 #screen-hub :is(.ftd-hub-tab.is-active, .ftd-hub-tab:active, .ftd-hub-tab:focus-visible, .ftd-mode-card.is-active, .ftd-mode-card:active, .ftd-mode-card:focus-visible) :is(.ftd-hub-tab__icon, .ftd-mode-card__icon),
 .admin-icon-library__item.is-selected .ftd-extracted-icon {
   filter: drop-shadow(1px 0 0 var(--ftd-art-stroke)) drop-shadow(-1px 0 0 var(--ftd-art-stroke)) drop-shadow(0 1px 0 var(--ftd-art-stroke)) drop-shadow(0 -1px 0 var(--ftd-art-stroke)) !important;
@@ -890,7 +890,7 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 #screen-hub .ftd-hero-tile:is(.is-selected, :active, :focus-visible) .ftd-hero-portrait,
 #screen-hub .ftd-duel-icon-button:is(.is-active, :active, :focus-visible) > .ftd-game-glyph,
 #screen-hub .ftd-power-row:focus-within .ftd-power-row__icon {
-  filter: drop-shadow(1px 0 0 #f48120) drop-shadow(-1px 0 0 #f48120) drop-shadow(0 1px 0 #f48120) drop-shadow(0 -1px 0 #f48120) !important;
+  filter: drop-shadow(1px 0 0 var(--ftd-art-stroke)) drop-shadow(-1px 0 0 var(--ftd-art-stroke)) drop-shadow(0 1px 0 var(--ftd-art-stroke)) drop-shadow(0 -1px 0 var(--ftd-art-stroke)) !important;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -898,6 +898,6 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
   #screen-hub .ftd-hero-tile:hover .ftd-hero-portrait,
   #screen-hub .ftd-duel-icon-button:hover > .ftd-game-glyph,
   #screen-hub .ftd-power-row:hover .ftd-power-row__icon {
-    filter: drop-shadow(1px 0 0 #f48120) drop-shadow(-1px 0 0 #f48120) drop-shadow(0 1px 0 #f48120) drop-shadow(0 -1px 0 #f48120) !important;
+    filter: drop-shadow(1px 0 0 var(--ftd-art-stroke)) drop-shadow(-1px 0 0 var(--ftd-art-stroke)) drop-shadow(0 1px 0 var(--ftd-art-stroke)) drop-shadow(0 -1px 0 var(--ftd-art-stroke)) !important;
   }
 }

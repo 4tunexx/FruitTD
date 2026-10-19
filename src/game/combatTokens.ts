@@ -1,6 +1,6 @@
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 
-export const COMBAT_ORANGE = 0xf48120;
+export const COMBAT_GOLD = 0xffe394;
 export type CombatTokenKind = 'fruit' | 'boss' | 'tower' | 'hero';
 
 /** Temporary portrait frames share one visual language in every battle renderer. */
@@ -16,9 +16,9 @@ export function combatTokenFrame(radius: number, kind: CombatTokenKind = 'fruit'
   };
   const material = (color: number) => new MeshBasicMaterial({ color, side: DoubleSide, transparent: true, depthWrite: false });
   add(new Mesh(new CircleGeometry(radius * 1.23, 48), material(0x141519)), 'token-back', -.035).renderOrder = -1;
-  const rim = add(new Mesh(new RingGeometry(radius * 1.08, radius * 1.19, 48), material(COMBAT_ORANGE)), 'token-rim', .015);
+  const rim = add(new Mesh(new RingGeometry(radius * 1.08, radius * 1.19, 48), material(COMBAT_GOLD)), 'token-rim', .015);
   rim.renderOrder = 2;
-  const boss = add(new Mesh(new RingGeometry(radius * 1.27, radius * 1.33, 48), material(COMBAT_ORANGE)), 'token-boss-rim', .015);
+  const boss = add(new Mesh(new RingGeometry(radius * 1.27, radius * 1.33, 48), material(COMBAT_GOLD)), 'token-boss-rim', .015);
   boss.renderOrder = 2;
   setCombatTokenKind(group, kind);
   return group;

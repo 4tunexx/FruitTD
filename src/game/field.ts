@@ -1,3 +1,4 @@
+import { battleScenery } from './battleArt';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, TextureLoader, SRGBColorSpace } from 'three';
 import type { AdminConfig } from '../services/admin';
 import { mapPointToWorld, type BattleMap } from './battleMaps';
@@ -16,6 +17,7 @@ export class Field {
  private readonly mapSurface=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.mapMaterial);
  private readonly mapEntities=new Group();
  private mapRequest=0;
+ private perimeter=battleScenery(ARENA_W,SOLO_ARENA_D);
  private readonly outer=new MeshLambertMaterial({color:DEFAULT.outerGroundColor,emissive:0x1a2a15,emissiveIntensity:.15});
  private readonly inner=new MeshLambertMaterial({color:DEFAULT.groundColor,emissive:DEFAULT.groundGlowColor,emissiveIntensity:.12});
  private readonly road=new MeshLambertMaterial({color:0x554b40,emissive:0x211c18,emissiveIntensity:.12});
@@ -26,11 +28,14 @@ export class Field {
   const ground=new Mesh(new PlaneGeometry(ARENA_W+8,SOLO_ARENA_D+8),this.outer);ground.rotation.x=-Math.PI/2;this.legacyGroup.add(ground);
   const inner=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.inner);inner.rotation.x=-Math.PI/2;inner.position.y=.01;this.legacyGroup.add(inner);
   const lane=new Mesh(new PlaneGeometry(ARENA_W*.46,SOLO_ARENA_D),this.road);lane.rotation.x=-Math.PI/2;lane.position.set(0,.035,0);this.legacyGroup.add(lane);
-  this.group.add(this.legacyGroup);
+  this.group.add(this.legacyGroup,this.perimeter);
   window.addEventListener('fruit-td-landscape-update',e=>this.applyLandscape((e as CustomEvent<Partial<Appearance>>).detail));
  }
  applyBattleMap(map: BattleMap):void {
   const request=++this.mapRequest;
+  this.perimeter.removeFromParent();
+  this.perimeter.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();(node.material as MeshBasicMaterial).dispose();}});
+  this.perimeter=battleScenery(map.world.width,map.world.depth);this.group.add(this.perimeter);
   this.renderMapEntities(map,request);
   const loader=new TextureLoader();
   loader.load(map.background,(texture)=>{

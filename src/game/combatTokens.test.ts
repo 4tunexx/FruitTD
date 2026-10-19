@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Mesh, MeshBasicMaterial } from 'three';
-import { combatTokenFrame, COMBAT_ORANGE, setCombatTokenKind } from './combatTokens';
+import { combatTokenFrame, COMBAT_GOLD, setCombatTokenKind } from './combatTokens';
 
-test('normal tokens and recycled bosses retain a solid orange frame without a stale boss rim', () => {
+test('normal tokens and recycled bosses retain a solid gold frame without a stale boss rim', () => {
   const frame = combatTokenFrame(1);
   const rim = frame.getObjectByName('token-rim') as Mesh;
   const boss = frame.getObjectByName('token-boss-rim')!;
-  assert.equal((rim.material as MeshBasicMaterial).color.getHex(), COMBAT_ORANGE);
+  assert.equal((rim.material as MeshBasicMaterial).color.getHex(), COMBAT_GOLD);
   assert.equal(boss.visible, false);
   setCombatTokenKind(frame, 'boss');
   assert.equal(boss.visible, true);
