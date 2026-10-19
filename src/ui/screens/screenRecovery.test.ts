@@ -1,18 +1,22 @@
-import {registerHooks} from 'node:module';
-registerHooks({load(url,context,nextLoad){return url.endsWith('.css')?{format:'module',source:'export {};',shortCircuit:true}:nextLoad(url,context);}});
+import {register} from 'node:module';
+// Node 20 has asynchronous loader registration but no registerHooks. Register
+// before dynamically importing screen modules so CSS imports stay testable.
+register(`data:text/javascript,${encodeURIComponent(`export async function load(url, context, nextLoad) {
+  return url.endsWith('.css')
+    ? { format: 'module', source: 'export {};', shortCircuit: true }
+    : nextLoad(url, context);
+}`)}`, import.meta.url);
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {installDomStub,resetDom} from '../domStub.test-helper';
 installDomStub();
 const storage=new Map<string,string>();
 (globalThis as any).localStorage={getItem:(key:string)=>storage.get(key)||null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)};
-import {GameButton} from '../components/primitives';
-import {isChunkLoadError,showScreenLoadFailure} from './loadFailure';
-import {renderLeaderboards} from './leaderboards';
-import {menuHubTabs} from './menuHubTabs';
-import {disposePvpHub} from './pvp';
-import {setAuthToken} from '../../services/auth';
-import {DEFAULT_PVP_CONFIG} from '../../game/pvp';
+const [{GameButton}, {isChunkLoadError,showScreenLoadFailure}, {renderLeaderboards},
+  {menuHubTabs}, {disposePvpHub}, {setAuthToken}, {DEFAULT_PVP_CONFIG}] = await Promise.all([
+    import('../components/primitives'), import('./loadFailure'), import('./leaderboards'),
+    import('./menuHubTabs'), import('./pvp'), import('../../services/auth'), import('../../game/pvp'),
+  ]);
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise<void>(r=>setImmediate(r));};
 function host(){const root=document.createElement('div');document.body.appendChild(root);return root;}
 test('numbered Lucide names render an icon instead of leaking Globe2 into the label',()=>{

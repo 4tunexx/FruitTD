@@ -219,6 +219,30 @@ body[data-ftd-screen='PLAY'] .ftd-toast-host {
 }
 body[data-ftd-screen='PLAY'] .ftd-toast { padding:8px; font-size:11px; background:#202125f5; border-color:#ffe394; }
 
+/* Four readable reserves replace the compressed one-line debug readout. */
+body[data-ftd-screen='PLAY'] #hud-juice {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px;
+  margin:0; color:#fff0cd; letter-spacing:normal;
+}
+body[data-ftd-screen='PLAY'] .hud-juice-chip {
+  display:flex; align-items:center; justify-content:space-between; gap:4px;
+  min-width:0; padding:6px 7px; border:1px solid #8c785080; background:#202125;
+  font-variant-numeric:tabular-nums;
+}
+body[data-ftd-screen='PLAY'] .hud-juice-chip span {
+  min-width:0; font-size:9px; font-weight:850; letter-spacing:.04em;
+}
+body[data-ftd-screen='PLAY'] .hud-juice-chip strong { color:#fff5d5; font-size:13px; }
+body[data-ftd-screen='PLAY'] .hud-juice-chip--yellow { border-left:3px solid #f6cf3d; }
+body[data-ftd-screen='PLAY'] .hud-juice-chip--pink { border-left:3px solid #ef79b7; }
+body[data-ftd-screen='PLAY'] .hud-juice-chip--orange { border-left:3px solid #f48120; }
+body[data-ftd-screen='PLAY'] .hud-juice-chip--green { border-left:3px solid #69c77a; }
+@media (max-width:860px) {
+  body[data-ftd-screen='PLAY'] #app.sidebar-open .hero-ability-bar--solo {
+    visibility:hidden; pointer-events:none;
+  }
+}
+
 /* Results use the same charcoal panels, gold frames and amber action as the hub. */
 #hud-gameover { background:radial-gradient(ellipse at 50% 35%,#37302b99,#090b10ee 75%);backdrop-filter:blur(9px);padding:16px;box-sizing:border-box; }
 #hud-gameover .modal-card.modal-card--over { width:min(440px,100%);max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box;padding:clamp(22px,6vw,36px);border:2px solid #ffe394;border-radius:0;background:linear-gradient(145deg,#363337,#1c1e22 70%);box-shadow:inset 0 0 0 5px #121418,8px 8px #050608; }

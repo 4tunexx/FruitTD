@@ -18,7 +18,13 @@ const cleanup=new WeakMap<HTMLElement,()=>void>();
 let pendingInviteCode='';
 export function openOnlineCoopInvite(code:string):void{if(!/^[a-f0-9]{10}$/i.test(code))return;pendingInviteCode=code.toLowerCase();openScreen('CO_OP');}
 const base=(import.meta.env?.VITE_PVP_API_URL || '/api/pvp').replace(/\/pvp\/?$/,'/coop');
-async function api(path:string,body?:object){const token=getAuthToken();const response=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(12000),method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok||data.success===false)throw new Error(data.error||'Co-op service unavailable.');return data;}
+async function api(path:string,body?:object){
+ const token=getAuthToken();
+ const response=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(12000),method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});
+ const data=await response.json().catch(()=>null);
+ if(!response.ok||!data||data.success===false)throw new Error(data?.error||'Co-op service unavailable. Please try again shortly.');
+ return data;
+}
 export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  cleanup.get(host)?.();host.replaceChildren();
  const heading=el('header',{class:'ftd-pvp__heading ftd-coop-online-heading'},[
@@ -64,7 +70,10 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
   body.classList.toggle('ftd-coop-battle', Boolean(room && !['waiting','complete'].includes(room.status)));
   if(!room){scene?.dispose();scene=null;sceneId='';sceneFailure=null;client?.close();client=null;connectedRoom='';
    const code=el('input',{class:'admin-input',placeholder:'10-character friend room code','aria-label':'Friend room code',maxlength:10,value:inviteCode}) as HTMLInputElement;
-   body.append(el('div',{class:'ftd-coop-online-actions'},[GameButton({label:'Find a teammate',tone:'primary',onClick:()=>void send('/create',{public:true})}),GameButton({label:'Create private room',variant:'outline',onClick:()=>void send('/create',{public:false})}),code,GameButton({label:'Join friend',variant:'outline',onClick:()=>void send('/join',{code:code.value})}),GameButton({label:'Play locally on this PC',variant:'ghost',onClick:()=>{dispose();startLocal();}})]));return;
+   const localOption=(typeof window.matchMedia !== 'function' || window.matchMedia('(pointer: fine)').matches)
+    ? GameButton({label:'Play locally on this PC',variant:'ghost',onClick:()=>{dispose();startLocal();}})
+    : el('p',{class:'ftd-pvp__intro',text:'Local keyboard-and-mouse Co-op is available on desktop. Use an online room on this device.'});
+   body.append(el('div',{class:'ftd-coop-online-actions'},[GameButton({label:'Find a teammate',tone:'primary',onClick:()=>void send('/create',{public:true})}),GameButton({label:'Create private room',variant:'outline',onClick:()=>void send('/create',{public:false})}),code,GameButton({label:'Join friend',variant:'outline',onClick:()=>void send('/join',{code:code.value})}),localOption]));return;
   }
   const own=room.players.find(p=>p.userId===yourId);if(!own)return;
   if(room.status==='waiting'){const inviteName=el('input',{class:'admin-input',placeholder:'Friend username','aria-label':'Friend username to invite','maxlength':24}) as HTMLInputElement;body.append(el('h3',{text:`ROOM ${room.id.toUpperCase()}`}),LoadingIndicator('Waiting for your teammate…'),el('p',{text:'Share this code with a friend. Public rooms also accept the next available player.'}),GameButton({label:'Copy room code',variant:'outline',onClick:()=>{void navigator.clipboard.writeText(room!.id).then(()=>notice.textContent='Room code copied.').catch(()=>notice.textContent='Select and copy the room code above.');}}),el('div',{class:'ftd-coop-online-actions'},[inviteName,GameButton({label:'Invite friend',tone:'primary',onClick:()=>{if(!inviteName.value.trim()){notice.textContent='Enter a friend username first.';return;}void send(`/${room!.id}/invite`,{username:inviteName.value.trim()});}})]),GameButton({label:'Delete room',variant:'outline',onClick:()=>command({type:'leave'})}));return;}

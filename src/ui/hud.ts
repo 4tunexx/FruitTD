@@ -84,7 +84,12 @@ export class Hud {
   private readonly toggle = document.getElementById('btn-toggle')!;
   private readonly pause = document.getElementById('hud-pause')!;
   private readonly pick = document.getElementById('hud-pick')!;
-  private readonly juice = document.getElementById('hud-juice')!;
+  private readonly juiceValues = {
+    yellow: document.getElementById('hud-juice-yellow')!,
+    pink: document.getElementById('hud-juice-pink')!,
+    orange: document.getElementById('hud-juice-orange')!,
+    green: document.getElementById('hud-juice-green')!,
+  };
   private readonly shop = document.getElementById('hud-shop')!;
   private readonly hero = document.getElementById('hud-hero')!;
   private readonly hpValue = document.getElementById('hud-hp-value');
@@ -1123,7 +1128,10 @@ export class Hud {
       if(element && element.textContent!==String(value))element.textContent=String(value);
     }
     this.fps.textContent = `${Math.round(fps)} FPS`;
-    this.juice.textContent = `Y ${bank.yellow}  P ${bank.pink}  O ${bank.orange}  G ${bank.green}`;
+    for (const color of ['yellow', 'pink', 'orange', 'green'] as const) {
+      const value = String(bank[color]);
+      if (this.juiceValues[color].textContent !== value) this.juiceValues[color].textContent = value;
+    }
     this.points.textContent = points > 0 ? `${points} skill point${points !== 1 ? 's' : ''} available` : '';
     const hero = heroDef(state.hero);
     // Central hero XP state — never recomputed locally.

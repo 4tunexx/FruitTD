@@ -583,6 +583,22 @@ html[data-ftd-motion='reduced'] #screen-hub .ftd-mode-stats .ftd-score-chart__pl
 #screen-hub .ftd-hub__main .ftd-campaign__progress,
 #screen-hub .ftd-hub__main .ftd-hub-catalog-heading > span { margin-left: auto; }
 
+@media (max-width: 640px) {
+  #screen-hub .ftd-hub__main .ftd-campaign__header {
+    flex-wrap: wrap;
+    gap: 10px !important;
+  }
+  #screen-hub .ftd-hub__main .ftd-campaign__header > div:nth-child(2) {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+  #screen-hub .ftd-hub__main .ftd-campaign__progress {
+    flex: 1 0 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
 @keyframes ftd-hub-page-arrive-forward {
   from { opacity: 0; transform: perspective(1100px) translateX(54px) rotateY(-4deg) scale(.985); filter: brightness(.82); }
   72% { opacity: 1; transform: perspective(1100px) translateX(-4px) rotateY(.35deg) scale(1.002); filter: brightness(1.08); }

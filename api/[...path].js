@@ -283,6 +283,9 @@ function heroMilestonesUnlocked(level) {
 function heroesUnlockedByJijuLevel(level) {
   return heroMilestonesUnlocked(level).map((m) => m.unlocksHero).filter((id) => !!id);
 }
+function heroMilestonePerkPoints(level) {
+  return heroMilestonesUnlocked(level).reduce((sum, m) => sum + (m.bonusPerkPoints ?? 0), 0);
+}
 
 // src/game/heroes.ts
 var HEROES = [
@@ -362,6 +365,15 @@ function towerLevelFromXp(xp) {
   return Math.min(MAX_TOWER_LEVEL, level);
 }
 
+// src/game/heroProgression.ts
+var HERO_PERKS = [
+  { id: "combo", name: "Combo Engine", description: "Build and keep combo momentum for longer.", unlockLevel: 10, maxRank: 3 },
+  { id: "juice", name: "Juice Hunter", description: "Earn extra Juice from clean slices.", unlockLevel: 20, maxRank: 3 },
+  { id: "tower", name: "Tower Guardian", description: "Reduce Main Tower damage from leaks while this hero is active.", unlockLevel: 30, maxRank: 3 },
+  { id: "critical", name: "Perfect Cut", description: "Small chance for a powerful critical slash.", unlockLevel: 50, maxRank: 3 },
+  { id: "survival", name: "Last Stand", description: "Gain a clutch bonus when the Main Tower is low on health.", unlockLevel: 75, maxRank: 3 }
+];
+
 // src/game/heroAbilities.ts
 var names = {
   jiju: [["Blue Arc", "Shock the whole field for heavy damage.", "\u26A1", "shock"], ["Clean Sweep", "A balanced burst around the lead fruit.", "\u2726", "burst"], ["Quick Draw", "Pierce the nearest fruit.", "\u27A4", "pierce"], ["Still Frame", "Freeze the field, then strike.", "\u2744", "frost"], ["Orchard Guard", "A steady burst that protects the wall.", "\u2B21", "guard"], ["Grand Finale", "A full-field finishing strike.", "\u2739", "shock"]],
@@ -381,6 +393,99 @@ function emptyHeroAbilityRanks() {
 function emptyHeroAbilityLoadouts() {
   return { jiju: ["jiju-1"], topfu: [], lagen: [], tripos: [], ki: [] };
 }
+function heroAbilityRank(id, ranks) {
+  const raw = Math.floor(Number(ranks?.[id]) || 0);
+  return Math.max(id === "jiju-1" ? 1 : 0, Math.min(MAX_HERO_ABILITY_RANK, raw));
+}
+
+// src/game/enemies.ts
+var ENEMY_RULES = {
+  normal: {
+    kind: "normal",
+    label: "Rot-Walker",
+    description: "Shambling orchard undead. Standard target.",
+    flavor: "Just another Rot-Walker from the grove.",
+    warning: "",
+    towerDamageOnLeak: 1,
+    towerDamageOnHit: 0,
+    hpMultiplier: 1,
+    speedMultiplier: 1,
+    scoreMultiplier: 1,
+    xpMultiplier: 1,
+    colour: 16777215
+  },
+  explosive: {
+    kind: "explosive",
+    label: "Chem-Burst",
+    description: "A volatile runner immune to blades. Touching it damages the wall; turrets can destroy it safely.",
+    flavor: "Chem-Burst \u2014 keep your blade away and let the turrets work.",
+    warning: "CHEM-BURST \u2014 TURRETS ONLY \xB7 DO NOT SLICE",
+    towerDamageOnLeak: 3,
+    towerDamageOnHit: 2,
+    hpMultiplier: 0.5,
+    speedMultiplier: 1.15,
+    scoreMultiplier: 1.7,
+    xpMultiplier: 2,
+    colour: 16733491
+  },
+  chainburst: {
+    kind: "chainburst",
+    label: "Pulp-Popper",
+    description: "Destroy it near a pack to splash damage into neighboring fruit. Its blast never harms the wall.",
+    flavor: "Pulp-Popper \u2014 time the kill for a chain reaction.",
+    warning: "PULP-POPPER \u2014 DETONATE NEAR A PACK",
+    towerDamageOnLeak: 1,
+    towerDamageOnHit: 0,
+    hpMultiplier: 0.8,
+    speedMultiplier: 1.05,
+    scoreMultiplier: 1.3,
+    xpMultiplier: 1.3,
+    colour: 11861818
+  },
+  armored: {
+    kind: "armored",
+    label: "Rind-Plate",
+    description: "Thick rind plating. Extra health, high reward for focus fire.",
+    flavor: "Rind-Plate lumbering in \u2014 crack the shell.",
+    warning: "RIND-PLATE",
+    towerDamageOnLeak: 2,
+    towerDamageOnHit: 0,
+    hpMultiplier: 2.2,
+    speedMultiplier: 0.78,
+    scoreMultiplier: 2.2,
+    xpMultiplier: 2.4,
+    colour: 10134706
+  },
+  splitter: {
+    kind: "splitter",
+    label: "Pod-Spawner",
+    description: "Break it before it reaches the tower or it releases smaller targets.",
+    flavor: "Pod-Spawner \u2014 end it before the nest opens.",
+    warning: "POD-SPAWNER",
+    towerDamageOnLeak: 2,
+    towerDamageOnHit: 0,
+    hpMultiplier: 1.35,
+    speedMultiplier: 0.96,
+    scoreMultiplier: 2,
+    xpMultiplier: 2.2,
+    colour: 9268479
+  },
+  swift: {
+    kind: "swift",
+    label: "Juice-Runner",
+    description: "Fast, evasive sprinter. Cut its path or build a turret to intercept it.",
+    flavor: "Juice-Runner closing fast!",
+    warning: "JUICE-RUNNER",
+    towerDamageOnLeak: 2,
+    towerDamageOnHit: 0,
+    hpMultiplier: 0.75,
+    speedMultiplier: 2.05,
+    scoreMultiplier: 1.8,
+    xpMultiplier: 1.7,
+    colour: 5626111
+  }
+};
+var DEFAULT_ENEMIES = structuredClone(ENEMY_RULES);
 
 // src/game/progression/rewards.ts
 var EMPTY_REWARD = Object.freeze({
@@ -394,6 +499,11 @@ var EMPTY_REWARD = Object.freeze({
 
 // src/game/progression/index.ts
 var MAX_HERO_XP = heroXpForLevel(MAX_HERO_LEVEL);
+function perkPointsFromLevel(level) {
+  const lv = Math.max(1, Math.floor(level));
+  const fromLevels = lv < 10 ? 0 : Math.floor((lv - 10) / 10) + 1;
+  return fromLevels + heroMilestonePerkPoints(lv);
+}
 function heroMilestoneUnlockLevel(heroId) {
   return HERO_MILESTONES.find((m) => m.unlocksHero === heroId)?.level ?? null;
 }
@@ -574,6 +684,48 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   );
 }
 
+// src/game/turretWeapons.ts
+var TURRET_WEAPONS = {
+  guillotine: { name: "Rotor Saw", icon: "Scissors", pattern: "radial", color: 16765803, range: 1.6, rangeGrowth: 0.1, cooldown: 0.75, damage: 24, damageGrowth: 6, blast: 0 },
+  vortex: { name: "Flamethrower", icon: "Flame", pattern: "cone", color: 16753213, range: 3.8, rangeGrowth: 0.16, cooldown: 0.22, damage: 5, damageGrowth: 1.5, blast: 0 },
+  laser: { name: "Lemon Laser", icon: "Zap", pattern: "pierce", color: 16772497, range: 7.2, rangeGrowth: 0.3, cooldown: 0.4, damage: 9, damageGrowth: 3, blast: 0 },
+  railgun: { name: "Rocket Launcher", icon: "Rocket", pattern: "rocket", color: 16760162, range: 8, rangeGrowth: 0.25, cooldown: 2.4, damage: 45, damageGrowth: 11, blast: 1.4 },
+  sprinkler: { name: "Fertiliser Sprinkler", icon: "Sprout", pattern: "radial", color: 12179331, range: 3.6, rangeGrowth: 0.14, cooldown: 0.65, damage: 4, damageGrowth: 1, blast: 0 },
+  blender: { name: "Bomb Thrower", icon: "Bomb", pattern: "bomb", color: 16765803, range: 6, rangeGrowth: 0.2, cooldown: 1.8, damage: 32, damageGrowth: 8, blast: 1.8 }
+};
+function weaponStats(id, level) {
+  const base = TURRET_WEAPONS[id], upgrade = Math.max(0, Math.min(9, Math.floor(level) - 1));
+  return { ...base, range: base.range + base.rangeGrowth * upgrade, damage: base.damage + base.damageGrowth * upgrade, blast: base.blast ? base.blast + upgrade * 0.08 : 0, cooldown: base.cooldown / (1 + upgrade * 0.07) };
+}
+function migrateLegacyWeaponBalance(id, row) {
+  if (!row) return row;
+  const old = { vortex: [120, 16, 4, 600], sprinkler: [150, 12, 3, 350], blender: [200, 42, 2, 700] };
+  const current = { vortex: [8, 3.5, 250], sprinkler: [5, 3, 650], blender: [60, 5, 1800] };
+  const legacy = old[id];
+  if (!legacy || [row.cost, row.damage, row.range, row.cooldownMs].some((value, index) => value !== legacy[index])) return row;
+  const [damage, range, cooldownMs] = current[id];
+  return { ...row, damage, range, cooldownMs };
+}
+
+// src/game/turretTargets.ts
+function turretVictims(type, origin, primary, units, point, range, level = 1) {
+  if (type === "main" || type === "catcher") return [primary];
+  const target2 = point(primary), dx = target2.x - origin.x, dy = target2.y - origin.y, d = Math.hypot(dx, dy) || 1;
+  const blast = type === "railgun" || type === "blender" ? weaponStats(type, level).blast : 0;
+  const victims = units.filter((unit2) => unit2 !== primary).filter((unit2) => {
+    const p = point(unit2), x = p.x - origin.x, y = p.y - origin.y, distance2 = Math.hypot(x, y);
+    if (blast) return Math.hypot(p.x - target2.x, p.y - target2.y) <= blast;
+    if (distance2 > range) return false;
+    if (type === "laser") {
+      const along = (x * dx + y * dy) / d;
+      return along >= 0 && along <= range && Math.abs(x * dy - y * dx) / d <= 0.48;
+    }
+    if (type === "vortex") return distance2 < 1e-3 || (x * dx + y * dy) / (distance2 * d) >= Math.cos(Math.PI / 6);
+    return type === "guillotine" || type === "sprinkler";
+  });
+  return [primary, ...victims.slice(0, 24)];
+}
+
 // src/game/powerCombat.ts
 function powerStats(ability, rawRank) {
   const rank = Math.max(1, Math.min(MAX_HERO_ABILITY_RANK, Math.floor(rawRank) || 1));
@@ -605,6 +757,403 @@ function powerTargets(items, ability, point) {
 }
 function appendPowerCast(casts, cast) {
   return [...(casts ?? []).filter((item) => cast.at - item.at < 5e3), cast].slice(-24);
+}
+
+// src/game/pvp.ts
+function siegeBuildCells(width, height) {
+  const middle = Math.floor(width / 2) - 1;
+  return Array.from({ length: 5 }, (_, i) => {
+    const row = Math.round(i * (height - 2) / 4);
+    return [row * width + Math.max(0, middle - 1), row * width + Math.min(width - 1, middle + 1)];
+  }).flat();
+}
+function makeMap(id, name) {
+  const width = 10, height = 14;
+  return { id, name, width, height, pathCells: Array.from({ length: height }, (_, row) => row * width + 4), buildCells: siegeBuildCells(width, height).map((cell, index) => {
+    const variant = ["orchard-crossing", "windfall", "old-grove", "riverbend", "twin-rows", "stone-arch", "long-harvest"].indexOf(id);
+    if (index < 2 || variant <= 0) return cell;
+    const row = Math.floor(cell / width), column = cell % width;
+    return Math.min(height - 2, row + (variant % 3 === 1 && index < 6 ? 1 : 0)) * width + column + (variant % 2 && index % 4 >= 2 ? index % 2 ? 1 : -1 : 0);
+  }) };
+}
+var DEFAULT_PVP_CONFIG = {
+  version: 1,
+  map: makeMap("orchard-crossing", "Orchard Crossing"),
+  maps: [
+    makeMap("orchard-crossing", "Orchard Crossing"),
+    makeMap("windfall", "Windfall Run"),
+    makeMap("old-grove", "Old Grove"),
+    makeMap("riverbend", "Riverbend"),
+    makeMap("twin-rows", "Twin Rows"),
+    makeMap("stone-arch", "Stone Arch"),
+    makeMap("long-harvest", "Long Harvest")
+  ],
+  durationSeconds: 180,
+  wallHealth: 1e3,
+  startingFruts: 0,
+  incomePerSecond: 6,
+  reconnectGraceSeconds: 45,
+  mainTower: { damage: 18, range: 2, cooldownMs: 1e3 },
+  towers: {
+    guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
+    vortex: { cost: 120, damage: 8, range: 3.5, cooldownMs: 250 },
+    laser: { cost: 180, damage: 62, range: 6, cooldownMs: 1600 },
+    railgun: { cost: 220, damage: 110, range: 8, cooldownMs: 2600 },
+    sprinkler: { cost: 150, damage: 5, range: 3, cooldownMs: 650 },
+    blender: { cost: 200, damage: 60, range: 5, cooldownMs: 1800 },
+    catcher: { cost: 150, damage: 8, range: 3, cooldownMs: 1800 }
+  },
+  attacks: {
+    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
+    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
+    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
+    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
+  },
+  rating: {
+    start: 1e3,
+    win: 50,
+    tie: 20,
+    loss: -50,
+    bonusCap: 20,
+    combo: [{ at: 5, points: 1 }, { at: 10, points: 2 }, { at: 20, points: 3 }, { at: 35, points: 4 }, { at: 50, points: 5 }],
+    multiKill3: 2,
+    multiKill5: 3,
+    seasonResetPercent: 25,
+    tiers: [{ name: "Amateur", min: 0 }, { name: "Bronze", min: 500 }, { name: "Silver", min: 1500 }, { name: "Gold", min: 2e3 }, { name: "Diamond", min: 2500 }, { name: "Emerald", min: 2750 }, { name: "Sapphire", min: 3e3 }]
+  },
+  seasonRewards: [
+    { tier: "Bronze", coins: 100, gems: 0, badgeId: "pvp-bronze" },
+    { tier: "Silver", coins: 250, gems: 5, badgeId: "pvp-silver" },
+    { tier: "Gold", coins: 500, gems: 10, badgeId: "pvp-gold" },
+    { tier: "Diamond", coins: 900, gems: 20, badgeId: "pvp-diamond" },
+    { tier: "Emerald", coins: 1400, gems: 35, badgeId: "pvp-emerald" },
+    { tier: "Sapphire", coins: 2200, gems: 60, badgeId: "pvp-sapphire" }
+  ]
+};
+function normalizePvpMaps(input) {
+  if (!Array.isArray(input) || input.length !== 7) return structuredClone(DEFAULT_PVP_CONFIG.maps);
+  return input.map((raw, index) => {
+    const fallback = DEFAULT_PVP_CONFIG.maps[index];
+    if (!raw || typeof raw !== "object") return structuredClone(fallback);
+    const row = raw;
+    const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
+    const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
+    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
+    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - path[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1] / width)) === 1)) && Math.floor(path[0] / width) === 0 && Math.floor(path.at(-1) / width) === height - 1;
+    if (!valid) return structuredClone(fallback);
+    const id = String(row.id || fallback.id).slice(0, 48);
+    const builtin = DEFAULT_PVP_CONFIG.maps.find((map2) => map2.id === id);
+    if (builtin && (!Array.isArray(row.buildCells) || row.buildCells.length > 10)) return { ...structuredClone(builtin), name: String(row.name || builtin.name).slice(0, 64) };
+    const legal = (cell) => Number.isInteger(cell) && cell >= 0 && cell < width * height && !path.includes(cell);
+    const requested = Array.isArray(row.buildCells) ? row.buildCells.map(Number) : [];
+    const pads = [.../* @__PURE__ */ new Set([...requested, ...siegeBuildCells(width, height), ...Array.from({ length: width * height }, (_, i) => i)])].filter(legal).slice(0, 10);
+    return { id, name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: pads };
+  });
+}
+function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
+  return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
+}
+function resetSeasonRating(points, config = DEFAULT_PVP_CONFIG) {
+  const retain = 1 - config.rating.seasonResetPercent / 100;
+  return Math.max(0, Math.round(config.rating.start + (points - config.rating.start) * retain));
+}
+var PVP_RALLY = { durationMs: 8e3, cooldownMs: 35e3, openingMs: 15e3, damageMultiplier: 1.25 };
+var PVP_CAPTURE_CAPACITY = 3;
+function pvpMainUpgradeCost(level = 1) {
+  return pvpTowerLevel(level) === 1 ? 220 : 340;
+}
+function pvpReleaseCost(attackCost, packSize = 1) {
+  return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * 0.5));
+}
+var PVP_MAX_TOWER_LEVEL = 3;
+function pvpTowerLevel(level) {
+  return Math.max(1, Math.min(PVP_MAX_TOWER_LEVEL, Math.floor(level || 1)));
+}
+function pvpUpgradeCost(baseCost, level = 1) {
+  return Math.ceil(baseCost * (0.6 + 0.3 * pvpTowerLevel(level)));
+}
+function pvpTowerStats(base, level = 1) {
+  const upgrades = pvpTowerLevel(level) - 1;
+  return { ...base, damage: Math.round(base.damage * (1 + upgrades * 0.65)), range: base.range + upgrades * 0.5, cooldownMs: Math.round(base.cooldownMs / (1 + upgrades * 0.15)) };
+}
+function pvpSellRefund(baseCost, level = 1) {
+  let spent = baseCost;
+  for (let i = 1; i < pvpTowerLevel(level); i++) spent += pvpUpgradeCost(baseCost, i);
+  return Math.floor(spent * 0.6);
+}
+function pvpHexDistance(a, b, width) {
+  return Math.hypot(a % width - b % width, Math.floor(a / width) - Math.floor(b / width));
+}
+function calculateArenaRating(points, opponent, outcome, config = DEFAULT_PVP_CONFIG) {
+  const expected = 1 / (1 + 10 ** ((opponent - points) / 400));
+  const actual = outcome === "win" ? 1 : outcome === "tie" ? 0.5 : 0;
+  const change = actual - expected;
+  const delta = Math.round(change * (change >= 0 ? config.rating.win : Math.abs(config.rating.loss)) * 2);
+  const rating = Math.max(0, points + delta);
+  return { outcome, base: delta, performance: 0, delta: rating - points, rating, tier: pvpTier(rating, config) };
+}
+function createPvpPlayer(userId, name, side, config, now = Date.now()) {
+  return { userId, name: name.slice(0, 32), side, mainLevel: 1, wallMaxHealth: config.wallHealth, captured: [], connected: true, disconnectedAt: null, lastSeenAt: now, fruts: 0, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
+}
+function newPvpMatch(id, queue, players, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  const mapPool = structuredClone(config.maps);
+  players.forEach((player) => {
+    player.lastSeenAt = now;
+  });
+  return { id, queue, status: "draft", createdAt: now, endsAt: 0, players, winnerId: null, resultReason: null, revision: 0, mapPool, vetoTurn: players[Math.floor(Math.random() * 2)].userId, map: null, vetoHistory: [] };
+}
+function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "draft") throw new Error("Map veto is already complete");
+  const player = match.players.find((item) => item.userId === userId);
+  if (!player) throw new Error("Player is not in this match");
+  if (match.vetoTurn !== userId) throw new Error("Wait for the other player to veto a path");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed veto");
+  if (match.mapPool.length <= 2) throw new Error("Only the final two paths remain");
+  if (!match.mapPool.some((item) => item.id === mapId)) throw new Error("That path is no longer available");
+  match.mapPool = match.mapPool.filter((item) => item.id !== mapId);
+  match.vetoHistory.push({ userId, mapId });
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  if (match.mapPool.length === 2) {
+    match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
+    match.status = "active";
+    match.endsAt = now + config.durationSeconds * 1e3;
+    match.players.forEach((item) => {
+      item.wallHealth = config.wallHealth;
+      item.fruts = 0;
+      item.rallyReadyAt = now + PVP_RALLY.openingMs;
+    });
+  } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
+  return match;
+}
+function applyPvpCommand(match, userId, command, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "active") throw new Error("Match is not active");
+  if (now >= match.endsAt) throw new Error("Match timer has expired");
+  const player = match.players.find((item) => item.userId === userId);
+  if (!player) throw new Error("Player is not in this match");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
+  if (!player.connected) throw new Error("Player is disconnected");
+  if (command.type === "upgrade-main") {
+    const level = pvpTowerLevel(player.mainLevel);
+    if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Main tower is fully upgraded");
+    const cost = pvpMainUpgradeCost(level);
+    if (player.fruts < cost) throw new Error("Not enough match Fruts");
+    player.fruts -= cost;
+    player.mainLevel = level + 1;
+    const extraHealth = config.wallHealth * 0.25;
+    player.wallMaxHealth = (player.wallMaxHealth ?? config.wallHealth) + extraHealth;
+    player.wallHealth = Math.min(player.wallMaxHealth, player.wallHealth + extraHealth);
+  } else if (command.type === "release") {
+    const captured = player.captured?.find((item) => item.id === command.capturedId);
+    const attack = captured ? config.attacks[captured.type] : null;
+    if (!captured || !attack) throw new Error("Choose one of your captured fruit-zombies");
+    const cost = pvpReleaseCost(attack.cost, attack.packSize);
+    if (player.fruts < cost) throw new Error("Not enough match Fruts");
+    const target2 = match.players.find((item) => item !== player);
+    if (target2.attackers.length >= 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
+    player.fruts -= cost;
+    player.captured = player.captured.filter((item) => item !== captured);
+    target2.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: -(match.map ?? config.map).pathCells.length, released: true });
+  } else if (command.type === "ability") {
+    const { ability, stats } = equippedPower(command.abilityId, player.hero ?? "", player.abilityLoadout, player.abilityRanks);
+    if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down");
+    if (player.fruts < stats.cost) throw new Error("Not enough match Fruts");
+    const map2 = match.map ?? config.map;
+    const point = (attacker) => {
+      const cell = map2.pathCells[Math.min(map2.pathCells.length - 1, Math.max(0, Math.round(attacker.progress)))] ?? 0;
+      return { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5, progress: attacker.progress };
+    };
+    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0 && a.type !== "explosive"), ability, point);
+    if (!targets.length && !stats.healFraction) throw new Error("No vulnerable targets.");
+    player.fruts -= stats.cost;
+    player.abilityReadyAt ??= {};
+    player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
+    player.wallHealth = Math.min(player.wallMaxHealth ?? config.wallHealth, player.wallHealth + (player.wallMaxHealth ?? config.wallHealth) * stats.healFraction);
+    player.powerCasts = appendPowerCast(player.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map(point) });
+    for (const attacker of targets) {
+      attacker.hp -= stats.damage;
+      if (stats.slowMs) {
+        attacker.slowUntil = Math.max(attacker.slowUntil ?? 0, now + stats.slowMs);
+        attacker.slowMultiplier = stats.slowMultiplier;
+      }
+    }
+    const killed = player.attackers.filter((a) => a.hp <= 0);
+    player.score += killed.length * 10;
+    player.fruts += killed.reduce((sum, a) => sum + (config.attacks[a.type]?.rewardFruts ?? 0), 0);
+    player.attackers = player.attackers.filter((a) => a.hp > 0);
+  } else if (command.type === "rally") {
+    if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error("Rally is cooling down");
+    player.rallyUntil = now + PVP_RALLY.durationMs;
+    player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
+  } else if (command.type === "build") {
+    const tower2 = config.towers[command.tower];
+    const map2 = match.map ?? config.map;
+    const mapSize = map2.width * map2.height;
+    if (!tower2 || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map2.buildCells.includes(command.cell)) throw new Error("Invalid tower or build cell");
+    if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
+    if (player.fruts < tower2.cost) throw new Error("Not enough match Fruts");
+    player.fruts -= tower2.cost;
+    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now, level: 1 });
+  } else if (command.type === "upgrade" || command.type === "sell") {
+    const tower2 = player.towers.find((item) => item.id === command.towerId);
+    if (!tower2 || !config.towers[tower2.type]) throw new Error("Select one of your towers");
+    const base = config.towers[tower2.type];
+    const level = pvpTowerLevel(tower2.level);
+    if (command.type === "upgrade") {
+      if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded");
+      const cost = pvpUpgradeCost(base.cost, level);
+      if (player.fruts < cost) throw new Error("Not enough match Fruts");
+      player.fruts -= cost;
+      tower2.level = level + 1;
+    } else {
+      player.fruts += pvpSellRefund(base.cost, level);
+      player.towers = player.towers.filter((item) => item !== tower2);
+    }
+  } else if (command.type === "surrender") {
+    match.status = "complete";
+    match.resultReason = "surrender";
+    match.winnerId = match.players.find((item) => item !== player).userId;
+  } else if (command.type === "send") {
+    const attack = config.attacks[command.enemy];
+    if (!attack) throw new Error("Invalid fruit-zombie type");
+    if (player.fruts < attack.cost) throw new Error("Not enough match Fruts");
+    const target2 = match.players.find((item) => item.userId !== userId);
+    const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
+    if (target2.attackers.length + count > 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
+    player.fruts -= attack.cost;
+    for (let i = 0; i < count; i++) target2.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, maxHp: attack.health, progress: -(match.map ?? config.map).pathCells.length - i * 0.8 });
+  } else if (command.type === "slash") {
+    throw new Error("Slicing is disabled in Arena. Build towers to defend.");
+  } else throw new Error("Unknown match action");
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  return match;
+}
+function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.status !== "active") return match;
+  const dt = Math.max(0, Math.min(1, elapsedSeconds));
+  const map2 = match.map ?? config.map;
+  const path = map2.pathCells;
+  const before = /* @__PURE__ */ new Map();
+  for (const player of match.players) {
+    player.fruts += config.incomePerSecond * dt;
+    for (const unit2 of player.attackers) {
+      before.set(unit2.id, unit2.progress);
+      unit2.fighting = false;
+      delete unit2.fightTargetId;
+      if (unit2.hp <= 0) continue;
+      unit2.progress += config.attacks[unit2.type].speed * dt * Math.max(1, (path.length - 1) / 13) * (now < (unit2.slowUntil ?? 0) ? unit2.slowMultiplier ?? 0.55 : 1);
+    }
+  }
+  const [a, b] = match.players;
+  const reach = 0.8;
+  const pairs = a.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length).flatMap((left) => b.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length).map((right) => ({ left, right, distance: Math.abs(left.progress + right.progress + 1) }))).sort((x, y) => x.distance - y.distance);
+  for (const { left, right } of pairs) {
+    const oldLeft = before.get(left.id), oldRight = before.get(right.id);
+    const oldSum = oldLeft + oldRight + 1, newSum = left.progress + right.progress + 1;
+    if (oldSum <= -reach && newSum >= -reach) {
+      const movement = left.progress - oldLeft + (right.progress - oldRight);
+      const fraction = movement > 0 ? Math.max(0, Math.min(1, (-reach - oldSum) / movement)) : 0;
+      left.progress = oldLeft + (left.progress - oldLeft) * fraction;
+      right.progress = oldRight + (right.progress - oldRight) * fraction;
+    } else if (Math.abs(oldSum) <= reach && Math.abs(newSum) <= reach + 10) {
+      left.progress = oldLeft;
+      right.progress = oldRight;
+    }
+  }
+  const damage = /* @__PURE__ */ new Map();
+  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit2 of team.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length)) {
+    const target2 = enemy.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length && Math.abs(unit2.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit2.progress + x.progress + 1) - Math.abs(unit2.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
+    if (!target2) continue;
+    unit2.fighting = true;
+    unit2.fightTargetId = target2.id;
+    unit2.lastClashAt = Math.floor(now / 300) * 300;
+    const hit = config.attacks[unit2.type].wallDamage * 0.45 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
+    damage.set(target2.id, (damage.get(target2.id) ?? 0) + hit);
+  }
+  for (const player of match.players) for (const unit2 of player.attackers) unit2.hp -= damage.get(unit2.id) ?? 0;
+  for (const player of match.players) {
+    const shoot = (cell, stats, lastFiredAt, type = "main", level = 1) => {
+      if (now - lastFiredAt < stats.cooldownMs) return false;
+      const target2 = [...player.attackers].filter((attacker) => {
+        const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
+        return attacker.progress >= 0 && attacker.hp > 0 && pvpHexDistance(pathCell, cell, map2.width) <= stats.range;
+      }).sort((a2, b2) => b2.progress - a2.progress)[0];
+      if (!target2) return false;
+      if (type === "catcher" && !target2.released && target2.hp <= (target2.maxHp ?? config.attacks[target2.type].health) * (0.3 + (pvpTowerLevel(level) - 1) * 0.1) && (player.captured?.length ?? 0) < PVP_CAPTURE_CAPACITY) {
+        player.captured ??= [];
+        player.captured.push({ id: `captured:${target2.id}`, type: target2.type });
+        player.attackers = player.attackers.filter((item) => item !== target2);
+        return true;
+      }
+      const hit = (attacker, mul = 1) => {
+        attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === "armored" && type !== "laser" && type !== "railgun" ? 0.55 : 1));
+      };
+      const point = (attacker) => {
+        const c = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
+        return { x: c % map2.width + 0.5, y: Math.floor(c / map2.width) + 0.5 };
+      };
+      const victims = turretVictims(type, { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5 }, target2, player.attackers.filter((unit2) => unit2.hp > 0 && unit2.progress >= 0), point, stats.range, level);
+      for (const victim of victims) {
+        hit(victim, type === "sprinkler" && victim !== target2 ? 0.65 : 1);
+        if (type === "sprinkler") {
+          victim.slowUntil = Math.max(victim.slowUntil || 0, now + 1200);
+          victim.slowMultiplier = 0.55;
+        }
+        if (type === "railgun") victim.progress = Math.max(0, victim.progress - 0.45);
+      }
+      return true;
+    };
+    for (const tower2 of player.towers) {
+      const stats = config.towers[tower2.type];
+      if (stats && shoot(tower2.cell, pvpTowerStats(stats, tower2.level), tower2.lastFiredAt ?? tower2.placedAt, tower2.type, pvpTowerLevel(tower2.level))) tower2.lastFiredAt = now;
+    }
+    if (shoot(path.at(-1), pvpTowerStats({ cost: 0, ...config.mainTower }, player.mainLevel), player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
+    for (const attacker of [...player.attackers]) {
+      if (attacker.hp <= 0) {
+        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
+        player.score += 10;
+        player.fruts += config.attacks[attacker.type].rewardFruts;
+      } else if (attacker.progress >= path.length - 1) {
+        attacker.progress = path.length - 1;
+        attacker.attackingTower = true;
+        if (now - (attacker.lastTowerHitAt ?? 0) >= 1e3) {
+          player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type].wallDamage);
+          attacker.lastTowerHitAt = now;
+        }
+      }
+    }
+  }
+  const dead = match.players.find((player) => player.wallHealth <= 0);
+  if (dead) {
+    match.status = "complete";
+    match.winnerId = match.players.every((player) => player.wallHealth <= 0) ? null : match.players.find((player) => player !== dead).userId;
+    match.resultReason = "wall";
+  } else if (match.players.some((player) => player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3)) {
+    for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3) {
+      player.connected = false;
+      player.disconnectedAt = player.lastSeenAt;
+    }
+    const forfeiter = match.players.find((player) => !player.connected);
+    match.status = "complete";
+    match.winnerId = match.players.find((player) => player !== forfeiter)?.userId ?? null;
+    match.resultReason = "disconnect";
+  } else if (match.players.some((player) => player.disconnectedAt !== null && now - player.disconnectedAt >= config.reconnectGraceSeconds * 1e3)) {
+    match.status = "complete";
+    match.winnerId = match.players.find((player) => player.connected)?.userId ?? null;
+    match.resultReason = "disconnect";
+  } else if (now >= match.endsAt) {
+    match.status = "complete";
+    match.resultReason = "timeout";
+    const [a2, b2] = match.players;
+    const aHealth = a2.wallHealth / (a2.wallMaxHealth ?? config.wallHealth);
+    const bHealth = b2.wallHealth / (b2.wallMaxHealth ?? config.wallHealth);
+    match.winnerId = Math.abs(aHealth - bHealth) < 1e-6 ? null : aHealth > bHealth ? a2.userId : b2.userId;
+  }
+  match.revision++;
+  return match;
 }
 
 // src/game/onlineCoop.ts
@@ -643,28 +1192,44 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
     match.status = "complete";
     match.reason = "left";
   } else {
-    if (match.status !== "playing" && match.status !== "boss-intro") throw new Error("Wait for the match to start.");
+    if (match.status !== "playing" && match.status !== "boss-intro" && !(match.status === "countdown" && ["build", "upgrade", "sell"].includes(command.type))) throw new Error("Wait for the match to start.");
     if (command.type === "build") {
       const stats = balance.towers[command.tower];
       if (!stats || !Number.isInteger(command.cell) || command.cell < 121 || command.cell > 128 || match.towers.some((t) => t.cell === command.cell)) throw new Error("Choose an empty wall pad.");
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
       match.fruts -= stats.cost;
-      match.towers.push({ id: `${match.id}:${command.cell}`, type: command.tower, cell: command.cell, lastFiredAt: now });
+      match.towers.push({ id: `${match.id}:${command.cell}`, type: command.tower, cell: command.cell, lastFiredAt: now, level: 1 });
+    } else if (command.type === "upgrade" || command.type === "sell") {
+      const tower2 = match.towers.find((t) => t.id === command.towerId);
+      const base = tower2 && balance.towers[tower2.type];
+      if (!tower2 || !base) throw new Error("Choose a shared tower.");
+      const level = pvpTowerLevel(tower2.level);
+      if (command.type === "upgrade") {
+        if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded.");
+        const cost = pvpUpgradeCost(base.cost, level);
+        if (match.fruts < cost) throw new Error("Not enough shared Fruts.");
+        match.fruts -= cost;
+        tower2.level = level + 1;
+      } else {
+        match.fruts += pvpSellRefund(base.cost, level);
+        match.towers = match.towers.filter((t) => t !== tower2);
+      }
     } else if (command.type === "ability") {
       const { ability, stats } = equippedPower(command.abilityId, player.hero, player.abilityLoadout, player.abilityRanks);
       if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down.");
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
-      const targets = powerTargets(match.fruits.filter((f) => f.hp > 0), ability, (f) => f);
+      const targets = powerTargets(match.fruits.filter((f) => f.hp > 0 && f.type !== "explosive"), ability, (f) => f);
+      if (!targets.length && !stats.healFraction) throw new Error("No vulnerable targets.");
       match.fruts -= stats.cost;
       player.abilityReadyAt ??= {};
       player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
       match.wallHealth = Math.min(balance.wallHealth, match.wallHealth + balance.wallHealth * stats.healFraction);
       match.powerCasts = appendPowerCast(match.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map((f) => ({ x: f.x, y: f.y })) });
-      for (const fruit of targets) {
-        fruit.hp -= stats.damage;
+      for (const fruit2 of targets) {
+        fruit2.hp -= stats.damage;
         if (stats.slowMs) {
-          fruit.slowUntil = Math.max(fruit.slowUntil ?? 0, now + stats.slowMs);
-          fruit.slowMultiplier = stats.slowMultiplier;
+          fruit2.slowUntil = Math.max(fruit2.slowUntil ?? 0, now + stats.slowMs);
+          fruit2.slowMultiplier = stats.slowMultiplier;
         }
       }
       const killed = match.fruits.filter((f) => f.hp <= 0);
@@ -675,11 +1240,18 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
       if (Math.hypot(command.from.x - command.to.x, command.from.y - command.to.y) < 0.15 || now - player.lastSlashAt < config.bladeCooldownMs) throw new Error("Swipe across the fruit.");
       player.lastSlashAt = now;
       player.lastStroke = { from: command.from, to: command.to, at: now };
-      for (const fruit of match.fruits) if (distance(fruit, command.from, command.to) <= config.bladeRadius) fruit.hp -= config.bladeDamage;
+      for (const fruit2 of match.fruits) if (distance(fruit2, command.from, command.to) <= config.bladeRadius) {
+        if (fruit2.type === "explosive") match.wallHealth = Math.max(0, match.wallHealth - Math.max(1, Math.round((balance.attacks.explosive?.wallDamage ?? 0) * 0.2)));
+        else fruit2.hp -= config.bladeDamage;
+      }
       const killed = match.fruits.filter((f) => f.hp <= 0);
       player.kills += killed.length;
       collectKills(match, balance);
     } else throw new Error("Unsupported command.");
+  }
+  if (match.wallHealth <= 0 && match.status !== "complete") {
+    match.status = "complete";
+    match.reason = "wall";
   }
   player.sequence = sequence;
   player.lastSeenAt = now;
@@ -722,15 +1294,23 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     match.remainingSpawns--;
     match.spawnAt = now + config.spawnGapMs;
   }
-  for (const fruit of match.fruits) fruit.y += balance.attacks[fruit.type].speed * delta * (fruit.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier) * (now < (fruit.slowUntil ?? 0) ? fruit.slowMultiplier ?? 0.45 : 1);
-  const fire = (x, y, stats, last) => {
+  for (const fruit2 of match.fruits) fruit2.y += balance.attacks[fruit2.type].speed * delta * (fruit2.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier) * (now < (fruit2.slowUntil ?? 0) ? fruit2.slowMultiplier ?? 0.45 : 1);
+  const fire = (x, y, stats, last, type = "main", level = 1) => {
     if (now - last < stats.cooldownMs) return false;
-    const fruit = match.fruits.filter((f) => f.hp > 0 && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
-    if (!fruit) return false;
-    fruit.hp -= stats.damage;
+    const fruit2 = match.fruits.filter((f) => f.hp > 0 && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
+    if (!fruit2) return false;
+    const victims = turretVictims(type, { x, y }, fruit2, match.fruits.filter((f) => f.hp > 0), (f) => f, stats.range, level);
+    for (const target2 of victims) {
+      target2.hp -= Math.round(stats.damage * (target2 === fruit2 || type !== "sprinkler" ? 1 : 0.65));
+      if (type === "sprinkler") {
+        target2.slowUntil = Math.max(target2.slowUntil || 0, now + 1200);
+        target2.slowMultiplier = 0.55;
+      }
+      if (type === "railgun") target2.y = Math.max(0, target2.y - 0.45);
+    }
     return true;
   };
-  for (const tower of match.towers) if (fire(tower.cell % 10 + 0.5, Math.floor(tower.cell / 10) + 0.5, balance.towers[tower.type], tower.lastFiredAt)) tower.lastFiredAt = now;
+  for (const tower2 of match.towers) if (fire(tower2.cell % 10 + 0.5, Math.floor(tower2.cell / 10) + 0.5, pvpTowerStats(balance.towers[tower2.type], tower2.level), tower2.lastFiredAt, tower2.type, tower2.level)) tower2.lastFiredAt = now;
   const towerLevel = towerLevelFromXp(match.towerXp ?? 0);
   if (fire(5, 13.5, { ...balance.mainTower, damage: Math.round(balance.mainTower.damage * (1 + (towerLevel - 1) * 0.1)) }, match.mainLastFiredAt)) match.mainLastFiredAt = now;
   collectKills(match, balance);
@@ -753,6 +1333,15 @@ function coopRewards(match, config) {
   return { coins: Math.min(config.rewardCoinCap, match.kills * config.coinsPerKill + match.completedWaves * config.coinsPerWave), gems: Math.floor(match.completedWaves / config.gemsEveryWaves), xp: Math.min(1e4, match.kills * config.xpPerKill), towerXp: Math.min(1e4, match.completedWaves * config.towerXpPerWave) };
 }
 
+// src/game/turretTuning.ts
+var DEFAULT_TURRET_TUNING = { damageMultiplier: 1, rangeMultiplier: 1, cooldownMultiplier: 1, effectColor: "", effectScale: 1 };
+function normalizeTurretTuning(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return void 0;
+  const r = raw;
+  const n = (key, min, max) => r[key] !== "" && Number.isFinite(Number(r[key])) ? Math.max(min, Math.min(max, Number(r[key]))) : DEFAULT_TURRET_TUNING[key];
+  return { damageMultiplier: n("damageMultiplier", 0.1, 10), rangeMultiplier: n("rangeMultiplier", 0.25, 3), cooldownMultiplier: n("cooldownMultiplier", 0.2, 5), effectScale: n("effectScale", 0.5, 3), effectColor: typeof r.effectColor === "string" && /^#[a-f0-9]{6}$/i.test(r.effectColor) ? r.effectColor : "" };
+}
+
 // src/game/creatorMedia.ts
 var number = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
 function normalizeCreatorMedia(raw) {
@@ -760,7 +1349,7 @@ function normalizeCreatorMedia(raw) {
   if (typeof raw !== "object" || Array.isArray(raw)) throw new Error("Creator pack must contain entities.");
   const row = raw;
   if (!row.entities || typeof row.entities !== "object" || Array.isArray(row.entities)) throw new Error("Creator pack must contain entities.");
-  if (Object.keys(row.entities).length > 200 || JSON.stringify(raw).length > 25e5) throw new Error("Creator pack is too large. Use smaller sprite sheets.");
+  if (Object.keys(row.entities).length > 320 || JSON.stringify(raw).length > 25e5) throw new Error("Creator pack is too large. Use smaller sprite sheets.");
   const entities = /* @__PURE__ */ Object.create(null);
   for (const [key, value] of Object.entries(row.entities)) {
     if (!/^[a-z][a-z0-9-]{1,63}$/.test(key) || !value || typeof value !== "object") throw new Error("Invalid Creator entity.");
@@ -775,14 +1364,20 @@ function normalizeCreatorMedia(raw) {
       clips[clip] = { startFrame, frameCount: Math.floor(number(definition.frameCount, 1, 1, cols * rows - startFrame)), ...definition.fps ? { fps: number(definition.fps, 10, 1, 60) } : {}, ...["none", "juice-burst", "spark", "dark-pulse", "screen-shake"].includes(definition.fx || "") ? { fx: definition.fx } : {} };
     }
     const events = {};
-    for (const hook of ["onSpawn", "onHit", "onDeath"]) {
+    for (const hook of ["onSpawn", "onHit", "onDeath", "onAttack", "onImpact"]) {
       const event = value.events?.[hook];
       if (!event) continue;
-      events[hook] = { flash: Boolean(event.flash), shake: number(event.shake, 0, 0, 3), ...typeof event.sfxSlot === "string" && /^[a-z0-9-]{1,64}$/.test(event.sfxSlot) ? { sfxSlot: event.sfxSlot } : {}, ...["none", "juice-burst", "spark", "dark-pulse", "screen-shake"].includes(event.fx || "") ? { fx: event.fx } : {} };
+      events[hook] = { flash: Boolean(event.flash), shake: number(event.shake, 0, 0, 3), ...typeof event.sfxSlot === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(event.sfxSlot) ? { sfxSlot: event.sfxSlot } : {}, ...["none", "juice-burst", "spark", "dark-pulse", "screen-shake"].includes(event.fx || "") ? { fx: event.fx } : {} };
     }
-    entities[key] = { sheetDataUrl: sheet || null, cols, rows, frameW: Math.floor(number(value.frameW, 0, 0, 4096)), frameH: Math.floor(number(value.frameH, 0, 0, 4096)), clips, events, label: String(value.label || key).slice(0, 80) };
+    entities[key] = { sheetDataUrl: sheet || null, cols, rows, frameW: Math.floor(number(value.frameW, 0, 0, 4096)), frameH: Math.floor(number(value.frameH, 0, 0, 4096)), clips, events, turret: normalizeTurretTuning(value.turret), ...value.ignoreLegacy === true ? { ignoreLegacy: true } : {}, label: String(value.label || key).slice(0, 80) };
   }
-  return { version: 2, entities, selectedEntity: typeof row.selectedEntity === "string" && entities[row.selectedEntity] ? row.selectedEntity : Object.keys(entities)[0] || "enemy-normal" };
+  const sounds = /* @__PURE__ */ Object.create(null);
+  for (const [key, url] of Object.entries(row.sounds || {})) {
+    if (!/^[a-zA-Z0-9-]{1,64}$/.test(key) || typeof url !== "string" || !/^\/api\/media\/[a-f0-9]{24}$/.test(url)) throw new Error("Sounds must be uploaded through Admin.");
+    sounds[key] = url;
+  }
+  if (Object.keys(sounds).length > 128) throw new Error("Too many sound overrides.");
+  return { version: 2, entities, sounds, selectedEntity: typeof row.selectedEntity === "string" && entities[row.selectedEntity] ? row.selectedEntity : Object.keys(entities)[0] || "enemy-normal" };
 }
 
 // src/game/rankSeason.ts
@@ -1181,404 +1776,115 @@ var DEFAULT_CAMPAIGN_STORIES = [
   { chapter: 20, title: "A New Season", text: "The final overlord falls and the pulse goes quiet. The roots loosen their grip on the wall, leaving a scar across the orchard but no command to follow. In the clean soil beside the gate, the growers plant their first seed. This time, they let it grow on its own." }
 ];
 
-// src/game/pvp.ts
-function route(waypoints) {
-  const cells = [];
-  for (let i = 0; i < waypoints.length; i++) {
-    const [x, y] = waypoints[i];
-    const [nextX, nextY] = waypoints[i + 1] ?? [x, y];
-    if (!cells.length) cells.push(y * 10 + x);
-    if (nextY !== y) {
-      const step = Math.sign(nextY - y);
-      for (let row = y + step; row !== nextY + step; row += step) cells.push(row * 10 + x);
-    } else if (nextX !== x) {
-      const step = Math.sign(nextX - x);
-      for (let column = x + step; column !== nextX + step; column += step) cells.push(y * 10 + column);
-    }
-  }
-  return cells;
-}
-function makeMap(id, name, waypoints) {
-  const width = 10;
-  const height = 14;
-  const pathCells = route(waypoints);
-  return { id, name, width, height, pathCells, buildCells: Array.from({ length: width * height }, (_, i) => i).filter((cell) => !pathCells.includes(cell)) };
-}
-var DEFAULT_PVP_CONFIG = {
-  version: 1,
-  map: makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
-  maps: [
-    makeMap("orchard-crossing", "Orchard Crossing", [[4, 0], [4, 13]]),
-    makeMap("windfall", "Windfall Run", [[1, 0], [1, 3], [8, 3], [8, 6], [2, 6], [2, 9], [7, 9], [7, 13]]),
-    makeMap("old-grove", "Old Grove", [[8, 0], [8, 2], [2, 2], [2, 5], [7, 5], [7, 8], [1, 8], [1, 11], [6, 11], [6, 13]]),
-    makeMap("riverbend", "Riverbend", [[5, 0], [5, 4], [1, 4], [1, 7], [8, 7], [8, 10], [3, 10], [3, 13]]),
-    makeMap("twin-rows", "Twin Rows", [[0, 0], [0, 3], [6, 3], [6, 5], [2, 5], [2, 8], [9, 8], [9, 11], [4, 11], [4, 13]]),
-    makeMap("stone-arch", "Stone Arch", [[9, 0], [9, 2], [3, 2], [3, 5], [7, 5], [7, 8], [1, 8], [1, 11], [8, 11], [8, 13]]),
-    makeMap("long-harvest", "Long Harvest", [[2, 0], [2, 3], [8, 3], [8, 5], [4, 5], [4, 8], [0, 8], [0, 11], [6, 11], [6, 13]])
-  ],
-  durationSeconds: 180,
-  wallHealth: 1e3,
-  startingFruts: 0,
-  incomePerSecond: 6,
-  reconnectGraceSeconds: 45,
-  mainTower: { damage: 18, range: 2, cooldownMs: 1e3 },
-  towers: {
-    guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
-    vortex: { cost: 120, damage: 16, range: 4, cooldownMs: 600 },
-    laser: { cost: 180, damage: 62, range: 6, cooldownMs: 1600 },
-    railgun: { cost: 220, damage: 110, range: 8, cooldownMs: 2600 },
-    sprinkler: { cost: 150, damage: 12, range: 3, cooldownMs: 350 },
-    blender: { cost: 200, damage: 42, range: 2, cooldownMs: 700 },
-    catcher: { cost: 150, damage: 8, range: 3, cooldownMs: 1800 }
-  },
-  attacks: {
-    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
-    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
-    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
-    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
-  },
-  rating: {
-    start: 1e3,
-    win: 50,
-    tie: 20,
-    loss: -50,
-    bonusCap: 20,
-    combo: [{ at: 5, points: 1 }, { at: 10, points: 2 }, { at: 20, points: 3 }, { at: 35, points: 4 }, { at: 50, points: 5 }],
-    multiKill3: 2,
-    multiKill5: 3,
-    seasonResetPercent: 25,
-    tiers: [{ name: "Amateur", min: 0 }, { name: "Bronze", min: 500 }, { name: "Silver", min: 1500 }, { name: "Gold", min: 2e3 }, { name: "Diamond", min: 2500 }, { name: "Emerald", min: 2750 }, { name: "Sapphire", min: 3e3 }]
-  },
-  seasonRewards: [
-    { tier: "Bronze", coins: 100, gems: 0, badgeId: "pvp-bronze" },
-    { tier: "Silver", coins: 250, gems: 5, badgeId: "pvp-silver" },
-    { tier: "Gold", coins: 500, gems: 10, badgeId: "pvp-gold" },
-    { tier: "Diamond", coins: 900, gems: 20, badgeId: "pvp-diamond" },
-    { tier: "Emerald", coins: 1400, gems: 35, badgeId: "pvp-emerald" },
-    { tier: "Sapphire", coins: 2200, gems: 60, badgeId: "pvp-sapphire" }
-  ]
+// src/ui/gameGlyphs.ts
+var solid = (d) => [["path", { d, fill: "currentColor", stroke: "none" }]];
+var marks = (d, detail) => [
+  ["path", { d, fill: "currentColor", stroke: "none" }],
+  ["path", { d: detail, fill: "none", stroke: "var(--glyph-cut, #16181b)", "stroke-width": "1.6", "stroke-linecap": "square" }]
+];
+var shield = marks("M12 1 21 5v6c0 5.2-3.3 9.3-9 12-5.7-2.7-9-6.8-9-12V5z", "M12 4v15M6 8h12");
+var sword = solid("m3 21 3-5 3 3-5 3zm4-6 9-11 4-1-1 4-11 9zm10-1 2-2 4 4-2 2z");
+var target = marks("M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 6a4 4 0 1 1 0 8 4 4 0 0 1 0-8z", "M12 1v6m0 10v6M1 12h6m10 0h6");
+var tower = marks("M4 22V9h3V4h3v5h4V4h3v5h3v13zm6-8h4v8h-4z", "M4 12h16");
+var citrus = marks("M12 3c5.8 0 10 4 10 9s-4.2 9-10 9S2 17 2 12s4.2-9 10-9z", "M12 4v16M4 12h16M6 6l12 12M18 6 6 18");
+var bolt = solid("M13 1 3 14h7l-1 9 12-14h-8l3-8z");
+var spark = solid("m12 1 2.1 7.9L22 11l-7.9 2.1L12 21l-2.1-7.9L2 11l7.9-2.1zm8 17 .7 2.3L23 21l-2.3.7L20 24l-.7-2.3L17 21l2.3-.7z");
+var leaf = solid("M21 2C9 3 2 8 2 16c0 3.6 2.6 6 6 6 8 0 13-7 13-20zM5 19c3-5 7-8 12-11-3 4-6 7-12 11z");
+var coin = marks("M12 1 21 5v14l-9 4-9-4V5zm0 4-5 2v10l5 2 5-2V7z", "M12 7v10m-3-8h5m-5 6h5");
+var gem = marks("m7 2 10 0 6 7-11 13L1 9z", "M1 9h22M7 2l5 20L17 2");
+var crown = solid("M2 7 7 11l5-8 5 8 5-4-2 13H4z");
+var bag = marks("M4 8h16l2 14H2zm4 0V5a4 4 0 0 1 8 0v3z", "M8 12v3m8-3v3");
+var map = marks("m2 5 7-3 6 3 7-3v17l-7 3-6-3-7 3z", "M9 2v17m6-14v17");
+var people = solid("M8 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm8 1a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM1 20v-3a7 7 0 0 1 14 0v3zm15 0v-3a9 9 0 0 0-2-5 6 6 0 0 1 9 5v3z");
+var trophy = marks("M6 2h12v4h4v4c0 3-2 5-6 5-.7 2-1.5 3-3 3v2h5v3H6v-3h5v-2c-1.5 0-2.3-1-3-3-4 0-6-2-6-5V6h4z", "M6 9H4m14 0h2");
+var fruit = marks("M11 7c-4-3-9 0-9 6 0 5 3 9 7 9 2 0 2-1 3-1s1 1 3 1c4 0 7-4 7-9 0-6-5-9-9-6zM12 8c0-3 2-5 5-6", "M12 8c-1 1-2 1-4 0");
+var hammer = solid("M3 3h12l5 5-5 5-3-3-7 11-3-3 7-11-3-1z");
+var flame = solid("M12 1c1 5-3 6-2 10 2-1 3-3 4-5 5 5 7 9 7 12a9 9 0 0 1-18 0c0-5 4-8 9-17zm0 12c-2 3-4 5-4 7a4 4 0 0 0 8 0c0-2-1-4-4-7z");
+var pause = solid("M4 3h6v18H4zm10 0h6v18h-6z");
+var play = solid("m5 2 17 10L5 22z");
+var plus = solid("M9 2h6v7h7v6h-7v7H9v-7H2V9h7z");
+var gift = marks("M3 9h18v13H3zM1 5h22v5H1z", "M12 5v17");
+var skull = marks("M12 2C6 2 3 6 3 12c0 3 2 5 4 6v4h10v-4c2-1 4-3 4-6 0-6-3-10-9-10z", "M7 12h3m4 0h3m-5 3v2");
+var lock = marks("M4 10h16v12H4zM7 10V7a5 5 0 0 1 10 0v3", "M12 14v4");
+var book = marks("M3 3h8l2 3 2-3h6v18h-8l-1 2-2-2H3z", "M12 6v15");
+var droplets = solid("M7 2c2 4 5 7 5 11a5 5 0 0 1-10 0C2 9 5 6 7 2zm10 7c2 3 5 6 5 9a4 4 0 0 1-8 0c0-3 1-6 3-9z");
+var vortex = solid("M12 2c7 0 11 5 10 10-1 6-7 10-13 8-4-1-7-5-6-9 1-4 5-6 9-5 3 1 4 3 3 5-1 2-3 3-5 2 1 2 4 3 6 1 4-3 2-8-4-8-5 0-8 3-9 7C1 7 5 2 12 2z");
+var wave = solid("M2 5c3-3 6-3 9 0s6 3 11 0v4c-5 3-8 3-11 0S5 6 2 9zm0 7c3-3 6-3 9 0s6 3 11 0v4c-5 3-8 3-11 0s-6-3-9 0zm0 7c3-3 6-3 9 0s6 3 11 0v4c-5 3-8 3-11 0s-6-3-9 0z");
+var heart = solid("M12 22 2 12C-2 7 3 1 8 4l4 3 4-3c5-3 10 3 6 8z");
+var arrow = solid("M2 10h13l-4-5 3-3 8 10-8 10-3-3 4-5H2z");
+var arrowLeft = solid("M22 10H9l4-5-3-3-8 10 8 10 3-3-4-5h13z");
+var chevrons = solid("m12 2 9 9-3 3-6-6-6 6-3-3zm0 8 9 9-3 3-6-6-6 6-3-3z");
+var gear = marks("M10 1h4l1 3 3 1 3-1 2 4-2 2v4l2 2-2 4-3-1-3 1-1 3h-4l-1-3-3-1-3 1-2-4 2-2v-4L1 8l2-4 3 1 3-1z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z");
+var bell = marks("M12 2c-4 0-7 3-7 8v5l-3 4h20l-3-4v-5c0-5-3-8-7-8zM9 20h6c0 4-6 4-6 0z", "M5 16h14");
+var mail = marks("M2 4h20v16H2z", "m3 6 9 8 9-8");
+var chart = marks("M3 21V3h18v18z", "M6 17l4-5 3 2 5-7");
+var clock = marks("M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22z", "M12 5v7l4 3");
+var check = solid("m2 12 4-4 4 4L19 3l4 4-13 14z");
+var cross = solid("m5 2 7 7 7-7 3 3-7 7 7 7-3 3-7-7-7 7-3-3 7-7-7-7z");
+var ellipsis = solid("M2 9h5v6H2zm7 0h6v6H9zm8 0h5v6h-5z");
+var GAME_GLYPHS = {
+  Shield: shield,
+  ShieldCheck: shield,
+  Castle: tower,
+  TowerControl: tower,
+  Landmark: tower,
+  Swords: [...sword, ["path", { d: "M21 21 3 3", stroke: "currentColor", "stroke-width": "3" }]],
+  Sword: sword,
+  Scissors: sword,
+  Slice: sword,
+  Target: target,
+  ScanLine: target,
+  CircleDot: target,
+  Citrus: citrus,
+  Apple: fruit,
+  Cherry: fruit,
+  Banana: fruit,
+  Zap: bolt,
+  Sparkles: spark,
+  Leaf: leaf,
+  Flame: flame,
+  Droplets: droplets,
+  Tornado: vortex,
+  Waves: wave,
+  Coins: coin,
+  Gem: gem,
+  Diamond: gem,
+  Crown: crown,
+  Backpack: bag,
+  ShoppingBag: bag,
+  ShoppingCart: bag,
+  Map: map,
+  ScrollText: book,
+  Users: people,
+  UsersRound: people,
+  UserRound: people,
+  User: people,
+  Trophy: trophy,
+  Medal: trophy,
+  Hammer: hammer,
+  Bomb: flame,
+  Pause: pause,
+  Play: play,
+  Plus: plus,
+  Gift: gift,
+  Skull: skull,
+  LockKeyhole: lock,
+  Heart: heart,
+  ChevronRight: arrow,
+  ArrowLeft: arrowLeft,
+  ChevronsUp: chevrons,
+  ArrowUpCircle: chevrons,
+  Settings: gear,
+  Bell: bell,
+  Mail: mail,
+  MessageCircle: mail,
+  Ellipsis: ellipsis,
+  ChartNoAxesCombined: chart,
+  Gauge: clock,
+  BadgeCheck: check,
+  CalendarCheck: check,
+  X: cross
 };
-function normalizePvpMaps(input) {
-  if (!Array.isArray(input) || input.length !== 7) return structuredClone(DEFAULT_PVP_CONFIG.maps);
-  return input.map((raw, index) => {
-    const fallback = DEFAULT_PVP_CONFIG.maps[index];
-    if (!raw || typeof raw !== "object") return structuredClone(fallback);
-    const row = raw;
-    const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
-    const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
-    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
-    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - path[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1] / width)) === 1)) && Math.floor(path[0] / width) === 0 && Math.floor(path.at(-1) / width) === height - 1;
-    if (!valid) return structuredClone(fallback);
-    return { id: String(row.id || fallback.id).slice(0, 48), name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: Array.from({ length: width * height }, (_, cell) => cell).filter((cell) => !path.includes(cell)) };
-  });
-}
-function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
-  return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
-}
-function resetSeasonRating(points, config = DEFAULT_PVP_CONFIG) {
-  const retain = 1 - config.rating.seasonResetPercent / 100;
-  return Math.max(0, Math.round(config.rating.start + (points - config.rating.start) * retain));
-}
-var PVP_RALLY = { durationMs: 8e3, cooldownMs: 35e3, openingMs: 15e3, damageMultiplier: 1.25 };
-var PVP_CAPTURE_CAPACITY = 3;
-function pvpMainUpgradeCost(level = 1) {
-  return pvpTowerLevel(level) === 1 ? 220 : 340;
-}
-function pvpReleaseCost(attackCost, packSize = 1) {
-  return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * 0.5));
-}
-var PVP_MAX_TOWER_LEVEL = 3;
-function pvpTowerLevel(level) {
-  return Math.max(1, Math.min(PVP_MAX_TOWER_LEVEL, Math.floor(level || 1)));
-}
-function pvpUpgradeCost(baseCost, level = 1) {
-  return Math.ceil(baseCost * (0.6 + 0.3 * pvpTowerLevel(level)));
-}
-function pvpTowerStats(base, level = 1) {
-  const upgrades = pvpTowerLevel(level) - 1;
-  return { ...base, damage: Math.round(base.damage * (1 + upgrades * 0.65)), range: base.range + upgrades * 0.5, cooldownMs: Math.round(base.cooldownMs / (1 + upgrades * 0.15)) };
-}
-function pvpSellRefund(baseCost, level = 1) {
-  let spent = baseCost;
-  for (let i = 1; i < pvpTowerLevel(level); i++) spent += pvpUpgradeCost(baseCost, i);
-  return Math.floor(spent * 0.6);
-}
-function pvpHexDistance(a, b, width) {
-  const axial = (cell) => {
-    const r = Math.floor(cell / width);
-    return { r, q: cell % width - (r - (r & 1)) / 2 };
-  };
-  const x = axial(a);
-  const y = axial(b);
-  const dq = x.q - y.q;
-  const dr = x.r - y.r;
-  return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
-}
-function calculateArenaRating(points, opponent, outcome, config = DEFAULT_PVP_CONFIG) {
-  const expected = 1 / (1 + 10 ** ((opponent - points) / 400));
-  const actual = outcome === "win" ? 1 : outcome === "tie" ? 0.5 : 0;
-  const change = actual - expected;
-  const delta = Math.round(change * (change >= 0 ? config.rating.win : Math.abs(config.rating.loss)) * 2);
-  const rating = Math.max(0, points + delta);
-  return { outcome, base: delta, performance: 0, delta: rating - points, rating, tier: pvpTier(rating, config) };
-}
-function createPvpPlayer(userId, name, side, config, now = Date.now()) {
-  return { userId, name: name.slice(0, 32), side, mainLevel: 1, wallMaxHealth: config.wallHealth, captured: [], connected: true, disconnectedAt: null, lastSeenAt: now, fruts: 0, wallHealth: config.wallHealth, score: 0, maxCombo: 0, currentCombo: 0, lastSlashAt: null, comboMilestones: [], maxSingleSlashKills: 0, sequence: 0, towers: [], attackers: [] };
-}
-function newPvpMatch(id, queue, players, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  const mapPool = structuredClone(config.maps);
-  players.forEach((player) => {
-    player.lastSeenAt = now;
-  });
-  return { id, queue, status: "draft", createdAt: now, endsAt: 0, players, winnerId: null, resultReason: null, revision: 0, mapPool, vetoTurn: players[Math.floor(Math.random() * 2)].userId, map: null, vetoHistory: [] };
-}
-function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  if (match.status !== "draft") throw new Error("Map veto is already complete");
-  const player = match.players.find((item) => item.userId === userId);
-  if (!player) throw new Error("Player is not in this match");
-  if (match.vetoTurn !== userId) throw new Error("Wait for the other player to veto a path");
-  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed veto");
-  if (match.mapPool.length <= 2) throw new Error("Only the final two paths remain");
-  if (!match.mapPool.some((item) => item.id === mapId)) throw new Error("That path is no longer available");
-  match.mapPool = match.mapPool.filter((item) => item.id !== mapId);
-  match.vetoHistory.push({ userId, mapId });
-  player.sequence = sequence;
-  player.lastSeenAt = now;
-  match.revision++;
-  if (match.mapPool.length === 2) {
-    match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
-    match.status = "active";
-    match.endsAt = now + config.durationSeconds * 1e3;
-    match.players.forEach((item) => {
-      item.wallHealth = config.wallHealth;
-      item.fruts = 0;
-      item.rallyReadyAt = now + PVP_RALLY.openingMs;
-    });
-  } else match.vetoTurn = match.players.find((item) => item.userId !== userId).userId;
-  return match;
-}
-function applyPvpCommand(match, userId, command, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  if (match.status !== "active") throw new Error("Match is not active");
-  if (now >= match.endsAt) throw new Error("Match timer has expired");
-  const player = match.players.find((item) => item.userId === userId);
-  if (!player) throw new Error("Player is not in this match");
-  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
-  if (!player.connected) throw new Error("Player is disconnected");
-  if (command.type === "upgrade-main") {
-    const level = pvpTowerLevel(player.mainLevel);
-    if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Main tower is fully upgraded");
-    const cost = pvpMainUpgradeCost(level);
-    if (player.fruts < cost) throw new Error("Not enough match Fruts");
-    player.fruts -= cost;
-    player.mainLevel = level + 1;
-    const extraHealth = config.wallHealth * 0.25;
-    player.wallMaxHealth = (player.wallMaxHealth ?? config.wallHealth) + extraHealth;
-    player.wallHealth = Math.min(player.wallMaxHealth, player.wallHealth + extraHealth);
-  } else if (command.type === "release") {
-    const captured = player.captured?.find((item) => item.id === command.capturedId);
-    const attack = captured ? config.attacks[captured.type] : null;
-    if (!captured || !attack) throw new Error("Choose one of your captured fruit-zombies");
-    const cost = pvpReleaseCost(attack.cost, attack.packSize);
-    if (player.fruts < cost) throw new Error("Not enough match Fruts");
-    const target = match.players.find((item) => item !== player);
-    if (target.attackers.length >= 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
-    player.fruts -= cost;
-    player.captured = player.captured.filter((item) => item !== captured);
-    target.attackers.push({ id: `${userId}:${sequence}:released`, type: captured.type, hp: attack.health, maxHp: attack.health, progress: -(match.map ?? config.map).pathCells.length, released: true });
-  } else if (command.type === "ability") {
-    const { ability, stats } = equippedPower(command.abilityId, player.hero ?? "", player.abilityLoadout, player.abilityRanks);
-    if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down");
-    if (player.fruts < stats.cost) throw new Error("Not enough match Fruts");
-    const map = match.map ?? config.map;
-    const point = (attacker) => {
-      const cell = map.pathCells[Math.min(map.pathCells.length - 1, Math.max(0, Math.round(attacker.progress)))] ?? 0;
-      return { x: cell % map.width + 0.5, y: Math.floor(cell / map.width) + 0.5, progress: attacker.progress };
-    };
-    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0), ability, point);
-    player.fruts -= stats.cost;
-    player.abilityReadyAt ??= {};
-    player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
-    player.wallHealth = Math.min(player.wallMaxHealth ?? config.wallHealth, player.wallHealth + (player.wallMaxHealth ?? config.wallHealth) * stats.healFraction);
-    player.powerCasts = appendPowerCast(player.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map(point) });
-    for (const attacker of targets) {
-      attacker.hp -= stats.damage;
-      if (stats.slowMs) {
-        attacker.slowUntil = Math.max(attacker.slowUntil ?? 0, now + stats.slowMs);
-        attacker.slowMultiplier = stats.slowMultiplier;
-      }
-    }
-    const killed = player.attackers.filter((a) => a.hp <= 0);
-    player.score += killed.length * 10;
-    player.fruts += killed.reduce((sum, a) => sum + (config.attacks[a.type]?.rewardFruts ?? 0), 0);
-    player.attackers = player.attackers.filter((a) => a.hp > 0);
-  } else if (command.type === "rally") {
-    if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error("Rally is cooling down");
-    player.rallyUntil = now + PVP_RALLY.durationMs;
-    player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
-  } else if (command.type === "build") {
-    const tower = config.towers[command.tower];
-    const map = match.map ?? config.map;
-    const mapSize = map.width * map.height;
-    if (!tower || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map.buildCells.includes(command.cell)) throw new Error("Invalid tower or build cell");
-    if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
-    if (player.fruts < tower.cost) throw new Error("Not enough match Fruts");
-    player.fruts -= tower.cost;
-    player.towers.push({ id: `${player.userId}:${sequence}`, type: command.tower, cell: command.cell, placedAt: now, level: 1 });
-  } else if (command.type === "upgrade" || command.type === "sell") {
-    const tower = player.towers.find((item) => item.id === command.towerId);
-    if (!tower || !config.towers[tower.type]) throw new Error("Select one of your towers");
-    const base = config.towers[tower.type];
-    const level = pvpTowerLevel(tower.level);
-    if (command.type === "upgrade") {
-      if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded");
-      const cost = pvpUpgradeCost(base.cost, level);
-      if (player.fruts < cost) throw new Error("Not enough match Fruts");
-      player.fruts -= cost;
-      tower.level = level + 1;
-    } else {
-      player.fruts += pvpSellRefund(base.cost, level);
-      player.towers = player.towers.filter((item) => item !== tower);
-    }
-  } else if (command.type === "surrender") {
-    match.status = "complete";
-    match.resultReason = "surrender";
-    match.winnerId = match.players.find((item) => item !== player).userId;
-  } else if (command.type === "send") {
-    const attack = config.attacks[command.enemy];
-    if (!attack) throw new Error("Invalid fruit-zombie type");
-    if (player.fruts < attack.cost) throw new Error("Not enough match Fruts");
-    const target = match.players.find((item) => item.userId !== userId);
-    const count = Math.max(1, Math.min(8, Math.floor(attack.packSize || 1)));
-    if (target.attackers.length + count > 128) throw new Error("The opponent lane is full. Wait for the attack wave.");
-    player.fruts -= attack.cost;
-    for (let i = 0; i < count; i++) target.attackers.push({ id: `${userId}:${sequence}:${i}`, type: command.enemy, hp: attack.health, maxHp: attack.health, progress: -(match.map ?? config.map).pathCells.length - i * 0.8 });
-  } else if (command.type === "slash") {
-    throw new Error("Slicing is disabled in Arena. Build towers to defend.");
-  } else throw new Error("Unknown match action");
-  player.sequence = sequence;
-  player.lastSeenAt = now;
-  match.revision++;
-  return match;
-}
-function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
-  if (match.status !== "active") return match;
-  const dt = Math.max(0, Math.min(1, elapsedSeconds));
-  const map = match.map ?? config.map;
-  const path = map.pathCells;
-  const before = /* @__PURE__ */ new Map();
-  for (const player of match.players) {
-    player.fruts += config.incomePerSecond * dt;
-    for (const unit2 of player.attackers) {
-      before.set(unit2.id, unit2.progress);
-      unit2.fighting = false;
-      delete unit2.fightTargetId;
-      if (unit2.hp <= 0) continue;
-      const cell = path[Math.max(0, Math.min(path.length - 1, Math.floor(unit2.progress)))];
-      const slowed = unit2.progress >= 0 && player.towers.some((tower) => tower.type === "vortex" && pvpHexDistance(tower.cell, cell, map.width) <= pvpTowerStats(config.towers.vortex, tower.level).range);
-      unit2.progress += config.attacks[unit2.type].speed * dt * Math.max(1, (path.length - 1) / 13) * Math.min(slowed ? 0.6 : 1, now < (unit2.slowUntil ?? 0) ? unit2.slowMultiplier ?? 0.45 : 1);
-    }
-  }
-  const [a, b] = match.players;
-  const reach = 0.8;
-  const pairs = a.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length).flatMap((left) => b.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length).map((right) => ({ left, right, distance: Math.abs(left.progress + right.progress + 1) }))).sort((x, y) => x.distance - y.distance);
-  for (const { left, right } of pairs) {
-    const oldLeft = before.get(left.id), oldRight = before.get(right.id);
-    const oldSum = oldLeft + oldRight + 1, newSum = left.progress + right.progress + 1;
-    if (oldSum <= -reach && newSum >= -reach) {
-      const movement = left.progress - oldLeft + (right.progress - oldRight);
-      const fraction = movement > 0 ? Math.max(0, Math.min(1, (-reach - oldSum) / movement)) : 0;
-      left.progress = oldLeft + (left.progress - oldLeft) * fraction;
-      right.progress = oldRight + (right.progress - oldRight) * fraction;
-    } else if (Math.abs(oldSum) <= reach && Math.abs(newSum) <= reach + 10) {
-      left.progress = oldLeft;
-      right.progress = oldRight;
-    }
-  }
-  const damage = /* @__PURE__ */ new Map();
-  for (const [team, enemy] of [[a, b], [b, a]]) for (const unit2 of team.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length)) {
-    const target = enemy.attackers.filter((u) => u.hp > 0 && u.progress >= -path.length && Math.abs(unit2.progress + u.progress + 1) <= reach + 1e-4).sort((x, y) => Math.abs(unit2.progress + x.progress + 1) - Math.abs(unit2.progress + y.progress + 1) || x.id.localeCompare(y.id))[0];
-    if (!target) continue;
-    unit2.fighting = true;
-    unit2.fightTargetId = target.id;
-    unit2.lastClashAt = Math.floor(now / 300) * 300;
-    const hit = config.attacks[unit2.type].wallDamage * 0.45 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
-    damage.set(target.id, (damage.get(target.id) ?? 0) + hit);
-  }
-  for (const player of match.players) for (const unit2 of player.attackers) unit2.hp -= damage.get(unit2.id) ?? 0;
-  for (const player of match.players) {
-    const shoot = (cell, stats, lastFiredAt, type = "main", level = 1) => {
-      if (now - lastFiredAt < stats.cooldownMs) return false;
-      const target = [...player.attackers].filter((attacker) => {
-        const pathCell = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
-        return attacker.progress >= 0 && attacker.hp > 0 && pvpHexDistance(pathCell, cell, map.width) <= stats.range;
-      }).sort((a2, b2) => b2.progress - a2.progress)[0];
-      if (!target) return false;
-      if (type === "catcher" && !target.released && target.hp <= (target.maxHp ?? config.attacks[target.type].health) * (0.3 + (pvpTowerLevel(level) - 1) * 0.1) && (player.captured?.length ?? 0) < PVP_CAPTURE_CAPACITY) {
-        player.captured ??= [];
-        player.captured.push({ id: `captured:${target.id}`, type: target.type });
-        player.attackers = player.attackers.filter((item) => item !== target);
-        return true;
-      }
-      const hit = (attacker, mul = 1) => {
-        attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === "armored" && type !== "laser" && type !== "railgun" ? 0.55 : 1));
-      };
-      hit(target);
-      if (type === "sprinkler" || type === "blender") {
-        const targetCell = path[Math.floor(Math.max(0, Math.min(path.length - 1, target.progress)))];
-        const nearby = player.attackers.filter((item) => item !== target && item.hp > 0 && item.progress >= 0 && pvpHexDistance(path[Math.floor(Math.min(path.length - 1, item.progress))], targetCell, map.width) <= 1).slice(0, type === "blender" ? 3 : 2);
-        for (const item of nearby) hit(item, type === "blender" ? 1 : 0.65);
-      }
-      return true;
-    };
-    for (const tower of player.towers) {
-      const stats = config.towers[tower.type];
-      if (stats && shoot(tower.cell, pvpTowerStats(stats, tower.level), tower.lastFiredAt ?? tower.placedAt, tower.type, pvpTowerLevel(tower.level))) tower.lastFiredAt = now;
-    }
-    if (shoot(path.at(-1), pvpTowerStats({ cost: 0, ...config.mainTower }, player.mainLevel), player.mainLastFiredAt ?? 0)) player.mainLastFiredAt = now;
-    for (const attacker of [...player.attackers]) {
-      if (attacker.hp <= 0) {
-        player.attackers = player.attackers.filter((item) => item.id !== attacker.id);
-        player.score += 10;
-        player.fruts += config.attacks[attacker.type].rewardFruts;
-      } else if (attacker.progress >= path.length - 1) {
-        attacker.progress = path.length - 1;
-        attacker.attackingTower = true;
-        if (now - (attacker.lastTowerHitAt ?? 0) >= 1e3) {
-          player.wallHealth = Math.max(0, player.wallHealth - config.attacks[attacker.type].wallDamage);
-          attacker.lastTowerHitAt = now;
-        }
-      }
-    }
-  }
-  const dead = match.players.find((player) => player.wallHealth <= 0);
-  if (dead) {
-    match.status = "complete";
-    match.winnerId = match.players.every((player) => player.wallHealth <= 0) ? null : match.players.find((player) => player !== dead).userId;
-    match.resultReason = "wall";
-  } else if (match.players.some((player) => player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3)) {
-    for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3) {
-      player.connected = false;
-      player.disconnectedAt = player.lastSeenAt;
-    }
-    const forfeiter = match.players.find((player) => !player.connected);
-    match.status = "complete";
-    match.winnerId = match.players.find((player) => player !== forfeiter)?.userId ?? null;
-    match.resultReason = "disconnect";
-  } else if (match.players.some((player) => player.disconnectedAt !== null && now - player.disconnectedAt >= config.reconnectGraceSeconds * 1e3)) {
-    match.status = "complete";
-    match.winnerId = match.players.find((player) => player.connected)?.userId ?? null;
-    match.resultReason = "disconnect";
-  } else if (now >= match.endsAt) {
-    match.status = "complete";
-    match.resultReason = "timeout";
-    const [a2, b2] = match.players;
-    const aHealth = a2.wallHealth / (a2.wallMaxHealth ?? config.wallHealth);
-    const bHealth = b2.wallHealth / (b2.wallMaxHealth ?? config.wallHealth);
-    match.winnerId = Math.abs(aHealth - bHealth) < 1e-6 ? null : aHealth > bHealth ? a2.userId : b2.userId;
-  }
-  match.revision++;
-  return match;
-}
 
 // src/ui/extractedIcons.ts
 var groups = {
@@ -1625,14 +1931,14 @@ var ICON_ASSETS = {
   Backpack: "lobby-01-10",
   ShoppingBag: "creative-09-08",
   ShoppingCart: "creative-09-08",
-  Map: "quest-01-03",
+  Map: "creative-07-04",
   ScrollText: "lobby-01-08",
   Trophy: "stat-01-01",
   Medal: "creative-05-09",
   Hammer: "creative-05-07",
   Bomb: "creative-02-04",
   Gift: "creative-09-08",
-  Skull: "creative-03-07",
+  Skull: "stat-01-09",
   LockKeyhole: "creative-06-01",
   Heart: "creative-06-10",
   ChevronRight: "misc-02-09",
@@ -1643,6 +1949,48 @@ var ICON_ASSETS = {
   UserRound: "lobby-01-03",
   User: "lobby-01-03"
 };
+var ICON_ROLE_ALIASES = {
+  ModeCasual: "Shield",
+  ModeHorde: "Skull",
+  ModeCampaign: "Map",
+  ModeCoop: "Users",
+  ModeArena: "Swords",
+  ModeRanked: "Swords"
+};
+var ICON_ROLE_IDS = Object.freeze([.../* @__PURE__ */ new Set([
+  ...Object.keys(ICON_ROLE_ALIASES),
+  ...Object.keys(ICON_ASSETS),
+  ...Object.keys(GAME_GLYPHS),
+  "AlertTriangle",
+  "BrainCircuit",
+  "CalendarDays",
+  "Circle",
+  "Gamepad2",
+  "GitBranch",
+  "Infinity",
+  "Globe2",
+  "RefreshCw",
+  "LogOut",
+  "Fence",
+  "Rocket",
+  "Sprout",
+  "Link",
+  "Move",
+  "Palette",
+  "RotateCcw",
+  "UserPlus",
+  "Volume2",
+  "VolumeX"
+])]);
+function normalizeIconAssignments(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const roles = new Set(ICON_ROLE_IDS);
+  const result = {};
+  for (const [role, id] of Object.entries(value).slice(0, 128)) {
+    if (roles.has(role) && typeof id === "string" && knownIds.has(id)) result[role] = id;
+  }
+  return result;
+}
 
 // src/services/admin.ts
 var DEFAULT_ADMIN_CONFIG = {
@@ -1680,9 +2028,9 @@ var DEFAULT_ADMIN_CONFIG = {
   },
   landscapeConfig: {
     locationName: "Fallen Orchard",
-    skyColor: "#4a5f3e",
-    outerGroundColor: "#5a8a42",
-    groundColor: "#6fa052",
+    skyColor: "#202529",
+    outerGroundColor: "#29302c",
+    groundColor: "#34383b",
     groundGlowColor: "#2a3a1f",
     foliageColor: "#3d8b3a",
     ambientLight: 0.92,
@@ -1702,6 +2050,7 @@ var DEFAULT_ADMIN_CONFIG = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
+  fruits: [],
   waves: { version: 1, levels: {} },
   campaignBosses: [],
   campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES),
@@ -1728,21 +2077,13 @@ function mergeAdminConfig(raw) {
     badges: structuredClone(migrateCoopCatalog(Array.isArray(src.badges) ? src.badges : DEFAULT_ADMIN_CONFIG.badges, DEFAULT_BADGES, src.coopCatalogVersion)),
     ranks: mergeRewardDefaults(structuredClone(Array.isArray(src.ranks) && src.ranks.length ? src.ranks : DEFAULT_ADMIN_CONFIG.ranks), DEFAULT_ADMIN_CONFIG.ranks),
     slicers: structuredClone(Array.isArray(src.slicers) && src.slicers.length ? src.slicers : DEFAULT_ADMIN_CONFIG.slicers),
+    fruits: structuredClone(Array.isArray(src.fruits) ? src.fruits.slice(0, 100) : []),
     enemies: structuredClone(Array.isArray(src.enemies) && src.enemies.length ? src.enemies : DEFAULT_ADMIN_CONFIG.enemies),
     waves: src.waves && typeof src.waves === "object" ? structuredClone(src.waves) : structuredClone(DEFAULT_ADMIN_CONFIG.waves),
     campaignBosses: Array.isArray(src.campaignBosses) ? structuredClone(src.campaignBosses.slice(0, 100)) : [],
     campaignStories: Array.isArray(src.campaignStories) && src.campaignStories.length === 20 ? structuredClone(src.campaignStories) : structuredClone(DEFAULT_CAMPAIGN_STORIES),
-    iconOverrides: normalizeIconOverrides(src.iconOverrides)
+    iconOverrides: normalizeIconAssignments(src.iconOverrides)
   };
-}
-function normalizeIconOverrides(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const allowedIcons = new Set(EXTRACTED_ICON_IDS);
-  const result = {};
-  for (const [role, id] of Object.entries(value).slice(0, 128)) {
-    if (/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(role) && typeof id === "string" && allowedIcons.has(id)) result[role] = id;
-  }
-  return result;
 }
 function mergePvpConfig(raw) {
   const value = raw && typeof raw === "object" ? raw : {};
@@ -1750,7 +2091,7 @@ function mergePvpConfig(raw) {
   const maps = normalizePvpMaps(value.maps);
   const towers = { ...DEFAULT_PVP_CONFIG.towers };
   for (const [id, fallback] of Object.entries(towers)) {
-    const row = value.towers?.[id];
+    const row = migrateLegacyWeaponBalance(id, value.towers?.[id]);
     if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), damage: bounded(row.damage, fallback.damage, 1, 1e4), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 6e4) };
   }
   const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
@@ -2388,7 +2729,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
         hero,
         mode,
         score,
-        wave,
+        wave: wave2,
         fruitsSliced,
         maxCombo,
         runToken,
@@ -2397,7 +2738,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
       } = req2.body;
       if (mode !== void 0 && !["casual", "ranked", "coop", "arena", "horde", "campaign"].includes(mode)) return res.status(400).json({ success: false, error: "Invalid mode" });
       if (hero !== void 0 && !["jiju", "topfu", "lagen", "tripos", "ki"].includes(hero)) return res.status(400).json({ success: false, error: "Invalid hero" });
-      if (wave !== void 0 && !boundedInteger(wave, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
+      if (wave2 !== void 0 && !boundedInteger(wave2, 1e3, 1) || fruitsSliced !== void 0 && !boundedInteger(fruitsSliced, 1e5) || maxCombo !== void 0 && !boundedInteger(maxCombo, 5e3)) return res.status(400).json({ success: false, error: "Invalid match counters" });
       if (nickname !== void 0 && (typeof nickname !== "string" || nickname.length > 64) || avatar !== void 0 && (typeof avatar !== "string" || avatar.length > 9e5)) return res.status(400).json({ success: false, error: "Invalid profile fields" });
       if (typeof score !== "number" || !Number.isFinite(score) || score < 0) {
         return res.status(400).json({ success: false, error: "Invalid score submission payload" });
@@ -2408,13 +2749,13 @@ function createLeaderboardRouter(deps = defaultDeps) {
           return res.status(400).json({ success: false, error: "Invalid run reward payload" });
         }
         const rewardCaps = {
-          coins: Math.min(1e5, Math.ceil(score * 2 + (wave || 1) * 100)),
-          heroXp: Math.min(1e4, Math.ceil(score / 5 + (wave || 1) * 100 + 100)),
-          towerXp: Math.min(1e4, Math.ceil(score / 3 + (wave || 1) * 150 + 100)),
+          coins: Math.min(1e5, Math.ceil(score * 2 + (wave2 || 1) * 100)),
+          heroXp: Math.min(1e4, Math.ceil(score / 5 + (wave2 || 1) * 100 + 100)),
+          towerXp: Math.min(1e4, Math.ceil(score / 3 + (wave2 || 1) * 150 + 100)),
           skillPoints: Math.min(100, Math.ceil(score / 1e3) + 5),
           // Boss bounties plus one rare gem per 100 kills; match receipts are
           // still token-bound and each reward is credited only once.
-          gems: Math.min(100, Math.floor((wave || 0) / 5) + Math.floor((fruitsSliced || 0) / 100))
+          gems: Math.min(100, Math.floor((wave2 || 0) / 5) + Math.floor((fruitsSliced || 0) / 100))
         };
         if (keys.some((key) => rewards[key] > rewardCaps[key]) || (rewards.gems ?? 0) > rewardCaps.gems) {
           return res.status(422).json({ success: false, error: "Run rewards exceed the score and wave limits" });
@@ -2428,7 +2769,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
       if (score > MAX_REASONABLE_SCORE) {
         return res.status(400).json({ success: false, error: "Score exceeds reasonable maximum" });
       }
-      if (wave && wave > MAX_REASONABLE_WAVE) {
+      if (wave2 && wave2 > MAX_REASONABLE_WAVE) {
         return res.status(400).json({ success: false, error: "Wave exceeds reasonable maximum" });
       }
       if (fruitsSliced && fruitsSliced > MAX_REASONABLE_FRUITS) {
@@ -2459,7 +2800,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
       );
       if (!available) return res.status(401).json({ success: false, error: "Run token is invalid, expired, or already used" });
       const elapsedSeconds = Math.max(0, (Date.now() - new Date(available.createdAt).getTime()) / 1e3);
-      if (!Number.isFinite(elapsedSeconds) || score > 2500 + elapsedSeconds * 600 || (wave || 1) > 10 + Math.floor(elapsedSeconds / 2) || (fruitsSliced || 0) > 100 + Math.floor(elapsedSeconds * 12) || (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
+      if (!Number.isFinite(elapsedSeconds) || score > 2500 + elapsedSeconds * 600 || (wave2 || 1) > 10 + Math.floor(elapsedSeconds / 2) || (fruitsSliced || 0) > 100 + Math.floor(elapsedSeconds * 12) || (maxCombo || 0) > 100 + Math.floor(elapsedSeconds * 12)) {
         return res.status(422).json({ success: false, error: "Run counters exceed the time available since match start" });
       }
       const consumed = await runs.findOneAndUpdate(
@@ -2479,7 +2820,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
           games: completed === false ? 0 : 1,
           highScore: score,
           rankedScore: playMode === "ranked" && completed !== false ? score : 0,
-          bestWave: wave || 1,
+          bestWave: wave2 || 1,
           bestCombo: maxCombo || 0
         }, await deps.collection("cloud_saves"));
         if (!wallet) return res.status(500).json({ success: false, error: "Could not settle run rewards" });
@@ -2496,7 +2837,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
             hero: hero || "jiju",
             mode: modeKey,
             score,
-            wave: wave || 1,
+            wave: wave2 || 1,
             fruitsSliced: fruitsSliced || 0,
             maxCombo: maxCombo || 0,
             steamId: user.steamId,
@@ -2506,7 +2847,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
           });
           return true;
         }
-        if (modeKey === "horde" && ((wave || 1) > existing.wave || (wave || 1) === existing.wave && score > existing.score) || modeKey !== "horde" && (score > existing.score || score === existing.score && (wave || 1) > existing.wave)) {
+        if (modeKey === "horde" && ((wave2 || 1) > existing.wave || (wave2 || 1) === existing.wave && score > existing.score) || modeKey !== "horde" && (score > existing.score || score === existing.score && (wave2 || 1) > existing.wave)) {
           await col.updateOne(
             { _id: existing._id },
             {
@@ -2515,7 +2856,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
                 avatar: avatar || existing.avatar,
                 hero: hero || existing.hero,
                 score,
-                wave: wave || existing.wave,
+                wave: wave2 || existing.wave,
                 fruitsSliced: Math.max(fruitsSliced || 0, existing.fruitsSliced),
                 maxCombo: Math.max(maxCombo || 0, existing.maxCombo),
                 steamId: user.steamId || existing.steamId,
@@ -2533,7 +2874,7 @@ function createLeaderboardRouter(deps = defaultDeps) {
       if (playMode === "ranked" && completed !== false) {
         await upsertBest(monthlyLeaderboardMode());
       }
-      const higherCount = await col.countDocuments(playMode === "horde" ? { mode: playMode, $or: [{ wave: { $gt: wave || 1 } }, { wave: wave || 1, score: { $gt: score } }] } : { mode: playMode, score: { $gt: score } });
+      const higherCount = await col.countDocuments(playMode === "horde" ? { mode: playMode, $or: [{ wave: { $gt: wave2 || 1 } }, { wave: wave2 || 1, score: { $gt: score } }] } : { mode: playMode, score: { $gt: score } });
       const catalog = playMode === "ranked" ? await deps.catalog() : null;
       const monthlyScore = playMode === "ranked" ? (await col.findOne({ userId, mode: monthlyLeaderboardMode() }))?.score || score : score;
       res.json({
@@ -3065,132 +3406,132 @@ var DEFAULT_ADMIN_CONFIG2 = {
   ranks: DEFAULT_RANK_TIERS,
   slicers: DEFAULT_SLICERS,
   enemies: [],
+  fruits: [],
   waves: { version: 1, levels: {} },
   campaignStories: structuredClone(DEFAULT_CAMPAIGN_STORIES),
   iconOverrides: {}
 };
-function normalizeIconOverrides2(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const roles = new Set(Object.keys(ICON_ASSETS));
-  const assets = new Set(EXTRACTED_ICON_IDS);
-  const result = {};
-  for (const [role, id] of Object.entries(value).slice(0, 128)) {
-    if (roles.has(role) && typeof id === "string" && assets.has(id)) result[role] = id;
-  }
-  return result;
-}
 async function isAuthorized(req2) {
   const user = await resolveRequestUser(req2);
   return Boolean(ADMIN_STEAM_ID && user?.steamId === ADMIN_STEAM_ID);
 }
-adminRouter.get("/config", async (_req, res) => {
-  try {
-    const col = await getCollection("admin_config");
-    let doc = await col.findOne({ configKey: "game_config" });
-    if (!doc) {
-      const seed = {
-        ...DEFAULT_ADMIN_CONFIG2,
+function createAdminConfigRouter(dependencies = {}) {
+  const router = Router5();
+  const authorize = dependencies.authorize ?? isAuthorized;
+  const configCollection = dependencies.collection ?? (() => getCollection("admin_config"));
+  router.get("/config", async (_req, res) => {
+    try {
+      const col = await configCollection();
+      let doc = await col.findOne({ configKey: "game_config" });
+      if (!doc) {
+        const seed = {
+          ...DEFAULT_ADMIN_CONFIG2,
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        await col.insertOne(seed);
+        doc = seed;
+      }
+      const cfg = doc;
+      res.json({
+        success: true,
+        config: {
+          ...DEFAULT_ADMIN_CONFIG2,
+          ...cfg,
+          menuConfig: normalizeMenuConfig(cfg.menuConfig),
+          vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG2.vipTiers,
+          missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
+          achievements: migrateCoopCatalog(normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, cfg.coopCatalogVersion),
+          badges: migrateCoopCatalog(normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES), DEFAULT_BADGES, cfg.coopCatalogVersion),
+          ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
+          slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
+          enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
+          waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG2.waves,
+          campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : [],
+          campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG2.campaignStories,
+          iconOverrides: normalizeIconAssignments(cfg.iconOverrides)
+        }
+      });
+    } catch (err) {
+      console.error("Error getting admin config:", err);
+      res.json({
+        success: true,
+        offline: true,
+        config: { ...DEFAULT_ADMIN_CONFIG2, updatedAt: /* @__PURE__ */ new Date() }
+      });
+    }
+  });
+  router.post("/verify", async (req2, res) => {
+    const valid = await authorize(req2);
+    res.json({
+      success: true,
+      isAdmin: valid
+    });
+  });
+  router.post("/config", async (req2, res) => {
+    if (!await authorize(req2)) {
+      return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
+    }
+    try {
+      const { dailyRewards, vipTiers, menuConfig, landscapeConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
+      if (req2.body.creatorMedia !== void 0) {
+        try {
+          normalizeCreatorMedia(req2.body.creatorMedia);
+        } catch (error2) {
+          return res.status(400).json({ success: false, error: error2 instanceof Error ? error2.message : "Invalid Creator media." });
+        }
+      }
+      const bossRosterError = campaignBosses === void 0 ? null : campaignBossRosterError(campaignBosses);
+      if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
+      const storyError = campaignStories === void 0 ? null : campaignStoriesError(campaignStories);
+      if (storyError) return res.status(400).json({ success: false, error: storyError });
+      if (req2.body.fruits !== void 0 && (!Array.isArray(req2.body.fruits) || req2.body.fruits.length > 100)) return res.status(400).json({ success: false, error: "Fruits must be an array of up to 100 balance rows." });
+      const col = await configCollection();
+      const existing = await col.findOne({ configKey: "game_config" });
+      const updated = {
+        configKey: "game_config",
+        dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG2.dailyRewards,
+        vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG2.vipTiers,
+        menuConfig: menuConfig ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig)) : normalizeMenuConfig(existing?.menuConfig),
+        landscapeConfig: landscapeConfig && typeof landscapeConfig === "object" && !Array.isArray(landscapeConfig) ? landscapeConfig : existing?.landscapeConfig,
+        gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG2.gameplayConfig,
+        pvpConfig: normalizePvpConfig(req2.body.pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
+        missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
+        coopCatalogVersion: 1,
+        achievements: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, req2.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
+        badges: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES), DEFAULT_BADGES, req2.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
+        ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
+        slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
+        fruits: Array.isArray(req2.body.fruits) ? req2.body.fruits : existing?.fruits || [],
+        enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
+        coopConfig: normalizeCoopConfig(req2.body.coopConfig ?? existing?.coopConfig),
+        creatorMedia: normalizeCreatorMedia(req2.body.creatorMedia === void 0 ? existing?.creatorMedia : req2.body.creatorMedia),
+        waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG2.waves,
+        campaignBosses: campaignBosses !== void 0 ? campaignBosses : existing?.campaignBosses || [],
+        campaignStories: campaignStories !== void 0 ? campaignStories : existing?.campaignStories || DEFAULT_ADMIN_CONFIG2.campaignStories,
+        iconOverrides: req2.body.iconOverrides !== void 0 ? normalizeIconAssignments(req2.body.iconOverrides) : existing?.iconOverrides || {},
         updatedAt: /* @__PURE__ */ new Date()
       };
-      await col.insertOne(seed);
-      doc = seed;
+      await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
+      invalidateCatalogCache();
+      res.json({
+        success: true,
+        message: "Admin configuration saved successfully to MongoDB Atlas!",
+        config: updated
+      });
+    } catch (err) {
+      console.error("Error saving admin config:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
-    const cfg = doc;
-    res.json({
-      success: true,
-      config: {
-        ...DEFAULT_ADMIN_CONFIG2,
-        ...cfg,
-        menuConfig: normalizeMenuConfig(cfg.menuConfig),
-        vipTiers: Array.isArray(cfg.vipTiers) && cfg.vipTiers.length ? cfg.vipTiers : DEFAULT_ADMIN_CONFIG2.vipTiers,
-        missions: normalizePrizeCatalog(cfg.missions, DEFAULT_MISSIONS),
-        achievements: migrateCoopCatalog(normalizePrizeCatalog(cfg.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, cfg.coopCatalogVersion),
-        badges: migrateCoopCatalog(normalizePrizeCatalog(cfg.badges, DEFAULT_BADGES), DEFAULT_BADGES, cfg.coopCatalogVersion),
-        ranks: normalizePrizeCatalog(cfg.ranks, DEFAULT_RANK_TIERS),
-        slicers: Array.isArray(cfg.slicers) && cfg.slicers.length ? cfg.slicers : DEFAULT_SLICERS,
-        enemies: Array.isArray(cfg.enemies) && cfg.enemies.length ? cfg.enemies : [],
-        waves: cfg.waves && typeof cfg.waves === "object" ? cfg.waves : DEFAULT_ADMIN_CONFIG2.waves,
-        campaignBosses: Array.isArray(cfg.campaignBosses) ? cfg.campaignBosses.slice(0, 100) : [],
-        campaignStories: Array.isArray(cfg.campaignStories) && !campaignStoriesError(cfg.campaignStories) ? cfg.campaignStories : DEFAULT_ADMIN_CONFIG2.campaignStories,
-        iconOverrides: normalizeIconOverrides2(cfg.iconOverrides)
-      }
-    });
-  } catch (err) {
-    console.error("Error getting admin config:", err);
-    res.json({
-      success: true,
-      offline: true,
-      config: { ...DEFAULT_ADMIN_CONFIG2, updatedAt: /* @__PURE__ */ new Date() }
-    });
-  }
-});
-adminRouter.post("/verify", async (req2, res) => {
-  const valid = await isAuthorized(req2);
-  res.json({
-    success: true,
-    isAdmin: valid
   });
-});
-adminRouter.post("/config", async (req2, res) => {
-  if (!await isAuthorized(req2)) {
-    return res.status(403).json({ success: false, error: "Unauthorized: Admin privileges required." });
-  }
-  try {
-    const { dailyRewards, vipTiers, menuConfig, landscapeConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
-    if (req2.body.creatorMedia !== void 0) {
-      try {
-        normalizeCreatorMedia(req2.body.creatorMedia);
-      } catch (error2) {
-        return res.status(400).json({ success: false, error: error2 instanceof Error ? error2.message : "Invalid Creator media." });
-      }
-    }
-    const bossRosterError = campaignBosses === void 0 ? null : campaignBossRosterError(campaignBosses);
-    if (bossRosterError) return res.status(400).json({ success: false, error: bossRosterError });
-    const storyError = campaignStories === void 0 ? null : campaignStoriesError(campaignStories);
-    if (storyError) return res.status(400).json({ success: false, error: storyError });
-    const col = await getCollection("admin_config");
-    const existing = await col.findOne({ configKey: "game_config" });
-    const updated = {
-      configKey: "game_config",
-      dailyRewards: dailyRewards ? normalizeDailyRewards(dailyRewards) : existing?.dailyRewards || DEFAULT_ADMIN_CONFIG2.dailyRewards,
-      vipTiers: vipTiers || existing?.vipTiers || DEFAULT_ADMIN_CONFIG2.vipTiers,
-      menuConfig: menuConfig ? normalizeMenuConfig(menuConfig, normalizeMenuConfig(existing?.menuConfig)) : normalizeMenuConfig(existing?.menuConfig),
-      landscapeConfig: landscapeConfig && typeof landscapeConfig === "object" && !Array.isArray(landscapeConfig) ? landscapeConfig : existing?.landscapeConfig,
-      gameplayConfig: gameplayConfig ? normalizeGameplayConfig(gameplayConfig) : existing?.gameplayConfig || DEFAULT_ADMIN_CONFIG2.gameplayConfig,
-      pvpConfig: normalizePvpConfig(req2.body.pvpConfig ?? existing?.pvpConfig ?? DEFAULT_PVP_CONFIG),
-      missions: normalizePrizeCatalog(Array.isArray(missions) ? missions : existing?.missions, DEFAULT_MISSIONS),
-      coopCatalogVersion: 1,
-      achievements: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(achievements) ? achievements : existing?.achievements, DEFAULT_ACHIEVEMENTS), DEFAULT_ACHIEVEMENTS, req2.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
-      badges: migrateCoopCatalog(normalizePrizeCatalog(Array.isArray(badges) ? badges : existing?.badges, DEFAULT_BADGES), DEFAULT_BADGES, req2.body.coopCatalogVersion ?? existing?.coopCatalogVersion),
-      ranks: normalizePrizeCatalog(Array.isArray(ranks) ? ranks : existing?.ranks, DEFAULT_RANK_TIERS),
-      slicers: Array.isArray(slicers) ? slicers : existing?.slicers || DEFAULT_SLICERS,
-      enemies: Array.isArray(enemies) ? enemies : existing?.enemies || [],
-      coopConfig: normalizeCoopConfig(req2.body.coopConfig ?? existing?.coopConfig),
-      creatorMedia: normalizeCreatorMedia(req2.body.creatorMedia === void 0 ? existing?.creatorMedia : req2.body.creatorMedia),
-      waves: waves && typeof waves === "object" ? waves : existing?.waves || DEFAULT_ADMIN_CONFIG2.waves,
-      campaignBosses: campaignBosses !== void 0 ? campaignBosses : existing?.campaignBosses || [],
-      campaignStories: campaignStories !== void 0 ? campaignStories : existing?.campaignStories || DEFAULT_ADMIN_CONFIG2.campaignStories,
-      iconOverrides: req2.body.iconOverrides !== void 0 ? normalizeIconOverrides2(req2.body.iconOverrides) : existing?.iconOverrides || {},
-      updatedAt: /* @__PURE__ */ new Date()
-    };
-    await col.updateOne({ configKey: "game_config" }, { $set: updated }, { upsert: true });
-    invalidateCatalogCache();
-    res.json({
-      success: true,
-      message: "Admin configuration saved successfully to MongoDB Atlas!",
-      config: updated
-    });
-  } catch (err) {
-    console.error("Error saving admin config:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  return router;
+}
+adminRouter.use(createAdminConfigRouter());
 function normalizePvpConfig(input) {
   const row = input && typeof input === "object" ? input : {};
   const bounded = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
   const maps = normalizePvpMaps(row.maps);
   const towers = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.towers).map(([id, base]) => {
-    const item = row.towers?.[id];
+    const item = migrateLegacyWeaponBalance(id, row.towers?.[id]);
     return [id, {
       cost: bounded(item?.cost, base.cost, 1, 1e4),
       damage: bounded(item?.damage, base.damage, 1, 1e4),
@@ -3791,8 +4132,8 @@ authRouter.post("/complete-profile", async (req2, res) => {
     if (!user.emailVerified) {
       return res.status(403).json({ success: false, error: "Confirm your email first." });
     }
-    const check = validateUsername(String(req2.body?.username || ""));
-    if (!check.ok) return res.status(400).json({ success: false, error: check.error });
+    const check2 = validateUsername(String(req2.body?.username || ""));
+    if (!check2.ok) return res.status(400).json({ success: false, error: check2.error });
     const avatar = String(req2.body?.avatar || "").trim();
     if (!avatar || avatar.length < 32) {
       return res.status(400).json({ success: false, error: "Upload an avatar image." });
@@ -3802,13 +4143,13 @@ authRouter.post("/complete-profile", async (req2, res) => {
     }
     const users = await getCollection("users");
     const taken = await users.findOne({
-      username: { $regex: new RegExp(`^${check.username}$`, "i") },
+      username: { $regex: new RegExp(`^${check2.username}$`, "i") },
       userId: { $ne: user.userId }
     });
     if (taken) return res.status(409).json({ success: false, error: "That username is already taken." });
-    const nickname = user.steamId ? user.steamPersona || check.username : check.username;
+    const nickname = user.steamId ? user.steamPersona || check2.username : check2.username;
     const finalAvatar = user.steamId ? user.steamAvatar || avatar : avatar;
-    const username = user.steamId ? sanitizeSteamUsername(user.steamPersona || check.username) : check.username;
+    const username = user.steamId ? sanitizeSteamUsername(user.steamPersona || check2.username) : check2.username;
     await users.updateOne(
       { userId: user.userId },
       {
@@ -4176,9 +4517,9 @@ badgesRouter.get("/", async (req2, res) => {
     for (const achievement of catalog.achievements) {
       if (achievement.rewardBadge && receipts.has(`achievement:${achievement.id}`)) rewardedBadgeIds.add(achievement.rewardBadge);
     }
-    const map = new Map(docs.map((d) => [d.badgeId, d]));
+    const map2 = new Map(docs.map((d) => [d.badgeId, d]));
     const badges = defs.map((def) => {
-      const doc = map.get(def.id);
+      const doc = map2.get(def.id);
       const maxProgress = def.requirement?.goal || 1;
       const progress = Math.min(doc?.progress || 0, maxProgress);
       const unlocked = !!doc?.unlocked || progress >= maxProgress || rewardedBadgeIds.has(def.id);
@@ -4417,19 +4758,19 @@ function createSocialRouter(deps = defaults) {
     try {
       const user = await deps.resolveUser(req2);
       if (!user) return fail(res, 401, "Sign in to add friends");
-      const target = await byUsername(await deps.collection("users"), String(req2.body?.username || "").trim());
-      if (!target) return fail(res, 404, "Player not found. Check the username and try again.");
-      if (target.userId === user.userId) return fail(res, 400, "You cannot add yourself as a friend");
+      const target2 = await byUsername(await deps.collection("users"), String(req2.body?.username || "").trim());
+      if (!target2) return fail(res, 404, "Player not found. Check the username and try again.");
+      if (target2.userId === user.userId) return fail(res, 400, "You cannot add yourself as a friend");
       const friends = await deps.collection("friends");
       const existing = await friends.findOne({ $or: [
-        { userId: user.userId, friendId: target.userId },
-        { userId: target.userId, friendId: user.userId }
+        { userId: user.userId, friendId: target2.userId },
+        { userId: target2.userId, friendId: user.userId }
       ] });
       if (existing) return fail(res, 409, existing.state === "accepted" ? "You are already friends" : "A friend request is already waiting");
       const now = /* @__PURE__ */ new Date();
-      await friends.insertOne({ userId: target.userId, friendId: user.userId, state: "pending", createdAt: now, updatedAt: now });
-      await notify(await deps.collection("notifications"), target.userId, user.userId, safeName(user), "friend_request", "Friend request", `${safeName(user)} wants to join your friends list.`);
-      res.status(201).json({ success: true, username: safeName(target) });
+      await friends.insertOne({ userId: target2.userId, friendId: user.userId, state: "pending", createdAt: now, updatedAt: now });
+      await notify(await deps.collection("notifications"), target2.userId, user.userId, safeName(user), "friend_request", "Friend request", `${safeName(user)} wants to join your friends list.`);
+      res.status(201).json({ success: true, username: safeName(target2) });
     } catch (err) {
       if (err?.code === 11e3) return fail(res, 409, "A friend request is already waiting");
       console.error("Error sending friend request:", err);
@@ -4671,6 +5012,23 @@ function createLobbyRouter(deps = defaults2) {
 }
 var lobbyRouter = createLobbyRouter();
 
+// src/game/heroPerkPurchase.ts
+function purchaseHeroPerk(save, heroId, perkId) {
+  const hero = HEROES.find((hero2) => hero2.id === heroId), perk = HERO_PERKS.find((perk2) => perk2.id === perkId);
+  if (!hero || !perk || !save.ownedHeroes.includes(hero.id)) return "Choose an owned hero and valid perk";
+  const level = heroXpToLevel(save.xp[hero.id] ?? 0);
+  if (level < perk.unlockLevel) return `Requires hero level ${perk.unlockLevel}`;
+  const ranks = save.heroPerkRanks?.[hero.id] ?? {};
+  const rank = ranks[perk.id] ?? 0;
+  if (rank >= perk.maxRank) return "Perk is already at maximum rank";
+  const spent = HERO_PERKS.reduce((sum, entry) => sum + Math.max(0, ranks[entry.id] ?? 0), 0);
+  if (spent >= perkPointsFromLevel(level)) return "Earn more hero mastery points by levelling this hero";
+  save.heroPerkRanks ??= { jiju: {}, topfu: {}, lagen: {}, tripos: {}, ki: {} };
+  save.heroPerkRanks[hero.id] ??= {};
+  save.heroPerkRanks[hero.id][perk.id] = rank + 1;
+  return null;
+}
+
 // server/routes/items.ts
 import { Router as Router13 } from "express";
 var VIP_FALLBACK = {
@@ -4697,7 +5055,7 @@ function createItemsRouter(deps = defaultDeps6) {
       if (!user) return res.status(401).json({ success: false, error: "Sign in to manage gear" });
       const action = req2.body?.action;
       const id = req2.body?.id;
-      if (!["buy", "equip", "unequip", "sell", "buy-vip", "buy-skill", "buy-ability", "equip-ability"].includes(action) || typeof id !== "string" || id.length > 120) {
+      if (!["buy", "equip", "unequip", "sell", "buy-vip", "buy-skill", "buy-ability", "equip-ability", "buy-perk"].includes(action) || typeof id !== "string" || id.length > 120) {
         return res.status(400).json({ success: false, error: "Invalid gear action" });
       }
       const slicers = await deps.slicers();
@@ -4705,7 +5063,7 @@ function createItemsRouter(deps = defaultDeps6) {
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith("hero:") ? id.slice(5) : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
-      if (!["buy-vip", "buy-skill", "buy-ability", "equip-ability"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
+      if (!["buy-vip", "buy-skill", "buy-ability", "equip-ability", "buy-perk"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
       const col = await deps.collection("cloud_saves");
       const current = await col.findOne({ userId: user.userId });
       const currentRevision = serverRevision2(current?.revision);
@@ -4713,7 +5071,11 @@ function createItemsRouter(deps = defaultDeps6) {
       const ownedSkins = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
       const ownedHeroes = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
       const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
-      if (action === "buy-vip") {
+      if (action === "buy-perk") {
+        const [heroId2, perkId] = id.split(":");
+        const error2 = purchaseHeroPerk(saveData, heroId2 ?? "", perkId ?? "");
+        if (error2) return res.status(422).json({ success: false, error: error2 });
+      } else if (action === "buy-vip") {
         if (!["bronze", "silver", "gold"].includes(id)) return res.status(400).json({ success: false, error: "Invalid VIP tier" });
         const tier = id;
         const configCol = await deps.collection("admin_config");
@@ -4734,7 +5096,7 @@ function createItemsRouter(deps = defaultDeps6) {
         if (heroXpToLevel(Number(saveData.xp?.[ability.hero] || 0)) < ability.unlockLevel) return res.status(403).json({ success: false, error: `Unlocks at hero level ${ability.unlockLevel}` });
         saveData.heroAbilityRanks ??= {};
         saveData.heroAbilityLoadouts ??= { jiju: ["jiju-1"], topfu: [], lagen: [], tripos: [], ki: [] };
-        const rank = Number(saveData.heroAbilityRanks[id] || 0);
+        const rank = heroAbilityRank(id, saveData.heroAbilityRanks);
         if (action === "buy-ability") {
           if (rank >= MAX_HERO_ABILITY_RANK) return res.status(409).json({ success: false, error: "Ability is fully upgraded" });
           if (!Number.isSafeInteger(saveData.skillPoints) || saveData.skillPoints < 1) return res.status(422).json({ success: false, error: "Not enough skill points" });
@@ -4870,25 +5232,26 @@ function choosePvpBotCommand(match, botUserId, config, now = match.createdAt) {
   if (match.status !== "active" || !match.map) return null;
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
-  const map = match.map;
+  const map2 = match.map;
+  const opponent = match.players.find((player) => player.userId !== botUserId);
   if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15e3)) return { type: "rally" };
-  const captured = bot.captured?.find((item) => bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost, config.attacks[item.type].packSize));
+  const captured = bot.captured?.find((item) => opponent.attackers.length < 128 && bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost, config.attacks[item.type].packSize));
   if (captured) return { type: "release", capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < 0.75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: "upgrade-main" };
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)];
-    const cells = map.buildCells.filter((cell) => !bot.towers.some((tower) => tower.cell === cell));
-    const middle = map.pathCells.slice(Math.floor(map.pathCells.length * 0.25), Math.ceil(map.pathCells.length * 0.8));
+    const cells = map2.buildCells.filter((cell) => !bot.towers.some((tower2) => tower2.cell === cell));
+    const middle = map2.pathCells.slice(Math.floor(map2.pathCells.length * 0.25), Math.ceil(map2.pathCells.length * 0.8));
     cells.sort((a, b) => {
-      const distance2 = (cell) => Math.min(...middle.map((pathCell) => Math.abs(cell % map.width - pathCell % map.width) + Math.abs(Math.floor(cell / map.width) - Math.floor(pathCell / map.width))));
-      return distance2(a) - distance2(b) || Math.abs(Math.floor(a / map.width) - map.height * 0.55) - Math.abs(Math.floor(b / map.width) - map.height * 0.55);
+      const distance2 = (cell) => Math.min(...middle.map((pathCell) => Math.abs(cell % map2.width - pathCell % map2.width) + Math.abs(Math.floor(cell / map2.width) - Math.floor(pathCell / map2.width))));
+      return distance2(a) - distance2(b) || Math.abs(Math.floor(a / map2.width) - map2.height * 0.55) - Math.abs(Math.floor(b / map2.width) - map2.height * 0.55);
     });
     if (cells.length) return { type: "build", tower: type, cell: cells[0] };
   }
-  const upgrade = bot.towers.find((tower) => pvpTowerLevel(tower.level) < 3 && bot.fruts >= pvpUpgradeCost(config.towers[tower.type].cost, pvpTowerLevel(tower.level)));
+  const upgrade = bot.towers.find((tower2) => pvpTowerLevel(tower2.level) < 3 && bot.fruts >= pvpUpgradeCost(config.towers[tower2.type].cost, pvpTowerLevel(tower2.level)));
   if (upgrade && bot.attackers.length >= 2) return { type: "upgrade", towerId: upgrade.id };
-  const attacks = Object.entries(config.attacks).filter(([, stats]) => bot.fruts >= stats.cost);
+  const attacks = Object.entries(config.attacks).filter(([, stats]) => bot.fruts >= stats.cost && opponent.attackers.length + Math.max(1, Math.min(8, Math.floor(stats.packSize || 1))) <= 128);
   if (attacks.length) {
     const index = Math.min(Math.floor(bot.sequence / 3) % attacks.length, attacks.length - 1);
     return { type: "send", enemy: attacks[index][0] };
@@ -5002,7 +5365,7 @@ function publicMatch(match, userId) {
     vetoTurnId: match.vetoTurn,
     yourVetoTurn: match.vetoTurn === userId,
     vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side,
@@ -5193,7 +5556,7 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
   if (queue !== "arena" && queue !== "ranked") return routerError(res, 400, "Choose Arena or Ranked.");
   try {
     const config = await currentPvpConfig();
-    const selectedMap = config.maps.find((map) => map.id === req2.body?.mapId);
+    const selectedMap = config.maps.find((map2) => map2.id === req2.body?.mapId);
     if (!selectedMap) return routerError(res, 400, "Choose a valid Arena path.");
     const matches = await getCollection("pvp_matches");
     const active2 = await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": user.userId });
@@ -5209,6 +5572,8 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
     match.activePlayers = [user.userId];
     match.nextWaveAt = now + 15e3;
     match.neutralWave = 0;
+    const account = await (await getCollection("users")).findOne({ userId: user.userId });
+    Object.assign(match.players[0], pvpAccountIdentity(account, match.players[0].name));
     Object.assign(match.players[0], await equippedAppearance(user.userId));
     match.players.forEach((player) => {
       player.rallyReadyAt = now + 15e3;
@@ -5479,15 +5844,16 @@ pvpRouter.post("/match/:id/token", async (req2, res) => {
 import { Router as Router15 } from "express";
 
 // src/game/battleMaps.ts
+var BATTLEFIELD_ART_URL = "/assets/battle/orchard-outpost-v1.webp";
 var baseWorld = { width: ARENA_W, depth: ARENA_D, columns: 11, rows: 132 };
 var routeEndY = 0.5 - LEAK_Z / ARENA_D;
 var topGateY = 0.025;
 var laneRoutes = [
-  { id: "west-outer", xs: [0.12, 0.18, 0.31, 0.42, 0.5] },
-  { id: "west-inner", xs: [0.31, 0.38, 0.26, 0.42, 0.5] },
+  { id: "west-outer", xs: [0.23, 0.27, 0.36, 0.44, 0.5] },
+  { id: "west-inner", xs: [0.36, 0.41, 0.33, 0.44, 0.5] },
   { id: "center", xs: [0.5, 0.44, 0.56, 0.48, 0.5] },
-  { id: "east-inner", xs: [0.69, 0.62, 0.77, 0.58, 0.5] },
-  { id: "east-outer", xs: [0.88, 0.82, 0.67, 0.56, 0.5] }
+  { id: "east-inner", xs: [0.64, 0.59, 0.69, 0.56, 0.5] },
+  { id: "east-outer", xs: [0.77, 0.73, 0.62, 0.54, 0.5] }
 ];
 var standardRoutes = () => laneRoutes.map((lane) => ({
   id: lane.id,
@@ -5521,7 +5887,7 @@ function standardMap(mode, name, background) {
     name,
     background,
     world: { ...baseWorld, depth, rows: depth },
-    routes: standardRoutes().map((route2) => ({ ...route2, points: route2.points.map((p) => ({ ...p, y: topGateY + (p.y - topGateY) * (end - topGateY) / (routeEndY - topGateY) })) })),
+    routes: standardRoutes().map((route) => ({ ...route, points: route.points.map((p) => ({ ...p, y: topGateY + (p.y - topGateY) * (end - topGateY) / (routeEndY - topGateY) })) })),
     spawns: laneRoutes.map((lane, i) => ({
       id: `${lane.id}-gate`,
       routeId: lane.id,
@@ -5531,10 +5897,6 @@ function standardMap(mode, name, background) {
       label: `${["West", "West-center", "Center", "East-center", "East"][i]} top spawn`
     })),
     entities: [
-      entity("left-lantern", "light", 0.16, 0.43, 0.08, 0.08, { collision: "none", damage: 0, label: "Path light" }),
-      entity("right-ruin", "prop", 0.84, 0.62, 0.14, 0.1, { collision: "none", label: "Ruin prop" }),
-      entity("rock-blocker", "solid", 0.15, 0.73, 0.1, 0.07, { asset: "/assets/maps/samples/sample-rock.svg", label: "Solid rock sample" }),
-      entity("pit-hazard", "pit", 0.83, 0.3, 0.12, 0.08, { asset: "/assets/maps/samples/sample-pit.svg", label: "Pit sample" }),
       ...PADS.filter((pad) => !pad.main).map((pad, i) => entity(
         `tower-slot-${i + 1}`,
         "turret-slot",
@@ -5551,22 +5913,22 @@ function standardMap(mode, name, background) {
   };
 }
 var DEFAULT_BATTLE_MAPS = {
-  casual: standardMap("casual", "Ashen Road", "/assets/maps/samples/casual-fallen-orchard.svg"),
-  horde: standardMap("horde", "Scrapline", "/assets/maps/samples/horde-night-harvest.svg"),
-  campaign: standardMap("campaign", "Ruined Causeway", "/assets/maps/samples/campaign-old-orchard.svg"),
+  casual: standardMap("casual", "Ashen Road", BATTLEFIELD_ART_URL),
+  horde: standardMap("horde", "Scrapline", BATTLEFIELD_ART_URL),
+  campaign: standardMap("campaign", "Ruined Causeway", BATTLEFIELD_ART_URL),
   coop: {
-    ...standardMap("coop", "Broken Junction", "/assets/maps/samples/coop-shared-grove.svg"),
+    ...standardMap("coop", "Broken Junction", BATTLEFIELD_ART_URL),
     routes: [
-      { id: "west-route", name: "West approach", width: 5, points: [{ x: 0.18, y: 0.025 }, { x: 0.3, y: 0.2 }, { x: 0.22, y: 0.38 }, { x: 0.5, y: 0.5 - LEAK_Z / SOLO_ARENA_D }] },
-      { id: "east-route", name: "East approach", width: 5, points: [{ x: 0.82, y: 0.025 }, { x: 0.7, y: 0.2 }, { x: 0.78, y: 0.38 }, { x: 0.5, y: 0.5 - LEAK_Z / SOLO_ARENA_D }] }
+      { id: "west-route", name: "West approach", width: 5, points: [{ x: 0.27, y: 0.025 }, { x: 0.3, y: 0.2 }, { x: 0.3, y: 0.38 }, { x: 0.5, y: 0.5 - LEAK_Z / SOLO_ARENA_D }] },
+      { id: "east-route", name: "East approach", width: 5, points: [{ x: 0.73, y: 0.025 }, { x: 0.7, y: 0.2 }, { x: 0.7, y: 0.38 }, { x: 0.5, y: 0.5 - LEAK_Z / SOLO_ARENA_D }] }
     ],
     spawns: [
-      { id: "west-gate", routeId: "west-route", x: 0.18, y: 0.025, enabled: true, label: "West spawn" },
-      { id: "east-gate", routeId: "east-route", x: 0.82, y: 0.025, enabled: true, label: "East spawn" }
+      { id: "west-gate", routeId: "west-route", x: 0.27, y: 0.025, enabled: true, label: "West spawn" },
+      { id: "east-gate", routeId: "east-route", x: 0.73, y: 0.025, enabled: true, label: "East spawn" }
     ]
   },
   pvp: {
-    ...standardMap("pvp", "Twin Wastes", "/assets/maps/samples/pvp-twin-pass.svg"),
+    ...standardMap("pvp", "Twin Wastes", BATTLEFIELD_ART_URL),
     tower: { x: 0.5, y: 0.94 },
     opponentTower: { x: 0.5, y: 0.06 },
     routes: [{ id: "duel-route", name: "Duel route", width: 4.5, points: [{ x: 0.5, y: 0.94 }, { x: 0.38, y: 0.72 }, { x: 0.62, y: 0.5 }, { x: 0.38, y: 0.28 }, { x: 0.5, y: 0.06 }] }],
@@ -5622,7 +5984,10 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
   })) : fallback.entities;
   const point = (p, def) => p && typeof p === "object" ? { x: unit(p.x, def.x), y: unit(p.y, def.y) } : def;
   const suppliedBackground = safeAsset(row.background) && row.background ? row.background : fallback.background;
-  const bg = /^\/assets\/maps\/samples\/(casual-fallen-orchard|campaign-old-orchard|horde-night-harvest|coop-shared-grove|pvp-twin-pass)\.webp$/.test(suppliedBackground) ? suppliedBackground.replace(/\.webp$/, ".svg") : suppliedBackground;
+  const retiredSample = suppliedBackground.startsWith("/assets/maps/samples/");
+  const bg = retiredSample ? BATTLEFIELD_ART_URL : suppliedBackground;
+  const retiredIds = /* @__PURE__ */ new Set(["left-lantern", "right-ruin", "rock-blocker", "pit-hazard"]);
+  const migratedEntities = retiredSample && row.id === `sample-${mode}` ? entities.filter((entity2) => !retiredIds.has(entity2.id)) : entities;
   const width = ARENA_W;
   const depth = targetDepth;
   const storedRows = Math.floor(Number(row.world?.rows) || fallback.world.rows);
@@ -5635,9 +6000,9 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
     background: bg,
     ...safeAsset(row.nightBackground) && row.nightBackground ? { nightBackground: row.nightBackground } : {},
     world: { width, depth, columns: Math.max(4, Math.min(64, Math.floor(Number(row.world?.columns) || fallback.world.columns))), rows: Math.max(8, Math.min(256, rows)) },
-    routes,
-    spawns,
-    entities,
+    routes: retiredSample && row.id === `sample-${mode}` && mode !== "pvp" ? routes.map((route) => ({ ...route, points: route.points.map((point2) => ({ ...point2, x: 0.5 + (point2.x - 0.5) * 0.72 })) })) : routes,
+    spawns: retiredSample && row.id === `sample-${mode}` && mode !== "pvp" ? spawns.map((spawn) => ({ ...spawn, x: 0.5 + (spawn.x - 0.5) * 0.72 })) : spawns,
+    entities: migratedEntities,
     tower: mode === "pvp" ? point(row.tower, fallback.tower) : { x: 0.5, y: 0.5 - WALL_Z / depth },
     ...mode === "pvp" ? { opponentTower: row.opponentTower && storedDepth < ARENA_D ? { ...point(row.opponentTower, fallback.opponentTower), y: migrateY(row.opponentTower.y, fallback.opponentTower.y) } : point(row.opponentTower, fallback.opponentTower) } : {},
     published: row.published !== false,
@@ -5647,85 +6012,86 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
 
 // server/routes/maps.ts
 var MODES = /* @__PURE__ */ new Set(["casual", "horde", "campaign", "coop", "pvp"]);
-var mapsRouter = Router15();
-var adminMapsRouter = Router15();
 function validAdmin(user) {
   return Boolean(process.env.ADMIN_STEAM_ID && user?.steamId === process.env.ADMIN_STEAM_ID);
 }
-function mapError(map) {
-  if (!map.routes.length) return "Add at least one enemy route.";
-  const routeIds = new Set(map.routes.map((route2) => route2.id));
-  if (!map.spawns.some((spawn) => spawn.enabled)) return "Enable at least one spawn point.";
-  if (map.spawns.some((spawn) => !routeIds.has(spawn.routeId))) return "Every spawn must connect to a saved route.";
-  if (map.routes.some((route2) => route2.points.length < 2)) return "Each route needs at least two points.";
-  if (map.mode !== "pvp" && map.spawns.some((spawn) => spawn.y > 0.2)) return "Standard-mode spawns must be at the top of the map.";
-  if (map.mode === "pvp" && !map.opponentTower) return "PvP needs both tower anchors.";
+function mapError(map2) {
+  if (!map2.routes.length) return "Add at least one enemy route.";
+  const routeIds = new Set(map2.routes.map((route) => route.id));
+  if (!map2.spawns.some((spawn) => spawn.enabled)) return "Enable at least one spawn point.";
+  if (map2.spawns.some((spawn) => !routeIds.has(spawn.routeId))) return "Every spawn must connect to a saved route.";
+  if (map2.routes.some((route) => route.points.length < 2)) return "Each route needs at least two points.";
+  if (map2.mode !== "pvp" && map2.spawns.some((spawn) => spawn.y > 0.2)) return "Standard-mode spawns must be at the top of the map.";
+  if (map2.mode === "pvp" && !map2.opponentTower) return "PvP needs both tower anchors.";
   return null;
 }
-mapsRouter.get("/:mode", async (req2, res) => {
-  const mode = req2.params.mode;
-  if (!MODES.has(mode)) return res.status(404).json({ success: false, error: "Map mode not found." });
-  try {
-    const col = await getCollection("battle_maps");
-    const map = await col.findOne({ mode, published: true }, { projection: { _id: 0 }, sort: { updatedAt: -1, id: 1 } });
-    return res.json({ success: true, map: map || DEFAULT_BATTLE_MAPS[mode] });
-  } catch (error2) {
-    console.error("Battle map read failed:", error2);
-    return res.status(503).json({ success: false, error: "Battle map service is unavailable." });
-  }
-});
-adminMapsRouter.get("/", async (req2, res) => {
-  const user = await resolveRequestUser(req2);
-  if (!validAdmin(user)) return res.status(403).json({ success: false, error: "Admin access required." });
-  try {
-    const col = await getCollection("battle_maps");
-    await col.bulkWrite(Object.values(DEFAULT_BATTLE_MAPS).map((map) => ({
-      updateOne: { filter: { id: map.id }, update: { $setOnInsert: { ...map, updatedAt: /* @__PURE__ */ new Date() } }, upsert: true }
-    })));
-    const maps = await col.find({}, { projection: { _id: 0 } }).sort({ mode: 1, id: 1 }).toArray();
-    return res.json({ success: true, maps });
-  } catch (error2) {
-    console.error("Admin battle map read failed:", error2);
-    return res.status(503).json({ success: false, error: "Could not load maps from MongoDB." });
-  }
-});
-adminMapsRouter.post("/", async (req2, res) => {
-  const user = await resolveRequestUser(req2);
-  if (!validAdmin(user)) return res.status(403).json({ success: false, error: "Admin access required." });
-  try {
-    const raw = req2.body?.map;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return res.status(400).json({ success: false, error: "Map data is required." });
-    if (Buffer.byteLength(JSON.stringify(raw), "utf8") > 35e5) return res.status(413).json({ success: false, error: "Map is too large. Optimize uploaded images before saving." });
-    const mode = MODES.has(raw.mode) ? raw.mode : "casual";
-    const map = normalizeBattleMap(raw, mode);
-    const error2 = mapError(map);
-    if (error2) return res.status(400).json({ success: false, error: error2 });
-    const col = await getCollection("battle_maps");
-    const existing = await col.findOne({ id: map.id });
-    const expected = Number(req2.body?.expectedRevision);
-    if (existing && (!Number.isSafeInteger(expected) || expected !== existing.revision)) {
-      return res.status(409).json({ success: false, error: "This map changed in another admin session. Reload it before saving.", currentRevision: existing.revision });
+function createMapRouters(dependencies = {}) {
+  const mapsRouter2 = Router15(), adminMapsRouter2 = Router15();
+  const authorize = dependencies.authorize ?? (async (req2) => validAdmin(await resolveRequestUser(req2)));
+  const collection = dependencies.collection ?? (() => getCollection("battle_maps"));
+  mapsRouter2.get("/:mode", async (req2, res) => {
+    const mode = req2.params.mode;
+    if (!MODES.has(mode)) return res.status(404).json({ success: false, error: "Map mode not found." });
+    try {
+      const col = await collection();
+      const map2 = await col.findOne({ mode, published: true }, { projection: { _id: 0 }, sort: { updatedAt: -1, id: 1 } });
+      return res.json({ success: true, map: map2 || DEFAULT_BATTLE_MAPS[mode] });
+    } catch (error2) {
+      console.error("Battle map read failed:", error2);
+      return res.status(503).json({ success: false, error: "Battle map service is unavailable." });
     }
-    map.revision = existing ? existing.revision + 1 : 1;
-    const document2 = { ...map, updatedAt: /* @__PURE__ */ new Date() };
-    if (existing) {
-      const result = await col.replaceOne({ id: map.id, revision: existing.revision }, document2);
-      if (!result.matchedCount) return res.status(409).json({ success: false, error: "This map changed while you were saving. Reload and try again." });
-    } else {
-      await col.insertOne(document2);
+  });
+  adminMapsRouter2.get("/", async (req2, res) => {
+    if (!await authorize(req2)) return res.status(403).json({ success: false, error: "Admin access required." });
+    try {
+      const col = await collection();
+      await col.bulkWrite(Object.values(DEFAULT_BATTLE_MAPS).map((map2) => ({
+        updateOne: { filter: { id: map2.id }, update: { $setOnInsert: { ...map2, updatedAt: /* @__PURE__ */ new Date() } }, upsert: true }
+      })));
+      const maps = await col.find({}, { projection: { _id: 0 } }).sort({ mode: 1, id: 1 }).toArray();
+      return res.json({ success: true, maps });
+    } catch (error2) {
+      console.error("Admin battle map read failed:", error2);
+      return res.status(503).json({ success: false, error: "Could not load maps from MongoDB." });
     }
-    return res.json({ success: true, map: document2 });
-  } catch (error2) {
-    console.error("Admin battle map save failed:", error2);
-    return res.status(500).json({ success: false, error: "Could not save the map to MongoDB." });
-  }
-});
+  });
+  adminMapsRouter2.post("/", async (req2, res) => {
+    if (!await authorize(req2)) return res.status(403).json({ success: false, error: "Admin access required." });
+    try {
+      const raw = req2.body?.map;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return res.status(400).json({ success: false, error: "Map data is required." });
+      if (Buffer.byteLength(JSON.stringify(raw), "utf8") > 35e5) return res.status(413).json({ success: false, error: "Map is too large. Optimize uploaded images before saving." });
+      const mode = MODES.has(raw.mode) ? raw.mode : "casual";
+      const map2 = normalizeBattleMap(raw, mode);
+      const error2 = mapError(map2);
+      if (error2) return res.status(400).json({ success: false, error: error2 });
+      const col = await collection();
+      const existing = await col.findOne({ id: map2.id });
+      const expected = Number(req2.body?.expectedRevision);
+      if (existing && (!Number.isSafeInteger(expected) || expected !== existing.revision)) {
+        return res.status(409).json({ success: false, error: "This map changed in another admin session. Reload it before saving.", currentRevision: existing.revision });
+      }
+      map2.revision = existing ? existing.revision + 1 : 1;
+      const document2 = { ...map2, updatedAt: /* @__PURE__ */ new Date() };
+      if (existing) {
+        const result = await col.replaceOne({ id: map2.id, revision: existing.revision }, document2);
+        if (!result.matchedCount) return res.status(409).json({ success: false, error: "This map changed while you were saving. Reload and try again." });
+      } else {
+        await col.insertOne(document2);
+      }
+      return res.json({ success: true, map: document2 });
+    } catch (error2) {
+      console.error("Admin battle map save failed:", error2);
+      return res.status(500).json({ success: false, error: "Could not save the map to MongoDB." });
+    }
+  });
+  return { mapsRouter: mapsRouter2, adminMapsRouter: adminMapsRouter2 };
+}
+var { mapsRouter, adminMapsRouter } = createMapRouters();
 
 // server/routes/media.ts
 import { Router as Router16 } from "express";
 import { ObjectId as ObjectId2 } from "mongodb";
-var mediaRouter = Router16();
-var adminMediaRouter = Router16();
 var MAX_IMAGE_BYTES = 1e6;
 var MAX_GIF_BYTES = 25e5;
 var TYPES = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
@@ -5739,35 +6105,54 @@ function decodeSpriteImage(value) {
   const valid = type === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) : type === "jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes.at(-2) === 255 && bytes.at(-1) === 217 : type === "webp" ? bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP" : ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString());
   return valid ? { contentType: TYPES[type], bytes } : null;
 }
-adminMediaRouter.post("/", async (req2, res) => {
-  const user = await resolveRequestUser(req2);
-  if (!process.env.ADMIN_STEAM_ID || user?.steamId !== process.env.ADMIN_STEAM_ID) return res.status(403).json({ success: false, error: "Admin access required." });
-  const image = decodeSpriteImage(req2.body?.image);
-  if (!image) return res.status(400).json({ success: false, error: "Upload a PNG, JPEG or WebP under 1 MB, or a GIF under 2.5 MB." });
-  try {
-    const col = await getCollection("media_assets");
-    const result = await col.insertOne({ contentType: image.contentType, bytes: image.bytes, createdAt: /* @__PURE__ */ new Date() });
-    return res.json({ success: true, url: `/api/media/${result.insertedId.toHexString()}` });
-  } catch (error2) {
-    console.error("Media upload failed:", error2);
-    return res.status(503).json({ success: false, error: "Media storage is unavailable." });
-  }
-});
-mediaRouter.get("/:id", async (req2, res) => {
-  if (!/^[a-f0-9]{24}$/i.test(req2.params.id)) return res.status(404).end();
-  try {
-    const col = await getCollection("media_assets");
-    const image = await col.findOne({ _id: new ObjectId2(req2.params.id) });
-    if (!image || !Object.values(TYPES).includes(image.contentType)) return res.status(404).end();
-    res.set("Content-Type", image.contentType);
-    res.set("X-Content-Type-Options", "nosniff");
-    res.set("Cache-Control", "public, max-age=31536000, immutable");
-    return res.send(Buffer.isBuffer(image.bytes) ? image.bytes : Buffer.from(image.bytes.buffer));
-  } catch (error2) {
-    console.error("Media read failed:", error2);
-    return res.status(503).end();
-  }
-});
+function decodeSound(value) {
+  if (typeof value !== "string") return null;
+  const match = /^data:audio\/(wav|x-wav|wave|mpeg|mp3|ogg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match || match[2].length > 14e5) return null;
+  const bytes = Buffer.from(match[2], "base64");
+  if (!bytes.length || bytes.length > 1e6 || bytes.toString("base64") !== match[2]) return null;
+  const type = match[1];
+  const valid = ["wav", "x-wav", "wave"].includes(type) ? bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WAVE" : type === "ogg" ? bytes.subarray(0, 4).toString() === "OggS" : bytes.subarray(0, 3).toString() === "ID3" || bytes[0] === 255 && (bytes[1] & 224) === 224;
+  return valid ? { contentType: type === "ogg" ? "audio/ogg" : ["mpeg", "mp3"].includes(type) ? "audio/mpeg" : "audio/wav", bytes } : null;
+}
+function createMediaRouters(dependencies = {}) {
+  const mediaRouter2 = Router16(), adminMediaRouter2 = Router16();
+  const authorize = dependencies.authorize ?? (async (req2) => {
+    const user = await resolveRequestUser(req2);
+    return Boolean(process.env.ADMIN_STEAM_ID && user?.steamId === process.env.ADMIN_STEAM_ID);
+  });
+  const collection = dependencies.collection ?? (() => getCollection("media_assets"));
+  adminMediaRouter2.post("/", async (req2, res) => {
+    if (!await authorize(req2)) return res.status(403).json({ success: false, error: "Admin access required." });
+    const image = req2.body?.audio ? decodeSound(req2.body.audio) : decodeSpriteImage(req2.body?.image);
+    if (!image) return res.status(400).json({ success: false, error: "Upload an image or WAV, MP3 or OGG under 1 MB (GIF under 2.5 MB)." });
+    try {
+      const col = await collection();
+      const result = await col.insertOne({ contentType: image.contentType, bytes: image.bytes, createdAt: /* @__PURE__ */ new Date() });
+      return res.json({ success: true, url: `/api/media/${result.insertedId.toHexString()}` });
+    } catch (error2) {
+      console.error("Media upload failed:", error2);
+      return res.status(503).json({ success: false, error: "Media storage is unavailable." });
+    }
+  });
+  mediaRouter2.get("/:id", async (req2, res) => {
+    if (!/^[a-f0-9]{24}$/i.test(req2.params.id)) return res.status(404).end();
+    try {
+      const col = await collection();
+      const image = await col.findOne({ _id: new ObjectId2(req2.params.id) });
+      if (!image || ![...Object.values(TYPES), "audio/wav", "audio/mpeg", "audio/ogg"].includes(image.contentType)) return res.status(404).end();
+      res.set("Content-Type", image.contentType);
+      res.set("X-Content-Type-Options", "nosniff");
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      return res.send(Buffer.isBuffer(image.bytes) ? image.bytes : Buffer.from(image.bytes.buffer));
+    } catch (error2) {
+      console.error("Media read failed:", error2);
+      return res.status(503).end();
+    }
+  });
+  return { mediaRouter: mediaRouter2, adminMediaRouter: adminMediaRouter2 };
+}
+var { mediaRouter, adminMediaRouter } = createMediaRouters();
 
 // server/app.ts
 function createApp() {

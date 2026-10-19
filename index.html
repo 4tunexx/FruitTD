@@ -246,7 +246,12 @@
           <div id="resource-row">
             <button id="juice-toggle" class="hud-toggle-btn" title="Toggle juice panel"><span data-lucide="Droplets" aria-hidden="true"></span></button>
             <div id="juice-panel" class="collapsible-panel">
-              <p id="hud-juice">Y 0 · P 0 · O 0 · G 0</p>
+              <div id="hud-juice" role="group" aria-label="Juice reserves">
+                <span class="hud-juice-chip hud-juice-chip--yellow" aria-label="Yellow juice"><span>YELLOW</span><strong id="hud-juice-yellow">0</strong></span>
+                <span class="hud-juice-chip hud-juice-chip--pink" aria-label="Pink juice"><span>PINK</span><strong id="hud-juice-pink">0</strong></span>
+                <span class="hud-juice-chip hud-juice-chip--orange" aria-label="Orange juice"><span>ORANGE</span><strong id="hud-juice-orange">0</strong></span>
+                <span class="hud-juice-chip hud-juice-chip--green" aria-label="Green juice"><span>GREEN</span><strong id="hud-juice-green">0</strong></span>
+              </div>
             </div>
             <p id="hud-points"></p>
           </div>

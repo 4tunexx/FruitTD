@@ -196,10 +196,12 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let completedViewKey = '';
   const renderContent = () => {
     const badge = main.querySelector<HTMLElement>('.ftd-pvp__rating')?.querySelector<HTMLElement>('strong');
-    if (badge && status.rating) {
-      const ratingText = `${status.rating.tier} · ${status.rating.points.toLocaleString()} FR`;
+    if (badge) {
+      const ratingText = status.rating
+        ? `${status.rating.tier} · ${status.rating.points.toLocaleString()} FR`
+        : actionError ? 'Rating unavailable' : 'Loading…';
       if (badge.textContent !== ratingText) badge.textContent = ratingText;
-      badge.style.color = ARENA_RANK_COLORS[status.rating.tier] || '#aab9aa';
+      badge.style.color = status.rating ? ARENA_RANK_COLORS[status.rating.tier] || '#aab9aa' : '';
     }
     const match = status.match;
     // Completed snapshots may repeat while settlement finishes. Keep the dialog

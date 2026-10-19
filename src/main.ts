@@ -1705,6 +1705,14 @@ function simulate(dt: number): void {
     }
     return;
   }
+  // The phone build drawer covers most of the lane. Hold the local simulation
+  // while it is open so choosing a tower cannot cost the player wall health.
+  if (window.innerWidth <= 860 && document.getElementById('app')?.classList.contains('sidebar-open')) {
+    blade.consumeClick();
+    blade.consumeSlash();
+    blade.consumeStrokeEnd();
+    return;
+  }
   if (state.toast === '__restart__') {
     restart();
     return;
