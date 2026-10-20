@@ -236,7 +236,7 @@ export class Hud {
     }
     for (const button of this.abilityBar.querySelectorAll<HTMLButtonElement>('[data-power]')) {
       const id = button.dataset.power!;
-      updatePowerButton(button, id, cooldowns[id] ?? 0, this.abilityFunds);
+      updatePowerButton(button, id, cooldowns[id] ?? 0, this.abilityFunds,false,'juice',save.heroAbilityRanks?.[id]??1);
     }
   }
 
@@ -1145,12 +1145,13 @@ export class Hud {
     const hero = heroDef(state.hero);
     // Central hero XP state — never recomputed locally.
     const xpState = getHeroXpState(this.currentSave ?? loadSave(), state.hero);
-    this.hero.innerHTML = xpState.maxed
+    const heroMarkup = xpState.maxed
       ? `${hero.name}  ·  <b>Lv ${MAX_HERO_LEVEL} MAX MASTERY</b>` +
         `<span class="hud-xp-track hud-xp-track--max"><i style="width:100%"></i></span>`
       : `${hero.name}  ·  Lv ${xpState.level}/${MAX_HERO_LEVEL}  ·  ` +
         `XP ${xpState.xpIntoLevel.toLocaleString()}/${xpState.xpForLevel.toLocaleString()}` +
         `<span class="hud-xp-track"><i style="width:${Math.round(xpState.progress * 100)}%"></i></span>`;
+    if(this.hero.innerHTML!==heroMarkup)this.hero.innerHTML=heroMarkup;
     const avatarRing = this.playerAvatar?.parentElement as HTMLElement | null;
     avatarRing?.style.setProperty('--xp-progress', `${Math.round(xpState.progress * 100)}%`);
     if (avatarRing) avatarRing.title = xpState.maxed ? 'Hero XP · max level' : `Hero XP · ${Math.round(xpState.progress * 100)}% to next level`;
@@ -1161,6 +1162,9 @@ export class Hud {
       const damage = this.lastLives - state.lives;
       this.hpPanel?.setAttribute('data-hit-damage', String(damage));
       wall.damageFeedback();
+      let damageLabel=document.getElementById('combat-tower-damage');
+      if(!damageLabel){damageLabel=document.createElement('span');damageLabel.id='combat-tower-damage';damageLabel.className='ftd-tower-damage';document.getElementById('hud')?.append(damageLabel);}
+      damageLabel.textContent=`−${Math.round(damage)}`;damageLabel.classList.remove('is-visible');void damageLabel.offsetWidth;damageLabel.classList.add('is-visible');
       this.hpPanel?.classList.remove('is-hit');
       void this.hpPanel?.offsetWidth;
       this.hpPanel?.classList.add('is-hit');

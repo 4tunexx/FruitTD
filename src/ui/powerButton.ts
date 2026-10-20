@@ -1,3 +1,4 @@
+import { powerStats } from '../game/powerCombat';
 import { heroAbility } from '../game/heroAbilities';
 import { powerIconSource } from './powerIcons';
 import { el } from './components/dom';
@@ -7,11 +8,12 @@ export function cooldownProgress(readyAt: number, duration: number, now = Date.n
   return Math.max(0, Math.min(1, 1 - Math.max(0, readyAt - now) / Math.max(1, duration)));
 }
 
-export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt: number, funds = Infinity, busy = false, resource:'juice'|'fruts'='juice'): void {
+export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt: number, funds = Infinity, busy = false, resource:'juice'|'fruts'='juice',rank=1): void {
   const ability = heroAbility(id);
   if (!ability) return;
+  const stats=powerStats(ability,rank);
   const now = Date.now(), wait = Math.max(0, readyAt - now);
-  const progress = cooldownProgress(readyAt, ability.cooldownMs, now);
+  const progress = cooldownProgress(readyAt, stats.cooldownMs, now);
   button.disabled = busy || wait > 0 || funds < ability.juiceCost;
   button.classList.toggle('is-recharging', wait > 0);
   button.classList.toggle('is-ready', !button.disabled);
@@ -19,13 +21,13 @@ export function updatePowerButton(button: HTMLButtonElement, id: string, readyAt
   // Negative delay resumes the same animation when an online snapshot replaces DOM.
   if (button.dataset.readyAt !== String(readyAt)) {
     button.dataset.readyAt = String(readyAt);
-    button.style.setProperty('--recharge-duration', `${ability.cooldownMs}ms`);
-    button.style.setProperty('--recharge-delay', `${-progress * ability.cooldownMs}ms`);
+    button.style.setProperty('--recharge-duration', `${stats.cooldownMs}ms`);
+    button.style.setProperty('--recharge-delay', `${-progress * stats.cooldownMs}ms`);
   }
   const status = wait ? `${Math.ceil(wait / 1000)}s` : ability.juiceCost ? `${ability.juiceCost} ${resource==='juice'?'J':'F'}` : 'READY';
   const label = button.querySelector('.hero-ability-slot__cooldown')!;
   if (label.textContent !== status) label.textContent = status;
-  button.title = `${ability.name} · ${status} · ${ability.description}`;
+  button.title = `${ability.name} · ${status} · ${Math.round(stats.damage)} close-range damage · ${ability.description}`;
   button.setAttribute('aria-label', `${ability.name}, ${wait ? `recharging, ${Math.ceil(wait / 1000)} seconds` : funds < ability.juiceCost ? `not enough ${resource}` : 'ready'}`);
 }
 

@@ -1,5 +1,7 @@
+import {HERO_ABILITIES} from '../../game/heroAbilities';
+import {powerStats} from '../../game/powerCombat';
 import { loadSave } from '../../game/save';
-import type { PvpConfig, PvpMap } from '../../game/pvp';
+import { pvpBuildCellAllowed, siegeBuildCells, type PvpConfig } from '../../game/pvp';
 import { PvpBattlefield } from '../screens/pvpBattlefield';
 import { renderConfigForm } from './configForm';
 import { el } from '../components/dom';
@@ -8,12 +10,12 @@ const disposers = new WeakMap<HTMLElement, () => void>();
 /** Actual game scene plus connected-route painter for the seven veto maps. */
 export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   disposers.get(host)?.(); host.replaceChildren();
-  const header = el('header', { class: 'admin-preview-heading' }, [el('h3', { text: 'Arena / Ranked workshop' }), el('p', { text: 'Changes preview immediately. Save publishes validated settings for new matches.' })]);
+  const header = el('header', { class: 'admin-preview-heading' }, [el('h3', { text: 'Arena / Ranked workshop' }), el('p', { text: 'Changes preview immediately. New matches use two long mirrored lanes. Pads stay in the defensive half of each lane. Tower upgrades extend hero-power range; power damage falls toward the range edge.' })]);
   const layout = el('div', { class: 'admin-pvp-workshop' });
   const controls = el('div'); const preview = el('aside', { class: 'admin-pvp-preview' });
   layout.append(controls, preview); host.append(header, layout);
   let showUnits=true,sharedPreview=false,previewLevel=1;
-  let selected = 0; let paintingPads = false; let painting = false; let draft: number[] | null = null;
+  let selected = 0; let paintingPads = false;
   const select = el('select', { class: 'admin-input', 'aria-label': 'Preview map' });
   config.maps.forEach((map, index) => select.append(new Option(map.name, String(index))));
   const name = el('input', { class: 'admin-input', 'aria-label': 'Map name' });
@@ -26,7 +28,7 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
     return {id:'admin-preview',map:previewMap,yourSide:'blue',shared:sharedPreview,players:(sharedPreview?['blue']:['blue','red']).map((side)=>({
       userId:side,side,name:side==='blue'?save.nickname||'Your defender':'Rival defender',hero:save.hero,wallSkin:save.wallSkin,wallHealth:config.wallHealth,mainLevel:previewLevel,
       towers:showUnits?previewMap.buildCells.slice(0,6).map((cell,index)=>({id:`${side}-preview-${index}`,cell,type:Object.keys(config.towers).filter(id=>id!=='catcher')[index%6]||'guillotine',level:previewLevel})):[],
-      attackers:showUnits?Object.keys(config.attacks).slice(0,5).map((type,index)=>({id:`${side}-fruit-${index}`,type,progress:.28+index*.11,hp:config.attacks[type]!.health,maxHp:config.attacks[type]!.health})):[],
+      attackers:showUnits?Object.keys(config.attacks).slice(0,5).map((type,index)=>({id:`${side}-fruit-${index}`,type,progress:Math.floor((index+1)*previewMap.height/6),hp:config.attacks[type]!.health*(index===0?1:.7),maxHp:config.attacks[type]!.health})):[],
     }))};
   };
   let scene: PvpBattlefield | null = null;
@@ -35,7 +37,7 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const refreshPreview = () => scene?.update(snapshot(), config);
   const previewControls=el('div',{class:'admin-route-actions'});
   const previewMode=el('select',{class:'admin-input','aria-label':'Live preview mode'},[el('option',{value:'pvp',text:'Arena / Ranked · two keeps'}),el('option',{value:'coop',text:'Online Co-op · shared wall'})]);
-  const level=el('select',{class:'admin-input','aria-label':'Preview turret level'},Array.from({length:10},(_,i)=>el('option',{value:String(i+1),text:`Level ${i+1}`})));
+  const level=el('select',{class:'admin-input','aria-label':'Preview turret level'},Array.from({length:3},(_,i)=>el('option',{value:String(i+1),text:`Level ${i+1}`})));
   const units=el('button',{type:'button',class:'studio-btn',text:'Hide sample units'});
   previewControls.append(previewMode,level,units);preview.prepend(previewControls);
   previewMode.addEventListener('change',()=>{sharedPreview=previewMode.value==='coop';refreshPreview();});
@@ -45,14 +47,15 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const paint = () => {
     const current = map(); name.value = current.name;
     grid.style.gridTemplateColumns = `repeat(${current.width}, 1fr)`; grid.replaceChildren();
-    const path = draft ?? current.pathCells;
+    const path = current.pathCells;
     for (let cell = 0; cell < current.width * current.height; cell++) {
-      const button = el('button', { type: 'button', class: path.includes(cell) ? 'is-path' : current.buildCells.includes(cell) ? 'is-pad' : '', 'aria-label': `Column ${cell % current.width + 1}, row ${Math.floor(cell / current.width) + 1}`, 'aria-pressed': String(path.includes(cell)) });
+      const button = el('button', { type: 'button', class: path.includes(cell) ? 'is-path' : pvpBuildCellAllowed(current,cell) ? 'is-pad' : '', 'aria-label': `Column ${cell % current.width + 1}, row ${Math.floor(cell / current.width) + 1}`, 'aria-pressed': String(path.includes(cell)) });
       if (current.buildCells.includes(cell)) button.textContent = '+';
       if (cell === path[0]) button.textContent = 'IN';
       if (cell === path.at(-1)) button.textContent = 'END';
       button.addEventListener('click', () => {
         if (paintingPads) {
+          if (Math.floor(cell/current.width)<Math.ceil(current.height/2)) { notice.textContent='Build pads belong in the back half of your lane.'; return; }
           if (path.includes(cell)) { notice.textContent = 'Keep the road clear.'; return; }
           if (current.buildCells.includes(cell)) current.buildCells = current.buildCells.filter(value => value !== cell);
           else if (current.buildCells.length < 10) current.buildCells.push(cell);
@@ -60,34 +63,25 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
           if (config.map.id === current.id) config.map = structuredClone(current);
           notice.textContent = `${current.buildCells.length}/10 pads. Choose ten before publishing.`; paint(); refreshPreview(); return;
         }
-        if (!painting || !draft) return;
-        if (!draft.length && cell >= current.width) { notice.textContent = 'Start on the top row.'; return; }
-        const last = draft.at(-1);
-        if (last !== undefined && (draft.includes(cell) || Math.abs(last % current.width - cell % current.width) + Math.abs(Math.floor(last / current.width) - Math.floor(cell / current.width)) !== 1)) {
-          notice.textContent = 'Choose a neighboring tile. Routes cannot cross themselves.'; return;
-        }
-        draft.push(cell); notice.textContent = `${draft.length} tiles. Finish on the bottom row, then apply the route.`; paint();
+
       });
       grid.append(button);
     }
   };
   const button = (text: string, fn: () => void) => { const node = el('button', { type: 'button', class: 'studio-btn', text }); node.addEventListener('click', fn); return node; };
-  controls.append(el('h4', { text: 'Map and paths' }), select, name, el('p', { text: 'Start a route on the top row and click adjoining tiles down to the bottom. Ten gold + pads define the build positions for each player. Use Edit build pads to move them.' }), grid,
+  controls.append(el('h4', { text: 'Map and paths' }), select, name, el('p', { text: 'A straight road joins mirrored towers. Battle length is two Casual-style lanes. Ten gold + pads define the defensive build positions for each player; the front half cannot be built on. Use Edit build pads to move them.' }), grid,
     el('div', { class: 'admin-route-actions' }, [
-      button('Edit build pads', () => { paintingPads = !paintingPads; painting = false; draft = null; notice.textContent = paintingPads ? 'Tap a gold + to remove it; tap landscape to place it. Choose ten pads.' : 'Pad editing finished.'; paint(); }),
-      button('Draw new route', () => { paintingPads = false; painting = true; draft = []; notice.textContent = 'Choose the entry tile on the top row.'; paint(); }),
-      button('Undo tile', () => { draft?.pop(); paint(); }),
-      button('Cancel route', () => { painting = false; draft = null; notice.textContent = 'Existing route kept.'; paint(); }),
-      button('Apply route', () => {
-        const current = map();
-        if (!draft || draft.length < 12 || Math.floor(draft.at(-1)! / current.width) !== current.height - 1) { notice.textContent = 'Route needs at least 12 tiles and must reach the bottom row.'; return; }
-        current.pathCells = [...draft]; current.buildCells = [...new Set([...current.buildCells, ...Array.from({ length: current.width * current.height }, (_, i) => i)])].filter((i) => !current.pathCells.includes(i)).slice(0,10);
-        if (config.map.id === current.id) config.map = structuredClone(current) as PvpMap;
-        painting = false; draft = null; notice.textContent = 'Route applied to the draft. Save to publish.'; paint(); refreshPreview();
-      }),
+      button('Restore defensive pads',()=>{const current=map();current.buildCells=siegeBuildCells(current.width,current.height).filter(cell=>!current.pathCells.includes(cell));if(config.map.id===current.id)config.map=structuredClone(current);paint();refreshPreview();}),
+      button('Edit build pads', () => { paintingPads = !paintingPads; notice.textContent = paintingPads ? 'Tap a gold + to remove it; tap landscape to place it. Choose ten pads.' : 'Pad editing finished.'; paint(); }),
+      button('Straight road',()=>{const current=map();current.pathCells=Array.from({length:current.height},(_,row)=>row*current.width+Math.max(0,Math.floor(current.width/2)-1));current.buildCells=siegeBuildCells(current.width,current.height).filter(cell=>!current.pathCells.includes(cell));if(config.map.id===current.id)config.map=structuredClone(current);notice.textContent='Straight road and defensive pads applied. Save to publish.';paint();refreshPreview();}),
     ]), notice);
-  select.addEventListener('change', () => { selected = Number(select.value); painting = false; draft = null; paint(); refreshPreview(); });
+  select.addEventListener('change', () => { selected = Number(select.value); paint(); refreshPreview(); });
   name.addEventListener('input', () => { map().name = name.value; select.options[selected]!.textContent = name.value; if (config.map.id === map().id) config.map.name = name.value; });
+  controls.append(el('details',{class:'admin-power-rules'},[
+    el('summary',{text:'Hero power balance · live rules'}),
+    el('p',{text:'Offensive powers target only inside the main tower’s current radius. Damage falls from full strength near the tower to 35% at the edge. Each rank adds 20% base damage and reduces the base cooldown by 5%; stronger slows and guard healing also scale. Tower upgrades extend range. Slice-only enemies resist all powers.'}),
+    ...HERO_ABILITIES.map(ability=>{const base=powerStats(ability,1),max=powerStats(ability,5);return el('p',{text:`${ability.name}: rank 1 ${Math.round(base.damage)} damage / ${base.cooldownMs/1000}s → rank 5 ${Math.round(max.damage)} damage / ${max.cooldownMs/1000}s.`});}),
+  ]));
   const fields = el('div'); controls.append(fields);
   const { map: _map, maps: _maps, ...balance } = config;
   // Nested records share draft references; scalar updates are copied back explicitly.

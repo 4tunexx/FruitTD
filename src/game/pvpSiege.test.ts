@@ -22,11 +22,11 @@ it('main upgrades spend match Fruts, improve damage/health, and cannot exceed le
   assert.equal(player.attackers[0]!.hp, 100 - pvpTowerStats({ cost: 0, ...config.mainTower }, 3).damage);
 });
 it('Catcher stores weakened zombies without bounties; paid release sends one unit and cannot be replayed or recaptured', () => {
-  const game = active(); const player = game.players[0]; const pathCell = config.map.pathCells[0]!;
+  const game = active(); const player = game.players[0]; const pathCell = config.map.pathCells[Math.ceil(config.map.height/2)]!;
   player.fruts = 200;
-  const cell = config.map.buildCells.find(cell => pvpHexDistance(cell, pathCell, config.map.width) <= 1)!;
+  const cell = config.map.buildCells.find(cell => pvpHexDistance(cell, pathCell, config.map.width) <= 2)!;
   act(game, 'a', { type: 'build', tower: 'catcher', cell });
-  player.attackers.push({ id: 'wounded', type: 'normal', hp: 25, progress: 0 });
+  player.attackers.push({ id: 'wounded', type: 'normal', hp: 25, progress: Math.ceil(config.map.height/2) });
   const before = player.fruts; advancePvpMatch(game, 0, 4000, config);
   assert.equal(player.attackers.length, 0); assert.equal(player.captured!.length, 1); assert.equal(player.fruts, before); assert.equal(player.score, 0);
   const captive = player.captured![0]!; act(game, 'a', { type: 'release', capturedId: captive.id }, 4100);
@@ -34,15 +34,15 @@ it('Catcher stores weakened zombies without bounties; paid release sends one uni
   assert.equal(game.players[1].attackers.length, 1); assert.equal(game.players[1].attackers[0]!.released, true);
   assert.throws(() => act(game, 'a', { type: 'release', capturedId: captive.id }, 4200), /captured/);
   assert.throws(() => act(game, 'b', { type: 'release', capturedId: captive.id }, 4200), /captured/);
-  const rival = game.players[1]; rival.towers.push({ id: 'cage', type: 'catcher', cell, level: 3, placedAt: 0 }); rival.attackers[0]!.hp = 25; rival.attackers[0]!.progress = 0;
+  const rival = game.players[1]; rival.towers.push({ id: 'cage', type: 'catcher', cell, level: 3, placedAt: 0 }); rival.attackers[0]!.hp = 25; rival.attackers[0]!.progress = Math.ceil(config.map.height/2);
   advancePvpMatch(game, 0, 6000, config); assert.equal(rival.captured!.length, 0); assert.equal(rival.attackers[0]!.hp, 25 - pvpTowerStats(config.towers.catcher!, 3).damage);
 });
 it('capture capacity, full attack lanes, insufficient funds, and stronger capture upgrades are enforced', () => {
-  const game = active(); const player = game.players[0]; const pathCell = config.map.pathCells[0]!;
-  const cell = config.map.buildCells.find(cell => pvpHexDistance(cell, pathCell, config.map.width) <= 1)!;
+  const game = active(); const player = game.players[0]; const pathCell = config.map.pathCells[Math.ceil(config.map.height/2)]!;
+  const cell = config.map.buildCells.find(cell => pvpHexDistance(cell, pathCell, config.map.width) <= 2)!;
   player.towers.push({ id: 'cage', type: 'catcher', cell, placedAt: 0, level: 3 });
   player.captured = Array.from({ length: 3 }, (_, i) => ({ id: `stored:${i}`, type: 'armored' }));
-  player.attackers.push({ id: 'weak', type: 'normal', hp: 45, progress: 0 });
+  player.attackers.push({ id: 'weak', type: 'normal', hp: 45, progress: Math.ceil(config.map.height/2) });
   advancePvpMatch(game, 0, 4000, config); assert.equal(player.captured.length, 3); assert.equal(player.attackers.length, 1);
   player.fruts = 0; assert.throws(() => act(game, 'a', { type: 'release', capturedId: 'stored:0' }, 4100), /Not enough/);
   player.fruts = 100; game.players[1].attackers = Array.from({ length: 128 }, (_, i) => ({ id: String(i), type: 'normal', hp: 100, progress: 0 }));
@@ -50,7 +50,7 @@ it('capture capacity, full attack lanes, insufficient funds, and stronger captur
   game.players[1].attackers = []; act(game, 'a', { type: 'release', capturedId: 'stored:0' }, 4100);
   player.attackers[0]!.hp = 45; advancePvpMatch(game, 0, 6000, config);
   assert.equal(player.captured.length, 3); assert.equal(player.attackers.length, 0, 'LV3 can capture a zombie below 50% health');
-  player.captured = []; player.attackers.push({ id: 'grown-wave', type: 'normal', hp: 90, maxHp: 200, progress: 0 });
+  player.captured = []; player.attackers.push({ id: 'grown-wave', type: 'normal', hp: 90, maxHp: 200, progress: Math.ceil(config.map.height/2) });
   advancePvpMatch(game, 0, 9000, config); assert.equal(player.captured.length, 1, 'capture thresholds use actual maximum health for growing waves');
 });
 it('building a larger full-health main tower alone cannot win a percentage-health timeout', () => {

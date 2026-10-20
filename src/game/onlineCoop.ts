@@ -1,11 +1,11 @@
 import { turretVictims } from './turretTargets';
-import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
+import { equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
 import { pvpTowerLevel, pvpTowerStats, pvpUpgradeCost, pvpSellRefund, PVP_MAX_TOWER_LEVEL, type PvpConfig } from './pvp';
 import type { HeroId } from './heroes';
 import { towerLevelFromXp } from './towerProgression';
 export interface CoopPlayer { userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
-export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; slowUntil?:number; slowMultiplier?:number; boss: boolean }
+export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; sliceOnly?:boolean; slowUntil?:number; slowMultiplier?:number; boss: boolean }
 export interface CoopMatch { towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
 export interface CoopConfig { bossEveryWaves: number; baseWaveSize: number; extraPerWave: number; spawnGapMs: number; intermissionMs: number; bossIntroMs: number; coinsPerKill: number; coinsPerWave: number; gemsEveryWaves: number; xpPerKill: number; towerXpPerWave: number; rewardCoinCap: number; bladeDamage: number; bladeRadius: number; bladeCooldownMs: number; bossHealthMultiplier: number; bossSpeedMultiplier: number; fruitSpeedMultiplier: number }
 export const DEFAULT_COOP_CONFIG: CoopConfig = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 25, rewardCoinCap: 3000, bladeDamage: 35, bladeRadius: .65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: .35, fruitSpeedMultiplier: .65 };
@@ -61,12 +61,13 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       const {ability,stats}=equippedPower(command.abilityId,player.hero,player.abilityLoadout,player.abilityRanks);
       if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down.');
       if(match.fruts<stats.cost)throw new Error('Not enough shared Fruts.');
-      const targets=powerTargets(match.fruits.filter(f=>f.hp>0&&f.type!=='explosive'),ability,f=>f);
-      if(!targets.length&&!stats.healFraction)throw new Error('No vulnerable targets.');
-      match.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+      const envelope={x:5,y:13.5,radius:coopMainStats(match,balance).range};
+      const targets=powerTargets(match.fruits.filter(f=>f.hp>0&&f.type!=='explosive'&&!f.sliceOnly),ability,f=>f,envelope);
+      if(!targets.length&&(!stats.healFraction||match.wallHealth>=balance.wallHealth))throw new Error('No vulnerable targets.');
+      match.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
       match.wallHealth=Math.min(balance.wallHealth,match.wallHealth+balance.wallHealth*stats.healFraction);
       match.powerCasts=appendPowerCast(match.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(f=>({x:f.x,y:f.y}))});
-      for(const fruit of targets){fruit.hp-=stats.damage;if(stats.slowMs){fruit.slowUntil=Math.max(fruit.slowUntil??0,now+stats.slowMs);fruit.slowMultiplier=stats.slowMultiplier;}}
+      for(const fruit of targets){fruit.hp-=stats.damage*powerDamageMultiplier(fruit,envelope);if(stats.slowMs){fruit.slowUntil=Math.max(fruit.slowUntil??0,now+stats.slowMs);fruit.slowMultiplier=stats.slowMultiplier;}}
       const killed=match.fruits.filter(f=>f.hp<=0);player.kills+=killed.length;collectKills(match,balance);
     } else if(command.type==='slash') {
       for(const p of [command.from,command.to]) if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>10||p.y<0||p.y>14) throw new Error('Invalid blade stroke.');
@@ -87,6 +88,10 @@ function collectKills(match:CoopMatch,balance:PvpConfig):void { for(const f of m
 export function coopFruitMaxHealth(baseHealth:number,boss:boolean,wave:number,players:number,config:CoopConfig):number {
   return baseHealth*(boss?config.bossHealthMultiplier*Math.max(1,players/2):1)*(1+Math.floor(wave/8)*.2);
 }
+export function coopMainStats(match:Pick<CoopMatch,'towerXp'>,balance:PvpConfig) {
+  const upgrades=towerLevelFromXp(match.towerXp??0)-1;
+  return {...balance.mainTower,damage:Math.round(balance.mainTower.damage*(1+upgrades*.1)),range:balance.mainTower.range+upgrades*.2};
+}
 export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:PvpConfig,config:CoopConfig):void {
   if(match.status==='waiting'||match.status==='complete') return;
   if(match.players.some(p=>now-p.lastSeenAt>balance.reconnectGraceSeconds*1000)) {match.status='complete';match.reason='disconnect';match.revision++;return;}
@@ -102,15 +107,15 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
     // Stable server-generated spawn positions; clients cannot choose fruit or rewards.
     const serial=++match.serial;
     const maxHp=coopFruitMaxHealth(stats.health,boss,match.wave,match.players.length,config);
-    match.fruits.push({id:`${match.id}:${serial}`,type:kind,x:boss?5:1+(serial*37%80)/10,y:0,hp:maxHp,maxHp,boss});
+    match.fruits.push({id:`${match.id}:${serial}`,type:kind,x:boss?5:1+(serial*37%80)/10,y:0,hp:maxHp,maxHp,boss,sliceOnly:boss?Math.floor(match.wave/(config.bossEveryWaves+1))%2===0:match.wave>=7&&serial%9===0});
     match.remainingSpawns--;match.spawnAt=now+config.spawnGapMs;
   }
   for(const fruit of match.fruits){fruit.maxHp??=Math.max(fruit.hp,coopFruitMaxHealth(balance.attacks[fruit.type]!.health,fruit.boss,match.wave,match.players.length,config));}
   for(const fruit of match.fruits) fruit.y+=balance.attacks[fruit.type]!.speed*delta*(fruit.boss?config.bossSpeedMultiplier:config.fruitSpeedMultiplier)*(now<(fruit.slowUntil??0)?fruit.slowMultiplier??.45:1);
   const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number,type='main',level=1):boolean=>{
     if(now-last<stats.cooldownMs) return false;
-    const fruit=match.fruits.filter(f=>f.hp>0&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false;
-    const victims=turretVictims(type,{x,y},fruit,match.fruits.filter(f=>f.hp>0),f=>f,stats.range,level);
+    const fruit=match.fruits.filter(f=>f.hp>0&&!f.sliceOnly&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false;
+    const victims=turretVictims(type,{x,y},fruit,match.fruits.filter(f=>f.hp>0&&!f.sliceOnly),f=>f,stats.range,level);
     for(const target of victims){target.hp-=Math.round(stats.damage*(target===fruit||type!=='sprinkler'?1:.65));
       if(type==='sprinkler'){target.slowUntil=Math.max(target.slowUntil||0,now+1200);target.slowMultiplier=.55;}
       if(type==='railgun')target.y=Math.max(0,target.y-.45);
@@ -118,8 +123,7 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
     return true;
   };
   for(const tower of match.towers) if(fire(tower.cell%10+.5,Math.floor(tower.cell/10)+.5,pvpTowerStats(balance.towers[tower.type]!,tower.level),tower.lastFiredAt,tower.type,tower.level)) tower.lastFiredAt=now;
-  const towerLevel=towerLevelFromXp(match.towerXp??0);
-  if(fire(5,13.5,{...balance.mainTower,damage:Math.round(balance.mainTower.damage*(1+(towerLevel-1)*.1))},match.mainLastFiredAt)) match.mainLastFiredAt=now;
+  if(fire(5,13.5,coopMainStats(match,balance),match.mainLastFiredAt)) match.mainLastFiredAt=now;
   collectKills(match,balance);
   for(const f of match.fruits.filter(f=>f.y>=13.5))match.wallHealth=Math.max(0,match.wallHealth-balance.attacks[f.type]!.wallDamage*(f.boss?10:1));
   match.fruits=match.fruits.filter(f=>f.y<13.5);

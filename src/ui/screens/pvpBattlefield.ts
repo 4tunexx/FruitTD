@@ -1,3 +1,4 @@
+import {towerHealthRail} from '../../game/towerHealthRail';
 import {GraphicsRecovery} from '../../engine/graphicsRecovery';
 import {TeamBladeTrails,type TeamStroke} from '../../game/teamBladeTrails';
 import { createBuildPad } from '../../game/buildPads';
@@ -20,16 +21,16 @@ import { findCatalogItem } from '../../game/catalog';
 import { loadSave, WALL_SKINS } from '../../game/save';
 import { heroDef, type HeroId } from '../../game/heroes';
 import { enemyKindToStudioKey, heroIdToStudioKey, sampleStudioTexture, turretLevelTuning, fireStudioEvent, playStudioSound, getStudioEntityData, createStudioAnimForKey, updateStudioAnim, type StudioAnimState } from '../../game/studioRuntime';
-import { pvpTowerLevel, pvpTowerStats, type PvpCommand, type PvpConfig, type PvpMap } from '../../game/pvp';
+import { pvpTowerLevel, pvpTowerStats, pvpBuildCellAllowed, type PvpCommand, type PvpConfig, type PvpMap } from '../../game/pvp';
 import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
-type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
+type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;sliceOnly?:boolean;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
 export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke;sharedStrokes?:TeamStroke[] };
 const TILE = 1.7;
 const TILE_X = TILE;
 const HEX_RADIUS = TILE / 1.5;
-const COLORS = { blue: 0xffda6b, red: 0xffda6b };
+const COLORS = { blue: 0x38bdf8, red: 0xf16a73 };
 
 /** Both server lanes meet at the centre; the viewer's wall is always at the bottom. */
 export function pvpWorldPoint(map: Pick<PvpMap, 'width'>, x: number, y: number, own: boolean): Vector3 {
@@ -74,7 +75,7 @@ export class PvpBattlefield {
   private readonly heroArt: Array<{ key: string; userId:string; material: MeshBasicMaterial; motion:DefenderMotion }> = [];
   private readonly keepMotion=new Map<string,{motion:DefenderMotion;at:number;studio?:StudioAnimState}>();
   private snapshot: BattlefieldSnapshot;
-  private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number };
+  private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] };
   private receivedAt = performance.now();
   private previousAt = performance.now();
   private frame = 0;
@@ -96,7 +97,7 @@ export class PvpBattlefield {
   private mapKey = '';
   get interacting(): boolean { return this.stroke !== null || this.pointers.size > 0; }
 
-  constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
+  constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
     this.snapshot = snapshot; this.config = config;
     if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
     this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Your keep · bottom  |  Rival keep · top  ·  Tap a gold build pad · Drag to pan · Pinch to zoom' }));
@@ -106,7 +107,8 @@ export class PvpBattlefield {
       this.element.append(el('div', { class: `ftd-duel-team is-own is-${snapshot.yourSide}`, text: `YOUR TOWER` }), el('div', { class: `ftd-duel-team is-rival is-${opposingSide}`, text: `RIVAL TOWER` }));
       const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
       focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize(); }); this.element.appendChild(focus);
-      const cameraControls = el('div', { class:'ftd-duel-camera', 'aria-label':'Camera zoom controls' });
+      const cameraControls = el('details', { class:'ftd-duel-camera', 'aria-label':'Camera zoom controls' });
+      cameraControls.append(el('summary',{'aria-label':'Show zoom controls',text:'Zoom'}));
       const zoomIn = el('button', { type:'button', text:'+', 'aria-label':'Zoom in' });
       const zoomOut = el('button', { type:'button', text:'−', 'aria-label':'Zoom out' });
       zoomIn.addEventListener('click', () => { this.zoom=Math.min(3.2,this.zoom*1.18);this.resize(); });
@@ -144,7 +146,7 @@ export class PvpBattlefield {
     this.frame = requestAnimationFrame(this.animate);
   }
 
-  update(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number }): void {
+  update(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] }): void {
     this.snapshot = snapshot; this.config = config; this.receivedAt = performance.now();
     const map = snapshot.map; if (!map) return;
     const terrainKey = JSON.stringify([map, snapshot.players.map(p => [p.hero, p.wallSkin, p.mainLevel])]);
@@ -165,7 +167,7 @@ export class PvpBattlefield {
       for(const cast of player.powerCasts??[]){
         if(this.seenCasts.has(cast.id))continue;this.seenCasts.set(cast.id,cast.at);
         const ability=heroAbility(cast.abilityId);if(!ability)continue;
-        const origin=pvpWorldPoint(map,map.width/2,map.height+.5,own);origin.y=.7;
+        const origin=pvpWorldPoint(map,map.width/2,map.height+1,own);origin.y=.7;
         this.heroArt.find(hero=>hero.userId===player.userId)?.motion.fire();
         this.powerVfx.spawn(ability,cast.rank,origin,cast.targets.map(point=>{const p=point.progress!==undefined?pvpArmyPoint(map,point.progress,own):pvpWorldPoint(map,point.x,point.y,own);p.y=.7;return p;}),Math.max(0,(Date.now()-cast.at)/1000));
       }
@@ -181,6 +183,7 @@ export class PvpBattlefield {
       if (hp) {
         if (hp.userData.lastHealth !== undefined && player.wallHealth < hp.userData.lastHealth) {
           const origin = new Vector3(); hp.getWorldPosition(origin); origin.y = 1;
+          this.showTowerDamage(origin,hp.userData.lastHealth-player.wallHealth,own);
           const count = player.wallHealth <= 0 ? 36 : 10;
           for (let i = 0; i < count; i++) {
             const shard = new Mesh(new PlaneGeometry(.18,.18), new MeshBasicMaterial({ color:i % 2 ? 0xffca28 : 0xf48120, side: DoubleSide }));
@@ -191,7 +194,7 @@ export class PvpBattlefield {
           if (player.wallHealth <= 0) hp.parent?.traverse(object => { if (object instanceof Mesh && object !== hp) object.visible = false; });
         }
         hp.userData.lastHealth = player.wallHealth;
-        hp.scale.x = Math.max(.001, player.wallHealth / Number(hp.userData.maxHealth));
+        hp.userData.rail.set(player.wallHealth / Number(hp.userData.maxHealth));
       }
       for (const tower of player.towers) {
         towerIds.add(tower.id);
@@ -216,12 +219,14 @@ export class PvpBattlefield {
         if (!entry) {
           const kind = fruit.type === 'swift' ? 'strawberry' : fruit.type === 'armored' ? 'watermelon' : fruit.type === 'explosive' ? 'bomb' : 'orange';
           const def = FRUIT_DEFS[kind];
-          const texture = sampleStudioTexture(enemyKindToStudioKey(fruit.type as Parameters<typeof enemyKindToStudioKey>[0])) || getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || enemyPortrait(kind,fruit.boss) || fruitAtlas.tile(...def.skin);
+          const texture = sampleStudioTexture(enemyKindToStudioKey((fruit.sliceOnly?'bladebound':fruit.type) as Parameters<typeof enemyKindToStudioKey>[0])) || getAdminTexture(`enemy-${fruit.type}` as Parameters<typeof getAdminTexture>[0]) || enemyPortrait(kind,fruit.boss) || fruitAtlas.tile(...def.skin);
           const teamColor = player.side === 'blue' ? COLORS.red : COLORS.blue;
           const size = fruit.type === 'armored' ? 1.36 : .96;
           const mesh = new Mesh(new CircleGeometry(size / 2, 40), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, transparent: true, side: DoubleSide, depthWrite: false }));
           mesh.userData.combatPortrait=true;
-          mesh.add(combatTokenFrame(size / 2, fruit.boss ? 'boss' : 'fruit'));
+          const token=combatTokenFrame(size / 2, fruit.boss ? 'boss' : 'fruit');
+          if(fruit.sliceOnly){const rim=token.getObjectByName('token-rim') as Mesh;(rim.material as MeshBasicMaterial).color.setHex(0xf472b6);}
+          mesh.add(token);
           const shadow = new Mesh(new CircleGeometry(fruit.type === 'armored' ? .78 : .58, 16), new MeshBasicMaterial({color:0x06130d,transparent:true,opacity:.28,depthWrite:false}));
           shadow.rotation.x = -Math.PI / 2; shadow.position.y = -.56; mesh.add(shadow);
           if (!snapshot.shared) {
@@ -237,7 +242,7 @@ export class PvpBattlefield {
         const hpBar = entry.mesh.userData.hpBar as Group | undefined;
         if (hpBar) {
           const fraction = Math.max(0, Math.min(1, (fruit.hp ?? 1) / (fruit.maxHp ?? this.config.attacks[fruit.type]?.health ?? 1)));
-          hpBar.visible = true;
+          hpBar.visible = fraction < .99999;
           if (typeof entry.mesh.userData.hp === 'number' && (fruit.hp ?? 0) < entry.mesh.userData.hp) entry.mesh.userData.hitAt = performance.now();
           entry.mesh.userData.hp = fruit.hp;
           const fill = entry.mesh.userData.hpFill as Mesh; fill.scale.x = Math.max(.01, fraction); fill.position.x = -(1 - fraction) * .375;
@@ -293,7 +298,8 @@ export class PvpBattlefield {
       const outskirts = new Mesh(new PlaneGeometry(fullWidth * 8, fullLength * 3), new MeshBasicMaterial({color:0x343336, map:battleTexture('stone'),side:DoubleSide}));
       outskirts.rotation.x = -Math.PI/2; outskirts.position.y = -.12; this.terrain.add(outskirts);
     }
-    this.terrain.add(floor,battleScenery(fullWidth,fullLength,this.snapshot.shared ? floor.position.z : 0));
+    this.terrain.add(floor);
+    if(this.snapshot.shared)this.terrain.add(battleScenery(fullWidth,fullLength,floor.position.z));
 
     const shoulderMat = new MeshLambertMaterial({ color: 0x73583b });
     const roadMat = new MeshLambertMaterial({ color: 0x55524b, map:battleTexture('stone') });
@@ -302,13 +308,13 @@ export class PvpBattlefield {
 
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
-      const teamColor = COLORS.blue;
+      const teamColor = this.snapshot.shared?0xffe394:COLORS[player.side as keyof typeof COLORS]??COLORS.blue;
       const route = map.pathCells.length ? map.pathCells : this.snapshot.shared
         ? Array.from({ length: Math.max(1, map.height - 1) }, (_, row) => row * map.width + Math.floor(map.width / 2))
         : [];
 
       // Both players get ten readable plots; only your own plots are pickable.
-      for (const cell of map.buildCells) {
+      for (const cell of map.buildCells.filter(cell=>this.snapshot.shared||pvpBuildCellAllowed(map,cell))) {
         const pad=createBuildPad();
         pad.position.copy(this.cellPoint(cell, own));pad.position.y=.16;
         pad.userData.cell=cell;pad.userData.ownerId=player.userId;
@@ -339,7 +345,7 @@ export class PvpBattlefield {
       endpoint.z += own ? TILE * 1.5 : -TILE * 1.5;
       const gateX = endpoint.x;
       const base = new Group(); base.position.copy(endpoint); base.position.x = 0;
-      const wall = new Mesh(new PlaneGeometry(map.width * TILE_X, 1.05), new MeshLambertMaterial({ color: this.snapshot.shared ? WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? COLORS.blue : teamColor, side: DoubleSide }));
+      const wall = new Mesh(new PlaneGeometry(map.width * TILE_X, 1.05), new MeshLambertMaterial({ color: WALL_SKINS.find(skin => skin.id === player.wallSkin)?.color ?? 0x9a4034, side: DoubleSide }));
       const wallSkin = WALL_SKINS.find(skin => skin.id === player.wallSkin) || WALL_SKINS[0]!;
       if (typeof Image !== 'undefined' && wallSkin.texture) {
         const texture = new TextureLoader().load(wallSkin.texture); texture.colorSpace = SRGBColorSpace;
@@ -354,27 +360,40 @@ export class PvpBattlefield {
       keep.userData.combatPortrait=true;
       keep.add(combatTokenFrame(1.1, 'tower'));
       this.keepMotion.set(player.userId,{motion:new DefenderMotion(keep,'tower'),at:player.mainLastFiredAt??0});
-      keep.position.set(gateX, 1.2, 0); keep.scale.setScalar(1 + (pvpTowerLevel(player.mainLevel) - 1) * .16);
-      const towerTexture = sampleStudioTexture(`tower-main-level-${pvpTowerLevel(player.mainLevel)}`)||sampleStudioTexture('tower-main') || getAdminTexture('tower-main') || characterPortrait('tower'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
+      const keepLevel=this.snapshot.shared?Math.max(1,Math.min(10,Math.floor(player.mainLevel||1))):pvpTowerLevel(player.mainLevel);
+      keep.position.set(gateX,1.2,0);keep.scale.setScalar(1+Math.min(4,keepLevel-1)*.12);
+      const towerTexture = sampleStudioTexture(`tower-main-level-${keepLevel}`)||sampleStudioTexture('tower-main') || getAdminTexture('tower-main') || characterPortrait('tower'); if (towerTexture) (keep.material as MeshLambertMaterial).map = towerTexture;
       const hero = heroDef((player.hero || 'jiju') as HeroId);
       const heroKey = heroIdToStudioKey(hero.id);
       const heroTexture = sampleStudioTexture(heroKey, 'idle') || getAdminTexture(`hero-${hero.id}`) || characterPortrait(hero.id);
       const heroMaterial = new MeshBasicMaterial({ color: heroTexture ? 0xffffff : hero.color, map: heroTexture, transparent: true, side: DoubleSide });
       const avatar = new Mesh(new CircleGeometry(1.25, 48), heroMaterial);
       avatar.userData.combatPortrait=true;
-      avatar.add(combatTokenFrame(1.25, 'hero'));
+      const avatarFrame=combatTokenFrame(1.25, 'hero');
+      const rim=avatarFrame.getObjectByName('token-rim') as Mesh;
+      (rim.material as MeshBasicMaterial).color.setHex(teamColor);avatar.add(avatarFrame);
       avatar.position.set(gateX, 4, 0); base.add(avatar);
       const motion=new DefenderMotion(avatar,'hero',hero.color);motion.setHero(hero.id,hero.color);
       this.heroArt.push({key:heroKey,userId:player.userId,material:heroMaterial,motion});
-      const rail = new Mesh(new PlaneGeometry(map.width * TILE_X * .8, .12), new MeshBasicMaterial({ color: 0xc7df8e, side: DoubleSide }));
-      rail.position.set(0, .2, own ? -1.6 : 1.6);
-      rail.userData.maxHealth = player.wallMaxHealth ?? this.config.wallHealth ?? player.wallHealth;
-      this.health.set(player.userId, rail);
-      const railTrack = new Mesh(new PlaneGeometry(map.width * TILE_X * .8 + .12, .24), new MeshBasicMaterial({color:0xffe394,side:DoubleSide}));
-      railTrack.position.copy(rail.position); railTrack.position.z -= .02;
-      base.add(wall, keep, railTrack, rail); this.terrain.add(base);
+      const healthRail=towerHealthRail(map.width*TILE_X,teamColor);
+      healthRail.group.position.z=own?1.1:-1.1;
+      const rail=healthRail.fill;
+      rail.userData.maxHealth=player.wallMaxHealth??this.config.wallHealth??player.wallHealth;
+      rail.userData.rail=healthRail;
+      this.health.set(player.userId,rail);
+      base.add(wall,keep,healthRail.group);this.terrain.add(base);
+    }
+    if(!this.snapshot.shared){
+      const seam=new Mesh(new PlaneGeometry(map.width*TILE_X,.09),new MeshBasicMaterial({color:0xffe394,transparent:true,opacity:.5}));seam.rotation.x=-Math.PI/2;seam.position.y=.025;this.terrain.add(seam);
     }
     this.resize();
+  }
+  private showTowerDamage(world:Vector3,amount:number,own:boolean):void {
+    const point=world.clone().project(this.camera);
+    if(Math.abs(point.x)>1||Math.abs(point.y)>1)return;
+    const label=el('span',{class:`ftd-tower-damage ${own?'is-own':'is-rival'}`,text:`−${Math.max(1,Math.round(amount))}`,'aria-hidden':'true',style:`left:${(point.x+1)*50}%;top:${(1-point.y)*50}%`});
+    this.element.querySelectorAll('.ftd-tower-damage').forEach((node,index)=>{if(index>=5)node.remove();});
+    this.element.append(label);label.addEventListener('animationend',()=>label.remove(),{once:true});
   }
   private point(event: PointerEvent): { x: number; y: number } | null {
     const map = this.snapshot.map; if (!map) return null;
@@ -393,7 +412,7 @@ export class PvpBattlefield {
     if (!hit) return null;
     const radius = HEX_RADIUS * .985;
     for (const pad of this.buildPads) {
-      if(!pad.visible)continue;
+      if(!pad.visible||(!this.snapshot.shared&&!pvpBuildCellAllowed(this.snapshot.map!,Number(pad.userData.cell))))continue;
       const dx = hit.x - pad.position.x; const dz = hit.z - pad.position.z;
       if (Math.hypot(dx,dz) <= radius) return Number(pad.userData.cell);
     }
@@ -411,6 +430,11 @@ export class PvpBattlefield {
       const x = rect.left + (point.x + 1) * rect.width / 2; const y = rect.top + (1 - point.y) * rect.height / 2;
       const distance = Math.hypot(event.clientX - x, event.clientY - y);
       if (distance <= Math.max(20, Math.min(38, rect.width * .075)) && (!nearest || distance < nearest.distance)) nearest = { cell: tower.cell, distance };
+    }
+    if(!nearest&&!this.snapshot.shared&&map.pathCells.length){
+      const base=this.cellPoint(map.pathCells.at(-1)!,true);base.z+=TILE*1.5;base.y=1.2;base.project(this.camera);
+      const distance=Math.hypot(event.clientX-(rect.left+(base.x+1)*rect.width/2),event.clientY-(rect.top+(1-base.y)*rect.height/2));
+      if(distance<=26)return -1;
     }
     return nearest?.cell ?? null;
   }
@@ -432,7 +456,7 @@ export class PvpBattlefield {
     if (point && this.selectedCell === null) {
       const cell = this.buildCell(event);
       this.marker.visible = cell !== null;
-      if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .21; }
+      if (cell !== null && cell>=0) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .21; }
     }
     if (!this.stroke || this.stroke.id !== event.pointerId || !point) return;
     if (!this.snapshot.shared) { if (Math.hypot(point.x - this.stroke.from.x, point.y - this.stroke.from.y) >= .5) this.stroke.sliced = true; return; }
@@ -454,6 +478,8 @@ export class PvpBattlefield {
     if(this.snapshot.shared&&distance>=.5)this.selectCell(null);
     if (this.snapshot.shared && distance >= .5 && performance.now() - this.sharedStrokeAt >= 100) this.command({ type: 'slash', from: stroke.from, to });
     else if (!stroke.sliced && distance < .5) {
+      const existing=this.towerCell(event);
+      if(existing!==null&&this.select){this.select(existing);return;}
       const cell = this.buildCell(event);
       if (cell !== null) {
         if (this.select) this.select(cell);
@@ -462,15 +488,21 @@ export class PvpBattlefield {
     }
   }
   selectCell(cell: number | null): void {
-    this.selectedCell = cell; this.marker.visible = cell !== null;
+    this.selectedCell = cell; this.marker.visible = cell !== null && cell>=0;
     this.rangeMarker.visible = false;
-    const tower = this.snapshot.players.find(player=>player.side===this.snapshot.yourSide)?.towers.find(tower=>tower.cell===cell);
+    const own=this.snapshot.players.find(player=>player.side===this.snapshot.yourSide);
+    if(cell===-1&&own&&this.snapshot.map&&this.config.mainTower){
+      const end=this.snapshot.map.pathCells.at(-1);
+      if(end!==undefined){this.rangeMarker.position.copy(this.cellPoint(end,true));this.rangeMarker.position.y=.18;this.rangeMarker.scale.setScalar(pvpTowerStats({...this.config.mainTower,cost:0},own.mainLevel).range*TILE);this.rangeMarker.visible=true;}
+      return;
+    }
+    const tower = own?.towers.find(tower=>tower.cell===cell);
     const base = tower ? this.config.towers[tower.type] : undefined;
     if (cell !== null && tower && base) {
       this.rangeMarker.position.copy(this.cellPoint(cell,true));this.rangeMarker.position.y=.18;
       this.rangeMarker.scale.setScalar(pvpTowerStats(base,tower.level).range*TILE);this.rangeMarker.visible=true;
     }
-    if (cell !== null) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
+    if (cell !== null && cell>=0) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
   }
   setAttackView(attacking: boolean): void {
     if (this.snapshot.shared) return;
@@ -486,11 +518,11 @@ export class PvpBattlefield {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     if (this.framingInitialised === false) {
       this.framingInitialised = true;
-      this.focusOwn = false;
+      this.focusOwn = !this.snapshot.shared && rect.width<600;
     }
     this.element.classList.toggle('is-focused', this.focusOwn);
     const focus = this.element.querySelector<HTMLElement>('.ftd-duel-focus');
-    if (focus) { focus.textContent = this.focusOwn ? 'My defence' : 'Whole arena'; focus.title=focus.textContent; focus.setAttribute('aria-label', this.focusOwn ? 'Show my build territory' : 'Show both bases and attack routes'); }
+    if (focus) { focus.textContent = this.focusOwn ? 'My defence' : 'Whole arena'; focus.title=focus.textContent; focus.setAttribute('aria-label', this.focusOwn ? 'Show both bases and attack routes' : 'Focus on your defence'); }
     this.renderer.setSize(rect.width, rect.height, false);
     const map = this.snapshot.map; const aspect = rect.width / rect.height;
     this.element.classList.remove('is-landscape');
@@ -521,9 +553,11 @@ export class PvpBattlefield {
     if(document.hidden){this.previousAt=now;this.frame=requestAnimationFrame(this.animate);return;}
     if(matchMedia('(pointer: coarse)').matches && now-this.previousAt<1000/30-1){this.frame=requestAnimationFrame(this.animate);return;}
     const dt = Math.min(.05, (now - this.previousAt) / 1000); this.previousAt = now;
+    for(const hp of this.health.values())hp.userData.rail?.update(dt);
     for(const [id,keep] of this.keepMotion){
       keep.motion.update(dt);
-      const levelKey=`tower-main-level-${pvpTowerLevel(this.snapshot.players.find(player=>player.userId===id)?.mainLevel)}`;
+      const rawLevel=this.snapshot.players.find(player=>player.userId===id)?.mainLevel??1;
+      const levelKey=`tower-main-level-${this.snapshot.shared?Math.max(1,Math.min(10,Math.floor(rawLevel))):pvpTowerLevel(rawLevel)}`;
       const key=getStudioEntityData(levelKey)?.sheetDataUrl?levelKey:'tower-main';
       if(!keep.studio||keep.studio.entityKey!==key||!keep.studio.active)keep.studio=createStudioAnimForKey(key);
       const sheet=keep.studio.active?updateStudioAnim(keep.studio,dt,0,0):sampleStudioTexture(key);

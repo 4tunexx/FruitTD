@@ -19,7 +19,7 @@ import { LoadingIndicator } from '../components/loading';
 
 type MapView = { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] };
 type MatchView = { id: string; queue: PvpQueue; status: string; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ userId: string; name: string; avatar?: string; side: string; fruts: number; wallHealth: number; mainLevel?: number; mainLastFiredAt?:number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; powerCasts?:PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string,number>; abilityReadyAt?: Record<string,number>; rallyUntil?: number; rallyReadyAt?: number; score: number; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
-type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: ArenaRating; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps' | 'incomePerSecond'> };
+type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: ArenaRating; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'mainTower' | 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps' | 'incomePerSecond'> };
 const timers = new WeakMap<HTMLElement, number>();
 const realtimeClients = new WeakMap<HTMLElement, AblyRealtime>();
 const cleanups = new WeakMap<HTMLElement, () => void>();
@@ -64,7 +64,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let selectedCell: number | null = null;
   let pendingBuildCell: number | null = null;
   let dockTab: 'build' | 'attack' | 'capture' = 'build';
-  let dockExpanded = window.innerWidth >= 1000;
+  let dockExpanded = false;
+  let toolsExpanded=false;
+  let hudExpanded=false;
   let surrenderConfirm = false;
   let actionError = '';
   let actionFeedback = '';
@@ -306,21 +308,23 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const maxHealth = status.config?.wallHealth || 1000;
     const playerCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-duel-player ${rival ? 'is-rival' : 'is-own'} is-${player.side === 'red' ? 'red' : 'blue'}` }, [
       playerPortrait(player, 'ftd-duel-player__crest'),
-      el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:rival ? 'OPPONENT' : 'YOU' }), el('span', { text: `${player.wallHealth} / ${player.wallMaxHealth ?? maxHealth} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
+      el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:rival ? 'OPPONENT' : 'YOU' }), el('span', { text: `${Math.ceil(player.wallHealth)} / ${Math.ceil(player.wallMaxHealth ?? maxHealth)} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
         el('div', { class: 'ftd-duel-hp', role: 'progressbar', 'aria-label': `${player.name} wall health`, 'aria-valuenow': player.wallHealth, 'aria-valuemax': player.wallMaxHealth ?? maxHealth }, [el('i', { style: `width:${Math.max(0, Math.min(100, player.wallHealth / (player.wallMaxHealth ?? maxHealth) * 100))}%` })]),
       ]),
     ]);
-    body.append(el('header', { class: 'ftd-duel-hud' }, [playerCard(own, false),
+    body.append(el('header', { class: `ftd-duel-hud${hudExpanded?' is-expanded':''}` }, [playerCard(own, false),
       el('div', { class: 'ftd-duel-clock' }, [el('small', { text: match.testMatch ? 'PRACTICE' : match.queue === 'ranked' ? 'RANKED' : 'ARENA' }), el('strong', { text: `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, '0')}` }),
         el('button', { type:'button', class:'ftd-duel-leave', title:'Leave match', 'aria-label':'Leave match', 'data-testid':'arena-leave' }, [lucideIcon('LogOut','',16)]),
+        el('button',{type:'button',class:'ftd-duel-hud-toggle','data-testid':'arena-hud-toggle','aria-label':hudExpanded?'Collapse player details':'Expand player details','aria-expanded':hudExpanded},[lucideIcon(hudExpanded?'ChevronUp':'ChevronDown','',14)]),
       ]), playerCard(opponent, true),
     ]));
     body.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')?.addEventListener('click', () => { surrenderConfirm=true;render(); });
+    body.querySelector('[data-testid="arena-hud-toggle"]')?.addEventListener('click',()=>{hudExpanded=!hudExpanded;render();});
     const objective = el('div', { class: 'ftd-duel-objective' });
     objective.innerHTML = `<b>DEFEND YOUR TOWER</b> · Stop incoming fruit &nbsp; | &nbsp; <em>SEND FRUIT SQUADS</em> · Squads clash, survivors push`;
-    body.append(objective);
+    objective.hidden=true;
     if (actionFeedback && Date.now() < feedbackUntil) body.append(el('div', { class: 'ftd-duel-feedback', role: 'status', text: actionFeedback }));
-    const sceneConfig = { wallHealth: maxHealth, towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
+    const sceneConfig = { wallHealth: maxHealth, mainTower:status.config?.mainTower, towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
     const issue = (command: import('../../game/pvp').PvpCommand) => {
       const current = status.match;
       if (current?.status === 'active') void send(`/match/${current.id}/command`, { sequence: current.yourSequence + 1, command });
@@ -341,6 +345,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const select = (cell: number) => {
         const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
         if (!current || !player) return;
+        if(cell===-1){pendingBuildCell=null;selectedCell=-1;dockTab='build';dockExpanded=true;render();return;}
         const tower = player.towers.find(item => item.cell === cell);
         if (tower) { pendingBuildCell = null; selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
         else {
@@ -393,7 +398,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const rallyActive = (own.rallyUntil ?? 0) > Date.now();
     const selected = own.towers.find(tower => tower.cell === selectedCell);
     const selectedBase = selected ? status.config?.towers[selected.type] : null;
-    const tray = el('footer', { class: 'ftd-duel-dock' });
+    const tray = el('footer', { class: `ftd-duel-dock${toolsExpanded?' are-tools-open':''}` });
     const mainLevel = pvpTowerLevel(own.mainLevel); const mainCost = pvpMainUpgradeCost(mainLevel);
     tray.classList.toggle('is-expanded', dockExpanded);
     const resource = el('div', { class: 'ftd-duel-resource' }, [
@@ -407,21 +412,29 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       button.addEventListener('click',action);return button;
     };
     actionRail.append(
-      railButton('Swords','Build towers',()=>openDock('build'),false,'arena-tab-build',dockTab==='build'),
       railButton('Cherry','Send fruit attack',()=>openDock('attack'),false,'arena-tab-attack',dockTab==='attack'),
+    );
+    const more=railButton(toolsExpanded?'ChevronDown':'SlidersHorizontal','Battle controls',()=>{toolsExpanded=!toolsExpanded;render();},false,'arena-controls-toggle');
+    more.setAttribute('aria-expanded',String(toolsExpanded));actionRail.append(more);
+    const tools=el('div',{class:'ftd-duel-tools',hidden:!toolsExpanded});
+    tools.append(
       railButton('Fence',`Captured fruit · ${own.captured?.length ?? 0}/${PVP_CAPTURE_CAPACITY}`,()=>openDock('capture'),false,'arena-tab-capture',dockTab==='capture'),
       railButton('Zap',rallyActive?'Rally active':rallyWait?`Rally ready in ${rallyWait}s`:'Rally · +25% damage',()=>issue({type:'rally'}),busy||rallyWait>0,'arena-rally'),
       railButton('Castle',mainLevel===PVP_MAX_TOWER_LEVEL?'Main tower · max level':`Upgrade main tower · ${mainCost} Fruts`,()=>issue({type:'upgrade-main'}),busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,'arena-upgrade-main'),
     );
+    const powerRail=el('div',{class:'ftd-duel-powers','aria-label':'Equipped hero powers'});
     for (const id of (own.abilityLoadout ?? []).slice(0,3)) {
       const ability=heroAbility(id); if(!ability)continue;
       const power = powerButton(id, () => issue({type:'ability',abilityId:id}));
       power.dataset.testid = `arena-ability-${id}`;
-      updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy,'fruts');
-      actionRail.appendChild(power);
+      updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy,'fruts',own.abilityRanks?.[id]??1);
+      powerRail.appendChild(power);
     }
-    tray.append(resource,actionRail);
+    tray.append(resource,actionRail,tools);body.append(powerRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
+    const closePanel=el('button',{class:'ftd-duel-panel-close',type:'button','aria-label':'Close action panel'},[lucideIcon('X','',18)]);
+    closePanel.addEventListener('click',()=>{dockExpanded=false;selectedCell=null;pendingBuildCell=null;render();});panel.append(closePanel);
+    if(selectedCell===-1)panel.append(el('h3',{text:`Your tower · Level ${mainLevel}`}),label('Upgrading strengthens defence, wall HP and power reach.'),GameButton({label:mainLevel===PVP_MAX_TOWER_LEVEL?'Maximum level':`Upgrade · ${mainCost} Fruts`,disabled:busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,onClick:()=>issue({type:'upgrade-main'})}));
     panel.append(el('p', { class: 'ftd-duel-guide', text: dockTab === 'build' ? `Tap a gold + pad, then choose its turret. Towers fire automatically.` : dockTab === 'attack' ? `Release a squad from your keep. It fights enemy squads; survivors push toward the opponent’s wall.` : `Catch weakened fruit, then tap a captive to counterattack.` }));
     const cards = el('div', { class: 'ftd-duel-cards', 'aria-label': dockTab === 'build' ? 'Tower choices' : 'Fruit attack choices' });
     const coreTowers = ['guillotine', 'sprinkler', 'laser'];
@@ -439,7 +452,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
           const cell = pendingBuildCell; pendingBuildCell = null;
           issue({type:'build', tower:id, cell});
         } else selectedCell = null;
-        dockExpanded = window.innerWidth >= 1000; render();
+        dockExpanded = false; render();
       }); cards.append(button);
     } else if (dockTab === 'attack') for (const [id, info] of Object.entries(status.config?.attacks || {})) {
       const button = el('button', { type: 'button', class: 'ftd-duel-card is-attack', disabled: busy || own.fruts < info.cost, 'data-testid': `arena-send-${id}` }, [

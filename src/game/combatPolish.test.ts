@@ -30,7 +30,7 @@ describe('combat polish regressions', () => {
     assert.equal(fruit.hpBar.geometry.type, 'PlaneGeometry');
     assert.ok(fruit.hpBar.renderOrder > fruit.hpBack.renderOrder);
     assert.equal(fruit.hpBack.scale.x * fruit.radius, 1.05);
-    assert.equal(fruit.hpBack.visible, true);
+    assert.equal(fruit.hpBack.visible, false, 'undamaged enemies stay uncluttered');
     const initialWidth = fruit.hpBar.scale.x;
     field.hurt(fruit, fruit.hp / 2);
     assert.equal(fruit.hpBack.visible, true);

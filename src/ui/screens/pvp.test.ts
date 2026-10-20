@@ -7,7 +7,7 @@ const storage = new Map<string, string>();
 import { setAuthToken } from '../../services/auth';
 import { acceptArenaRating, arenaRankPresentation, bindArenaRating, type ArenaRating } from '../../services/pvpRating';
 import { defaultSave } from '../../game/save';
-import { DEFAULT_PVP_CONFIG as config, applyPvpCommand, advancePvpMatch, pvpHexDistance, createPvpPlayer, newPvpMatch, type PvpCommand } from '../../game/pvp';
+import { DEFAULT_PVP_CONFIG as config, applyPvpCommand, advancePvpMatch, createPvpPlayer, newPvpMatch, type PvpCommand } from '../../game/pvp';
 import { renderPvpHub, disposePvpHub, type PvpHubOptions } from './pvp';
 import { profileHubTab } from './hubTabs';
 import { renderHub, registerHubTab, resetHub } from './hub';
@@ -176,12 +176,12 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.deepEqual([...document.body.querySelectorAll<HTMLImageElement>('img')].map(image => image.getAttribute('src')), ['https://steam.example/you.jpg', 'https://steam.example/rival.jpg', 'https://steam.example/you.jpg', 'https://steam.example/rival.jpg']);
     const cell = config.map.buildCells[0]!;
     assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), true, 'mobile loadout starts collapsed to keep the battlefield clear');
-    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-build"]')!.click();
-    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), false, 'the icon rail expands the tower picker');
+    assert.equal(document.body.querySelector('[data-testid="arena-tab-build"]'),null,'build is opened from the field, not a permanent toolbar button');
     select!(cell); await flush();
     assert.equal(game.players[0].towers.length, 0, 'a + pad opens the picker without spending');
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-build-guillotine"]')!.click(); await flush();
     assert.equal(game.players[0].towers.length, 1);
+    select!(cell);await flush();
     assert.equal(document.body.querySelectorAll('[data-testid="arena-tower-upgrade"]').length, 1);
     const button = (text: string) => [...document.body.querySelectorAll<HTMLButtonElement>('button')].find(node => node.textContent?.startsWith(text))!;
     button('Upgrade').click(); await flush(); assert.equal(game.players[0].towers[0]!.level, 2);
@@ -189,16 +189,15 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-attack"]')!.click();
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-send-normal"]')!.click(); await flush();
     assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize);
+    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-controls-toggle"]')!.click();
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-upgrade-main"]')!.click(); await flush(); assert.equal(game.players[0].mainLevel, 2); assert.equal(game.players[0].wallMaxHealth, 1250);
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-rally"]')!.click(); await flush(); assert.ok(game.players[0].rallyUntil! > Date.now());
-    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-build"]')!.click();
+    select!(cell);await flush();
     assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), false, 'core loadout is easy to scan');
     assert.equal(document.body.querySelector('[data-testid="arena-build-catcher"]'), null);
     button('+ More towers').click();
-    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click();
-    game.players[0].attackers.push({ id: 'weakened', type: 'normal', hp: 25, progress: 0 });
-    const cageCell = config.map.buildCells.find(cell => pvpHexDistance(cell, config.map.pathCells[0]!, config.map.width) <= 1)!;
-    select!(cageCell); await flush(); document.body.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click(); await flush(); assert.equal(game.players[0].captured!.length, 1);
+    game.players[0].attackers.push({ id: 'weakened', type: 'normal', hp: 25, progress: Math.ceil(config.map.height/2) });
+    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click(); await flush(); assert.equal(game.players[0].captured!.length, 1);
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-capture"]')!.click(); document.body.querySelector<HTMLButtonElement>('[data-testid="arena-release"]')!.click(); await flush();
     assert.equal(game.players[0].captured!.length, 0); assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize! + 1);
     assert.equal(game.players[1].attackers.at(-1)!.released, true);
@@ -286,7 +285,7 @@ test('completed snapshots keep the result mounted and acknowledgement restores t
   } finally { disposePvpHub(root); globalThis.setInterval = priorInterval; setAuthToken(null); resetDom(); }
 });
 
-test('PC matches open a usable command panel and dispose their viewport portal', async () => {
+test('PC matches keep a collapsed command panel and dispose their viewport portal', async () => {
   resetDom(); setAuthToken('test-only');
   const hub=document.createElement('div');hub.classList.add('ftd-hub');document.body.appendChild(hub);
   const root=document.createElement('div');hub.appendChild(root);
@@ -294,7 +293,7 @@ test('PC matches open a usable command panel and dispose their viewport portal',
   try {
     renderPvpHub(root,'arena',{polling:false,realtime:false,request:async()=>({success:true,config,match:{...game,yourSide:'blue',remainingMs:180000}}),createBattlefield:()=>({element:document.createElement('div'),interacting:false,update:()=>{},selectCell:()=>{},dispose:()=>{}})});
     await flush();
-    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'),false);
+    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'),true);
     assert.doesNotMatch(document.body.textContent!, /BLUE SIDE|RED SIDE|DEFEND BLUE|ATTACK RED/);
     disposePvpHub(root);
     assert.equal(document.body.querySelector('.ftd-pvp.is-battle'),null,'leaving removes the document-level match');

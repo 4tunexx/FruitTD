@@ -1,4 +1,4 @@
-import { applyPvpCommand, pvpUpgradeCost, pvpTowerLevel, pvpReleaseCost, pvpMainUpgradeCost, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
+import { applyPvpCommand, pvpBuildCellAllowed, pvpUpgradeCost, pvpTowerLevel, pvpReleaseCost, pvpMainUpgradeCost, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
 
 /** Runs the test opponent through the same validated commands as a human player. */
 export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: PvpConfig, now = match.createdAt): PvpCommand | null {
@@ -14,7 +14,7 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)]!;
-    const cells = map.buildCells.filter((cell) => !bot.towers.some((tower) => tower.cell === cell));
+    const cells = map.buildCells.filter((cell) => pvpBuildCellAllowed(map,cell)&&!bot.towers.some((tower) => tower.cell === cell));
     const middle = map.pathCells.slice(Math.floor(map.pathCells.length * 0.25), Math.ceil(map.pathCells.length * 0.8));
     cells.sort((a, b) => {
       const distance = (cell: number) => Math.min(...middle.map((pathCell) => Math.abs(cell % map.width - pathCell % map.width) + Math.abs(Math.floor(cell / map.width) - Math.floor(pathCell / map.width))));

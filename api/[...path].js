@@ -455,7 +455,7 @@ var names = {
   tripos: [["Triple Cut", "Three fast cuts across the field.", "\u224B", "burst"], ["Rose Burst", "A powerful clustered blast.", "\u273F", "burst"], ["Crosswind", "Strike the field from both sides.", "\u2723", "shock"], ["Pink Haze", "Slow and damage every fruit.", "\u274B", "frost"], ["Encore", "Repeat damage on the strongest fruit.", "\u266B", "pierce"], ["Grand Waltz", "Tripos\u2019 full field finale.", "\u2739", "shock"]],
   ki: [["Golden Pulse", "A fast full-field pulse.", "\u263C", "shock"], ["Lucky Drop", "A heavy burst near the lead fruit.", "\u2726", "burst"], ["Sunbeam", "Pierce through the leading line.", "\u2600", "pierce"], ["Golden Guard", "Slow fruit and protect the wall.", "\u2B21", "guard"], ["Solar Bloom", "Blast the front pack with solar energy.", "\u273A", "burst"], ["Daybreak", "Ki\u2019s strongest full-field strike.", "\u2739", "shock"]]
 };
-var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description, icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [9e3, 13e3, 16e3, 19e3, 23e3, 28e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/icons/sigil-${String(["jiju", "topfu", "lagen", "tripos", "ki"].indexOf(hero) * 6 + i + 1).padStart(2, "0")}.svg` })));
+var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description: description.replace(/whole field|full-field|full field|every fruit|the full field|the field/g, "enemies within tower range") + " Damage falls with distance from the tower.", icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [18e3, 22e3, 26e3, 3e4, 35e3, 42e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/icons/sigil-${String(["jiju", "topfu", "lagen", "tripos", "ki"].indexOf(hero) * 6 + i + 1).padStart(2, "0")}.svg` })));
 var MAX_HERO_ABILITY_RANK = 5;
 function heroAbility(id) {
   return HERO_ABILITIES.find((a) => a.id === id);
@@ -822,6 +822,7 @@ function powerStats(ability, rawRank) {
     rank,
     damage: ability.damage * (1 + (rank - 1) * 0.2),
     cost: ability.juiceCost,
+    cooldownMs: Math.round(ability.cooldownMs * (1 - (rank - 1) * 0.05)),
     slowMs: ability.effect === "frost" || ability.effect === "guard" || ability.id === "topfu-6" ? 2e3 + (rank - 1) * 350 : 0,
     slowMultiplier: ability.id === "topfu-6" ? 0.15 : 0.45,
     healFraction: ability.effect === "guard" ? 0.12 + (rank - 1) * 0.02 : 0
@@ -833,9 +834,16 @@ function equippedPower(id, hero, loadout, ranks) {
   if (!ability || ability.hero !== hero || !loadout?.includes(id) || !Number.isFinite(rank) || rank < 1) throw new Error("That power is not equipped");
   return { ability, stats: powerStats(ability, rank) };
 }
-function powerTargets(items, ability, point) {
-  const ordered = [...items].sort((a, b) => point(b).y - point(a).y);
-  if (ability.effect === "pierce") return ordered.slice(0, Math.max(1, Math.ceil(items.length * 0.4)));
+function powerDamageMultiplier(point, envelope) {
+  const distance2 = Math.hypot(point.x - envelope.x, point.y - envelope.y);
+  if (!Number.isFinite(distance2) || !Number.isFinite(envelope.radius) || envelope.radius <= 0 || distance2 > envelope.radius) return 0;
+  const fraction = distance2 / envelope.radius;
+  return 1 - 0.65 * fraction * fraction;
+}
+function powerTargets(items, ability, point, envelope) {
+  const eligible = items.filter((item) => powerDamageMultiplier(point(item), envelope) > 0);
+  const ordered = [...eligible].sort((a, b) => point(b).y - point(a).y);
+  if (ability.effect === "pierce") return ordered.slice(0, Math.max(1, Math.ceil(eligible.length * 0.4)));
   if (ability.effect === "burst" || ability.effect === "bloom") {
     const lead = ordered[0];
     if (!lead) return [];
@@ -852,12 +860,12 @@ function appendPowerCast(casts, cast) {
 function siegeBuildCells(width, height) {
   const middle = Math.floor(width / 2) - 1;
   return Array.from({ length: 5 }, (_, i) => {
-    const row = Math.round(i * (height - 2) / 4);
+    const row = Math.ceil(height / 2) + Math.round(i * Math.max(0, height - 2 - Math.ceil(height / 2)) / 4);
     return [row * width + Math.max(0, middle - 1), row * width + Math.min(width - 1, middle + 1)];
   }).flat();
 }
 function makeMap(id, name) {
-  const width = 10, height = 14;
+  const width = 10, height = 24;
   return { id, name, width, height, pathCells: Array.from({ length: height }, (_, row) => row * width + 4), buildCells: siegeBuildCells(width, height).map((cell, index) => {
     const variant = ["orchard-crossing", "windfall", "old-grove", "riverbend", "twin-rows", "stone-arch", "long-harvest"].indexOf(id);
     if (index < 2 || variant <= 0) return cell;
@@ -927,17 +935,25 @@ function normalizePvpMaps(input) {
     const row = raw;
     const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
     const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
-    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
-    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - path[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1] / width)) === 1)) && Math.floor(path[0] / width) === 0 && Math.floor(path.at(-1) / width) === height - 1;
+    const rawPath = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
+    const valid = rawPath.length >= 12 && rawPath.length <= width * height && new Set(rawPath).size === rawPath.length && rawPath.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs(cell % width - rawPath[i - 1] % width) + Math.abs(Math.floor(cell / width) - Math.floor(rawPath[i - 1] / width)) === 1)) && Math.floor(rawPath[0] / width) === 0 && Math.floor(rawPath.at(-1) / width) === height - 1;
     if (!valid) return structuredClone(fallback);
+    const path = Array.from({ length: height }, (_, i) => i * width + Math.max(0, Math.floor(width / 2) - 1));
     const id = String(row.id || fallback.id).slice(0, 48);
     const builtin = DEFAULT_PVP_CONFIG.maps.find((map2) => map2.id === id);
-    if (builtin && (!Array.isArray(row.buildCells) || row.buildCells.length > 10)) return { ...structuredClone(builtin), name: String(row.name || builtin.name).slice(0, 64) };
-    const legal = (cell) => Number.isInteger(cell) && cell >= 0 && cell < width * height && !path.includes(cell);
+    if (builtin && (!Array.isArray(row.buildCells) || row.buildCells.length > 10 || width === 10 && height === 14 && path.every((cell, i) => cell === i * 10 + 4))) return { ...structuredClone(builtin), name: String(row.name || builtin.name).slice(0, 64) };
+    const legal = (cell) => Number.isInteger(cell) && cell >= 0 && cell < width * height && Math.floor(cell / width) >= Math.ceil(height / 2) && !path.includes(cell);
     const requested = Array.isArray(row.buildCells) ? row.buildCells.map(Number) : [];
     const pads = [.../* @__PURE__ */ new Set([...requested, ...siegeBuildCells(width, height), ...Array.from({ length: width * height }, (_, i) => i)])].filter(legal).slice(0, 10);
     return { id, name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: pads };
   });
+}
+function pvpBuildCellAllowed(map2, cell) {
+  return Number.isInteger(cell) && cell >= 0 && cell < map2.width * map2.height && Math.floor(cell / map2.width) >= Math.ceil(map2.height / 2) && !map2.pathCells.includes(cell) && map2.buildCells.includes(cell);
+}
+function pvpPowerEnvelope(map2, config, level = 1) {
+  const cell = map2.pathCells.at(-1) ?? 0;
+  return { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5, radius: pvpTowerStats({ ...config.mainTower, cost: 0 }, level).range };
 }
 function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
   return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
@@ -1050,18 +1066,20 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     if (player.fruts < stats.cost) throw new Error("Not enough match Fruts");
     const map2 = match.map ?? config.map;
     const point = (attacker) => {
-      const cell = map2.pathCells[Math.min(map2.pathCells.length - 1, Math.max(0, Math.round(attacker.progress)))] ?? 0;
-      return { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5, progress: attacker.progress };
+      const index = Math.max(0, Math.min(map2.pathCells.length - 1, attacker.progress));
+      const cell = map2.pathCells[Math.floor(index)] ?? 0, next = map2.pathCells[Math.min(map2.pathCells.length - 1, Math.floor(index) + 1)] ?? cell, t = index - Math.floor(index);
+      return { x: cell % map2.width + 0.5 + (next % map2.width - cell % map2.width) * t, y: Math.floor(cell / map2.width) + 0.5 + (Math.floor(next / map2.width) - Math.floor(cell / map2.width)) * t, progress: attacker.progress };
     };
-    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0 && a.type !== "explosive"), ability, point);
-    if (!targets.length && !stats.healFraction) throw new Error("No vulnerable targets.");
+    const envelope = pvpPowerEnvelope(map2, config, player.mainLevel);
+    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0 && a.type !== "explosive" && a.progress >= 0), ability, point, envelope);
+    if (!targets.length && (!stats.healFraction || player.wallHealth >= (player.wallMaxHealth ?? config.wallHealth))) throw new Error("No vulnerable targets.");
     player.fruts -= stats.cost;
     player.abilityReadyAt ??= {};
-    player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
+    player.abilityReadyAt[ability.id] = now + stats.cooldownMs;
     player.wallHealth = Math.min(player.wallMaxHealth ?? config.wallHealth, player.wallHealth + (player.wallMaxHealth ?? config.wallHealth) * stats.healFraction);
     player.powerCasts = appendPowerCast(player.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map(point) });
     for (const attacker of targets) {
-      attacker.hp -= stats.damage;
+      attacker.hp -= stats.damage * powerDamageMultiplier(point(attacker), envelope);
       if (stats.slowMs) {
         attacker.slowUntil = Math.max(attacker.slowUntil ?? 0, now + stats.slowMs);
         attacker.slowMultiplier = stats.slowMultiplier;
@@ -1078,8 +1096,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
   } else if (command.type === "build") {
     const tower2 = config.towers[command.tower];
     const map2 = match.map ?? config.map;
-    const mapSize = map2.width * map2.height;
-    if (!tower2 || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map2.buildCells.includes(command.cell)) throw new Error("Invalid tower or build cell");
+    if (!tower2 || !pvpBuildCellAllowed(map2, command.cell)) throw new Error("Invalid tower or build cell");
     if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error("Build cell is occupied");
     if (player.fruts < tower2.cost) throw new Error("Not enough match Fruts");
     player.fruts -= tower2.cost;
@@ -1317,15 +1334,16 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
       const { ability, stats } = equippedPower(command.abilityId, player.hero, player.abilityLoadout, player.abilityRanks);
       if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down.");
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
-      const targets = powerTargets(match.fruits.filter((f) => f.hp > 0 && f.type !== "explosive"), ability, (f) => f);
-      if (!targets.length && !stats.healFraction) throw new Error("No vulnerable targets.");
+      const envelope = { x: 5, y: 13.5, radius: coopMainStats(match, balance).range };
+      const targets = powerTargets(match.fruits.filter((f) => f.hp > 0 && f.type !== "explosive" && !f.sliceOnly), ability, (f) => f, envelope);
+      if (!targets.length && (!stats.healFraction || match.wallHealth >= balance.wallHealth)) throw new Error("No vulnerable targets.");
       match.fruts -= stats.cost;
       player.abilityReadyAt ??= {};
-      player.abilityReadyAt[ability.id] = now + ability.cooldownMs;
+      player.abilityReadyAt[ability.id] = now + stats.cooldownMs;
       match.wallHealth = Math.min(balance.wallHealth, match.wallHealth + balance.wallHealth * stats.healFraction);
       match.powerCasts = appendPowerCast(match.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map((f) => ({ x: f.x, y: f.y })) });
       for (const fruit2 of targets) {
-        fruit2.hp -= stats.damage;
+        fruit2.hp -= stats.damage * powerDamageMultiplier(fruit2, envelope);
         if (stats.slowMs) {
           fruit2.slowUntil = Math.max(fruit2.slowUntil ?? 0, now + stats.slowMs);
           fruit2.slowMultiplier = stats.slowMultiplier;
@@ -1367,6 +1385,10 @@ function collectKills(match, balance) {
 function coopFruitMaxHealth(baseHealth, boss, wave2, players, config) {
   return baseHealth * (boss ? config.bossHealthMultiplier * Math.max(1, players / 2) : 1) * (1 + Math.floor(wave2 / 8) * 0.2);
 }
+function coopMainStats(match, balance) {
+  const upgrades = towerLevelFromXp(match.towerXp ?? 0) - 1;
+  return { ...balance.mainTower, damage: Math.round(balance.mainTower.damage * (1 + upgrades * 0.1)), range: balance.mainTower.range + upgrades * 0.2 };
+}
 function advanceCoopMatch(match, dt, now, balance, config) {
   if (match.status === "waiting" || match.status === "complete") return;
   if (match.players.some((p) => now - p.lastSeenAt > balance.reconnectGraceSeconds * 1e3)) {
@@ -1393,7 +1415,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     const stats = balance.attacks[kind];
     const serial = ++match.serial;
     const maxHp = coopFruitMaxHealth(stats.health, boss, match.wave, match.players.length, config);
-    match.fruits.push({ id: `${match.id}:${serial}`, type: kind, x: boss ? 5 : 1 + serial * 37 % 80 / 10, y: 0, hp: maxHp, maxHp, boss });
+    match.fruits.push({ id: `${match.id}:${serial}`, type: kind, x: boss ? 5 : 1 + serial * 37 % 80 / 10, y: 0, hp: maxHp, maxHp, boss, sliceOnly: boss ? Math.floor(match.wave / (config.bossEveryWaves + 1)) % 2 === 0 : match.wave >= 7 && serial % 9 === 0 });
     match.remainingSpawns--;
     match.spawnAt = now + config.spawnGapMs;
   }
@@ -1403,9 +1425,9 @@ function advanceCoopMatch(match, dt, now, balance, config) {
   for (const fruit2 of match.fruits) fruit2.y += balance.attacks[fruit2.type].speed * delta * (fruit2.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier) * (now < (fruit2.slowUntil ?? 0) ? fruit2.slowMultiplier ?? 0.45 : 1);
   const fire = (x, y, stats, last, type = "main", level = 1) => {
     if (now - last < stats.cooldownMs) return false;
-    const fruit2 = match.fruits.filter((f) => f.hp > 0 && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
+    const fruit2 = match.fruits.filter((f) => f.hp > 0 && !f.sliceOnly && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
     if (!fruit2) return false;
-    const victims = turretVictims(type, { x, y }, fruit2, match.fruits.filter((f) => f.hp > 0), (f) => f, stats.range, level);
+    const victims = turretVictims(type, { x, y }, fruit2, match.fruits.filter((f) => f.hp > 0 && !f.sliceOnly), (f) => f, stats.range, level);
     for (const target2 of victims) {
       target2.hp -= Math.round(stats.damage * (target2 === fruit2 || type !== "sprinkler" ? 1 : 0.65));
       if (type === "sprinkler") {
@@ -1417,8 +1439,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     return true;
   };
   for (const tower2 of match.towers) if (fire(tower2.cell % 10 + 0.5, Math.floor(tower2.cell / 10) + 0.5, pvpTowerStats(balance.towers[tower2.type], tower2.level), tower2.lastFiredAt, tower2.type, tower2.level)) tower2.lastFiredAt = now;
-  const towerLevel = towerLevelFromXp(match.towerXp ?? 0);
-  if (fire(5, 13.5, { ...balance.mainTower, damage: Math.round(balance.mainTower.damage * (1 + (towerLevel - 1) * 0.1)) }, match.mainLastFiredAt)) match.mainLastFiredAt = now;
+  if (fire(5, 13.5, coopMainStats(match, balance), match.mainLastFiredAt)) match.mainLastFiredAt = now;
   collectKills(match, balance);
   for (const f of match.fruits.filter((f2) => f2.y >= 13.5)) match.wallHealth = Math.max(0, match.wallHealth - balance.attacks[f.type].wallDamage * (f.boss ? 10 : 1));
   match.fruits = match.fruits.filter((f) => f.y < 13.5);
@@ -5387,7 +5408,7 @@ function choosePvpBotCommand(match, botUserId, config, now = match.createdAt) {
   const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)];
-    const cells = map2.buildCells.filter((cell) => !bot.towers.some((tower2) => tower2.cell === cell));
+    const cells = map2.buildCells.filter((cell) => pvpBuildCellAllowed(map2, cell) && !bot.towers.some((tower2) => tower2.cell === cell));
     const middle = map2.pathCells.slice(Math.floor(map2.pathCells.length * 0.25), Math.ceil(map2.pathCells.length * 0.8));
     cells.sort((a, b) => {
       const distance2 = (cell) => Math.min(...middle.map((pathCell) => Math.abs(cell % map2.width - pathCell % map2.width) + Math.abs(Math.floor(cell / map2.width) - Math.floor(pathCell / map2.width))));
@@ -5688,7 +5709,7 @@ pvpRouter.get("/status", async (req2, res) => {
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection("pvp_challenges")).findOne({ toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
-    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { incomePerSecond: (match?.balance ?? config).incomePerSecond, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
+    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower: (match?.balance ?? config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
   } catch (error2) {
     console.error(error2);
     routerError(res, 503, "PvP storage is unavailable.");

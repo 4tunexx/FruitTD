@@ -48,7 +48,7 @@ test('turret-only bomb and armor outlines are round; hero powers never damage th
 test('solo targeted powers choose the wall threat and starter rank upgrades immediately increase damage',()=>{
   const ability=heroAbility('jiju-3')!;
   const enemies=[{z:15},{z:4},{z:-6}];
-  assert.equal(powerTargets(enemies,ability,f=>({x:0,y:-f.z}))[0]!.z,-6);
+  assert.equal(powerTargets(enemies,ability,f=>({x:0,y:-f.z}),{x:0,y:9.2,radius:6})[0]!.z,-6);
   const rank=heroAbilityRank('jiju-1',{'jiju-1':0});assert.equal(rank,1);
   assert.ok(powerStats(heroAbility('jiju-1')!,rank+1).damage>powerStats(heroAbility('jiju-1')!,rank).damage);
 });

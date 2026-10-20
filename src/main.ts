@@ -5,7 +5,7 @@ import { heroArt } from './ui/heroArt';
 import { purchaseHeroPerk } from './game/heroPerkPurchase';
 import { installCombatHudLayout } from './ui/combatHudLayout';
 import { PowerVfx } from './game/powerVfx';
-import { powerStats, powerTargets } from './game/powerCombat';
+import { powerStats, powerTargets, powerDamageMultiplier, superKillCharge, superSliceCharge } from './game/powerCombat';
 import { finishCampaignAttempt } from './game/campaignAttempt';
 import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
@@ -92,6 +92,7 @@ import './ui/numberMotion.css';
 import './ui/battleLayout.css';
 import './ui/admin/creatorWorkspace.css';
 import './ui/pcPolish.css';
+import './ui/combatRefinement.css';
 import { installPowerHotkeys } from './ui/powerButton';
 
 // Theme + layout must be applied before any UI renders.
@@ -829,7 +830,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, s
   }
 
   const rules = modeRules(state.mode);
-  if (source !== 'super') chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
+  if (source !== 'super') chargeSuper(state, superKillCharge(save.skills.flow) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
   if (state.combo >= 2) sfx.combo(state.combo);
   combos.onKills(1);
@@ -1360,7 +1361,7 @@ function resolveSlash(slash: Slash): void {
     bank.add(juiceHueFromKind(kind), juiceGain);
     juice.burst(px, py, pz, kind, swipe, isSecondCut ? 1.3 : 0.65);
     const resliceAward = award({ type: 'reslice', generation: gen, combo: state.combo });
-    chargeSuper(state, (1.2 + save.skills.flow * 0.6) * (isSecondCut ? 1.6 : 1));
+    chargeSuper(state, superSliceCharge(save.skills.flow,isSecondCut));
     slashFx.spawn(px, pz, FRUIT_DEFS[kind].splash, swipe.x, swipe.z, 0.6);
     const screen = worldPct(px, py + 0.35, pz);
     combos.onReslice(gen, screen.nx, screen.ny);
@@ -1401,12 +1402,12 @@ function tryHeroAbility(id: string): void {
   if ((heroAbilityReadyAt[id] ?? 0) > Date.now()) { sfx.denied(); return; }
   if (state.superJuice < ability.juiceCost) { toast(state, 'Need more juice', 1.4); sfx.denied(); return; }
   const swipe = new Vector3(0, 0.4, 1);
-  const living = fruits.fruits.filter((fruit) => fruit.alive && fruit.enemyKind!=='explosive');
+  const living = fruits.fruits.filter((fruit) => fruit.alive && fruit.enemyKind!=='explosive' && fruit.enemyKind!=='bladebound');
   const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
-  const stats=powerStats(ability,rank);const damage=stats.damage;
-  const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:-fruit.group.position.z}));
-  if(!targets.length&&!stats.healFraction){toast(state,'No vulnerable targets',1.2);sfx.denied();return;}
-  state.superJuice-=stats.cost;heroAbilityReadyAt[id]=Date.now()+ability.cooldownMs;
+  const stats=powerStats(ability,rank);const envelope=wall.powerEnvelope;
+  const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:-fruit.group.position.z}),envelope);
+  if(!targets.length&&(!stats.healFraction||state.lives>=state.maxLives)){toast(state,'No vulnerable targets',1.2);sfx.denied();return;}
+  state.superJuice-=stats.cost;heroAbilityReadyAt[id]=Date.now()+stats.cooldownMs;
   wall.heroAttack();
   powerVfx.spawn(ability,stats.rank,new Vector3(0,.7,WALL_Z),targets.map(fruit=>fruit.group.position.clone()));
   renderer.impulseShake(ability.effect === 'shock' ? 1.4 : 0.8);
@@ -1418,6 +1419,7 @@ function tryHeroAbility(id: string): void {
     const tint = ability.effect === 'frost' ? 0x7dd3fc : ability.hero === 'tripos' ? 0xf472b6 : heroDef(state.hero).color;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, tint);
     if (stats.slowMs) { fruit.powerSlowLeft = Math.max(fruit.powerSlowLeft ?? 0, stats.slowMs/1000); fruit.powerSlowMultiplier = stats.slowMultiplier; }
+    const damage=stats.damage*powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope);
     if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2, 0, 'super');
   }
   hud.refreshAbilityBar(save);
@@ -1425,6 +1427,9 @@ function tryHeroAbility(id: string): void {
 
 function trySuper(): void {
   if (!navigation.canInteract() || !state.running || state.superJuice < 100) return;
+  const envelope=wall.powerEnvelope;
+  const targets=fruits.fruits.filter(fruit=>fruit.alive&&fruit.enemyKind!=='explosive'&&fruit.enemyKind!=='bladebound'&&powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope)>0);
+  if(!targets.length){toast(state,'No targets within tower range',1.4);return;}
   state.superJuice = 0;
   const swipe = new Vector3(0, 0.4, 1);
   const dmg = 30 + save.skills.storm * 12 + state.heroLevel * 4;
@@ -1432,10 +1437,10 @@ function trySuper(): void {
   sfx.blitzStart();
   toast(state, 'SUPER BLOW', 1.2);
   emit({ type: 'super' });
-  for (const fruit of fruits.fruits) {
+  for (const fruit of targets) {
     if (!fruit.alive) continue;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, 0xfbbf24);
-    if (fruits.hurt(fruit, dmg, 'super')) killFruit(fruit, swipe, 2, 0, 'super');
+    if (fruits.hurt(fruit, dmg*powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope), 'super')) killFruit(fruit, swipe, 2, 0, 'super');
   }
 }
 
@@ -1679,6 +1684,9 @@ function trySell(): void {
 }
 
 function kiPulse(x: number, z: number): void {
+  const envelope=wall.powerEnvelope;
+  if((heroAbilityReadyAt['ki-pulse']??0)>Date.now()||!powerDamageMultiplier({x,y:-z},envelope))return;
+  heroAbilityReadyAt['ki-pulse']=Date.now()+700;
   const hero = heroDef('ki');
   const r = blade.lastPointer === 'touch' ? 1.4 : 1.05;
   const dmg = heroSlashDamage('ki', state.heroLevel, 0, Math.max(0.35, blade.lastCharge), blade.lastPointer);
@@ -1689,13 +1697,13 @@ function kiPulse(x: number, z: number): void {
   for (const fruit of fruits.fruits) {
     if (!fruit.alive) continue;
     if (Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z) > r) continue;
-    if (fruit.enemyKind === 'explosive') continue;
+    if (fruit.enemyKind === 'explosive'||fruit.enemyKind==='bladebound'||!powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope)) continue;
     if (fruit.kind === 'bomb') {
       recordWaveKill(state, fruit.splitChild);
       fruits.kill(fruit);
       continue;
     }
-    if (fruits.hurt(fruit, dmg, 'super')) killFruit(fruit, swipe);
+    if (fruits.hurt(fruit, dmg*powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope), 'super')) killFruit(fruit, swipe,1,0,'super');
   }
 }
 
@@ -1758,9 +1766,8 @@ function simulate(dt: number): void {
         toast(state, 'Need an empty pad that fits');
       }
     } else if (idx >= 0) {
-      const repeated=wall.hasSelection&&wall.selected===idx;
       wall.select(idx);
-      hud.setSidebarOpen(!wall.selectedSlot().filled||repeated);
+      hud.setSidebarOpen(true);
       sfx.select();
     } else {
       wall.deselect();hud.setSidebarOpen(false);

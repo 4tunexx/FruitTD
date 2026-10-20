@@ -1,5 +1,5 @@
 import { turretVictims } from './turretTargets';
-import { equippedPower, powerTargets, appendPowerCast, type PowerCast } from './powerCombat';
+import { equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
 /** Shared Arena/Ranked PvP contracts and deterministic server rules. */
 export type PvpQueue = 'arena' | 'ranked';
 export type PvpTier = 'Amateur' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Emerald' | 'Sapphire';
@@ -9,12 +9,12 @@ export interface PvpMap { id: string; name: string; width: number; height: numbe
 export function siegeBuildCells(width: number, height: number): number[] {
   const middle = Math.floor(width / 2) - 1;
   return Array.from({length: 5}, (_, i) => {
-    const row = Math.round(i * (height - 2) / 4);
+    const row = Math.ceil(height / 2) + Math.round(i * Math.max(0, height - 2 - Math.ceil(height / 2)) / 4);
     return [row * width + Math.max(0, middle - 1), row * width + Math.min(width - 1, middle + 1)];
   }).flat();
 }
 function makeMap(id: string, name: string): PvpMap {
-  const width = 10, height = 14;
+  const width = 10, height = 24;
   return {id, name, width, height, pathCells: Array.from({length: height}, (_, row) => row * width + 4), buildCells: siegeBuildCells(width, height).map((cell, index) => {
     const variant = ['orchard-crossing','windfall','old-grove','riverbend','twin-rows','stone-arch','long-harvest'].indexOf(id);
     if (index < 2 || variant <= 0) return cell;
@@ -92,19 +92,28 @@ export function normalizePvpMaps(input: unknown): PvpMap[] {
     const row = raw as Partial<PvpMap>;
     const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
     const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
-    const path = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
-    const valid = path.length >= 12 && path.length <= width * height && new Set(path).size === path.length && path.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs((cell % width) - (path[i - 1]! % width)) + Math.abs(Math.floor(cell / width) - Math.floor(path[i - 1]! / width)) === 1)) && Math.floor(path[0]! / width) === 0 && Math.floor(path.at(-1)! / width) === height - 1;
+    const rawPath = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
+    const valid = rawPath.length >= 12 && rawPath.length <= width * height && new Set(rawPath).size === rawPath.length && rawPath.every((cell, i) => Number.isInteger(cell) && cell >= 0 && cell < width * height && (!i || Math.abs((cell % width) - (rawPath[i - 1]! % width)) + Math.abs(Math.floor(cell / width) - Math.floor(rawPath[i - 1]! / width)) === 1)) && Math.floor(rawPath[0]! / width) === 0 && Math.floor(rawPath.at(-1)! / width) === height - 1;
     if (!valid) return structuredClone(fallback);
+    const path=Array.from({length:height},(_,i)=>i*width+Math.max(0,Math.floor(width/2)-1));
     const id = String(row.id || fallback.id).slice(0, 48);
-    // Upgrade the shipped zigzag arenas without discarding authored custom maps.
+    // Upgrade shipped short arenas; keep names and legal defensive pad edits on longer maps.
     const builtin = DEFAULT_PVP_CONFIG.maps.find(map => map.id === id);
-    if (builtin && (!Array.isArray(row.buildCells) || row.buildCells.length > 10)) return {...structuredClone(builtin), name: String(row.name || builtin.name).slice(0, 64)};
-    const legal = (cell: number) => Number.isInteger(cell) && cell >= 0 && cell < width * height && !path.includes(cell);
+    if (builtin && ((!Array.isArray(row.buildCells) || row.buildCells.length > 10) || (width === 10 && height === 14 && path.every((cell,i)=>cell===i*10+4)))) return {...structuredClone(builtin), name: String(row.name || builtin.name).slice(0, 64)};
+    const legal = (cell: number) => Number.isInteger(cell) && cell >= 0 && cell < width * height && Math.floor(cell / width) >= Math.ceil(height / 2) && !path.includes(cell);
     const requested = Array.isArray(row.buildCells) ? row.buildCells.map(Number) : [];
     const pads = [...new Set([...requested, ...siegeBuildCells(width, height), ...Array.from({length:width*height}, (_,i)=>i)])].filter(legal).slice(0,10);
     return { id, name: String(row.name || fallback.name).slice(0, 64), width, height, pathCells: path, buildCells: pads };
 
   });
+}
+
+export function pvpBuildCellAllowed(map:PvpMap,cell:number):boolean {
+  return Number.isInteger(cell)&&cell>=0&&cell<map.width*map.height&&Math.floor(cell/map.width)>=Math.ceil(map.height/2)&&!map.pathCells.includes(cell)&&map.buildCells.includes(cell);
+}
+export function pvpPowerEnvelope(map:PvpMap,config:PvpConfig,level=1) {
+  const cell=map.pathCells.at(-1)??0;
+  return {x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5,radius:pvpTowerStats({...config.mainTower,cost:0},level).range};
 }
 
 export function pvpTier(points: number, config: PvpConfig = DEFAULT_PVP_CONFIG): PvpTier {
@@ -233,13 +242,14 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down');
     if(player.fruts<stats.cost)throw new Error('Not enough match Fruts');
     const map=match.map??config.map;
-    const point=(attacker:PvpPlayer['attackers'][number])=>{const cell=map.pathCells[Math.min(map.pathCells.length-1,Math.max(0,Math.round(attacker.progress)))]??0;return {x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5,progress:attacker.progress};};
-    const targets=powerTargets(player.attackers.filter(a=>a.hp>0&&a.type!=='explosive'),ability,point);
-    if(!targets.length&&!stats.healFraction)throw new Error('No vulnerable targets.');
-    player.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+ability.cooldownMs;
+    const point=(attacker:PvpPlayer['attackers'][number])=>{const index=Math.max(0,Math.min(map.pathCells.length-1,attacker.progress));const cell=map.pathCells[Math.floor(index)]??0,next=map.pathCells[Math.min(map.pathCells.length-1,Math.floor(index)+1)]??cell,t=index-Math.floor(index);return {x:cell%map.width+.5+(next%map.width-cell%map.width)*t,y:Math.floor(cell/map.width)+.5+(Math.floor(next/map.width)-Math.floor(cell/map.width))*t,progress:attacker.progress};};
+    const envelope=pvpPowerEnvelope(map,config,player.mainLevel);
+    const targets=powerTargets(player.attackers.filter(a=>a.hp>0&&a.type!=='explosive'&&a.progress>=0),ability,point,envelope);
+    if(!targets.length&&(!stats.healFraction||player.wallHealth>=(player.wallMaxHealth??config.wallHealth)))throw new Error('No vulnerable targets.');
+    player.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
     player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+(player.wallMaxHealth??config.wallHealth)*stats.healFraction);
     player.powerCasts=appendPowerCast(player.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(point)});
-    for(const attacker of targets){attacker.hp-=stats.damage;if(stats.slowMs){attacker.slowUntil=Math.max(attacker.slowUntil??0,now+stats.slowMs);attacker.slowMultiplier=stats.slowMultiplier;}}
+    for(const attacker of targets){attacker.hp-=stats.damage*powerDamageMultiplier(point(attacker),envelope);if(stats.slowMs){attacker.slowUntil=Math.max(attacker.slowUntil??0,now+stats.slowMs);attacker.slowMultiplier=stats.slowMultiplier;}}
     const killed=player.attackers.filter(a=>a.hp<=0);player.score+=killed.length*10;
     player.fruts+=killed.reduce((sum,a)=>sum+(config.attacks[a.type]?.rewardFruts??0),0);player.attackers=player.attackers.filter(a=>a.hp>0);
   } else if (command.type === 'rally') {
@@ -248,8 +258,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
   } else if (command.type === 'build') {
     const tower = config.towers[command.tower];
     const map = match.map ?? config.map;
-    const mapSize = map.width * map.height;
-    if (!tower || !Number.isInteger(command.cell) || command.cell < 0 || command.cell >= mapSize || !map.buildCells.includes(command.cell)) throw new Error('Invalid tower or build cell');
+    if (!tower || !pvpBuildCellAllowed(map,command.cell)) throw new Error('Invalid tower or build cell');
     if (player.towers.length >= 24 || player.towers.some((item) => item.cell === command.cell)) throw new Error('Build cell is occupied');
     if (player.fruts < tower.cost) throw new Error('Not enough match Fruts');
     player.fruts -= tower.cost;

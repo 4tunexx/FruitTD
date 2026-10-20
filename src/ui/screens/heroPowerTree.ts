@@ -1,3 +1,4 @@
+import { powerStats } from '../../game/powerCombat';
 import { HERO_ABILITIES, heroAbilityRank, MAX_HERO_ABILITY_RANK } from '../../game/heroAbilities';
 import type { HeroId } from '../../game/heroes';
 import type { SaveData } from '../../game/save';
@@ -16,12 +17,14 @@ export function renderHeroPowerTree(save:SaveData,heroId:HeroId,heroLevel:number
  const rows=el('div',{class:'ftd-hero-power-tree__rows'});
  for(const ability of abilities){
   const rank=heroAbilityRank(ability.id,save.heroAbilityRanks);
-  const unlocked=heroOwned&&heroLevel>=ability.unlockLevel,loadout=save.heroAbilityLoadouts?.[heroId]??[],equipped=loadout.includes(ability.id);
+  const stats=powerStats(ability,Math.max(1,rank));
+  const next=powerStats(ability,Math.min(MAX_HERO_ABILITY_RANK,Math.max(1,rank+1)));
+ const unlocked=heroOwned&&heroLevel>=ability.unlockLevel,loadout=save.heroAbilityLoadouts?.[heroId]??[],equipped=loadout.includes(ability.id);
   const canEquip=rank>0||ability.id==='jiju-1',atLimit=!equipped&&loadout.length>=3;
   const icon=el('img',{class:'ftd-power-row__icon',src:powerIconSource(ability.id,ability.iconUrl),alt:`${ability.name} power icon`,loading:'lazy','data-power-icon':ability.id,'data-power-default':ability.iconUrl});
   const copy=el('div',{class:'ftd-power-row__copy'},[
-   el('div',{class:'ftd-power-row__title-line'},[el('h3',{class:'ftd-power-row__title',text:ability.name}),el('span',{class:'ftd-power-row__cooldown',text:`${Math.round(ability.cooldownMs/1000)}s · ${ability.juiceCost} JUICE`})]),
-   el('p',{class:'ftd-power-row__description',text:ability.description}),
+   el('div',{class:'ftd-power-row__title-line'},[el('h3',{class:'ftd-power-row__title',text:ability.name}),el('span',{class:'ftd-power-row__cooldown',text:`${stats.cooldownMs/1000}s · ${ability.juiceCost} JUICE`})]),
+   el('p',{class:'ftd-power-row__description',text:`${ability.description} ${Math.round(stats.damage)} close-range damage · ${stats.cooldownMs/1000}s cooldown${rank<MAX_HERO_ABILITY_RANK?` → next rank: ${Math.round(next.damage)} damage · ${next.cooldownMs/1000}s`:''}. Tower upgrades extend reach.`}),
    el('div',{class:'ftd-power-row__footer'},[
     el('span',{class:'ftd-power-row__state',text:!unlocked?`LOCKED · LV ${ability.unlockLevel}`:equipped?'EQUIPPED':rank?'POWER READY':'UNLOCKED'}),
     el('button',{type:'button',class:`ftd-power-row__equip${equipped?' is-equipped':''}`,text:equipped?'EQUIPPED':canEquip?'EQUIP':'UNLOCK POWER',disabled:!unlocked||!canEquip||atLimit,'aria-label':equipped?`Unequip ${ability.name}`:`Equip ${ability.name}`}),

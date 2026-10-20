@@ -134,7 +134,7 @@ describe('Arena and Ranked PvP rules', () => {
   it('starting towers defend and built towers only fire when their cooldown expires', () => {
     const game = match(); game.status = 'active'; game.map = cfg.maps[0]!; game.endsAt = 100_000;
     const defender = game.players[0];
-    defender.attackers.push({ id: 'at-base', type: 'armored', hp: 260, progress: 11 });
+    defender.attackers.push({ id: 'at-base', type: 'armored', hp: 260, progress: cfg.map.pathCells.length-3 });
     advancePvpMatch(game, 0, 2_000, cfg);
     assert.equal(defender.attackers[0]!.hp, 260 - Math.round(cfg.mainTower.damage * .55));
     advancePvpMatch(game, 0, 2_050, cfg);
@@ -209,7 +209,7 @@ describe('Arena and Ranked PvP rules', () => {
 });
 
 
-describe('server-authoritative hero powers',()=>{it('validates equipped powers, applies their effect, and rejects cooldown replays',()=>{const game=newPvpMatch('abilities','arena',[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)],1000,cfg);game.status='active';game.endsAt=100000;const player=game.players[0]!;player.hero='jiju';player.abilityLoadout=['jiju-1'];player.abilityRanks={'jiju-1':1};player.attackers=[{id:'incoming',type:'normal',hp:100,maxHp:100,progress:2}];applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},1,2000,cfg);assert.equal(player.attackers[0]!.hp,82);assert.throws(()=>applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},2,2500,cfg),/cooling down/);});});
+describe('server-authoritative hero powers',()=>{it('validates equipped powers, applies their effect, and rejects cooldown replays',()=>{const game=newPvpMatch('abilities','arena',[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)],1000,cfg);game.status='active';game.endsAt=100000;const player=game.players[0]!;player.hero='jiju';player.abilityLoadout=['jiju-1'];player.abilityRanks={'jiju-1':1};player.attackers=[{id:'incoming',type:'normal',hp:100,maxHp:100,progress:cfg.map.pathCells.length-1}];applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},1,2000,cfg);assert.equal(player.attackers[0]!.hp,82);assert.throws(()=>applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},2,2500,cfg),/cooling down/);});});
 
 describe('straight siege arenas and authored build pads', () => {
   it('ships seven straight roads and ten legal landscape plots per player', () => {
@@ -226,7 +226,7 @@ describe('straight siege arenas and authored build pads', () => {
     const legacy=structuredClone(cfg.maps);
     for(const map of legacy)map.buildCells=Array.from({length:map.width*map.height},(_,i)=>i).filter(i=>!map.pathCells.includes(i));
     assert.deepEqual(normalizePvpMaps(legacy),cfg.maps);
-    const authored=structuredClone(cfg.maps);authored[0]!.buildCells[2]=21;
+    const authored=structuredClone(cfg.maps);authored[0]!.buildCells[2]=(cfg.map.height-3)*cfg.map.width+1;
     assert.deepEqual(normalizePvpMaps(authored)[0]!.buildCells,authored[0]!.buildCells);
     const game=newPvpMatch('pad-rules','arena',[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)],1000,cfg);
     game.status='active';game.map=cfg.map;game.players[0].fruts=1000;

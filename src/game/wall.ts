@@ -1,3 +1,4 @@
+import { towerHealthRail } from './towerHealthRail';
 import { WALL_SKINS } from './save';
 import { createBuildPad, battleMapPads } from './buildPads';
 import type { BattleMap } from './battleMaps';
@@ -73,7 +74,7 @@ export class WallBase {
   private readonly rangeRing: Mesh;
   private readonly keepMesh: Mesh;
   private readonly towerHpFill: Mesh;
-  private readonly towerHpFillWidth: number;
+  private readonly hpRail:ReturnType<typeof towerHealthRail>;
   private wallSkinPath = '';
   private readonly fitHealthRail = () => { if(typeof window!=='undefined')this.healthRail.scale.x=window.innerWidth/window.innerHeight<.82?.82:1; };
   private readonly towerHome = new Vector3(0, 3.7, WALL_Z);
@@ -116,28 +117,10 @@ export class WallBase {
     // A framed segmented bar sits just below the wall and remains attached to
     // the tower as the camera moves.
     const hpZ = WALL_Z - 1.45;
-    const hpFrame = new Mesh(new PlaneGeometry(ARENA_W - 1.75, 0.58), new MeshBasicMaterial({ color: COMBAT_GOLD, depthWrite: false, depthTest: false }));
-    hpFrame.rotation.x = -Math.PI / 2;
-    hpFrame.position.set(0, 0.135, hpZ);
-    const towerHpTrack = new Mesh(new PlaneGeometry(ARENA_W - 1.95, 0.4), new MeshBasicMaterial({ color: 0x303d28, depthWrite: false, depthTest: false }));
-    towerHpTrack.rotation.x = -Math.PI / 2;
-    towerHpTrack.position.set(0, 0.145, hpZ);
-    this.towerHpFillWidth = ARENA_W - 1.95;
-    this.towerHpFill = new Mesh(new PlaneGeometry(this.towerHpFillWidth, 0.4), new MeshBasicMaterial({ color: 0x9be458, depthWrite: false, depthTest: false }));
-    this.towerHpFill.rotation.x = -Math.PI / 2;
-    this.towerHpFill.position.set(0, 0.155, hpZ);
-    hpFrame.renderOrder = 90;
-    towerHpTrack.renderOrder = 91;
-    this.towerHpFill.renderOrder = 92;
-    const hpSegments = new Group();
-    for (let index = 1; index < 10; index++) {
-      const mark = new Mesh(new PlaneGeometry(0.055, 0.4), new MeshBasicMaterial({ color: 0x172019, transparent: true, opacity: 0.82, depthWrite: false, depthTest: false }));
-      mark.rotation.x = -Math.PI / 2;
-      mark.position.set(-this.towerHpFillWidth / 2 + this.towerHpFillWidth * index / 10, 0.16, hpZ);
-      mark.renderOrder = 93;
-      hpSegments.add(mark);
-    }
-    this.healthRail.add(hpFrame, towerHpTrack, this.towerHpFill, hpSegments);
+    this.hpRail=towerHealthRail(ARENA_W-1.95);
+    this.towerHpFill=this.hpRail.fill;
+    this.healthRail.add(...[...this.hpRail.group.children]);
+    this.healthRail.position.z=hpZ;
     this.group.add(this.healthRail);
     if (typeof window !== 'undefined') {
       this.fitHealthRail();
@@ -537,11 +520,14 @@ export class WallBase {
   }
 
 
+  get powerEnvelope():{x:number;y:number;radius:number} {
+    const slot=this.slots[MAIN_INDEX];
+    return {x:slot.x,y:-slot.z,radius:towerStats(slot.level,true).range*turretLevelTuning('main',slot.level).rangeMultiplier};
+  }
+
   setTowerHealth(ratio: number): void {
-    const t = Math.max(0, Math.min(1, ratio));
-    this.towerHpFill.scale.x = Math.max(0.001, t);
-    this.towerHpFill.position.x = -(this.towerHpFillWidth / 2) * (1 - t);
-    (this.towerHpFill.material as MeshBasicMaterial).color.setHex(t <= 0.3 ? 0xf04c42 : t <= 0.6 ? 0xf59e0b : 0x9be458);
+    this.hpRail.set(ratio);
+    this.towerHpFill.userData.healthRatio=ratio;
   }
 
   heroAttack():void { this.heroMotion.fire(); }
@@ -570,6 +556,7 @@ export class WallBase {
     bank: JuiceBank,
     onHit: (hit: TurretHit) => void,
   ): boolean {
+    this.hpRail.update(dt);
     if (this.hitTimer > 0) {
       this.hitTimer = Math.max(0, this.hitTimer - dt);
       this.keepMesh.position.x = this.towerHome.x + Math.sin(this.hitTimer * 105) * 0.055 * (this.hitTimer / 0.24);
