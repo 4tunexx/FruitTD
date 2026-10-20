@@ -31,13 +31,17 @@ router.get('/', async (req: Request, res: Response) => {
     const defs = catalog.achievements.filter((a) => a.enabled !== false);
     const col = await deps.collection<AchievementDoc>('achievements');
     const userDocs = await col.find({ userId }).toArray();
+    const wallet = await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
+    const receipts = new Set(wallet?.claimReceipts || []);
+    res.setHeader('Cache-Control', 'private, no-store');
     const docMap = new Map(userDocs.map((d) => [d.achievementId, d]));
 
     const list = defs.map((def) => {
       const doc = docMap.get(def.id);
       const maxProgress = def.requirement?.goal || 1;
       const progress = Math.min(doc?.progress || 0, maxProgress);
-      const unlocked = !!doc?.unlocked || progress >= maxProgress;
+      const claimed = !!doc?.claimed || receipts.has(`achievement:${def.id}`);
+      const unlocked = claimed || !!doc?.unlocked || progress >= maxProgress;
       return {
         id: def.id,
         title: def.title,
@@ -48,9 +52,9 @@ router.get('/', async (req: Request, res: Response) => {
         rewardSp: def.rewardSp,
         rewardGems: def.rewardGems ?? 0,
         rewardBadge: def.rewardBadge,
-        progress,
+        progress: unlocked ? maxProgress : progress,
         unlocked,
-        claimed: !!doc?.claimed,
+        claimed,
         unlockedAt: doc?.unlockedAt,
       };
     });
@@ -83,6 +87,8 @@ router.post('/progress', async (req: Request, res: Response) => {
     const catalog = await deps.catalog();
     const col = await deps.collection<AchievementDoc>('achievements');
     const newlyUnlocked: string[] = [];
+    const wallet = await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
+    const receipts = new Set(wallet?.claimReceipts || []);
 
     for (const update of updates) {
       const def = catalog.achievements.find((a) => a.id === update.achievementId && a.enabled !== false);
@@ -91,6 +97,7 @@ router.post('/progress', async (req: Request, res: Response) => {
       if (authorityEvent === 'pvp_result' || authorityEvent === 'coop_result') continue;
 
       const existing = await col.findOne({ userId, achievementId: def.id });
+      if (existing?.unlocked || existing?.claimed || receipts.has(`achievement:${def.id}`)) continue;
       let currentProgress = existing?.progress || 0;
       const maxProgress = def.requirement?.goal || 1;
 
@@ -107,10 +114,9 @@ router.post('/progress', async (req: Request, res: Response) => {
       await col.updateOne(
         { userId, achievementId: def.id },
         {
+          $max: { progress: Math.min(maxProgress, currentProgress), unlocked },
           $set: {
-            progress: Math.min(maxProgress, currentProgress),
             maxProgress,
-            unlocked,
             unlockedAt: unlocked && !wasUnlocked ? new Date() : existing?.unlockedAt,
           },
           $setOnInsert: { claimed: false },
@@ -171,8 +177,9 @@ router.post('/claim', async (req: Request, res: Response) => {
     }, saves);
     if (!wallet) return res.status(400).json({ success: false, error: 'Reward already claimed' });
 
-    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
-    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Reward already claimed' });
+    await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } }).catch(error => {
+      console.error('Could not update achievement claim marker; wallet receipt retained:', error);
+    });
 
     const reward = [
       def.rewardCoins ? `${def.rewardCoins} coins` : '',

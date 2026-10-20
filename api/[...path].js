@@ -3022,12 +3022,16 @@ function createAchievementsRouter(deps = defaultDeps2) {
       const defs = catalog.achievements.filter((a) => a.enabled !== false);
       const col = await deps.collection("achievements");
       const userDocs = await col.find({ userId }).toArray();
+      const wallet = await (await deps.collection("cloud_saves")).findOne({ userId });
+      const receipts = new Set(wallet?.claimReceipts || []);
+      res.setHeader("Cache-Control", "private, no-store");
       const docMap = new Map(userDocs.map((d) => [d.achievementId, d]));
       const list = defs.map((def) => {
         const doc = docMap.get(def.id);
         const maxProgress = def.requirement?.goal || 1;
         const progress = Math.min(doc?.progress || 0, maxProgress);
-        const unlocked = !!doc?.unlocked || progress >= maxProgress;
+        const claimed = !!doc?.claimed || receipts.has(`achievement:${def.id}`);
+        const unlocked = claimed || !!doc?.unlocked || progress >= maxProgress;
         return {
           id: def.id,
           title: def.title,
@@ -3038,9 +3042,9 @@ function createAchievementsRouter(deps = defaultDeps2) {
           rewardSp: def.rewardSp,
           rewardGems: def.rewardGems ?? 0,
           rewardBadge: def.rewardBadge,
-          progress,
+          progress: unlocked ? maxProgress : progress,
           unlocked,
-          claimed: !!doc?.claimed,
+          claimed,
           unlockedAt: doc?.unlockedAt
         };
       });
@@ -3070,12 +3074,15 @@ function createAchievementsRouter(deps = defaultDeps2) {
       const catalog = await deps.catalog();
       const col = await deps.collection("achievements");
       const newlyUnlocked = [];
+      const wallet = await (await deps.collection("cloud_saves")).findOne({ userId });
+      const receipts = new Set(wallet?.claimReceipts || []);
       for (const update of updates) {
         const def = catalog.achievements.find((a) => a.id === update.achievementId && a.enabled !== false);
         if (!def) continue;
         const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
         if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
         const existing = await col.findOne({ userId, achievementId: def.id });
+        if (existing?.unlocked || existing?.claimed || receipts.has(`achievement:${def.id}`)) continue;
         let currentProgress = existing?.progress || 0;
         const maxProgress = def.requirement?.goal || 1;
         if (typeof update.setProgress === "number") {
@@ -3089,10 +3096,9 @@ function createAchievementsRouter(deps = defaultDeps2) {
         await col.updateOne(
           { userId, achievementId: def.id },
           {
+            $max: { progress: Math.min(maxProgress, currentProgress), unlocked },
             $set: {
-              progress: Math.min(maxProgress, currentProgress),
               maxProgress,
-              unlocked,
               unlockedAt: unlocked && !wasUnlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
             },
             $setOnInsert: { claimed: false }
@@ -3148,8 +3154,9 @@ function createAchievementsRouter(deps = defaultDeps2) {
         skillPoints: def.rewardSp
       }, saves);
       if (!wallet) return res.status(400).json({ success: false, error: "Reward already claimed" });
-      const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } });
-      if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Reward already claimed" });
+      await col.updateOne({ _id: existing._id, claimed: { $ne: true }, unlocked: true }, { $set: { claimed: true } }).catch((error2) => {
+        console.error("Could not update achievement claim marker; wallet receipt retained:", error2);
+      });
       const reward = [
         def.rewardCoins ? `${def.rewardCoins} coins` : "",
         def.rewardGems ? `${def.rewardGems} gems` : "",
@@ -3183,6 +3190,18 @@ var achievementsRouter = createAchievementsRouter();
 
 // server/routes/missions.ts
 import { Router as Router4 } from "express";
+
+// server/questState.ts
+function missionState(def, docs, receipts, key) {
+  const history = docs.filter((doc) => doc.missionId === def.id && (def.type === "main" || doc.dayKey === key));
+  const claimed = history.some((doc) => doc.claimed) || receipts.some((receipt) => def.type === "main" ? receipt.startsWith("mission:") && receipt.endsWith(`:${def.id}`) : receipt === `mission:${key}:${def.id}`);
+  const goal = def.requirement?.goal || 1;
+  const progress = Math.min(goal, Math.max(0, ...history.map((doc) => doc.progress || 0)));
+  const completed = claimed || history.some((doc) => doc.completed) || progress >= goal;
+  return { progress: completed ? goal : progress, completed, claimed };
+}
+
+// server/routes/missions.ts
 var defaultDeps3 = { resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog };
 function getDayKey() {
   const d = /* @__PURE__ */ new Date();
@@ -3209,15 +3228,15 @@ function createMissionsRouter(deps = defaultDeps3) {
       const userId = user.userId;
       const catalog = await deps.catalog();
       const defs = catalog.missions.filter((m) => m.enabled !== false);
-      const keys = [...new Set(defs.map((d) => periodKey(d.type)))];
       const col = await deps.collection("missions");
-      const userDocs = await col.find({ userId, dayKey: { $in: keys } }).toArray();
-      const docMap = new Map(userDocs.map((d) => [d.missionId, d]));
+      const userDocs = await col.find({ userId }).toArray();
+      const wallet = await (await deps.collection("cloud_saves")).findOne({ userId });
+      res.setHeader("Cache-Control", "private, no-store");
       const missions = defs.map((def) => {
         const activeKey = periodKey(def.type);
-        const doc = docMap.get(def.id);
+        const state = missionState(def, userDocs, wallet?.claimReceipts || [], activeKey);
         const goal = def.requirement?.goal || 1;
-        const progress = Math.min(doc?.progress || 0, goal);
+        const progress = state.progress;
         return {
           id: def.id,
           type: def.type,
@@ -3231,8 +3250,8 @@ function createMissionsRouter(deps = defaultDeps3) {
           rewardBadge: def.rewardBadge,
           periodKey: activeKey,
           progress,
-          completed: progress >= goal,
-          claimed: !!doc?.claimed
+          completed: state.completed,
+          claimed: state.claimed
         };
       });
       res.json({
@@ -3260,14 +3279,17 @@ function createMissionsRouter(deps = defaultDeps3) {
       const catalog = await deps.catalog();
       const col = await deps.collection("missions");
       const newlyCompleted = [];
+      const wallet = await (await deps.collection("cloud_saves")).findOne({ userId });
       for (const update of updates) {
         const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
         if (!def) continue;
         const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
         if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
         const activeKey = periodKey(def.type);
-        const existing = await col.findOne({ userId, missionId: def.id, dayKey: activeKey });
-        let currentProgress = existing?.progress || 0;
+        const history = def.type === "main" ? await col.find({ userId, missionId: def.id }).toArray() : [await col.findOne({ userId, missionId: def.id, dayKey: activeKey })].filter((doc) => !!doc);
+        const existing = missionState(def, history, wallet?.claimReceipts || [], activeKey);
+        if (existing.completed) continue;
+        let currentProgress = existing.progress;
         const goal = def.requirement?.goal || 1;
         if (typeof update.setProgress === "number") {
           currentProgress = Math.max(currentProgress, update.setProgress);
@@ -3278,12 +3300,8 @@ function createMissionsRouter(deps = defaultDeps3) {
         await col.updateOne(
           { userId, missionId: def.id, dayKey: activeKey },
           {
-            $set: {
-              progress: Math.min(goal, currentProgress),
-              goal,
-              completed: currentProgress >= goal,
-              updatedAt: /* @__PURE__ */ new Date()
-            },
+            $max: { progress: Math.min(goal, currentProgress), completed: currentProgress >= goal },
+            $set: { goal, updatedAt: /* @__PURE__ */ new Date() },
             $setOnInsert: { claimed: false }
           },
           { upsert: true }
@@ -3324,22 +3342,25 @@ function createMissionsRouter(deps = defaultDeps3) {
       }
       const activeKey = periodKey(def.type);
       const col = await deps.collection("missions");
-      const existing = await col.findOne({ userId, missionId, dayKey: activeKey });
-      if (!existing || !existing.completed) {
+      const history = def.type === "main" ? await col.find({ userId, missionId }).toArray() : [await col.findOne({ userId, missionId, dayKey: activeKey })].filter((doc) => !!doc);
+      const saves = await deps.collection("cloud_saves");
+      const currentWallet = await saves.findOne({ userId });
+      const existing = missionState(def, history, currentWallet?.claimReceipts || [], activeKey);
+      if (!existing.completed) {
         return res.status(400).json({ success: false, error: "Mission is not completed yet" });
       }
       if (existing.claimed) {
         return res.status(400).json({ success: false, error: "Mission reward already claimed" });
       }
-      const saves = await deps.collection("cloud_saves");
       const wallet = await creditClaimReward(userId, `mission:${activeKey}:${missionId}`, {
         coins: def.rewardCoins,
         gems: def.rewardGems ?? 0,
         skillPoints: def.rewardSp
       }, saves);
       if (!wallet) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
-      const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: /* @__PURE__ */ new Date() } });
-      if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: "Mission reward already claimed" });
+      await col.updateOne({ userId, missionId, dayKey: activeKey }, { $set: { claimed: true, completed: true, progress: def.requirement?.goal || 1, goal: def.requirement?.goal || 1, updatedAt: /* @__PURE__ */ new Date() } }, { upsert: true }).catch((error2) => {
+        console.error("Could not update mission claim marker; wallet receipt retained:", error2);
+      });
       const reward = [
         def.rewardCoins ? `${def.rewardCoins} coins` : "",
         def.rewardGems ? `${def.rewardGems} gems` : "",
@@ -4610,148 +4631,159 @@ var profileRouter = createProfileRouter();
 
 // server/routes/badges.ts
 import { Router as Router10 } from "express";
-var badgesRouter = Router10();
-badgesRouter.get("/", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to view badges" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const defs = catalog.badges.filter((b) => b.enabled !== false);
-    const col = await getCollection("badges");
-    const docs = await col.find({ userId }).toArray();
-    const wallet = await (await getCollection("cloud_saves")).findOne({ userId });
-    const receipts = new Set(wallet?.claimReceipts || []);
-    const rewardedBadgeIds = /* @__PURE__ */ new Set();
-    for (const mission of catalog.missions) {
-      if (mission.rewardBadge && [...receipts].some((receipt) => receipt.startsWith("mission:") && receipt.endsWith(`:${mission.id}`))) {
-        rewardedBadgeIds.add(mission.rewardBadge);
+function createBadgesRouter(deps = {
+  resolveUser: resolveRequestUser,
+  collection: getCollection,
+  catalog: loadQuestCatalog
+}) {
+  const badgesRouter2 = Router10();
+  badgesRouter2.get("/", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to view badges" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const defs = catalog.badges.filter((b) => b.enabled !== false);
+      const col = await deps.collection("badges");
+      const docs = await col.find({ userId }).toArray();
+      const wallet = await (await deps.collection("cloud_saves")).findOne({ userId });
+      const receipts = new Set(wallet?.claimReceipts || []);
+      res.setHeader("Cache-Control", "private, no-store");
+      const rewardedBadgeIds = /* @__PURE__ */ new Set();
+      for (const mission of catalog.missions) {
+        if (mission.rewardBadge && [...receipts].some((receipt) => receipt.startsWith("mission:") && receipt.endsWith(`:${mission.id}`))) {
+          rewardedBadgeIds.add(mission.rewardBadge);
+        }
       }
-    }
-    for (const achievement of catalog.achievements) {
-      if (achievement.rewardBadge && receipts.has(`achievement:${achievement.id}`)) rewardedBadgeIds.add(achievement.rewardBadge);
-    }
-    const map2 = new Map(docs.map((d) => [d.badgeId, d]));
-    const badges = defs.map((def) => {
-      const doc = map2.get(def.id);
-      const maxProgress = def.requirement?.goal || 1;
-      const progress = Math.min(doc?.progress || 0, maxProgress);
-      const unlocked = !!doc?.unlocked || progress >= maxProgress || rewardedBadgeIds.has(def.id);
-      return {
-        id: def.id,
-        title: def.title,
-        desc: def.desc,
-        icon: def.icon,
-        rarity: def.rarity,
-        rewardCoins: def.rewardCoins ?? 0,
-        rewardGems: def.rewardGems ?? 0,
-        claimed: receipts.has(`badge:${def.id}`),
-        progress: rewardedBadgeIds.has(def.id) ? maxProgress : progress,
-        maxProgress,
-        unlocked
-      };
-    });
-    res.json({
-      success: true,
-      badges,
-      unlocked: badges.filter((b) => b.unlocked).length
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-badgesRouter.post("/claim", async (req2, res) => {
-  try {
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to claim badge rewards" });
-    const badgeId = req2.body?.badgeId;
-    if (typeof badgeId !== "string") return res.status(400).json({ success: false, error: "Invalid badge id" });
-    const catalog = await loadQuestCatalog();
-    const def = catalog.badges.find((badge2) => badge2.id === badgeId && badge2.enabled !== false);
-    if (!def) return res.status(404).json({ success: false, error: "Badge not found" });
-    const badges = await getCollection("badges");
-    const badge = await badges.findOne({ userId: user.userId, badgeId });
-    const walletCol = await getCollection("cloud_saves");
-    const currentWallet = await walletCol.findOne({ userId: user.userId });
-    const receipts = currentWallet?.claimReceipts || [];
-    const missionReceiptUnlock = catalog.missions.some((mission) => mission.rewardBadge === badgeId && receipts.some((receipt) => receipt.startsWith("mission:") && receipt.endsWith(`:${mission.id}`)));
-    const achievementReceiptUnlock = catalog.achievements.some((achievement) => achievement.rewardBadge === badgeId && receipts.includes(`achievement:${achievement.id}`));
-    if (!badge?.unlocked && (badge?.progress ?? 0) < (def.requirement?.goal ?? 1) && !missionReceiptUnlock && !achievementReceiptUnlock) {
-      return res.status(422).json({ success: false, error: "Badge has not been unlocked" });
-    }
-    const wallet = await creditClaimReward(user.userId, `badge:${badgeId}`, {
-      coins: def.rewardCoins ?? 0,
-      gems: def.rewardGems ?? 0
-    });
-    if (!wallet) return res.status(409).json({ success: false, error: "Badge reward already claimed" });
-    await saveNotification(() => getCollection("notifications"), {
-      userId: user.userId,
-      type: "badge_reward",
-      title: "Badge reward received",
-      body: `${def.title} \xB7 ${def.rewardCoins ?? 0} coins \xB7 ${def.rewardGems ?? 0} gems`,
-      eventKey: `badge-reward:${user.userId}:${badgeId}`
-    });
-    res.json({ success: true, badgeId, rewardCoins: def.rewardCoins ?? 0, rewardGems: def.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-badgesRouter.post("/progress", async (req2, res) => {
-  try {
-    const { updates } = req2.body;
-    if (!validProgressUpdates(updates, "badgeId")) {
-      return res.status(400).json({ success: false, error: "Invalid payload" });
-    }
-    const user = await resolveRequestUser(req2);
-    if (!user) return res.status(401).json({ success: false, error: "Sign in to update badges" });
-    const userId = user.userId;
-    const catalog = await loadQuestCatalog();
-    const col = await getCollection("badges");
-    const newlyUnlocked = [];
-    for (const update of updates) {
-      const def = catalog.badges.find((b) => b.id === update.badgeId && b.enabled !== false);
-      if (!def) continue;
-      const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
-      if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
-      const existing = await col.findOne({ userId, badgeId: def.id });
-      let currentProgress = existing?.progress || 0;
-      const maxProgress = def.requirement?.goal || 1;
-      if (typeof update.setProgress === "number") {
-        currentProgress = Math.max(currentProgress, update.setProgress);
-      } else if (typeof update.progressDelta === "number") {
-        currentProgress += update.progressDelta;
+      for (const achievement of catalog.achievements) {
+        if (achievement.rewardBadge && receipts.has(`achievement:${achievement.id}`)) rewardedBadgeIds.add(achievement.rewardBadge);
       }
-      const unlocked = currentProgress >= maxProgress;
-      if (unlocked && !existing?.unlocked) newlyUnlocked.push(def.id);
-      await col.updateOne(
-        { userId, badgeId: def.id },
-        {
-          $set: {
-            progress: Math.min(maxProgress, currentProgress),
-            maxProgress,
-            unlocked,
-            unlockedAt: unlocked && !existing?.unlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
-          }
-        },
-        { upsert: true }
-      );
-    }
-    for (const badgeId of newlyUnlocked) {
-      const def = catalog.badges.find((badge) => badge.id === badgeId);
-      if (!def) continue;
-      await saveNotification(() => getCollection("notifications"), {
-        userId,
-        type: "badge_unlocked",
-        title: "Badge unlocked",
-        body: `${def.title}${def.rewardCoins || def.rewardGems ? ` \xB7 ${def.rewardCoins ?? 0} coins \xB7 ${def.rewardGems ?? 0} gems` : ""}`,
-        eventKey: `badge-unlocked:${userId}:${badgeId}`
+      const map2 = new Map(docs.map((d) => [d.badgeId, d]));
+      const badges = defs.map((def) => {
+        const doc = map2.get(def.id);
+        const maxProgress = def.requirement?.goal || 1;
+        const progress = Math.min(doc?.progress || 0, maxProgress);
+        const unlocked = receipts.has(`badge:${def.id}`) || !!doc?.unlocked || progress >= maxProgress || rewardedBadgeIds.has(def.id);
+        return {
+          id: def.id,
+          title: def.title,
+          desc: def.desc,
+          icon: def.icon,
+          rarity: def.rarity,
+          rewardCoins: def.rewardCoins ?? 0,
+          rewardGems: def.rewardGems ?? 0,
+          claimed: receipts.has(`badge:${def.id}`),
+          progress: unlocked ? maxProgress : progress,
+          maxProgress,
+          unlocked
+        };
       });
+      res.json({
+        success: true,
+        badges,
+        unlocked: badges.filter((b) => b.unlocked).length
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
     }
-    res.json({ success: true, newlyUnlocked });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  });
+  badgesRouter2.post("/claim", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to claim badge rewards" });
+      const badgeId = req2.body?.badgeId;
+      if (typeof badgeId !== "string") return res.status(400).json({ success: false, error: "Invalid badge id" });
+      const catalog = await deps.catalog();
+      const def = catalog.badges.find((badge2) => badge2.id === badgeId && badge2.enabled !== false);
+      if (!def) return res.status(404).json({ success: false, error: "Badge not found" });
+      const badges = await deps.collection("badges");
+      const badge = await badges.findOne({ userId: user.userId, badgeId });
+      const walletCol = await deps.collection("cloud_saves");
+      const currentWallet = await walletCol.findOne({ userId: user.userId });
+      const receipts = currentWallet?.claimReceipts || [];
+      const missionReceiptUnlock = catalog.missions.some((mission) => mission.rewardBadge === badgeId && receipts.some((receipt) => receipt.startsWith("mission:") && receipt.endsWith(`:${mission.id}`)));
+      const achievementReceiptUnlock = catalog.achievements.some((achievement) => achievement.rewardBadge === badgeId && receipts.includes(`achievement:${achievement.id}`));
+      if (!badge?.unlocked && (badge?.progress ?? 0) < (def.requirement?.goal ?? 1) && !missionReceiptUnlock && !achievementReceiptUnlock) {
+        return res.status(422).json({ success: false, error: "Badge has not been unlocked" });
+      }
+      const wallet = await creditClaimReward(user.userId, `badge:${badgeId}`, {
+        coins: def.rewardCoins ?? 0,
+        gems: def.rewardGems ?? 0
+      }, walletCol);
+      if (!wallet) return res.status(409).json({ success: false, error: "Badge reward already claimed" });
+      await saveNotification(() => deps.collection("notifications"), {
+        userId: user.userId,
+        type: "badge_reward",
+        title: "Badge reward received",
+        body: `${def.title} \xB7 ${def.rewardCoins ?? 0} coins \xB7 ${def.rewardGems ?? 0} gems`,
+        eventKey: `badge-reward:${user.userId}:${badgeId}`
+      });
+      res.json({ success: true, badgeId, rewardCoins: def.rewardCoins ?? 0, rewardGems: def.rewardGems ?? 0, saveData: wallet.saveData, revision: wallet.revision });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  badgesRouter2.post("/progress", async (req2, res) => {
+    try {
+      const { updates } = req2.body;
+      if (!validProgressUpdates(updates, "badgeId")) {
+        return res.status(400).json({ success: false, error: "Invalid payload" });
+      }
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to update badges" });
+      const userId = user.userId;
+      const catalog = await deps.catalog();
+      const col = await deps.collection("badges");
+      const newlyUnlocked = [];
+      const wallet = await (await deps.collection("cloud_saves")).findOne({ userId });
+      const receipts = new Set(wallet?.claimReceipts || []);
+      for (const update of updates) {
+        const def = catalog.badges.find((b) => b.id === update.badgeId && b.enabled !== false);
+        if (!def) continue;
+        const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
+        if (authorityEvent === "pvp_result" || authorityEvent === "coop_result") continue;
+        const existing = await col.findOne({ userId, badgeId: def.id });
+        if (existing?.unlocked || receipts.has(`badge:${def.id}`)) continue;
+        let currentProgress = existing?.progress || 0;
+        const maxProgress = def.requirement?.goal || 1;
+        if (typeof update.setProgress === "number") {
+          currentProgress = Math.max(currentProgress, update.setProgress);
+        } else if (typeof update.progressDelta === "number") {
+          currentProgress += update.progressDelta;
+        }
+        const unlocked = currentProgress >= maxProgress;
+        if (unlocked && !existing?.unlocked) newlyUnlocked.push(def.id);
+        await col.updateOne(
+          { userId, badgeId: def.id },
+          {
+            $max: { progress: Math.min(maxProgress, currentProgress), unlocked },
+            $set: {
+              maxProgress,
+              unlockedAt: unlocked && !existing?.unlocked ? /* @__PURE__ */ new Date() : existing?.unlockedAt
+            }
+          },
+          { upsert: true }
+        );
+      }
+      for (const badgeId of newlyUnlocked) {
+        const def = catalog.badges.find((badge) => badge.id === badgeId);
+        if (!def) continue;
+        await saveNotification(() => deps.collection("notifications"), {
+          userId,
+          type: "badge_unlocked",
+          title: "Badge unlocked",
+          body: `${def.title}${def.rewardCoins || def.rewardGems ? ` \xB7 ${def.rewardCoins ?? 0} coins \xB7 ${def.rewardGems ?? 0} gems` : ""}`,
+          eventKey: `badge-unlocked:${userId}:${badgeId}`
+        });
+      }
+      res.json({ success: true, newlyUnlocked });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  return badgesRouter2;
+}
+var badgesRouter = createBadgesRouter();
 
 // server/routes/social.ts
 import { Router as Router11 } from "express";

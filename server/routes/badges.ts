@@ -1,5 +1,6 @@
 import { requirementById } from '../../src/game/requirements';
 import { Router, Request, Response } from 'express';
+import type { Collection } from 'mongodb';
 import { getCollection, BadgeDoc, type CloudSaveDoc } from '../db';
 import { loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
@@ -7,20 +8,30 @@ import { validProgressUpdates } from '../validation';
 import { creditClaimReward } from '../claimWallet';
 import { saveNotification, type NotificationRecord } from '../notifications';
 
-export const badgesRouter = Router();
+export interface BadgeRouteDeps {
+  resolveUser(req: Request): ReturnType<typeof resolveRequestUser>;
+  collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
+  catalog(): ReturnType<typeof loadQuestCatalog>;
+}
+
+export function createBadgesRouter(deps: BadgeRouteDeps = {
+  resolveUser: resolveRequestUser, collection: getCollection, catalog: loadQuestCatalog,
+}): Router {
+const badgesRouter = Router();
 
 badgesRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to view badges' });
     const userId = user.userId;
 
-    const catalog = await loadQuestCatalog();
+    const catalog = await deps.catalog();
     const defs = catalog.badges.filter((b) => b.enabled !== false);
-    const col = await getCollection<BadgeDoc>('badges');
+    const col = await deps.collection<BadgeDoc>('badges');
     const docs = await col.find({ userId }).toArray();
-    const wallet = await (await getCollection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
+    const wallet = await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
     const receipts = new Set(wallet?.claimReceipts || []);
+    res.setHeader('Cache-Control', 'private, no-store');
     const rewardedBadgeIds = new Set<string>();
     for (const mission of catalog.missions) {
       if (mission.rewardBadge && [...receipts].some((receipt) => receipt.startsWith('mission:') && receipt.endsWith(`:${mission.id}`))) {
@@ -36,7 +47,7 @@ badgesRouter.get('/', async (req: Request, res: Response) => {
       const doc = map.get(def.id);
       const maxProgress = def.requirement?.goal || 1;
       const progress = Math.min(doc?.progress || 0, maxProgress);
-      const unlocked = !!doc?.unlocked || progress >= maxProgress || rewardedBadgeIds.has(def.id);
+      const unlocked = receipts.has(`badge:${def.id}`) || !!doc?.unlocked || progress >= maxProgress || rewardedBadgeIds.has(def.id);
       return {
         id: def.id,
         title: def.title,
@@ -46,7 +57,7 @@ badgesRouter.get('/', async (req: Request, res: Response) => {
         rewardCoins: def.rewardCoins ?? 0,
         rewardGems: def.rewardGems ?? 0,
         claimed: receipts.has(`badge:${def.id}`),
-        progress: rewardedBadgeIds.has(def.id) ? maxProgress : progress,
+        progress: unlocked ? maxProgress : progress,
         maxProgress,
         unlocked,
       };
@@ -64,16 +75,16 @@ badgesRouter.get('/', async (req: Request, res: Response) => {
 
 badgesRouter.post('/claim', async (req: Request, res: Response) => {
   try {
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to claim badge rewards' });
     const badgeId = req.body?.badgeId;
     if (typeof badgeId !== 'string') return res.status(400).json({ success: false, error: 'Invalid badge id' });
-    const catalog = await loadQuestCatalog();
+    const catalog = await deps.catalog();
     const def = catalog.badges.find((badge) => badge.id === badgeId && badge.enabled !== false);
     if (!def) return res.status(404).json({ success: false, error: 'Badge not found' });
-    const badges = await getCollection<BadgeDoc>('badges');
+    const badges = await deps.collection<BadgeDoc>('badges');
     const badge = await badges.findOne({ userId: user.userId, badgeId });
-    const walletCol = await getCollection<CloudSaveDoc>('cloud_saves');
+    const walletCol = await deps.collection<CloudSaveDoc>('cloud_saves');
     const currentWallet = await walletCol.findOne({ userId: user.userId });
     const receipts = currentWallet?.claimReceipts || [];
     const missionReceiptUnlock = catalog.missions.some((mission) => mission.rewardBadge === badgeId && receipts.some((receipt) => receipt.startsWith('mission:') && receipt.endsWith(`:${mission.id}`)));
@@ -84,9 +95,9 @@ badgesRouter.post('/claim', async (req: Request, res: Response) => {
     const wallet = await creditClaimReward(user.userId, `badge:${badgeId}`, {
       coins: def.rewardCoins ?? 0,
       gems: def.rewardGems ?? 0,
-    });
+    }, walletCol);
     if (!wallet) return res.status(409).json({ success: false, error: 'Badge reward already claimed' });
-    await saveNotification(() => getCollection<NotificationRecord>('notifications'), {
+    await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
       userId: user.userId, type: 'badge_reward', title: 'Badge reward received',
       body: `${def.title} · ${def.rewardCoins ?? 0} coins · ${def.rewardGems ?? 0} gems`,
       eventKey: `badge-reward:${user.userId}:${badgeId}`,
@@ -103,13 +114,15 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
     if (!validProgressUpdates(updates, 'badgeId')) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
     }
-    const user = await resolveRequestUser(req);
+    const user = await deps.resolveUser(req);
     if (!user) return res.status(401).json({ success: false, error: 'Sign in to update badges' });
     const userId = user.userId;
 
-    const catalog = await loadQuestCatalog();
-    const col = await getCollection<BadgeDoc>('badges');
+    const catalog = await deps.catalog();
+    const col = await deps.collection<BadgeDoc>('badges');
     const newlyUnlocked: string[] = [];
+    const wallet = await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
+    const receipts = new Set(wallet?.claimReceipts || []);
 
     for (const update of updates) {
       const def = catalog.badges.find((b) => b.id === update.badgeId && b.enabled !== false);
@@ -117,6 +130,7 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
       const authorityEvent = def.requirement && requirementById(def.requirement.type)?.event;
       if (authorityEvent === 'pvp_result' || authorityEvent === 'coop_result') continue;
       const existing = await col.findOne({ userId, badgeId: def.id });
+      if (existing?.unlocked || receipts.has(`badge:${def.id}`)) continue;
       let currentProgress = existing?.progress || 0;
       const maxProgress = def.requirement?.goal || 1;
 
@@ -132,10 +146,9 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
       await col.updateOne(
         { userId, badgeId: def.id },
         {
+          $max: { progress: Math.min(maxProgress, currentProgress), unlocked },
           $set: {
-            progress: Math.min(maxProgress, currentProgress),
             maxProgress,
-            unlocked,
             unlockedAt: unlocked && !existing?.unlocked ? new Date() : existing?.unlockedAt,
           },
         },
@@ -146,7 +159,7 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
     for (const badgeId of newlyUnlocked) {
       const def = catalog.badges.find((badge) => badge.id === badgeId);
       if (!def) continue;
-      await saveNotification(() => getCollection<NotificationRecord>('notifications'), {
+      await saveNotification(() => deps.collection<NotificationRecord>('notifications'), {
         userId, type: 'badge_unlocked', title: 'Badge unlocked',
         body: `${def.title}${def.rewardCoins || def.rewardGems ? ` · ${def.rewardCoins ?? 0} coins · ${def.rewardGems ?? 0} gems` : ''}`,
         eventKey: `badge-unlocked:${userId}:${badgeId}`,
@@ -157,3 +170,8 @@ badgesRouter.post('/progress', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+return badgesRouter;
+}
+
+export const badgesRouter = createBadgesRouter();

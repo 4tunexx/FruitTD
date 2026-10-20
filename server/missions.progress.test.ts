@@ -9,10 +9,11 @@ test('mission progress uses lifetime keys for main missions and reports first co
   const notices: any[] = [];
   const collection = async (name: string) => name === 'notifications' ? ({
     insertOne: async (notice: any) => { notices.push(notice); return {}; },
-  }) as any : ({
+  }) as any : name === 'cloud_saves' ? ({ findOne: async () => null }) as any : ({
+    find: ({ missionId }: any) => ({ toArray: async () => [...rows.values()].filter(row => !missionId || row.missionId === missionId) }),
     findOne: async ({ missionId, dayKey }: any) => rows.get(`${missionId}:${dayKey}`) ?? null,
     updateOne: async ({ missionId, dayKey }: any, update: any) => {
-      rows.set(`${missionId}:${dayKey}`, { missionId, dayKey, ...update.$set, claimed: false });
+      rows.set(`${missionId}:${dayKey}`, { missionId, dayKey, ...update.$max, ...update.$set, claimed: false });
       return { modifiedCount: 1, upsertedCount: 1 };
     },
   }) as any;

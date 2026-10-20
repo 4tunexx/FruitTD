@@ -6,6 +6,7 @@ import { getMonthKey, loadQuestCatalog } from '../catalog';
 import { resolveRequestUser } from '../auth';
 import { validProgressUpdates } from '../validation';
 import { creditClaimReward } from '../claimWallet';
+import { missionState } from '../questState';
 import { saveNotification, type NotificationRecord } from '../notifications';
 
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
@@ -48,16 +49,16 @@ router.get('/', async (req: Request, res: Response) => {
 
     const catalog = await deps.catalog();
     const defs = catalog.missions.filter((m) => m.enabled !== false);
-    const keys = [...new Set(defs.map((d) => periodKey(d.type)))];
     const col = await deps.collection<MissionDoc>('missions');
-    const userDocs = await col.find({ userId, dayKey: { $in: keys } }).toArray();
-    const docMap = new Map(userDocs.map((d) => [d.missionId, d]));
+    const userDocs = await col.find({ userId }).toArray();
+    const wallet = await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
+    res.setHeader('Cache-Control', 'private, no-store');
 
     const missions = defs.map((def) => {
       const activeKey = periodKey(def.type);
-      const doc = docMap.get(def.id);
+      const state = missionState(def, userDocs, wallet?.claimReceipts || [], activeKey);
       const goal = def.requirement?.goal || 1;
-      const progress = Math.min(doc?.progress || 0, goal);
+      const progress = state.progress;
       return {
         id: def.id,
         type: def.type,
@@ -71,8 +72,8 @@ router.get('/', async (req: Request, res: Response) => {
         rewardBadge: def.rewardBadge,
         periodKey: activeKey,
         progress,
-        completed: progress >= goal,
-        claimed: !!doc?.claimed,
+        completed: state.completed,
+        claimed: state.claimed,
       };
     });
 
@@ -103,6 +104,7 @@ router.post('/progress', async (req: Request, res: Response) => {
     const catalog = await deps.catalog();
     const col = await deps.collection<MissionDoc>('missions');
     const newlyCompleted: string[] = [];
+    const wallet = await (await deps.collection<CloudSaveDoc>('cloud_saves')).findOne({ userId });
 
     for (const update of updates) {
       const def = catalog.missions.find((m) => m.id === update.missionId && m.enabled !== false);
@@ -111,8 +113,12 @@ router.post('/progress', async (req: Request, res: Response) => {
       if (authorityEvent === 'pvp_result' || authorityEvent === 'coop_result') continue;
 
       const activeKey = periodKey(def.type);
-      const existing = await col.findOne({ userId, missionId: def.id, dayKey: activeKey });
-      let currentProgress = existing?.progress || 0;
+      const history = def.type === 'main'
+        ? await col.find({ userId, missionId: def.id }).toArray()
+        : [await col.findOne({ userId, missionId: def.id, dayKey: activeKey })].filter((doc): doc is NonNullable<typeof doc> => !!doc);
+      const existing = missionState(def, history, wallet?.claimReceipts || [], activeKey);
+      if (existing.completed) continue;
+      let currentProgress = existing.progress;
       const goal = def.requirement?.goal || 1;
 
       if (typeof update.setProgress === 'number') {
@@ -126,12 +132,8 @@ router.post('/progress', async (req: Request, res: Response) => {
       await col.updateOne(
         { userId, missionId: def.id, dayKey: activeKey },
         {
-          $set: {
-            progress: Math.min(goal, currentProgress),
-            goal,
-            completed: currentProgress >= goal,
-            updatedAt: new Date(),
-          },
+          $max: { progress: Math.min(goal, currentProgress), completed: currentProgress >= goal },
+          $set: { goal, updatedAt: new Date() },
           $setOnInsert: { claimed: false },
         },
         { upsert: true }
@@ -174,16 +176,20 @@ router.post('/claim', async (req: Request, res: Response) => {
 
     const activeKey = periodKey(def.type);
     const col = await deps.collection<MissionDoc>('missions');
-    const existing = await col.findOne({ userId, missionId, dayKey: activeKey });
+    const history = def.type === 'main'
+      ? await col.find({ userId, missionId }).toArray()
+      : [await col.findOne({ userId, missionId, dayKey: activeKey })].filter((doc): doc is NonNullable<typeof doc> => !!doc);
+    const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
+    const currentWallet = await saves.findOne({ userId });
+    const existing = missionState(def, history, currentWallet?.claimReceipts || [], activeKey);
 
-    if (!existing || !existing.completed) {
+    if (!existing.completed) {
       return res.status(400).json({ success: false, error: 'Mission is not completed yet' });
     }
     if (existing.claimed) {
       return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
     }
 
-    const saves = await deps.collection<CloudSaveDoc>('cloud_saves');
     const wallet = await creditClaimReward(userId, `mission:${activeKey}:${missionId}`, {
       coins: def.rewardCoins,
       gems: def.rewardGems ?? 0,
@@ -191,8 +197,9 @@ router.post('/claim', async (req: Request, res: Response) => {
     }, saves);
     if (!wallet) return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
 
-    const claim = await col.updateOne({ _id: existing._id, claimed: { $ne: true }, completed: true }, { $set: { claimed: true, updatedAt: new Date() } });
-    if (claim.modifiedCount !== 1) return res.status(400).json({ success: false, error: 'Mission reward already claimed' });
+    await col.updateOne({ userId, missionId, dayKey: activeKey }, { $set: { claimed: true, completed: true, progress: def.requirement?.goal || 1, goal: def.requirement?.goal || 1, updatedAt: new Date() } }, { upsert: true }).catch(error => {
+      console.error('Could not update mission claim marker; wallet receipt retained:', error);
+    });
 
     const reward = [
       def.rewardCoins ? `${def.rewardCoins} coins` : '',

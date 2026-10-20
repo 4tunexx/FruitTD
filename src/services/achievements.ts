@@ -2,15 +2,7 @@ import {
   fetchAchievements,
   updateAchievementProgress,
 } from './api';
-import { GameToast } from '../ui/components/surface';
-
-export function showAchievementToast(title: string, desc: string, icon = 'Trophy', reward?: string): void {
-  GameToast(desc, 'accent', 4500, {
-    title: `ACHIEVEMENT · ${title}`,
-    icon,
-    meta: reward ? `+${reward}` : undefined,
-  });
-}
+import { showQuestToast } from './questNotices';
 
 // Local cache of unlocked achievements to avoid duplicate toasts
 const unlockedSet = new Set<string>();
@@ -43,8 +35,8 @@ export async function reportAchievementProgress(
         unlockedSet.add(id);
         const ach = data?.achievements.find((a) => a.id === id);
         if (ach) {
-          const rewardText = `${ach.rewardCoins} Coins${ach.rewardSp ? ` + ${ach.rewardSp} SP` : ''}`;
-          showAchievementToast(ach.title, ach.desc, ach.icon, rewardText);
+          const rewardText = `${ach.rewardCoins} Coins${ach.rewardGems ? ` · ${ach.rewardGems} Gems` : ''}${ach.rewardSp ? ` · ${ach.rewardSp} SP` : ''}`;
+          showQuestToast('achievement', 'ready', ach.title, ach.icon, rewardText);
         }
       }
     }

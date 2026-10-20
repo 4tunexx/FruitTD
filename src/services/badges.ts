@@ -1,6 +1,6 @@
 import { adoptAuthoritativeSave, getUserId } from './api';
 import { getAuthToken } from './auth';
-import { showAchievementToast } from './achievements';
+import { showQuestToast } from './questNotices';
 
 export interface BadgeItem {
   id: string;
@@ -63,6 +63,6 @@ export async function reportBadgeProgress(
     if (unlockedBadges.has(id)) continue;
     unlockedBadges.add(id);
     const badge = data?.badges.find((b) => b.id === id);
-    if (badge) showAchievementToast('Badge Unlocked!', badge.title, badge.icon, badge.rarity);
+    if (badge) showQuestToast('badge', 'ready', badge.title, badge.icon, `${badge.rewardCoins || 0} Coins${badge.rewardGems ? ` · ${badge.rewardGems} Gems` : ''}`);
   }
 }

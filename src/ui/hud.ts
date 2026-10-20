@@ -53,7 +53,7 @@ import {
   type AuthUser,
 } from '../services/auth';
 import { bindTitleAuthButtons, showEmailAuthModal, syncTitleAuthState, type EmailAuthMode } from './authModal';
-import { showAchievementToast } from '../services/achievements';
+import { showQuestToast, showStatusToast } from '../services/questNotices';
 import { fetchBadges, claimBadge, type BadgeItem } from '../services/badges';
 import { loadLiveConfig, getLiveConfig, getSlicers } from '../services/liveConfig';
 import { bootMenuParallax, syncMenuParallax } from './menuParallax';
@@ -363,10 +363,10 @@ export class Hud {
           this.adminController = new AdminController(refreshDailyFromAdmin, refreshDailyFromAdmin);
         }
         void this.adminController.open();
-      }).catch(() => showAchievementToast('Admin unavailable', 'Could not load the Admin tools. Please try again.', 'TriangleAlert'));
+      }).catch(() => showStatusToast('Admin unavailable', 'Could not load the Admin tools. Please try again.', 'TriangleAlert'));
       return;
     }
-    showAchievementToast(
+    showStatusToast(
       'Admin access required',
       'Sign in with the Steam account configured for this server.',
       'LockKeyhole',
@@ -1429,7 +1429,7 @@ export class Hud {
     const listEl = document.getElementById('missions-list');
     if (!listEl) return;
 
-    listEl.innerHTML = '<div class="lb-loading">Syncing daily missions...</div>';
+    listEl.innerHTML = '<div class="lb-loading">Syncing missions...</div>';
     const res = await fetchMissions();
 
     if (!res || !res.missions) {
@@ -1443,10 +1443,10 @@ export class Hud {
     const mainMissions = res.missions.filter((mission) => mission.type === 'main');
     const dailySection = document.createElement('section');
     dailySection.className = 'mission-group mission-group--daily';
-    dailySection.innerHTML = `<h3>DAILY OPERATIONS <span>${dailyMissions.length}</span></h3>`;
+    dailySection.innerHTML = `<h3>DAILY OPERATIONS <span>${dailyMissions.length}</span></h3><p class="text-xs text-slate-400">Resets each day at 00:00 UTC.</p>`;
     const mainSection = document.createElement('section');
     mainSection.className = 'mission-group mission-group--main';
-    mainSection.innerHTML = `<h3>MAIN MISSIONS <span>${mainMissions.length}</span></h3>`;
+    mainSection.innerHTML = `<h3>MAIN MISSIONS <span>${mainMissions.length}</span></h3><p class="text-xs text-slate-400">Permanent progress. Each reward can be claimed once.</p>`;
     listEl.append(dailySection, mainSection);
 
     res.missions.forEach((m: MissionItem) => {
@@ -1491,13 +1491,12 @@ export class Hud {
             Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
-            showAchievementToast('Mission Complete!', m.title, 'Gift', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
+            showQuestToast(m.type, 'received', m.title, 'Gift', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
             void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'mission_claim' }));
             this.renderMissions();
             this.renderBadges();
           } else {
-            claimBtn.disabled = false;
-            claimBtn.textContent = 'Claim';
+            await this.renderMissions();
           }
         });
       }
@@ -1568,11 +1567,10 @@ export class Hud {
             Object.assign(this.currentSave, claimRes.saveData);
             this.onSaveUpdate?.(this.currentSave);
             this.mountMeta(this.currentSave);
-            showAchievementToast('Trophy Claimed!', ach.title, 'Trophy', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
+            showQuestToast('achievement', 'received', ach.title, 'Trophy', `${claimRes.rewardCoins} Coins${claimRes.rewardGems ? ` · ${claimRes.rewardGems} Gems` : ''}`);
             this.renderAchievements();
           } else {
-            claimBtn.disabled = false;
-            claimBtn.textContent = 'Claim';
+            await this.renderAchievements();
           }
         });
       }
@@ -1625,11 +1623,10 @@ export class Hud {
           Object.assign(this.currentSave, result.saveData);
           this.onSaveUpdate?.(this.currentSave);
           this.mountMeta(this.currentSave);
-          showAchievementToast('Badge Prize!', badge.title, badge.icon, `${badge.rewardCoins || 0} Coins${badge.rewardGems ? ` · ${badge.rewardGems} Gems` : ''}`);
+          showQuestToast('badge', 'received', badge.title, badge.icon, `${badge.rewardCoins || 0} Coins${badge.rewardGems ? ` · ${badge.rewardGems} Gems` : ''}`);
           void this.renderBadges();
         } else {
-          prizeButton.disabled = false;
-          prizeButton.textContent = 'Claim prize';
+          await this.renderBadges();
         }
       });
       listEl.appendChild(card);
@@ -1692,7 +1689,7 @@ export class Hud {
           Object.assign(this.currentSave, result.saveData);
           this.onSaveUpdate?.(this.currentSave);
           this.mountMeta(this.currentSave);
-          showAchievementToast('Season Prize!', tier.title, tier.icon, `${tier.rewardCoins || 0} Coins${tier.rewardGems ? ` · ${tier.rewardGems} Gems` : ''}`);
+          showQuestToast('season', 'received', tier.title, tier.icon, `${tier.rewardCoins || 0} Coins${tier.rewardGems ? ` · ${tier.rewardGems} Gems` : ''}`);
           void this.renderRanks();
         } else {
           button.disabled = false;
@@ -1954,10 +1951,10 @@ export class Hud {
   private async initSteamIntegration(): Promise<void> {
     const cb = consumeAuthCallbackParams();
     if (cb.error) {
-      showAchievementToast('Steam login failed', cb.error, 'AlertTriangle');
+      showStatusToast('Steam login failed', cb.error, 'AlertTriangle');
     }
     if (cb.bonus) {
-      showAchievementToast('Steam Connected!', 'Welcome bonus', 'Gamepad2', '500 Coins + 1 SP');
+      showStatusToast('Steam Connected!', 'Welcome bonus', 'Gamepad2', '500 Coins + 1 SP');
       void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'steam_link' }));
     }
 
@@ -2056,7 +2053,7 @@ export class Hud {
         const rewardIcon = res.reward.iconType === 'gem' ? 'Gem'
           : res.reward.iconType === 'blade' ? 'Swords'
             : res.reward.iconType === 'chest' ? 'Gift' : 'Coins';
-        showAchievementToast('Daily Login Mission Complete!', res.reward.label, rewardIcon);
+        showQuestToast('daily-login', 'received', res.reward.label, rewardIcon);
         void import('../services/progress').then(({ reportGameEvent }) => reportGameEvent({ type: 'daily_claim', streak: res.streak }));
         this.setDailyClaimable(false);
         await this.openDailyModal(res.streak);

@@ -54,6 +54,7 @@ function claimHarness(claimCollectionName: 'daily_bonus' | 'missions' | 'achieve
     },
   };
   const markerCollection = {
+    find: () => ({ toArray: async () => state.claim ? [state.claim] : [] }),
     findOne: async (query: any) => {
       const doc = state.claim;
       if (!doc) return null;
@@ -107,7 +108,7 @@ for (const claimType of ['daily_bonus', 'missions', 'achievements'] as const) {
     const initial = claimType === 'daily_bonus'
       ? undefined
       : claimType === 'missions'
-        ? { _id: 'mission-1', userId: user.userId, missionId: 'daily-slice', dayKey: '2026-09-29', progress: 1, goal: 1, completed: true, claimed: false }
+        ? { _id: 'mission-1', userId: user.userId, missionId: 'daily-slice', dayKey: new Date().toISOString().slice(0, 10), progress: 1, goal: 1, completed: true, claimed: false }
         : { _id: 'achievement-1', userId: user.userId, achievementId: 'first-slice', unlocked: true, claimed: false, progress: 1, maxProgress: 1 };
     const harness = claimHarness(claimType, initial);
     const path = claimType === 'daily_bonus' ? '/api/daily' : claimType === 'missions' ? '/api/missions' : '/api/achievements';
