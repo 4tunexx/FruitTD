@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { MongoClient, Db, Collection } from 'mongodb';
+import { SharedMongoConnection, mongoClientOptions } from './mongoConnection';
 
 dotenv.config({ quiet: true });
 
@@ -7,9 +8,6 @@ const uri = process.env.MONGODB_URI;
 if (!uri) {
   console.warn('MONGODB_URI is missing; cloud account and progression requests will fail until it is configured.');
 }
-
-let client: MongoClient | null = null;
-let db: Db | null = null;
 
 export interface UserDoc {
   userId: string;
@@ -104,17 +102,13 @@ export interface RunTokenDoc {
   consumedAt?: Date;
 }
 
-export async function getDb(): Promise<Db> {
-  if (db) return db;
-  if (!uri) throw new Error('MongoDB URI not defined');
-
-  if (!client) {
-    client = new MongoClient(uri);
-    await client.connect();
-    console.log('✅ Connected to MongoDB Atlas (FruitTD)');
-  }
-  db = client.db('FruitTD');
-
+const connection = new SharedMongoConnection<Db>(
+  () => {
+    if (!uri) throw new Error('MongoDB URI not defined');
+    return new MongoClient(uri, mongoClientOptions(process.env.VERCEL === '1'));
+  },
+  'FruitTD',
+  async (db) => {
   // Ensure useful indexes
   try {
     await db.collection('leaderboards').createIndex({ mode: 1, score: -1 });
@@ -165,7 +159,11 @@ export async function getDb(): Promise<Db> {
     console.warn('Index creation notice:', err);
   }
 
-  return db;
+  },
+);
+
+export function getDb(): Promise<Db> {
+  return connection.get();
 }
 
 export async function getCollection<T extends Record<string, any>>(name: string): Promise<Collection<T>> {
@@ -173,10 +171,6 @@ export async function getCollection<T extends Record<string, any>>(name: string)
   return database.collection<T>(name);
 }
 
-export async function closeDb(): Promise<void> {
-  if (client) {
-    await client.close();
-    client = null;
-    db = null;
-  }
+export function closeDb(): Promise<void> {
+  return connection.close();
 }

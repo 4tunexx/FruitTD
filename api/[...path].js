@@ -9,71 +9,144 @@ import { Rest } from "ably";
 // server/db.ts
 import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
+
+// server/mongoConnection.ts
+function mongoClientOptions(serverless) {
+  return {
+    // Small per-worker pools prevent serverless fan-out exhausting the M0 cluster.
+    // The long-lived API has more shared request/authority concurrency, so gets ten.
+    maxPoolSize: serverless ? 5 : 10,
+    // Do not reserve unused sockets between requests or scale-out events.
+    minPoolSize: 0,
+    // Release idle application sockets, keeping a little more reuse time on Render.
+    maxIdleTimeMS: serverless ? 3e4 : 6e4,
+    appName: serverless ? "FruitTD-Vercel" : "FruitTD-Server"
+  };
+}
+var SharedMongoConnection = class {
+  constructor(createClient, databaseName, initialize) {
+    this.createClient = createClient;
+    this.databaseName = databaseName;
+    this.initialize = initialize;
+  }
+  current;
+  closing;
+  get() {
+    if (this.closing) return this.closing.then(() => this.get());
+    if (!this.current) {
+      let client;
+      try {
+        client = this.createClient();
+      } catch (error2) {
+        return Promise.reject(error2);
+      }
+      const entry = { client };
+      this.current = entry;
+      entry.ready = this.open(entry);
+    }
+    return this.current.ready;
+  }
+  async open(entry) {
+    try {
+      await entry.client.connect();
+      const database = entry.client.db(this.databaseName);
+      await this.initialize(database);
+      return database;
+    } catch (error2) {
+      try {
+        await this.closeEntry(entry);
+      } catch {
+      }
+      if (this.current === entry) this.current = void 0;
+      throw error2;
+    }
+  }
+  closeEntry(entry) {
+    return entry.closing ??= Promise.resolve().then(() => entry.client.close());
+  }
+  close() {
+    if (this.closing) return this.closing;
+    const entry = this.current;
+    if (!entry) return Promise.resolve();
+    this.current = void 0;
+    this.closing = (async () => {
+      try {
+        await entry.ready;
+      } catch {
+      }
+      await this.closeEntry(entry);
+    })().finally(() => {
+      this.closing = void 0;
+    });
+    return this.closing;
+  }
+};
+
+// server/db.ts
 dotenv.config({ quiet: true });
 var uri = process.env.MONGODB_URI;
 if (!uri) {
   console.warn("MONGODB_URI is missing; cloud account and progression requests will fail until it is configured.");
 }
-var client = null;
-var db = null;
-async function getDb() {
-  if (db) return db;
-  if (!uri) throw new Error("MongoDB URI not defined");
-  if (!client) {
-    client = new MongoClient(uri);
-    await client.connect();
-    console.log("\u2705 Connected to MongoDB Atlas (FruitTD)");
+var connection = new SharedMongoConnection(
+  () => {
+    if (!uri) throw new Error("MongoDB URI not defined");
+    return new MongoClient(uri, mongoClientOptions(process.env.VERCEL === "1"));
+  },
+  "FruitTD",
+  async (db) => {
+    try {
+      await db.collection("leaderboards").createIndex({ mode: 1, score: -1 });
+      await db.collection("leaderboards").createIndex({ userId: 1, mode: 1 });
+      await db.collection("users").createIndex({ userId: 1 }, { unique: true });
+      await db.collection("users").createIndex({ email: 1 }, { unique: true, sparse: true });
+      await db.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true });
+      await db.collection("users").createIndex({ steamId: 1 }, { unique: true, sparse: true });
+      await db.collection("sessions").createIndex({ tokenHash: 1 }, { unique: true });
+      await db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+      await db.collection("achievements").createIndex({ userId: 1, achievementId: 1 }, { unique: true });
+      await db.collection("missions").createIndex({ userId: 1, missionId: 1, dayKey: 1 }, { unique: true });
+      await db.collection("daily_bonus").createIndex({ userId: 1 }, { unique: true });
+      await db.collection("cloud_saves").createIndex({ userId: 1 }, { unique: true });
+      await db.collection("run_tokens").createIndex({ tokenHash: 1 }, { unique: true });
+      await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+      await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
+      await db.collection("battle_maps").createIndex({ id: 1 }, { unique: true });
+      await db.collection("battle_maps").createIndex({ mode: 1, published: 1 });
+      await db.collection("coop_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
+      await db.collection("coop_matches").createIndex({ id: 1 }, { unique: true });
+      await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
+      await db.collection("friends").createIndex({ userId: 1, friendId: 1 }, { unique: true });
+      await db.collection("friends").createIndex({ userId: 1, state: 1, updatedAt: -1 });
+      await db.collection("friends").createIndex({ friendId: 1, state: 1, updatedAt: -1 });
+      await db.collection("notifications").createIndex({ userId: 1, createdAt: -1 });
+      await db.collection("notifications").createIndex({ notificationId: 1 }, { unique: true });
+      await db.collection("notifications").createIndex({ userId: 1, eventKey: 1 }, { unique: true, partialFilterExpression: { eventKey: { $exists: true } } });
+      await db.collection("messages").createIndex({ conversationId: 1, createdAt: 1 });
+      await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
+      await db.collection("forum_posts").createIndex({ postId: 1 }, { unique: true });
+      await db.collection("forum_posts").createIndex({ createdAt: -1 });
+      await db.collection("coop_lobbies").createIndex({ lobbyId: 1 }, { unique: true });
+      await db.collection("coop_lobbies").createIndex({ code: 1 }, { unique: true });
+      await db.collection("coop_lobbies").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+      await db.collection("coop_lobbies").createIndex({ visibility: 1, status: 1, createdAt: 1 });
+      await db.collection("coop_lobbies").createIndex({ "members.userId": 1, status: 1 });
+      await db.collection("pvp_arena_records").createIndex({ userId: 1 }, { unique: true });
+      await db.collection("pvp_ratings").createIndex({ userId: 1 }, { unique: true });
+      await db.collection("pvp_matches").createIndex({ id: 1 }, { unique: true });
+      await db.collection("pvp_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
+      await db.collection("pvp_matches").createIndex({ status: 1, updatedAt: 1 });
+      await db.collection("pvp_queue").createIndex({ userId: 1 }, { unique: true });
+      await db.collection("pvp_queue").createIndex({ queue: 1, expiresAt: 1 });
+      await db.collection("pvp_challenges").createIndex({ challengeId: 1 }, { unique: true });
+      await db.collection("pvp_challenges").createIndex({ toId: 1, expiresAt: 1 });
+    } catch (err) {
+      console.warn("Index creation notice:", err);
+    }
   }
-  db = client.db("FruitTD");
-  try {
-    await db.collection("leaderboards").createIndex({ mode: 1, score: -1 });
-    await db.collection("leaderboards").createIndex({ userId: 1, mode: 1 });
-    await db.collection("users").createIndex({ userId: 1 }, { unique: true });
-    await db.collection("users").createIndex({ email: 1 }, { unique: true, sparse: true });
-    await db.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true });
-    await db.collection("users").createIndex({ steamId: 1 }, { unique: true, sparse: true });
-    await db.collection("sessions").createIndex({ tokenHash: 1 }, { unique: true });
-    await db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    await db.collection("achievements").createIndex({ userId: 1, achievementId: 1 }, { unique: true });
-    await db.collection("missions").createIndex({ userId: 1, missionId: 1, dayKey: 1 }, { unique: true });
-    await db.collection("daily_bonus").createIndex({ userId: 1 }, { unique: true });
-    await db.collection("cloud_saves").createIndex({ userId: 1 }, { unique: true });
-    await db.collection("run_tokens").createIndex({ tokenHash: 1 }, { unique: true });
-    await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
-    await db.collection("battle_maps").createIndex({ id: 1 }, { unique: true });
-    await db.collection("battle_maps").createIndex({ mode: 1, published: 1 });
-    await db.collection("coop_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
-    await db.collection("coop_matches").createIndex({ id: 1 }, { unique: true });
-    await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
-    await db.collection("friends").createIndex({ userId: 1, friendId: 1 }, { unique: true });
-    await db.collection("friends").createIndex({ userId: 1, state: 1, updatedAt: -1 });
-    await db.collection("friends").createIndex({ friendId: 1, state: 1, updatedAt: -1 });
-    await db.collection("notifications").createIndex({ userId: 1, createdAt: -1 });
-    await db.collection("notifications").createIndex({ notificationId: 1 }, { unique: true });
-    await db.collection("notifications").createIndex({ userId: 1, eventKey: 1 }, { unique: true, partialFilterExpression: { eventKey: { $exists: true } } });
-    await db.collection("messages").createIndex({ conversationId: 1, createdAt: 1 });
-    await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
-    await db.collection("forum_posts").createIndex({ postId: 1 }, { unique: true });
-    await db.collection("forum_posts").createIndex({ createdAt: -1 });
-    await db.collection("coop_lobbies").createIndex({ lobbyId: 1 }, { unique: true });
-    await db.collection("coop_lobbies").createIndex({ code: 1 }, { unique: true });
-    await db.collection("coop_lobbies").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    await db.collection("coop_lobbies").createIndex({ visibility: 1, status: 1, createdAt: 1 });
-    await db.collection("coop_lobbies").createIndex({ "members.userId": 1, status: 1 });
-    await db.collection("pvp_arena_records").createIndex({ userId: 1 }, { unique: true });
-    await db.collection("pvp_ratings").createIndex({ userId: 1 }, { unique: true });
-    await db.collection("pvp_matches").createIndex({ id: 1 }, { unique: true });
-    await db.collection("pvp_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
-    await db.collection("pvp_matches").createIndex({ status: 1, updatedAt: 1 });
-    await db.collection("pvp_queue").createIndex({ userId: 1 }, { unique: true });
-    await db.collection("pvp_queue").createIndex({ queue: 1, expiresAt: 1 });
-    await db.collection("pvp_challenges").createIndex({ challengeId: 1 }, { unique: true });
-    await db.collection("pvp_challenges").createIndex({ toId: 1, expiresAt: 1 });
-  } catch (err) {
-    console.warn("Index creation notice:", err);
-  }
-  return db;
+);
+function getDb() {
+  return connection.get();
 }
 async function getCollection(name) {
   const database = await getDb();
@@ -6231,8 +6304,8 @@ function createApp() {
   });
   app2.get("/api/health", async (_req, res) => {
     try {
-      const db2 = await getDb();
-      const ping = await db2.command({ ping: 1 });
+      const db = await getDb();
+      const ping = await db.command({ ping: 1 });
       res.json({ status: "ok", mongo: ping.ok === 1, time: /* @__PURE__ */ new Date() });
     } catch (err) {
       res.status(500).json({ status: "error", error: err.message });
