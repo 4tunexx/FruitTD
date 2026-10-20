@@ -12,7 +12,7 @@ import { SKILLS, type SkillId } from '../game/skills';
 import { heroAbility } from '../game/heroAbilities';
 import { powerButton, updatePowerButton } from './powerButton';
 import type { GameState } from '../game/state';
-import { TURRETS, canPlaceTurret, sellRefund, turretDef, turretRange, type TurretKind } from '../game/turrets';
+import { TURRETS, refreshCreatorTurrets, canPlaceTurret, sellRefund, turretDef, turretRange, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
 import { MAX_TOWER_LEVEL, upgradeCost } from '../game/world';
 import {
@@ -155,11 +155,13 @@ export class Hud {
   onSaveUpdate: ((save: SaveData) => void) | null = null;
   onBuyVIP: ((tier: 'bronze' | 'silver' | 'gold') => void) | null = null; // P1-2
 
-  constructor(private readonly sfx?: Sfx) {
-    this.place.classList.add('hidden');
-    this.shop.classList.add('hidden');
-
+  private refreshTurretShop():void {
+    refreshCreatorTurrets();
+    for(const button of this.shop.querySelectorAll('button[data-turret]')){
+      if(!TURRETS.some(def=>def.kind===(button as HTMLElement).dataset.turret))button.remove();
+    }
     for (const def of TURRETS) {
+      if(this.shop.querySelector(`[data-turret="${def.kind}"]`))continue;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.turret = def.kind;
@@ -169,6 +171,13 @@ export class Hud {
       btn.addEventListener('click', () => this.onPlace?.(def.kind));
       this.shop.appendChild(btn);
     }
+  }
+
+  constructor(private readonly sfx?: Sfx) {
+    this.place.classList.add('hidden');
+    this.shop.classList.add('hidden');
+
+    this.refreshTurretShop();
 
     this.superBtn.addEventListener('click', () => this.onSuper?.());
     window.setInterval(() => { if (this.abilitySave) this.refreshAbilityBar(this.abilitySave); }, 250);
@@ -1229,6 +1238,7 @@ export class Hud {
       this.sell.classList.add('hidden');
       this.move.classList.add('hidden');
       this.toggle.classList.add('hidden');
+      this.refreshTurretShop();
       for (const btn of this.shop.querySelectorAll('button')) {
         const kind = btn.dataset.turret as TurretKind;
         const def = turretDef(kind);

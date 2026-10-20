@@ -335,15 +335,15 @@ var MAX_TOWER_LEVEL = 10;
 var SIM_DT = 1 / 60;
 var IMPACT_FREEZE = 1 / 60;
 var WALL_Z = -9.2;
-var EXTRA_Z = -7.85;
+var EXTRA_Z = -8.35;
 var LEAK_Z = -7.5;
 function buildPads() {
   return [
-    { x: -6.2, z: WALL_Z, main: false, floor: false },
-    { x: -3.8, z: WALL_Z, main: false, floor: false },
+    { x: -6.2, z: WALL_Z - 0.35, main: false, floor: false },
+    { x: -3.8, z: WALL_Z - 0.35, main: false, floor: false },
     { x: 0, z: WALL_Z, main: true, floor: false },
-    { x: 3.8, z: WALL_Z, main: false, floor: false },
-    { x: 6.2, z: WALL_Z, main: false, floor: false },
+    { x: 3.8, z: WALL_Z - 0.35, main: false, floor: false },
+    { x: 6.2, z: WALL_Z - 0.35, main: false, floor: false },
     { x: -4.8, z: EXTRA_Z, main: false, floor: true },
     { x: -2.2, z: EXTRA_Z, main: false, floor: true },
     { x: 2.2, z: EXTRA_Z, main: false, floor: true },
@@ -400,6 +400,20 @@ function heroAbilityRank(id, ranks) {
 
 // src/game/enemies.ts
 var ENEMY_RULES = {
+  bladebound: {
+    kind: "bladebound",
+    label: "Bladebound",
+    description: "Deflects turret fire and powers. Only direct blade slices can hurt it.",
+    flavor: "Bladebound \u2014 slice the pink shield!",
+    warning: "BLADEBOUND \u2014 SLICES ONLY",
+    towerDamageOnLeak: 2,
+    towerDamageOnHit: 0,
+    hpMultiplier: 1.2,
+    speedMultiplier: 0.9,
+    scoreMultiplier: 1.8,
+    xpMultiplier: 1.8,
+    colour: 16020150
+  },
   normal: {
     kind: "normal",
     label: "Rot-Walker",
@@ -709,9 +723,11 @@ function migrateLegacyWeaponBalance(id, row) {
 
 // src/game/turretTargets.ts
 function turretVictims(type, origin, primary, units, point, range, level = 1) {
+  const weapon = type;
+  type = TURRET_WEAPONS[type]?.chassis || type;
   if (type === "main" || type === "catcher") return [primary];
   const target2 = point(primary), dx = target2.x - origin.x, dy = target2.y - origin.y, d = Math.hypot(dx, dy) || 1;
-  const blast = type === "railgun" || type === "blender" ? weaponStats(type, level).blast : 0;
+  const blast = type === "railgun" || type === "blender" ? weaponStats(weapon, level).blast : 0;
   const victims = units.filter((unit2) => unit2 !== primary).filter((unit2) => {
     const p = point(unit2), x = p.x - origin.x, y = p.y - origin.y, distance2 = Math.hypot(x, y);
     if (blast) return Math.hypot(p.x - target2.x, p.y - target2.y) <= blast;
@@ -1339,7 +1355,13 @@ function normalizeTurretTuning(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return void 0;
   const r = raw;
   const n = (key, min, max) => r[key] !== "" && Number.isFinite(Number(r[key])) ? Math.max(min, Math.min(max, Number(r[key]))) : DEFAULT_TURRET_TUNING[key];
-  return { damageMultiplier: n("damageMultiplier", 0.1, 10), rangeMultiplier: n("rangeMultiplier", 0.25, 3), cooldownMultiplier: n("cooldownMultiplier", 0.2, 5), effectScale: n("effectScale", 0.5, 3), effectColor: typeof r.effectColor === "string" && /^#[a-f0-9]{6}$/i.test(r.effectColor) ? r.effectColor : "" };
+  const extra = {};
+  if (["juice", "sparks", "pulse"].includes(String(r.deathEffect))) extra.deathEffect = r.deathEffect;
+  if (typeof r.chassis === "string" && ["guillotine", "vortex", "laser", "railgun", "sprinkler", "blender"].includes(r.chassis)) extra.chassis = r.chassis;
+  for (const [key, min, max] of [["baseDamage", 0.1, 500], ["damageGrowth", 0, 100], ["baseRange", 0.5, 15], ["rangeGrowth", 0, 1], ["baseCooldown", 0.1, 10], ["cost", 1, 5e3], ["deathScale", 0.5, 3]]) {
+    if (r[key] !== void 0 && r[key] !== "" && Number.isFinite(Number(r[key]))) extra[key] = Math.max(min, Math.min(max, Number(r[key])));
+  }
+  return { ...extra, damageMultiplier: n("damageMultiplier", 0.1, 10), rangeMultiplier: n("rangeMultiplier", 0.25, 3), cooldownMultiplier: n("cooldownMultiplier", 0.2, 5), effectScale: n("effectScale", 0.5, 3), effectColor: typeof r.effectColor === "string" && /^#[a-f0-9]{6}$/i.test(r.effectColor) ? r.effectColor : "" };
 }
 
 // src/game/creatorMedia.ts

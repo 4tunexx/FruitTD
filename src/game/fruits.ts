@@ -55,9 +55,8 @@ function layoutHp(fruit: Fruit, t: number): void {
   const barY = fruit.boss ? 1.7 / s : 1.1 / s;
   const barW = fruit.boss ? 2.3 / s : 1.05 / s;
   const barH = fruit.boss ? 0.17 / s : 0.11 / s;
-  // Full ordinary bars fill the battlefield without conveying a decision.
-  // Reveal ordinary bars on damage; bosses use the single HUD meter.
-  fruit.hpBack.visible = fruit.hpBar.visible = !fruit.boss && t < 0.999;
+  // Every ordinary enemy keeps a visible HP rail; bosses use the single HUD meter.
+  fruit.hpBack.visible = fruit.hpBar.visible = !fruit.boss;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, 1);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);
@@ -275,7 +274,8 @@ export class FruitField {
     idle.group.visible = true; idle.group.scale.setScalar(idle.radius);
     idle.hazardRing.visible = idle.enemyKind === 'explosive' || idle.enemyKind === 'chainburst';
     (idle.hazardRing.material as MeshBasicMaterial).color.setHex(idle.enemyKind === 'chainburst' ? 0xb4ff3a : 0xff3b30);
-    idle.armorRing.visible = idle.enemyKind === 'armored';
+    idle.armorRing.visible = idle.enemyKind === 'armored' || idle.enemyKind === 'bladebound';
+    (idle.armorRing.material as MeshLambertMaterial).color.setHex(idle.enemyKind === 'bladebound' ? 0xf472b6 : 0x94a3b8);
     idle.group.position.set(x, boss ? 1.05 : 0.7, z); idle.spin.set(0, 1.4 + Math.random(), 0);
     idle.bob = Math.random() * Math.PI * 2; idle.squash = 0; layoutHp(idle, 1); paint(idle, def);
     triggerStudioSpawn(idle.studio, {
@@ -288,7 +288,8 @@ export class FruitField {
   }
 
   hurt(fruit: Fruit, amount: number, source: 'turret' | 'blade' | 'super' = 'turret'): boolean {
-    if (!fruit.alive) return false;
+    if (!fruit.alive || !Number.isFinite(amount) || amount < 0) return false;
+    if (fruit.enemyKind === 'bladebound' && source !== 'blade') return false;
     // Chem-Bursts are a placement challenge: blade contact hurts the wall,
     // but neither blades nor the hero super can damage or remove them.
     if (fruit.enemyKind === 'explosive' && source !== 'turret') {
@@ -305,6 +306,7 @@ export class FruitField {
       }
       return false;
     }
+    if (amount <= 0) return false;
     fruit.hp -= amount; fruit.squash = 0.2; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
     if (fruit.boss && !fruit.bossEnraged && fruit.hp > 0 && fruit.hp <= fruit.maxHp / 2) {
       fruit.bossEnraged = true;

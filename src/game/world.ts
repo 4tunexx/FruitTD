@@ -11,16 +11,16 @@ export const SIM_DT = 1 / 60;
 export const IMPACT_FREEZE = 1 / 60;
 export const SLICE_Y = 0.75;
 export const WALL_Z = -9.2;
-export const EXTRA_Z = -7.85;
+export const EXTRA_Z = -8.35;
 export const LEAK_Z = -7.5;
 export const TILE = 1.4;
 
 export interface PadDef { x: number; z: number; main: boolean; floor: boolean; enabled?: boolean; }
 function buildPads(): PadDef[] {
   return [
-    { x:-6.2, z:WALL_Z, main:false, floor:false }, { x:-3.8, z:WALL_Z, main:false, floor:false },
-    { x:0, z:WALL_Z, main:true, floor:false }, { x:3.8, z:WALL_Z, main:false, floor:false },
-    { x:6.2, z:WALL_Z, main:false, floor:false }, { x:-4.8, z:EXTRA_Z, main:false, floor:true },
+    { x:-6.2, z:WALL_Z-.35, main:false, floor:false }, { x:-3.8, z:WALL_Z-.35, main:false, floor:false },
+    { x:0, z:WALL_Z, main:true, floor:false }, { x:3.8, z:WALL_Z-.35, main:false, floor:false },
+    { x:6.2, z:WALL_Z-.35, main:false, floor:false }, { x:-4.8, z:EXTRA_Z, main:false, floor:true },
     { x:-2.2, z:EXTRA_Z, main:false, floor:true }, { x:2.2, z:EXTRA_Z, main:false, floor:true },
     { x:4.8, z:EXTRA_Z, main:false, floor:true },
   ];

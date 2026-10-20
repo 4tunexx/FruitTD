@@ -54,7 +54,8 @@ export const STUDIO_FLASH_SECONDS = 0.12;
 const sheetImages = new Map<string, HTMLImageElement | null | 'loading'>();
 const frameTextures = new Map<string, CanvasTexture>();
 let cachedStoreSig: string | null = null;
-let cacheCheckedAt=-Infinity;
+
+let cachedPublishedRevision = -1;
 let cachedEntities: Record<string, EntityStudioData> = {};
 
 export interface StudioFxCallbacks {
@@ -75,6 +76,7 @@ export function setStudioFxCallbacks(cb: StudioFxCallbacks): void {
 /** Map gameplay enemyKind → Media Studio entity key. */
 export function enemyKindToStudioKey(kind: EnemyKind): string {
   switch (kind) {
+    case 'bladebound': return 'enemy-bladebound';
     case 'normal':
       return 'enemy-normal';
     case 'explosive':
@@ -152,9 +154,8 @@ function storeSignature(): string | null {
 
 function refreshStoreCache(): Record<string, EntityStudioData> {
   try {
-    const now=typeof performance!=='undefined'?performance.now():Date.now();
-    if(cachedStoreSig!==null&&now-cacheCheckedAt<200)return cachedEntities;
-    cacheCheckedAt=now;
+    if(cachedStoreSig!==null && cachedPublishedRevision === publishedCreatorRevision()) return cachedEntities;
+    cachedPublishedRevision = publishedCreatorRevision();
     const sig = `${publishedCreatorRevision()}:${storeSignature()}`;
     if (sig === cachedStoreSig) return cachedEntities;
     cachedStoreSig = sig;
@@ -172,12 +173,14 @@ function refreshStoreCache(): Record<string, EntityStudioData> {
 
 /** Invalidate localStorage cache (e.g. after admin save). */
 export function invalidateStudioRuntimeCache(): void {
-  cacheCheckedAt=-Infinity;
   cachedStoreSig = null;
   cachedEntities = {};
 }
 
 subscribeStudioRuntimeInvalidation(invalidateStudioRuntimeCache);
+if (typeof window !== 'undefined') window.addEventListener('storage', event => {
+  if (!event.key || event.key === CREATOR_STORAGE_KEY || event.key === MEDIA_STUDIO_STORAGE_KEY) invalidateStudioRuntimeCache();
+});
 
 /** Entity data even without a sheet (for event hooks). */
 export function getStudioEntityData(entityKey: string): EntityStudioData | null {

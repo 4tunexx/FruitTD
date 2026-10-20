@@ -27,6 +27,7 @@ test('authorized Admin save/reload preserves gameplay, Creator, icons and econom
  config.fruits=[{kind:'apple',hp:123,speed:6}];config.enemies=[{kind:'swift',hpMultiplier:3}];
  config.iconOverrides={ModeCasual:'rune-01-03'};
  config.creatorMedia={version:2,selectedEntity:'tower-railgun-level-3',sounds:{'turret-railgun':media},entities:{'tower-railgun-level-3':{sheetDataUrl:media,cols:1,rows:1,frameW:0,frameH:0,clips:{idle:{startFrame:0,frameCount:1}},turret:{damageMultiplier:1.7,rangeMultiplier:1.3,cooldownMultiplier:.8,effectScale:1.2,effectColor:'#ffe394'},events:{onAttack:{sfxSlot:'turret-railgun'},onImpact:{fx:'spark'}}}}};
+ config.creatorMedia.entities['tower-custom-orchard']={sheetDataUrl:null,cols:1,rows:1,frameW:0,frameH:0,clips:{},label:'Orchard Defender',turret:{damageMultiplier:1,rangeMultiplier:1,cooldownMultiplier:1,effectScale:1,effectColor:'#ffb060',chassis:'railgun',baseDamage:35,damageGrowth:6,baseRange:7,rangeGrowth:.2,baseCooldown:1.5,cost:100,deathEffect:'pulse',deathScale:1.5}};
  config.menuConfig.panelBackgrounds={HEROES:media,horde:media};
  const saved=await post(config);assert.equal(saved.status,200);assert.equal((await saved.json()).success,true);
  const publicResult=await get(),runtime=mergeAdminConfig(publicResult.config);
@@ -35,6 +36,9 @@ test('authorized Admin save/reload preserves gameplay, Creator, icons and econom
  assert.equal(publicResult.offline,undefined);assert.equal(runtime.pvpConfig.towers.railgun!.damage,177);assert.equal(runtime.pvpConfig.towers.railgun!.range,7);
  assert.equal(runtime.coopConfig!.spawnGapMs,900);assert.equal(runtime.creatorMedia!.sounds!['turret-railgun'],media);
  assert.equal(runtime.creatorMedia!.entities['tower-railgun-level-3']!.turret!.rangeMultiplier,1.3);
+ assert.equal(runtime.creatorMedia!.entities['tower-custom-orchard'].turret!.chassis,'railgun');
+ assert.equal(runtime.creatorMedia!.entities['tower-custom-orchard'].turret!.baseDamage,35);
+ assert.equal(runtime.creatorMedia!.entities['tower-custom-orchard'].turret!.deathEffect,'pulse');
  assert.equal(resolveEntityArtwork('tower-railgun-level-3',runtime.creatorMedia!.entities)!.source,media);
  assert.equal(runtime.iconOverrides!.ModeCasual,'rune-01-03');assert.equal(runtime.menuConfig.panelBackgrounds!.HEROES,media);
  assert.equal(runtime.campaignBosses![24]!.name,'Roundtrip boss');assert.equal(runtime.campaignStories!.length,20);

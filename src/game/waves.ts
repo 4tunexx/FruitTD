@@ -74,6 +74,7 @@ function pressureHpScale(wave: number): number {
 function planTitle(level: number, waveInLevel: number, totalWavesInLevel: number, items: SpawnItem[]): { title: string; subtitle?: string } {
   const base = `LEVEL ${level}  ·  WAVE ${waveInLevel}/${totalWavesInLevel}`;
   const specials = new Set(items.map((i) => i.enemy).filter((e): e is EnemyKind => !!e && e !== 'normal'));
+  if (specials.has('bladebound')) return {title:base,subtitle:'Bladebound — slice the pink shield; turret fire and powers are deflected'};
   if (specials.has('explosive')) {
     return { title: base, subtitle: 'Chem-Burst inbound — turrets only, do not slice' };
   }
@@ -191,7 +192,7 @@ export function planBossWave(wave: number, mode: GameMode, level: number, config
     { kind: 'strawberry', enemy: 'swift', cue: 'Runner overlord — intercept its sprint' },
     { kind: 'pineapple', enemy: 'armored', cue: 'Rind titan — break through its armor' },
     { kind: 'apple', enemy: 'splitter', cue: 'Brood overlord — expect reinforcements' },
-    { kind: 'orange', enemy: 'normal', cue: 'Citrus overlord — hold the line' },
+    { kind: 'orange', enemy: 'bladebound', cue: 'Bladebound overlord — SLICE ONLY · turrets and powers are deflected' },
   ];
   const archetype = archetypes[(Math.max(1, level) - 1) % archetypes.length];
   add(items, archetype.kind, 1, true, archetype.enemy);

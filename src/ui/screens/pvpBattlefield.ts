@@ -109,8 +109,9 @@ export class PvpBattlefield {
       zoomOut.addEventListener('click', () => { this.zoom=Math.max(.7,this.zoom/1.18);this.resize(); });
       cameraControls.append(zoomIn,zoomOut);this.element.appendChild(cameraControls);
     }
-    this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    const mobile=matchMedia('(pointer: coarse)').matches;
+    this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: !mobile, alpha: false,powerPreference:mobile?'low-power':'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia('(pointer: coarse)').matches?1:1.5));
     this.scene.background = new Color(0x202529);
     this.scene.add(new AmbientLight(0xc7deee, .85));
     const sun = new DirectionalLight(0xffd878, 1.75); sun.position.set(-18, 30, 12); this.scene.add(sun);
@@ -215,17 +216,17 @@ export class PvpBattlefield {
           if (!snapshot.shared) {
             const allegiance = new Mesh(new RingGeometry(.48,.59,16),new MeshBasicMaterial({color:teamColor,transparent:true,opacity:.9,depthWrite:false}));
             allegiance.rotation.x=-Math.PI/2;allegiance.position.y=-.54;mesh.add(allegiance);
+          }
             const bar = new Group(); bar.position.y = .85;
             const back = new Mesh(new PlaneGeometry(.85, .08), new MeshBasicMaterial({ color: 0x07120b, side: DoubleSide }));
             const fill = new Mesh(new PlaneGeometry(.75, .045), new MeshBasicMaterial({ color: teamColor, side: DoubleSide }));
             bar.add(back, fill); mesh.add(bar); mesh.userData.hpBar = bar; mesh.userData.hpFill = fill;
-          }
           this.pieces.add(mesh); entry = { mesh, player, progress: fruit.progress, type: fruit.type, own }; this.fruits.set(fruit.id, entry);
         }
         const hpBar = entry.mesh.userData.hpBar as Group | undefined;
         if (hpBar) {
           const fraction = Math.max(0, Math.min(1, (fruit.hp ?? 1) / (fruit.maxHp ?? this.config.attacks[fruit.type]?.health ?? 1)));
-          hpBar.visible = fraction < .99 || Boolean(fruit.fighting || fruit.attackingTower);
+          hpBar.visible = true;
           if (typeof entry.mesh.userData.hp === 'number' && (fruit.hp ?? 0) < entry.mesh.userData.hp) entry.mesh.userData.hitAt = performance.now();
           entry.mesh.userData.hp = fruit.hp;
           const fill = entry.mesh.userData.hpFill as Mesh; fill.scale.x = Math.max(.01, fraction); fill.position.x = -(1 - fraction) * .375;
@@ -505,6 +506,8 @@ export class PvpBattlefield {
   }
   private animate = (now: number) => {
     if (this.disposed) return;
+    if(document.hidden){this.previousAt=now;this.frame=requestAnimationFrame(this.animate);return;}
+    if(matchMedia('(pointer: coarse)').matches && now-this.previousAt<1000/30-1){this.frame=requestAnimationFrame(this.animate);return;}
     const dt = Math.min(.05, (now - this.previousAt) / 1000); this.previousAt = now;
     for(const [id,keep] of this.keepMotion){
       keep.motion.update(dt);

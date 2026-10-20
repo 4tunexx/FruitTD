@@ -2,7 +2,7 @@ import { applyBalanceRows } from './contentBalance';
 import type { FruitKind } from './fruits';
 
 /** Special enemy behaviour layered on top of normal fruit targets. */
-export type EnemyKind = 'normal' | 'explosive' | 'chainburst' | 'armored' | 'splitter' | 'swift';
+export type EnemyKind = 'normal' | 'explosive' | 'chainburst' | 'armored' | 'splitter' | 'swift' | 'bladebound';
 
 export interface EnemyRule {
   kind: EnemyKind;
@@ -21,6 +21,11 @@ export interface EnemyRule {
 }
 
 export const ENEMY_RULES: Record<EnemyKind, EnemyRule> = {
+  bladebound: {
+    kind:'bladebound', label:'Bladebound', description:'Deflects turret fire and powers. Only direct blade slices can hurt it.',
+    flavor:'Bladebound — slice the pink shield!', warning:'BLADEBOUND — SLICES ONLY',
+    towerDamageOnLeak:2,towerDamageOnHit:0,hpMultiplier:1.2,speedMultiplier:.9,scoreMultiplier:1.8,xpMultiplier:1.8,colour:0xf472b6,
+  },
   normal: {
     kind: 'normal', label: 'Rot-Walker',
     description: 'Shambling orchard undead. Standard target.',
@@ -85,6 +90,7 @@ export function enemyRule(kind: EnemyKind): EnemyRule {
 export function specialEnemyForWave(wave: number, roll: number): EnemyKind {
   if (wave < 3) return 'normal';
   const r = Math.max(0, Math.min(0.999999, roll));
+  if (wave >= 7 && r > 0.9) return 'bladebound';
   if (wave >= 12 && r < 0.05) return 'splitter';
   if (wave >= 8 && r < 0.12) return 'armored';
   if (wave >= 5 && r < 0.22) return 'swift';

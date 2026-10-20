@@ -1,4 +1,6 @@
-import { weaponStats, TURRET_WEAPONS, projectileTravelSeconds } from './turretWeapons';
+import { getPublishedCreatorMedia } from './creatorMedia';
+import type { MediaStudioStore } from '../ui/adminMediaStudio';
+import { weaponStats, TURRET_WEAPONS, projectileTravelSeconds, type WeaponId, type BuiltinWeaponId } from './turretWeapons';
 import { turretVictims } from './turretTargets';
 import { combatTokenFrame, COMBAT_GOLD } from './combatTokens';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, RingGeometry, Shape, ShapeGeometry } from 'three';
@@ -7,7 +9,7 @@ import type { JuiceBank, JuiceSystem } from './juice';
 import type { PadDef } from './world';
 import { sampleStudioTexture, fireStudioEvent, playStudioSound, turretLevelTuning, createStudioAnimForKey, resetStudioAnimForKey, updateStudioAnim } from './studioRuntime';
 
-export type TurretKind = 'guillotine' | 'vortex' | 'laser' | 'railgun' | 'sprinkler' | 'blender';
+export type TurretKind = WeaponId;
 
 export interface TurretDef {
   kind: TurretKind;
@@ -26,6 +28,29 @@ export const TURRETS: TurretDef[] = [
   {kind:'sprinkler',name:TURRET_WEAPONS.sprinkler.name,cost:50,blurb:'Rotating fertiliser mist. Slows and weakens enemies inside its radius.',fuel:'orange',floorOnly:false},
   {kind:'blender',name:TURRET_WEAPONS.blender.name,cost:95,blurb:'Lobs a bomb into a group. Wide explosion; fast runners can escape the landing zone.',fuel:'none',floorOnly:false},
 ];
+
+const ORIGINAL_WEAPONS=structuredClone(TURRET_WEAPONS);
+/** A custom turret inherits real attack mechanics and all ten upgrade levels. */
+const ORIGINAL_CATALOG=structuredClone(TURRETS);
+let lastAppliedMedia:MediaStudioStore|null|undefined;
+export function refreshCreatorTurrets(media:MediaStudioStore|null=getPublishedCreatorMedia()):void {
+  if(media===getPublishedCreatorMedia() && media===lastAppliedMedia)return;
+  lastAppliedMedia=media;
+  Object.assign(TURRET_WEAPONS,structuredClone(ORIGINAL_WEAPONS));
+  TURRETS.splice(0,TURRETS.length,...structuredClone(ORIGINAL_CATALOG));
+  for(const [key,entity] of Object.entries(media?.entities||{})){
+    const id=key.slice(6) as TurretKind,t=entity.turret;
+    if(!key.startsWith('tower-')||key.includes('-level-')||!t)continue;
+    const base=ORIGINAL_WEAPONS[(t.chassis||id) as BuiltinWeaponId];
+    if(!base||(!ORIGINAL_WEAPONS[id]&&!/^custom-[a-z0-9_-]{1,48}$/.test(id)))continue;
+    TURRET_WEAPONS[id]={...base,name:entity.label||base.name,chassis:t.chassis,
+      damage:t.baseDamage??base.damage,damageGrowth:t.damageGrowth??base.damageGrowth,
+      range:t.baseRange??base.range,rangeGrowth:t.rangeGrowth??base.rangeGrowth,cooldown:t.baseCooldown??base.cooldown};
+    let def=TURRETS.find(row=>row.kind===id);
+    if(!def){def={kind:id,name:entity.label||base.name,cost:t.cost??80,blurb:`${base.name} chassis · automatically upgrades to level 10`,fuel:'none',floorOnly:(t.chassis||id)==='guillotine'};TURRETS.push(def);}
+    def.name=entity.label||base.name;if(t.cost!==undefined)def.cost=Math.round(t.cost);
+  }
+}
 
 export function turretDef(kind: TurretKind): TurretDef {
   return TURRETS.find((t) => t.kind === kind)!;
@@ -58,6 +83,8 @@ export interface TurretHit {
   brittle?: boolean;
   impulseX?: number;
   impulseZ?: number;
+  kind?:TurretKind;
+  level?:number;
 }
 
 export interface TurretTick {
@@ -72,6 +99,7 @@ export interface TurretTick {
 export class TurretRig {
   readonly group = new Group();
   readonly kind: TurretKind;
+  readonly behavior:BuiltinWeaponId;
   phase = 0;
   cooldown = 0;
   charge = 0;
@@ -89,6 +117,7 @@ export class TurretRig {
 
   constructor(kind: TurretKind) {
     this.kind = kind;
+    this.behavior=TURRET_WEAPONS[kind].chassis||(kind as BuiltinWeaponId);
     const colors = Object.fromEntries(Object.entries(TURRET_WEAPONS).map(([id,weapon])=>[id,weapon.color])) as Record<TurretKind,number>;
     const placeholder = new Mesh(new CircleGeometry(.55, 40), new MeshBasicMaterial({ color: 0x25282c, side: DoubleSide, transparent: true, opacity: 0.98 }));
     placeholder.userData.combatPortrait=true;
@@ -109,26 +138,26 @@ export class TurretRig {
       face.position.z=.012; face.scale.setScalar(1/1.13); rim.add(face); this.mechanism.add(rim); return rim;
     };
     part(new CircleGeometry(.36,24),0x202125);
-    if(kind==='guillotine') {
+    if(this.behavior==='guillotine') {
       this.spin=new Group();this.spin.position.z=.08;this.mechanism.add(this.spin);
       for(let i=0;i<4;i++) {
         const shape=new Shape();shape.moveTo(-.08,0);shape.lineTo(.08,.5);shape.lineTo(.3,.34);shape.lineTo(.12,.05);shape.closePath();
         const blade=part(new ShapeGeometry(shape),0xffdb9c);blade.rotation.z=i*Math.PI/2;this.spin.attach(blade);
       }
       part(new CircleGeometry(.13,16),0xffa52e).position.z=.12;
-    } else if(kind==='sprinkler') {
+    } else if(this.behavior==='sprinkler') {
       this.spin=new Group();this.spin.position.z=.08;this.mechanism.add(this.spin);
       for(let i=0;i<4;i++) {const arm=part(new PlaneGeometry(.12,.4),0xb9d783,Math.sin(i*Math.PI/2)*.18,Math.cos(i*Math.PI/2)*.18);arm.rotation.z=-i*Math.PI/2;this.spin.attach(arm);}
       part(new CircleGeometry(.19,16),0x687e48).position.z=.12;
-    } else if(kind==='vortex') {
+    } else if(this.behavior==='vortex') {
       part(new PlaneGeometry(.2,.48),0x9a6331,-.24,-.12);part(new PlaneGeometry(.2,.48),0x9a6331,.24,-.12);
       part(new PlaneGeometry(.28,.6),0x42484b,0,.18);part(new PlaneGeometry(.18,.2),0xffa23d,0,.49).position.z=.06;
       this.beam=part(new CircleGeometry(.095,12),0xffdc88,0,.59);
-    } else if(kind==='railgun') {
+    } else if(this.behavior==='railgun') {
       part(new PlaneGeometry(.46,.37),0x4a5050,0,-.12);
       for(const x of [-.2,.2]) {part(new PlaneGeometry(.18,.64),0x6c735e,x,.2);part(new PlaneGeometry(.12,.13),0x111619,x,.51).position.z=.08;part(new PlaneGeometry(.12,.14),0xd5ad59,x,.02).position.z=.08;}
       part(new CircleGeometry(.11,12),0xffd36b,0,-.17).position.z=.12;
-    } else if(kind==='laser') {
+    } else if(this.behavior==='laser') {
       part(new PlaneGeometry(.33,.54),0x34383f,0,.14);part(new PlaneGeometry(.13,.44),colors[kind],0,.25).position.z=.07;
       this.beam=part(new CircleGeometry(.13,16),0xfff2a4,0,.51);
     } else {
@@ -191,12 +220,12 @@ export class TurretRig {
     if(this.beam)this.beam.visible=!!tracked;
     this.animate(dt,!!tracked);this.cooldown=Math.max(0,this.cooldown-dt);this.charge+=dt;
     const onHit=(fruit:Fruit,damage:number)=>{
-      ctx.onHit({fruit,damage:damage*tuning.damageMultiplier,brittle:this.kind==='sprinkler',split:this.kind==='guillotine'});
-      if(this.kind!=='railgun'&&this.kind!=='blender')fireStudioEvent(`tower-${this.kind}-level-${level}`,'onImpact',fruit.group.position)||fireStudioEvent(`tower-${this.kind}`,'onImpact',fruit.group.position);
+      ctx.onHit({fruit,kind:this.kind,level,damage:damage*tuning.damageMultiplier,brittle:this.behavior==='sprinkler',split:this.behavior==='guillotine'});
+      if(this.behavior!=='railgun'&&this.behavior!=='blender')fireStudioEvent(`tower-${this.kind}-level-${level}`,'onImpact',fruit.group.position)||fireStudioEvent(`tower-${this.kind}`,'onImpact',fruit.group.position);
     };
     if(this.projectile){
       const shot=this.projectile;shot.left-=dt;
-      if(this.kind==='railgun'&&shot.target.alive){shot.x=shot.target.group.position.x;shot.z=shot.target.group.position.z;}
+      if(this.behavior==='railgun'&&shot.target.alive){shot.x=shot.target.group.position.x;shot.z=shot.target.group.position.z;}
       if(shot.left<=0){
         const blast=weaponStats(this.kind,shot.level).blast;
         for(const fruit of fruits)if(fruit.alive&&Math.hypot(fruit.group.position.x-shot.x,fruit.group.position.z-shot.z)<=blast)onHit(fruit,weaponStats(this.kind,shot.level).damage);
@@ -207,16 +236,16 @@ export class TurretRig {
     }
     let noisy=false;
     if(tracked&&this.cooldown<=0&&!this.projectile){
-      const fuel=turretDef(this.kind).fuel,need=this.kind==='railgun'?6:1;
+      const fuel=turretDef(this.kind).fuel,need=this.behavior==='railgun'?6:1;
       if(fuel!=='none'&&!bank.take(fuel,need))return false;
       this.cooldown=stats.cooldown;
       const tx=tracked.group.position.x,tz=tracked.group.position.z;
-      if(this.kind==='railgun'||this.kind==='blender'){
+      if(this.behavior==='railgun'||this.behavior==='blender'){
         this.projectile={target:tracked,x:tx,z:tz,left:projectileTravelSeconds(this.kind,Math.hypot(tx-x,tz-z)),level};
       }else {
         const victims=turretVictims(this.kind,{x,y:z},tracked,fruits.filter(f=>f.alive),f=>({x:f.group.position.x,y:f.group.position.z}),range,level);
         for(const fruit of victims){
-          if(this.kind==='sprinkler'){fruit.brittle=1.8;juice.floorSplash(fruit.group.position.x,fruit.group.position.z,0xb9d783,2);}
+          if(this.behavior==='sprinkler'){fruit.brittle=1.8;juice.floorSplash(fruit.group.position.x,fruit.group.position.z,0xb9d783,2);}
           onHit(fruit,stats.damage);
         }
       }
@@ -232,7 +261,7 @@ function nearest(fruits: Fruit[], x: number, z: number, range: number): Fruit | 
   let best: Fruit | null = null;
   let bestD = range;
   for (const fruit of fruits) {
-    if (!fruit.alive) continue;
+    if (!fruit.alive || fruit.enemyKind === 'bladebound') continue;
     const d = Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z);
     if (d < bestD) {
       bestD = d;

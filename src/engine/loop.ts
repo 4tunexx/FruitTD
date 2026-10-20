@@ -9,6 +9,8 @@ export class GameLoop {
   fps = 60;
   running = true;
   private raf = 0;
+  private readonly mobile = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+  private lastRendered = 0;
 
   constructor(
     private readonly simulate: (dt: number) => void,
@@ -20,6 +22,11 @@ export class GameLoop {
     this.last = performance.now();
     const tick = (now: number) => {
       this.raf = requestAnimationFrame(tick);
+      if (typeof document !== 'undefined' && document.hidden) { this.last = now; this.acc = 0; return; }
+      // Render at 30 Hz on phones; fixed 60 Hz simulation still processes every step.
+      const interval = this.mobile ? 1000 / 30 : 1000 / 60;
+      if (now - this.lastRendered < interval - 1) return;
+      this.lastRendered = now;
       let dt = (now - this.last) / 1000;
       this.last = now;
       if (dt > 0.05) dt = 0.05;

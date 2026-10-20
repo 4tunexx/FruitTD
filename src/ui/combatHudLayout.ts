@@ -11,6 +11,15 @@ export function installCombatHudLayout():void {
   const hud=document.getElementById('hud'),profile=document.getElementById('player-chip');
   const status=document.getElementById('battle-status'),boss=document.getElementById('boss-health'),notice=document.getElementById('hud-toast');
   if(!hud||!profile||!status)return;
+  const toggle=document.createElement('button');
+  toggle.type='button';toggle.id='combat-status-toggle';toggle.textContent='Hide info';
+  toggle.setAttribute('aria-controls','battle-status');toggle.setAttribute('aria-expanded','true');
+  hud.appendChild(toggle);
+  toggle.addEventListener('click',()=>{
+    const collapsed=status.classList.toggle('is-collapsed');
+    toggle.textContent=collapsed?'Show info':'Hide info';
+    toggle.setAttribute('aria-expanded',String(!collapsed));
+  });
   const align=()=>{
     const origin=hud.getBoundingClientRect().top;
     const slots=combatHudSlots(profile.getBoundingClientRect().bottom-origin,status.getBoundingClientRect().height,

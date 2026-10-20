@@ -272,3 +272,10 @@ body[data-ftd-screen='PLAY'] .turret-btn { display:grid;grid-template-columns:28
 body[data-ftd-screen='PLAY'] .turret-btn__glyph { grid-row:1/3;align-self:center;width:26px;height:26px; }
 body[data-ftd-screen='PLAY'] .turret-btn__detail { grid-column:2;font-size:10px;line-height:1.4;font-weight:500;color:#e0d8c4; }
 body[data-ftd-screen='PLAY'] .turret-btn:disabled { opacity:.6; }
+
+/* Keep build actions attached to the viewport, clear of the tower health rail. */
+body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { position:fixed;left:0;bottom:calc(30px + env(safe-area-inset-bottom,0px));margin:0;z-index:60; }
+#combat-status-toggle { display:none; }
+body[data-ftd-screen='PLAY'] #combat-status-toggle { display:block;position:absolute;right:58px;top:15px;z-index:45;min-height:32px;padding:4px 8px;border:1px solid #b28c4e;background:#202125;color:#ffe394;pointer-events:auto;font-size:10px; }
+#battle-status.is-collapsed { display:none!important; }
+body[data-ftd-screen='PLAY'] #super-fill { transition:none; }

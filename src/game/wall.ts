@@ -599,7 +599,7 @@ export class WallBase {
       let best: Fruit | null = null;
       let bestD = stats.range*turretLevelTuning('main',slot.level).rangeMultiplier;
       for (const fruit of fruits) {
-        if (!fruit.alive) continue;
+        if (!fruit.alive || fruit.enemyKind === 'bladebound') continue;
         const d = Math.hypot(fruit.group.position.x - slot.x, fruit.group.position.z - slot.z);
         if (d < bestD) {
           bestD = d;

@@ -11,12 +11,13 @@ export class TurretEffects {
   const mesh=new Mesh(geometry,new MeshBasicMaterial({color,transparent:true,opacity,side:DoubleSide,depthWrite:false,depthTest:false,toneMapped:false}));
   mesh.renderOrder=35;mesh.userData.opacity=opacity;return mesh;
  }
- shot(kind:TurretKind|'main',from:Vector3,to:Vector3,level=1,color=TURRET_COLORS[kind],scale=1,radius?:number):void {
+ shot(kind:TurretKind|'main',from:Vector3,to:Vector3,level=1,color=kind==='main'?TURRET_COLORS.main:TURRET_WEAPONS[kind].color,scale=1,radius?:number):void {
   const group=new Group(),strength=(1+Math.min(9,level-1)*.065)*scale;
+  const behavior=kind==='main'?'main':TURRET_WEAPONS[kind].chassis||kind;
   const travel=projectileTravelSeconds(kind,from.distanceTo(to));
-  const duration=travel?travel+.4:kind==='laser'?.24:kind==='sprinkler'?.7:.38;
+  const duration=travel?travel+.4:behavior==='laser'?.24:behavior==='sprinkler'?.7:.38;
   const stats=kind==='main'?null:weaponStats(kind,level);
-  if(kind==='laser'||kind==='vortex'){
+  if(behavior==='laser'||behavior==='vortex'){
    const direction=to.clone().sub(from);direction.y=0;
    if(direction.lengthSq()>0)to=from.clone().addScaledVector(direction.normalize(),radius??stats!.range);
   }
@@ -24,9 +25,9 @@ export class TurretEffects {
    const delta=b.clone().sub(a),mesh=this.mesh(new CylinderGeometry(r,r,Math.max(.01,delta.length()),6),tint,opacity);
    mesh.position.copy(a).lerp(b,.5);mesh.quaternion.setFromUnitVectors(new Vector3(0,1,0),delta.normalize());group.add(mesh);return mesh;
   };
-  if(kind==='railgun'||kind==='blender') {
-   const projectile=this.mesh(new SphereGeometry(kind==='blender'?.19:.13,8,6),kind==='blender'?0x272d30:COMBAT_GOLD);
-   projectile.userData.projectile=true;projectile.userData.arc=kind==='blender'?1.8:.2;group.add(projectile);
+  if(behavior==='railgun'||behavior==='blender') {
+   const projectile=this.mesh(new SphereGeometry(behavior==='blender'?.19:.13,8,6),behavior==='blender'?0x272d30:COMBAT_GOLD);
+   projectile.userData.projectile=true;projectile.userData.arc=behavior==='blender'?1.8:.2;group.add(projectile);
    const smoke=this.mesh(new SphereGeometry(.15,6,4),0x938674,.5);smoke.userData.exhaust=true;group.add(smoke);
    const splash=stats!.blast*scale;
    for(let i=0;i<8;i++){
@@ -34,34 +35,35 @@ export class TurretEffects {
     puff.userData.blast=i; puff.userData.blastRadius=splash;group.add(puff);
    }
    const shock=this.mesh(new RingGeometry(.85,.97,32),color,.85);shock.rotation.x=-Math.PI/2;shock.userData.shock=splash;group.add(shock);
-  } else if(kind==='vortex') {
+  } else if(behavior==='vortex') {
    const delta=to.clone().sub(from),distance=delta.length(),direction=delta.normalize();
    const side=new Vector3(-direction.z,0,direction.x);
    for(let i=0;i<12;i++){
     const flame=this.mesh(new SphereGeometry(.09+(i/12)*.15,6,4),i%3?color:0xffedaa,.8);
     flame.userData.flame=i/12;flame.userData.direction=direction;flame.userData.side=side;flame.userData.reach=distance;group.add(flame);
    }
-  } else if(kind==='sprinkler') {
+  } else if(behavior==='sprinkler') {
    const reach=radius??stats!.range;
    for(let i=0;i<16;i++){
     const mist=this.mesh(new SphereGeometry(.1,5,4),i%3?color:0xe4edbe,.6);
     mist.userData.mist=i/16;mist.userData.reach=reach;group.add(mist);
    }
-  } else if(kind==='guillotine') {
+  } else if(behavior==='guillotine') {
    const reach=radius??stats!.range;
    const arc=this.mesh(new RingGeometry(reach*.85,reach*.94,40,1,0,Math.PI*1.6),color,.8);
    arc.rotation.x=-Math.PI/2;arc.position.copy(from);arc.userData.spin=true;group.add(arc);
    beam(from,to,.035*strength,color,.6);
-  } else if(kind==='laser') {beam(from,to,.14*strength,color,.3);beam(from,to,.04*strength,0xfffae1);}
+  } else if(behavior==='laser') {beam(from,to,.14*strength,color,.3);beam(from,to,.04*strength,0xfffae1);}
   else {const bullet=this.mesh(new SphereGeometry(.1*strength,7,5),color);bullet.userData.projectile=true;group.add(bullet);beam(from,to,.03*strength,color,.4);}
   const flash=this.mesh(new SphereGeometry(.15*strength,6,4),COMBAT_GOLD);flash.position.copy(from);flash.userData.flash=true;group.add(flash);
   const spark=this.mesh(new RingGeometry(.13,.22,20),color);spark.position.copy(to);spark.rotation.x=-Math.PI/2;spark.userData.impact=true;group.add(spark);
   this.group.add(group);this.effects.push({group,age:0,duration,travel,kind,from:from.clone(),to:to.clone()});
   while(this.effects.length>32)this.release(this.effects.shift()!.group);
  }
- burst(point:Vector3,color:number):void {
+ burst(point:Vector3,color:number,style:'juice'|'sparks'|'pulse'='juice',scale=1):void {
   const group=new Group();
-  for(let i=0;i<9;i++){const drop=this.mesh(new SphereGeometry(.07+(i%3)*.035,5,4),i%3?color:0xffe394);drop.position.copy(point);drop.userData.velocity=new Vector3(Math.cos(i*2.4)*(1+i%3),1.4,Math.sin(i*2.4)*(1+i%3));group.add(drop);}
+  if(style==='pulse'){const ring=this.mesh(new RingGeometry(.7,.85,24),color);ring.position.copy(point);ring.rotation.x=-Math.PI/2;ring.userData.impact=true;group.add(ring);}
+  for(let i=0;i<(style==='pulse'?4:9);i++){const drop=this.mesh(new SphereGeometry((style==='sparks'?.04:.07)+(i%3)*.035,5,4),i%3?color:0xffe394);drop.position.copy(point);drop.userData.velocity=new Vector3(Math.cos(i*2.4)*(1+i%3)*scale,1.4*scale,Math.sin(i*2.4)*(1+i%3)*scale);group.add(drop);}
   this.group.add(group);this.effects.push({group,age:0,duration:.55,travel:0,kind:'burst',from:point.clone(),to:point.clone()});
   while(this.effects.length>32)this.release(this.effects.shift()!.group);
  }

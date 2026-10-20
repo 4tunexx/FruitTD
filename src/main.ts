@@ -1,3 +1,4 @@
+import { turretLevelTuning } from './game/studioRuntime';
 import { LoadingIndicator } from './ui/components/loading';
 import { heroArt } from './ui/heroArt';
 import { purchaseHeroPerk } from './game/heroPerkPurchase';
@@ -38,7 +39,7 @@ import {
 import { currentRewardModifiers } from './game/progression/modifiers';
 import type { ComboResetReason } from './game/progression/combo';
 import { getEnabledSlicers, getLiveConfig, getSlicers, loadLiveConfig } from './services/liveConfig';
-import { planWave, planBossWave, wavesPerLevel } from './game/waves';
+import { planWave, planBossWave, wavesPerLevel, type WavePlan } from './game/waves';
 import { fruitLoot, frutsForEvent } from './game/matchEconomy';
 import { detonatePulpPopper } from './game/chainBurst';
 import { campaignBoss, campaignWaves, sanitizeCampaignProgress } from './game/campaign';
@@ -245,6 +246,12 @@ let guestTrailLife = 0;
 let guestAttackHeld = false;
 const guestCursor = document.getElementById('coop-guest-cursor');
 const guestHelp = document.getElementById('coop-guest-help');
+const seenWaveTips = new Set<string>();
+function waveBriefing(plan:WavePlan):string {
+  const summary=`${plan.title} · ${plan.items.length} enemies · HP ×${plan.hpScale.toFixed(1)}`;
+  if(plan.subtitle && !seenWaveTips.has(plan.subtitle)){seenWaveTips.add(plan.subtitle);return `${summary} — ${plan.subtitle}`;}
+  return summary;
+}
 let totalFruitsSliced = 0;
 let statsRunId = `${Date.now()}`;
 let statsStrokes = 0;
@@ -306,6 +313,9 @@ void loadLiveConfig().then(() => {
 fruits.onSpawn = (fruit) => {
   const enemy = enemyRule(fruit.enemyKind);
   if (enemy.kind === 'normal' || !enemy.warning) return;
+  const warningKey=`enemy:${enemy.kind}`;
+  if(!fruit.boss&&seenWaveTips.has(warningKey))return;
+  seenWaveTips.add(warningKey);
   // Explosives are a tower-defense decision, not a random bomb: give them a
   // longer, louder callout so the player can plan the slice (§7).
   if (enemy.kind === 'explosive') {
@@ -768,7 +778,7 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
   }
 }
 
-function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): void {
+function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, source: 'blade' | 'turret' | 'super' = 'blade'): void {
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   debris.spawnPair(fruit, swipe, cutNormal);
@@ -788,7 +798,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   const juiceHunterMul = heroCombatPerkMultiplier(state.hero, 'juice');
   const towerJuiceMul = getTowerMilestoneBonuses(getTowerXpState().level).juiceGainMultiplier;
   const juiceAmt = Math.max(1, Math.round((fruit.brittle > 0 ? 3 : 2) * juiceMul * juiceHunterMul * towerJuiceMul));
-  bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
+  if (source !== 'super') bank.add(juiceHueFromKind(fruit.kind), juiceAmt);
   
   // Central reward pipeline — special-enemy score/XP multipliers are applied
   // inside calculateReward, so they always reach the economy.
@@ -820,7 +830,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
   }
 
   const rules = modeRules(state.mode);
-  chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
+  if (source !== 'super') chargeSuper(state, (3.5 + save.skills.flow * 1.2) * rules.superMul);
   sfx.slice(fruit.kind, Math.max(2, state.combo), false);
   if (state.combo >= 2) sfx.combo(state.combo);
   combos.onKills(1);
@@ -847,7 +857,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
     emit({ type: 'boss_kill', fruitKind: fruit.kind, fruitFamily: family, boss: true });
   }
   emit({ type: 'slash_damage', damage: Math.max(1, FRUIT_DEFS[fruit.kind].hp), score: scoreReward });
-  emit({ type: 'juice', amount: juiceAmt });
+  if (source !== 'super') emit({ type: 'juice', amount: juiceAmt });
   if (fruit.boss && state.mode === 'campaign') {
     finishCampaignStage();
     return;
@@ -860,7 +870,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0): 
     renderer.impulseBlast(0.65);
     combatImpact.trigger('blast');
     sfx.bombExplode();
-    detonatePulpPopper(fruits, fruit, (other) => killFruit(other, swipe, 1.1, chainDepth + 1));
+    detonatePulpPopper(fruits, fruit, (other) => killFruit(other, swipe, 1.1, chainDepth + 1, source));
   }
 }
 
@@ -1132,6 +1142,7 @@ function restart(): void {
   guestCursor?.classList.toggle('hidden', !rules.guest);
   guestHelp?.classList.toggle('hidden', !rules.guest);
   totalFruitsSliced = 0;
+  seenWaveTips.clear();
   statsRunId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   statsStrokes = statsHits = 0;
   lootEligibleKills = 0;
@@ -1408,7 +1419,7 @@ function tryHeroAbility(id: string): void {
     const tint = ability.effect === 'frost' ? 0x7dd3fc : ability.hero === 'tripos' ? 0xf472b6 : heroDef(state.hero).color;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, tint);
     if (stats.slowMs) { fruit.powerSlowLeft = Math.max(fruit.powerSlowLeft ?? 0, stats.slowMs/1000); fruit.powerSlowMultiplier = stats.slowMultiplier; }
-    if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2);
+    if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2, 0, 'super');
   }
   hud.refreshAbilityBar(save);
 }
@@ -1425,7 +1436,7 @@ function trySuper(): void {
   for (const fruit of fruits.fruits) {
     if (!fruit.alive) continue;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, 0xfbbf24);
-    if (fruits.hurt(fruit, dmg, 'super')) killFruit(fruit, swipe, 2);
+    if (fruits.hurt(fruit, dmg, 'super')) killFruit(fruit, swipe, 2, 0, 'super');
   }
 }
 
@@ -1786,7 +1797,7 @@ function simulate(dt: number): void {
       state.waveLeaks = 0;
       state.waveIsBoss = true;
       fruits.beginWave(plan.items, plan.gap, plan.hpScale);
-      toast(state, plan.subtitle ? `${plan.title} — ${plan.subtitle}` : plan.title, 1.8);
+      toast(state, waveBriefing(plan), 1.8);
       sfx.wave();
     }
   } else if (!state.waveSpawning) {
@@ -1807,7 +1818,7 @@ function simulate(dt: number): void {
       if (plan.boss) {
         showBossIntro(plan.level);
       } else {
-        toast(state, plan.subtitle ? `${plan.title} — ${plan.subtitle}` : plan.title, 1.4);
+        toast(state, waveBriefing(plan), 1.4);
       }
       sfx.wave();
     }
@@ -1902,7 +1913,7 @@ function simulate(dt: number): void {
     bossHealth.classList.toggle('hidden', !activeBoss || !navigation.isInGame());
     if (activeBoss) {
       const percent = Math.max(0, Math.min(100, Math.ceil(activeBoss.hp / activeBoss.maxHp * 100)));
-      const name = state.mode === 'campaign' ? campaignBoss(state.level, getLiveConfig().campaignBosses).name : 'OVERLORD';
+      const name = (state.mode === 'campaign' ? campaignBoss(state.level, getLiveConfig().campaignBosses).name : 'OVERLORD') + (activeBoss.enemyKind==='bladebound'?' · SLICES ONLY':'');
       const label = document.getElementById('boss-health-name');
       const value = document.getElementById('boss-health-value');
       const fill = document.getElementById('boss-health-fill') as HTMLElement | null;
@@ -1916,6 +1927,7 @@ function simulate(dt: number): void {
   tickGuest(dt);
 
   wall.update(dt, fruits.fruits, juice, bank, (hit) => {
+    if (hit.fruit.enemyKind === 'bladebound') return;
     if (hit.impulseX) hit.fruit.impulseX += hit.impulseX;
     if (hit.impulseZ) hit.fruit.impulseZ += hit.impulseZ;
     if (hit.brittle) hit.fruit.brittle = Math.max(hit.fruit.brittle, 2.4);
@@ -1928,9 +1940,11 @@ function simulate(dt: number): void {
       renderer.impulseShake(0.22);
     }
     const hitScreen = worldPct(hit.fruit.group.position.x, hit.fruit.group.position.y + .55, hit.fruit.group.position.z);
-    floatingScore.spawn(String(Math.min(hit.fruit.hp, dmg)), hitScreen.nx, hitScreen.ny, 'damage');
+    floatingScore.spawn(String(Math.max(1, Math.round(Math.min(hit.fruit.hp, dmg)))), hitScreen.nx, hitScreen.ny, 'damage');
     if (fruits.hurt(hit.fruit, dmg)) {
-      killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1);
+      killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1, 0, 'turret');
+      if(hit.kind){const tuning=turretLevelTuning(hit.kind,hit.level||1);
+        if(tuning.deathEffect)wall.combatEffects.burst(hit.fruit.group.position,tuning.effectColor?parseInt(tuning.effectColor.slice(1),16):FRUIT_DEFS[hit.fruit.kind].splash,tuning.deathEffect,tuning.deathScale||1);}
     }
   });
   if (!state.running) return;

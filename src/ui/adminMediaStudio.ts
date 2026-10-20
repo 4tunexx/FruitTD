@@ -1,3 +1,4 @@
+import { refreshCreatorTurrets } from '../game/turrets';
 import type { CombatPreview } from './admin/combatPreview';
 import { TURRET_WEAPONS, type WeaponId } from '../game/turretWeapons';
 import { builtinEntityArtwork, resolveEntityArtwork, mergeStudioDraft, type Artwork } from '../game/entityArtwork';
@@ -78,6 +79,7 @@ export const STUDIO_ENTITY_OPTIONS: { key: string; label: string }[] = [
   { key: 'enemy-splitter', label: 'Pod-Spawner (enemy-splitter)' },
   { key: 'enemy-swift', label: 'Juice-Runner (enemy-swift)' },
   { key: 'enemy-chainburst', label: 'Chain-Burst (enemy-chainburst)' },
+  { key: 'enemy-bladebound', label: 'Bladebound · Slices only' },
   { key: 'tower-main', label: 'Main Tower (tower-main)' },
   { key: 'tower-wall', label: 'Full-width Defense Wall (tower-wall)' },
   ...(['guillotine', 'vortex', 'laser', 'railgun', 'sprinkler', 'blender'] as const).map((kind) => ({ key: `tower-${kind}`, label: TURRET_WEAPONS[kind].name })),
@@ -526,7 +528,13 @@ function syncEventInputs(): void {
   const ent = currentEntity();
   const settings=$('studio-turret-settings');if(settings)settings.hidden=!store.selectedEntity.startsWith('tower-');
   const tuning=ent.turret||DEFAULT_TURRET_TUNING;
-  for(const key of Object.keys(DEFAULT_TURRET_TUNING) as Array<keyof TurretTuning>){const input=$(`studio-turret-${key}`) as HTMLInputElement|null;if(input)input.value=String(tuning[key]);}
+  const weapon=TURRET_WEAPONS[store.selectedEntity.replace(/^tower-/,'').replace(/-level-\d+$/,'') as WeaponId];
+  const defaults={baseDamage:weapon?.damage,damageGrowth:weapon?.damageGrowth,baseRange:weapon?.range,rangeGrowth:weapon?.rangeGrowth,baseCooldown:weapon?.cooldown,cost:80,chassis:weapon?(weapon.chassis||store.selectedEntity.replace(/^tower-/,'').replace(/-level-\d+$/,'')):'laser',deathEffect:'juice',deathScale:1};
+  for(const key of [...Object.keys(DEFAULT_TURRET_TUNING),...Object.keys(defaults)] as Array<keyof TurretTuning>){const input=$(`studio-turret-${key}`) as HTMLInputElement|null;if(input){input.value=String(tuning[key]??defaults[key as keyof typeof defaults]??'');const output=input.nextElementSibling;if(output?.tagName==='OUTPUT')output.textContent=input.value;}}
+  const baseOnly=/-level-\d+$/.test(store.selectedEntity)||store.selectedEntity==='tower-main'||store.selectedEntity==='tower-wall';
+  for(const field of ['baseDamage','damageGrowth','baseRange','rangeGrowth','baseCooldown','cost','chassis']){
+    const input=$(`studio-turret-${field}`) as HTMLInputElement|null;if(input){input.disabled=baseOnly;input.closest('label')?.toggleAttribute('hidden',baseOnly);}
+  }
   if (!ent.events) ent.events = defaultEvents();
   for (const kind of ['onSpawn', 'onHit', 'onDeath', 'onAttack', 'onImpact'] as StudioHookKind[]) {
     const hook = ent.events[kind] ?? defaultEventHook();
@@ -570,7 +578,8 @@ let combatPreview:CombatPreview|null=null;
 let combatPreviewRequest=0;
 function renderCombatModel(key:string):void {
   let previewHost=$('studio-combat-preview');
-  const supported=/^(?:tower-(?:main|guillotine|vortex|laser|railgun|sprinkler|blender)|hero-|enemy-|boss-)/.test(key);
+  refreshCreatorTurrets(store);
+  const supported=/^(?:tower-(?:custom-|main|guillotine|vortex|laser|railgun|sprinkler|blender)|hero-|enemy-|boss-)/.test(key);
   if(!supported){if(previewHost)previewHost.hidden=true;return;}
   if(!previewHost){
     previewHost=document.createElement('div');previewHost.id='studio-combat-preview';previewHost.className='studio-combat-preview';
@@ -581,12 +590,12 @@ function renderCombatModel(key:string):void {
       void import('./admin/combatPreview').then(({CombatPreview})=>{
         if(request!==combatPreviewRequest||!previewHost!.isConnected)return;
         const viewport=document.createElement('div');viewport.className='studio-combat-preview__viewport';previewHost!.appendChild(viewport);
-        try{combatPreview=new CombatPreview(viewport);combatPreview.setEntity(store.selectedEntity);button.hidden=true;}
+        try{combatPreview=new CombatPreview(viewport);combatPreview.setEntity(store.selectedEntity,currentEntity().turret);button.hidden=true;}
         catch(error){viewport.remove();setStatus(error instanceof Error?`Live model unavailable: ${error.message}`:'Live model unavailable.',false);button.disabled=false;}
       }).catch(()=>{button.disabled=false;setStatus('Live model could not load. Reload Creator and try again.',false);});
     });
   }
-  previewHost.hidden=false;if(combatPreview)combatPreview.setEntity(key);
+  previewHost.hidden=false;if(combatPreview)combatPreview.setEntity(key,store.entities[key]?.turret);
 }
 function renderLiveArtwork():void {
   const host=$('studio-live-artwork');if(!host)return;
@@ -1407,9 +1416,28 @@ function bindControls(): void {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) importEntityPackFile(file);
   });
-  for(const key of Object.keys(DEFAULT_TURRET_TUNING))$(`studio-turret-${key}`)?.addEventListener('change',()=>{
-    const raw:Record<string,string>={};for(const field of Object.keys(DEFAULT_TURRET_TUNING))raw[field]=($(`studio-turret-${field}`) as HTMLInputElement)?.value||'';
-    currentEntity().turret=normalizeTurretTuning(raw);saveStudioStore(store);notifyStudioRuntimeChanged();setStatus('Turret settings saved to draft. Publish pack to share.');
+  for(const slider of document.querySelectorAll<HTMLInputElement>('#studio-turret-settings input[type="range"]')){
+    const output=document.createElement('output');output.setAttribute('for',slider.id);output.textContent=slider.value;
+    slider.after(output);slider.addEventListener('input',()=>{output.textContent=slider.value;});
+  }
+  const turretFields=[...Object.keys(DEFAULT_TURRET_TUNING),'chassis','baseDamage','damageGrowth','baseRange','rangeGrowth','baseCooldown','cost','deathEffect','deathScale'];
+  for(const key of turretFields)$(`studio-turret-${key}`)?.addEventListener('input',()=>{
+    const raw:Record<string,string>={};for(const field of turretFields)raw[field]=($(`studio-turret-${field}`) as HTMLInputElement)?.value||'';
+    currentEntity().turret=normalizeTurretTuning(raw);saveStudioStore(store);notifyStudioRuntimeChanged();
+    refreshCreatorTurrets(store);combatPreview?.setEntity(store.selectedEntity,currentEntity().turret);
+    setStatus('Turret draft updated. Preview uses these settings. Publish pack to share.');
+  });
+  $('studio-turret-preview-level')?.addEventListener('input',()=>combatPreview?.setPreviewLevel(Number(($('studio-turret-preview-level') as HTMLInputElement).value)));
+  $('studio-open-turrets')?.addEventListener('click',()=>{store.selectedEntity='tower-laser';fillEntitySelect();void onEntityChange().then(()=>$('studio-turret-settings')?.scrollIntoView({behavior:'smooth',block:'start'}));});
+  $('studio-create-turret')?.addEventListener('click',()=>{
+    const name=($('studio-new-turret-name') as HTMLInputElement)?.value.trim()||'Custom turret';
+    const chassis=($('studio-new-turret-chassis') as HTMLSelectElement).value as WeaponId;
+    const base=TURRET_WEAPONS[chassis]||TURRET_WEAPONS.laser;
+    let id=`tower-custom-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,28)||'turret'}`;
+    const root=id;let n=2;while(store.entities[id])id=`${root}-${n++}`;
+    store.entities[id]={...emptyEntityData(),label:name,turret:normalizeTurretTuning({...DEFAULT_TURRET_TUNING,chassis,baseDamage:base.damage,damageGrowth:base.damageGrowth,baseRange:base.range,rangeGrowth:base.rangeGrowth,baseCooldown:base.cooldown,cost:80})};
+    store.selectedEntity=id;saveStudioStore(store);notifyStudioRuntimeChanged();refreshCreatorTurrets(store);fillEntitySelect();renderEntityRail();void onEntityChange();
+    setStatus('Turret created with automatic levels 1–10. Edit its art, stats and effects, then Publish pack.');
   });
   $('studio-duplicate')?.addEventListener('click', () => duplicateEntity());
   $('studio-clear-entity')?.addEventListener('click', async () => {
