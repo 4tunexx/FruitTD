@@ -4,7 +4,7 @@ import { el } from './dom';
 export function LoadingIndicator(message = 'Loading…'): HTMLElement {
   return el('div', { class: 'ftd-loading', role: 'status', 'aria-live': 'polite' }, [
     el('span', { class: 'ftd-loading__spinner', 'aria-hidden': 'true' }),
-    el('span', { text: message }),
+    el('span', { class: 'ftd-loading__message', text: message }),
   ]);
 }
 

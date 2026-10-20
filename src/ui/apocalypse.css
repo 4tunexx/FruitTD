@@ -240,7 +240,7 @@ html[data-ftd-motion='reduced'] .ftd-score-chart__plot i { animation:none; }
   .ftd-duel-feedback { top:105px; width:max-content; text-align:center; font-size:11px; padding:8px 12px; }
 }
 @media(prefers-reduced-motion:reduce) {
-  .ftd-playcard__cta,.ftd-playcard__cta::after,.ftd-pvp__result,.ftd-loading__spinner,.boot-slash,.boot-half,.boot-drip,.boot-bar>i { animation:none; }
+  .ftd-playcard__cta,.ftd-playcard__cta::after,.ftd-pvp__result,.ftd-loading__spinner { animation:none; }
 }
 [data-ftd-motion='reduced'] :is(.ftd-playcard__cta,.ftd-pvp__result,.ftd-score-chart i,.campaign-boss-victory section,.ftd-loading__spinner),[data-ftd-motion='reduced'] .ftd-playcard__cta::after { animation:none; }
 
@@ -313,11 +313,6 @@ html.has-auth-logo-image :is(#modal-auth,#modal-steam) .auth-fruit {
 }
 html.has-auth-logo-image :is(#modal-auth,#modal-steam) .auth-fruit > * { display:none; }
 
-html.has-loading-image #boot-loader .boot-stage {
-  width:min(220px,65vw); height:180px;
-  background:var(--loading-image) center / contain no-repeat;
-}
-html.has-loading-image #boot-loader .boot-stage > * { display:none; }
 html.has-loading-image .ftd-loading__spinner {
   width:56px;height:56px;border:0;background:var(--loading-image) center / contain no-repeat;
   animation:none;

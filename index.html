@@ -9,42 +9,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/loading.css" />
     <style>
       #boot-loader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#68421c 0%,#191a1d 70%);font-family:Outfit,system-ui,sans-serif;color:#f1f5f9;transition:opacity .45s ease}
       #boot-loader.is-done{opacity:0;pointer-events:none}
-      #boot-loader.is-error .boot-stage,#boot-loader.is-error .boot-bar{display:none}
       .boot-retry{min-height:44px;margin-top:1rem;padding:.7rem 1.2rem;border:1px solid #ffca28;border-radius:10px;background:#ffca28;color:#191a1d;font:800 .9rem Outfit,system-ui,sans-serif;cursor:pointer}
       .boot-retry:focus-visible{outline:3px solid #fff;outline-offset:3px}
-      .boot-stage{position:relative;width:220px;height:180px}
-      .boot-fruit{position:absolute;inset:18px 28px;transform-origin:center}
-      .boot-half{position:absolute;top:0;width:50%;height:100%;overflow:hidden}
-      .boot-half--left{left:0}
-      .boot-half--right{right:0}
-      .boot-melon{width:164px;height:164px}
-      .boot-half--right .boot-melon{margin-left:-82px}
-      .boot-slash{position:absolute;left:8%;top:46%;width:84%;height:4px;border-radius:99px;background:linear-gradient(90deg,transparent,#f8fafc 20%,#ffca28 50%,#f8fafc 80%,transparent);box-shadow:0 0 16px #ffca28;transform:scaleX(0);transform-origin:left center}
-      .boot-drip{position:absolute;border-radius:50%;opacity:0}
-      .boot-drip--1{width:10px;height:14px;left:46%;top:58%;background:#ff3355}
-      .boot-drip--2{width:8px;height:11px;left:58%;top:52%;background:#ff4d6d}
-      .boot-drip--3{width:7px;height:10px;left:38%;top:62%;background:#3ad15c}
-      .boot-copy{margin-top:1.1rem;letter-spacing:.28em;text-transform:uppercase;font-weight:800;font-size:.72rem;color:#ffca28}
-      .boot-sub{margin-top:.4rem;font-weight:700;color:#94a3b8;font-size:.85rem}
-      .boot-bar{width:180px;height:5px;margin-top:1rem;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
-      .boot-bar>i{display:block;height:100%;width:40%;border-radius:99px;background:#ffca28;animation:bootLoad 1.1s ease-in-out infinite}
-      @keyframes bootSlash{0%,18%{transform:scaleX(0);opacity:0}28%{transform:scaleX(1);opacity:1}55%,100%{transform:scaleX(1);opacity:0}}
-      @keyframes bootSplitL{0%,28%{transform:translate(0,0) rotate(0)}100%{transform:translate(-26px,-8px) rotate(-18deg)}}
-      @keyframes bootSplitR{0%,28%{transform:translate(0,0) rotate(0)}100%{transform:translate(26px,10px) rotate(16deg)}}
-      @keyframes bootDrip{0%,30%{opacity:0;transform:translateY(0)}45%{opacity:1}100%{opacity:0;transform:translateY(28px)}}
-      @keyframes bootLoad{0%{transform:translateX(-120%)}100%{transform:translateX(280%)}}
-      .boot-slash{animation:bootSlash 1.8s ease-in-out infinite}
-      .boot-half--left{animation:bootSplitL 1.8s ease-in-out infinite}
-      .boot-half--right{animation:bootSplitR 1.8s ease-in-out infinite}
-      .boot-drip{animation:bootDrip 1.8s ease-in-out infinite}
-      .boot-drip--2{animation-delay:.06s}
-      .boot-drip--3{animation-delay:.12s}
+      .boot-copy{margin-bottom:1rem;letter-spacing:.28em;text-transform:uppercase;font-weight:800;font-size:.85rem;color:#ffda63}
+      #boot-loader .ftd-loading{background:transparent;flex-direction:column;gap:18px}
+      #boot-loader .boot-sub{font-weight:700;color:#c9c2ad;font-size:.85rem;text-align:center;max-width:32rem;padding:0 20px}
+      #boot-loader.is-error .ftd-loading__spinner{display:none}
+      html.has-loading-image #boot-loader .ftd-loading__spinner{width:min(220px,65vw);height:180px;border:0;background:var(--loading-image) center/contain no-repeat;animation:none}
+      html.has-loading-background-image #boot-loader{background:linear-gradient(#161719ad,#161719d6),var(--loading-background-image) center/cover no-repeat}
     </style>
     <script>
       (function () {
+        // Apply the last published loader art before the application bundle runs.
+        try {
+          var branding=JSON.parse(window.localStorage.getItem('fruit-td-loading-branding-v1')||'{}');
+          [['loadingImage','--loading-image','has-loading-image'],['loadingBackgroundImage','--loading-background-image','has-loading-background-image']].forEach(function(entry){
+            var value=branding[entry[0]];
+            if(typeof value==='string'&&/^(\/(?!\/)|https?:\/\/|data:image\/(?:png|jpeg|webp|gif);base64,)/i.test(value)){
+              document.documentElement.style.setProperty(entry[1],'url('+JSON.stringify(value)+')');
+              document.documentElement.classList.add(entry[2]);
+            }
+          });
+        } catch (_) {}
         var startupFailed = false;
         var startupReady = false;
         var startupMessage = 'The game did not start. Reload to try again.';
@@ -85,37 +75,11 @@
   </head>
   <body>
     <div id="boot-loader" aria-live="polite">
-      <div class="boot-stage" aria-hidden="true">
-        <div class="boot-fruit">
-          <div class="boot-half boot-half--left">
-            <svg class="boot-melon" viewBox="0 0 164 164">
-              <circle cx="82" cy="82" r="78" fill="#146628"/>
-              <circle cx="82" cy="82" r="64" fill="#3dff7a"/>
-              <circle cx="82" cy="82" r="54" fill="#ff3355"/>
-              <circle cx="58" cy="70" r="4" fill="#2a1c14"/>
-              <circle cx="78" cy="92" r="3.5" fill="#2a1c14"/>
-              <circle cx="64" cy="104" r="3" fill="#2a1c14"/>
-            </svg>
-          </div>
-          <div class="boot-half boot-half--right">
-            <svg class="boot-melon" viewBox="0 0 164 164">
-              <circle cx="82" cy="82" r="78" fill="#146628"/>
-              <circle cx="82" cy="82" r="64" fill="#3dff7a"/>
-              <circle cx="82" cy="82" r="54" fill="#ff3355"/>
-              <circle cx="104" cy="68" r="4" fill="#2a1c14"/>
-              <circle cx="96" cy="96" r="3.5" fill="#2a1c14"/>
-              <circle cx="112" cy="88" r="3" fill="#2a1c14"/>
-            </svg>
-          </div>
-        </div>
-        <div class="boot-slash"></div>
-        <div class="boot-drip boot-drip--1"></div>
-        <div class="boot-drip boot-drip--2"></div>
-        <div class="boot-drip boot-drip--3"></div>
-      </div>
       <p class="boot-copy">Fruit TD</p>
-      <p class="boot-sub">Slicing fruit…</p>
-      <div class="boot-bar"><i></i></div>
+      <div class="ftd-loading" role="status">
+        <span class="ftd-loading__spinner" aria-hidden="true"></span>
+        <span class="ftd-loading__message boot-sub">Loading FruitTD…</span>
+      </div>
     </div>
     <div id="app">
       <canvas id="game-canvas" data-testid="combat-canvas" aria-label="Tower defense battlefield"></canvas>

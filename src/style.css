@@ -7016,9 +7016,6 @@ body.is-playing .match-parallax,
   #modal-admin .admin-tabs-nav { position: sticky; top: -24px; z-index: 2; background: #0b1c17; display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 0; overflow: visible; }
   #modal-admin .admin-tab-btn { min-height: 44px; flex: 0 0 auto; border-radius: 8px; }
 }
-.ftd-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 24px; color: #e5d5b0; }
-.ftd-loading__spinner { width: 26px; height: 26px; flex: 0 0 auto; border: 3px solid #37523e; border-top-color: #ffca28; border-radius: 50%; animation: ftd-loading-spin .8s linear infinite; }
-@keyframes ftd-loading-spin { to { transform: rotate(360deg); } }
 #modal-admin > .ftd-loading { position: absolute; inset: 0; background: #222428e8; z-index: 10; }
 .admin-pvp-workshop { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(400px, 1fr); gap: 24px; }
 .admin-pvp-preview { position: sticky; top: 100px; align-self: start; }

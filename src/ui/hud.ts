@@ -1,3 +1,4 @@
+import { TitleStory } from './titleStory';
 import { TURRET_WEAPONS } from '../game/turretWeapons';
 import type { JuiceBank } from '../game/juice';
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../game/heroes';
@@ -132,9 +133,12 @@ export class Hud {
   private lastJuicePct = -1;
   private juiceLastChangeMs = 0;
   private adminController: AdminController | null = null;
-  private titleStoryTimer: number | null = null;
   private readonly fallbackTitleStory = document.querySelector<HTMLElement>('.title-tagline')?.textContent?.trim() ?? '';
-  private titleIntroReady = false;
+  private readonly titleStory=new TitleStory((text,typing,ready)=>{
+    const story=document.querySelector<HTMLElement>('.title-tagline');
+    if(story){story.textContent=text;story.classList.toggle('is-typing',typing);}
+    document.getElementById('title-intro-prompt')?.classList.toggle('is-ready',ready);
+  });
   private modalPointer: { id: number; x: number; y: number; modal: HTMLElement } | null = null;
   private titleSlicePointer: { id: number; x: number; y: number; logoHit: boolean } | null = null;
   private titleSliceCount = 0;
@@ -379,61 +383,17 @@ export class Hud {
     if (open) {
       title?.classList.add('title-intro');
       this.playTitleStory();
-    } else if (this.titleStoryTimer !== null) {
-      window.clearTimeout(this.titleStoryTimer);
-      this.titleStoryTimer = null;
-    }
+    } else this.titleStory.stop();
   }
 
-  /** Replays the world briefing each time the player returns to the title. */
   private playTitleStory(): void {
-    const story = document.querySelector<HTMLElement>('.title-tagline');
-    if (!story) return;
-    const text = getLiveConfig().menuConfig.storyText || this.fallbackTitleStory;
-    if (this.titleStoryTimer !== null) window.clearTimeout(this.titleStoryTimer);
-    this.titleIntroReady = false;
-    document.getElementById('title-intro-prompt')?.classList.remove('is-ready');
-    story.textContent = '';
-    story.classList.remove('is-typing');
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      story.textContent = text;
-      this.titleIntroReady = true;
-      document.getElementById('title-intro-prompt')?.classList.add('is-ready');
-      return;
-    }
-    void story.offsetWidth;
-    story.classList.add('is-typing');
-
-    let index = 0;
-    const writeNext = () => {
-      story.textContent = text.slice(0, ++index);
-      if (index < text.length) {
-        this.titleStoryTimer = window.setTimeout(writeNext, 12);
-      } else {
-        this.titleStoryTimer = null;
-        story.classList.remove('is-typing');
-        this.titleIntroReady = true;
-        document.getElementById('title-intro-prompt')?.classList.add('is-ready');
-      }
-    };
-    writeNext();
+    this.titleStory.play(getLiveConfig().menuConfig.storyText||this.fallbackTitleStory,window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
   private advanceTitleIntro(): void {
-    const title = document.getElementById('title-screen');
-    if (!title?.classList.contains('title-intro')) return;
-    if (!this.titleIntroReady) {
-      if (this.titleStoryTimer !== null) window.clearTimeout(this.titleStoryTimer);
-      this.titleStoryTimer = null;
-      const story = document.querySelector<HTMLElement>('.title-tagline');
-      if (story) {
-        story.textContent = getLiveConfig().menuConfig.storyText || this.fallbackTitleStory;
-        story.classList.remove('is-typing');
-      }
-      this.titleIntroReady = true;
-      document.getElementById('title-intro-prompt')?.classList.add('is-ready');
-      return;
-    }
+    const title=document.getElementById('title-screen');
+    if(!title?.classList.contains('title-intro'))return;
+    if(!this.titleStory.ready){this.titleStory.reveal();return;}
     title.classList.remove('title-intro');
     document.getElementById('title-intro-prompt')?.classList.remove('is-ready');
   }

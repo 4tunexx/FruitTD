@@ -71,6 +71,9 @@ export function applyMenuAppearance(config: AdminConfig = cached): void {
   const authLogoImage = (config.menuConfig.authLogoImage || logoImage).trim();
   const loadingImage = (config.menuConfig.loadingImage || '').trim();
   const loadingBackgroundImage = (config.menuConfig.loadingBackgroundImage || '').trim();
+  try {
+    localStorage.setItem('fruit-td-loading-branding-v1',JSON.stringify({loadingImage,loadingBackgroundImage}));
+  } catch { /* Storage can be unavailable or full; the shared loader still works. */ }
   const eyebrowEl = document.getElementById('menu-eyebrow');
   const titleEl = document.getElementById('menu-title');
   const subtitleEl = document.getElementById('menu-subtitle');

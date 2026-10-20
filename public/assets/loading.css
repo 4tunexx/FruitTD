@@ -1,0 +1,5 @@
+/* Shared by the first HTML paint and every in-app loading indicator. */
+.ftd-loading{display:flex;align-items:center;justify-content:center;gap:12px;padding:24px;background:#222428;color:#e5d5b0;font-family:Outfit,system-ui,sans-serif}
+.ftd-loading__spinner{width:26px;height:26px;flex:0 0 auto;border:3px solid #665136;border-top-color:#ffda63;border-radius:4px;animation:ftd-loading-spin .8s linear infinite}
+@keyframes ftd-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.ftd-loading__spinner{animation:none}}
