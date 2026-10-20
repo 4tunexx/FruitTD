@@ -174,8 +174,21 @@ export function normalizeBattleMap(raw: unknown, fallbackMode: BattleMapMode = '
   const retiredSample=suppliedBackground.startsWith('/assets/maps/samples/');
   const bg = retiredSample ? BATTLEFIELD_ART_URL : suppliedBackground;
   const retiredIds=new Set(['left-lantern','right-ruin','rock-blocker','pit-hazard']);
-  const migratedEntities=retiredSample && row.id===`sample-${mode}`
+  let migratedEntities=retiredSample && row.id===`sample-${mode}`
     ? entities.filter(entity=>!retiredIds.has(entity.id)) : entities;
+  // Shipped revision-one maps stored the wall pads at world Z=0 and ground
+  // pads at Z=1.35. Match the complete signature before repairing it, so an
+  // authored change to even one pad is never silently repositioned.
+  const oldPads=Array.isArray(row.entities)?row.entities.filter(entity=>entity.kind==='turret-slot'):[];
+  const legacyPads=mode!=='pvp'&&row.id===`sample-${mode}`&&Number(row.revision||1)===1&&storedDepth===66&&oldPads.length===8&&new Set(oldPads.map(entity=>entity.id)).size===8&&oldPads.every(entity=>{
+    const index=Number(entity.id.match(/^tower-slot-(\d+)$/)?.[1])-1;
+    const expected=fallback.entities.find(candidate=>candidate.id===entity.id);
+    return index>=0&&index<8&&expected&&Math.abs(entity.x-expected.x)<1e-7&&Math.abs(entity.y-(.5-(index<4?0:1.35)/storedDepth))<1e-7;
+  });
+  if(legacyPads)migratedEntities=migratedEntities.map(entity=>{
+    const corrected=entity.kind==='turret-slot'?fallback.entities.find(candidate=>candidate.id===entity.id):null;
+    return corrected?{...entity,x:corrected.x,y:corrected.y}:entity;
+  });
   // Match the physical world and tower anchors; responsive layouts come from
   // normalized coordinates, not from stretching gameplay physics per map.
   const width = ARENA_W;

@@ -1188,11 +1188,14 @@ function normalizeCoopConfig(raw) {
 function newCoopMatch(id, player, balance) {
   return { towerXp: 0, id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
 }
+var COOP_MAX_PLAYERS = 4;
 function joinCoopMatch(match, player, now) {
-  if (match.status !== "waiting" || match.players.length !== 1 || match.players.some((p) => p.userId === player.userId)) throw new Error("Room is unavailable.");
+  if (match.status !== "waiting" || match.players.length >= COOP_MAX_PLAYERS || match.players.some((p) => p.userId === player.userId)) throw new Error("Room is unavailable.");
   match.players.push(player);
-  match.status = "countdown";
-  match.phaseUntil = now + 3e3;
+  if (match.players.length === COOP_MAX_PLAYERS) {
+    match.status = "countdown";
+    match.phaseUntil = now + 3e3;
+  }
   match.revision++;
 }
 var distance = (p, a, b) => {
@@ -1204,9 +1207,16 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
   const player = match.players.find((p) => p.userId === userId);
   if (!player) throw new Error("Not a room member.");
   if (!Number.isSafeInteger(sequence) || sequence !== player.sequence + 1) throw new Error("Stale command. Refresh the match.");
-  if (command.type === "leave") {
-    match.status = "complete";
-    match.reason = "left";
+  if (command.type === "start") {
+    if (match.status !== "waiting" || match.players[0]?.userId !== userId || match.players.length < 2) throw new Error("The host can start with two to four players.");
+    match.status = "countdown";
+    match.phaseUntil = now + 3e3;
+  } else if (command.type === "leave") {
+    if (match.status === "waiting" && match.players[0]?.userId !== userId) match.players = match.players.filter((member) => member.userId !== userId);
+    else {
+      match.status = "complete";
+      match.reason = "left";
+    }
   } else {
     if (match.status !== "playing" && match.status !== "boss-intro" && !(match.status === "countdown" && ["build", "upgrade", "sell"].includes(command.type))) throw new Error("Wait for the match to start.");
     if (command.type === "build") {
@@ -1281,6 +1291,9 @@ function collectKills(match, balance) {
   }
   match.fruits = match.fruits.filter((f) => f.hp > 0);
 }
+function coopFruitMaxHealth(baseHealth, boss, wave2, players, config) {
+  return baseHealth * (boss ? config.bossHealthMultiplier * Math.max(1, players / 2) : 1) * (1 + Math.floor(wave2 / 8) * 0.2);
+}
 function advanceCoopMatch(match, dt, now, balance, config) {
   if (match.status === "waiting" || match.status === "complete") return;
   if (match.players.some((p) => now - p.lastSeenAt > balance.reconnectGraceSeconds * 1e3)) {
@@ -1298,7 +1311,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     }
     const boss = match.status === "boss-intro";
     match.status = "playing";
-    match.remainingSpawns = boss ? 1 : Math.min(100, config.baseWaveSize + (match.wave - 1) * config.extraPerWave);
+    match.remainingSpawns = boss ? 1 : Math.min(100, Math.round((config.baseWaveSize + (match.wave - 1) * config.extraPerWave) * Math.max(1, match.players.length / 2)));
     match.spawnAt = now;
   }
   if (match.remainingSpawns > 0 && now >= match.spawnAt) {
@@ -1306,9 +1319,13 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     const kind = boss ? "armored" : match.serial % 7 === 0 ? "armored" : match.serial % 4 === 0 ? "swift" : "normal";
     const stats = balance.attacks[kind];
     const serial = ++match.serial;
-    match.fruits.push({ id: `${match.id}:${serial}`, type: kind, x: boss ? 5 : 1 + serial * 37 % 80 / 10, y: 0, hp: stats.health * (boss ? config.bossHealthMultiplier : 1) * (1 + Math.floor(match.wave / 8) * 0.2), boss });
+    const maxHp = coopFruitMaxHealth(stats.health, boss, match.wave, match.players.length, config);
+    match.fruits.push({ id: `${match.id}:${serial}`, type: kind, x: boss ? 5 : 1 + serial * 37 % 80 / 10, y: 0, hp: maxHp, maxHp, boss });
     match.remainingSpawns--;
     match.spawnAt = now + config.spawnGapMs;
+  }
+  for (const fruit2 of match.fruits) {
+    fruit2.maxHp ??= Math.max(fruit2.hp, coopFruitMaxHealth(balance.attacks[fruit2.type].health, fruit2.boss, match.wave, match.players.length, config));
   }
   for (const fruit2 of match.fruits) fruit2.y += balance.attacks[fruit2.type].speed * delta * (fruit2.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier) * (now < (fruit2.slowUntil ?? 0) ? fruit2.slowMultiplier ?? 0.45 : 1);
   const fire = (x, y, stats, last, type = "main", level = 1) => {
@@ -2250,6 +2267,7 @@ function createCoopService(deps = {}) {
     }
     room.updatedAt = new Date(now);
     if (room.status === "complete") delete room.activePlayers;
+    else room.activePlayers = room.players.map((member) => member.userId);
     const saved = await (await getCollection2("coop_matches")).replaceOne({ id: room.id, revision }, room);
     if (!saved.modifiedCount) return null;
     void publish(room);
@@ -2380,6 +2398,7 @@ function createCoopService(deps = {}) {
         return fail2(res, 400, error2 instanceof Error ? error2.message : "Invalid action.");
       }
       if (room.status === "complete") delete room.activePlayers;
+      else room.activePlayers = room.players.map((member) => member.userId);
       const saved = await rooms.replaceOne({ id: room.id, revision }, room);
       if (!saved.modifiedCount) return fail2(res, 409, "Match updated. Try the action again.");
       void publish(room);
@@ -6009,7 +6028,17 @@ function normalizeBattleMap(raw, fallbackMode = "casual") {
   const retiredSample = suppliedBackground.startsWith("/assets/maps/samples/");
   const bg = retiredSample ? BATTLEFIELD_ART_URL : suppliedBackground;
   const retiredIds = /* @__PURE__ */ new Set(["left-lantern", "right-ruin", "rock-blocker", "pit-hazard"]);
-  const migratedEntities = retiredSample && row.id === `sample-${mode}` ? entities.filter((entity2) => !retiredIds.has(entity2.id)) : entities;
+  let migratedEntities = retiredSample && row.id === `sample-${mode}` ? entities.filter((entity2) => !retiredIds.has(entity2.id)) : entities;
+  const oldPads = Array.isArray(row.entities) ? row.entities.filter((entity2) => entity2.kind === "turret-slot") : [];
+  const legacyPads = mode !== "pvp" && row.id === `sample-${mode}` && Number(row.revision || 1) === 1 && storedDepth === 66 && oldPads.length === 8 && new Set(oldPads.map((entity2) => entity2.id)).size === 8 && oldPads.every((entity2) => {
+    const index = Number(entity2.id.match(/^tower-slot-(\d+)$/)?.[1]) - 1;
+    const expected = fallback.entities.find((candidate) => candidate.id === entity2.id);
+    return index >= 0 && index < 8 && expected && Math.abs(entity2.x - expected.x) < 1e-7 && Math.abs(entity2.y - (0.5 - (index < 4 ? 0 : 1.35) / storedDepth)) < 1e-7;
+  });
+  if (legacyPads) migratedEntities = migratedEntities.map((entity2) => {
+    const corrected = entity2.kind === "turret-slot" ? fallback.entities.find((candidate) => candidate.id === entity2.id) : null;
+    return corrected ? { ...entity2, x: corrected.x, y: corrected.y } : entity2;
+  });
   const width = ARENA_W;
   const depth = targetDepth;
   const storedRows = Math.floor(Number(row.world?.rows) || fallback.world.rows);

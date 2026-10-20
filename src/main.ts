@@ -1,3 +1,4 @@
+import {GraphicsRecovery} from './engine/graphicsRecovery';
 import { turretLevelTuning } from './game/studioRuntime';
 import { LoadingIndicator } from './ui/components/loading';
 import { heroArt } from './ui/heroArt';
@@ -108,16 +109,6 @@ if (window.matchMedia('(min-width: 861px)').matches) {
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
-function hideBootLoader(): void {
-  const boot = document.getElementById('boot-loader');
-  if (!boot || boot.classList.contains('is-done')) return;
-  boot.classList.add('is-done');
-  window.setTimeout(() => boot.remove(), 500);
-}
-requestAnimationFrame(() => hideBootLoader());
-window.addEventListener('error', () => hideBootLoader());
-window.addEventListener('unhandledrejection', () => hideBootLoader());
-
 const upgradeBtn = document.getElementById('btn-upgrade') as HTMLButtonElement;
 const sellBtn = document.getElementById('btn-sell') as HTMLButtonElement;
 const moveBtn = document.getElementById('btn-move') as HTMLButtonElement;
@@ -166,6 +157,14 @@ state.heroLevel = heroXpToLevel(state.heroXp);
 const heroAbilityReadyAt: Record<string, number> = {};
 const sfx = new Sfx();
 const hud = new Hud(sfx);
+const graphicsRecovery=new GraphicsRecovery(canvas,{
+  lost:()=>{setPaused(true);resumeBtn.disabled=true;restartBtn.disabled=true;
+    const subtitle=document.getElementById('pause-subtitle');if(subtitle)subtitle.textContent='Graphics were interrupted. Your solo match is paused while the browser recovers.';
+  },
+  restored:()=>{resumeBtn.disabled=false;restartBtn.disabled=false;
+    const subtitle=document.getElementById('pause-subtitle');if(subtitle)subtitle.textContent='Graphics restored. Resume when you are ready.';
+  },
+});
 const field = new Field();
 const powerVfx = new PowerVfx(renderer.scene);
 const fruits = new FruitField((g) => renderer.scene.add(g));
@@ -1451,6 +1450,7 @@ function worldPct(x: number, y: number, z: number): { nx: number; ny: number } {
 }
 
 function setPaused(on: boolean): void {
+  if(!on&&graphicsRecovery.lost)return;
   if (!navigation.isInGame() || !state.running) return;
   navigation.setState(on ? 'PAUSED' : 'PLAY');
   hud.showPause(on);
@@ -1521,6 +1521,7 @@ document.getElementById('campaign-victory-map')?.addEventListener('click', () =>
 });
 
 async function restartMatch(): Promise<void> {
+  if(graphicsRecovery.lost)return;
   if (restartPending) return;
   restartPending=true;
   const screenBeforeRestart=navigation.state;
@@ -2277,6 +2278,7 @@ installCombatDiagnostics(() => {
 });
 
 loop.start();
+window.dispatchEvent(new Event('fruit-td-ready'));
 
 // Local-only combat preview for visual QA; it never creates an authenticated session.
 if (import.meta.env.DEV) {

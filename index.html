@@ -46,13 +46,15 @@
     <script>
       (function () {
         var startupFailed = false;
+        var startupReady = false;
+        var startupMessage = 'The game did not start. Reload to try again.';
         function showStartupError() {
           var loader = document.getElementById('boot-loader');
           if (!loader) { startupFailed = true; return; }
-          if (loader.classList.contains('is-done') || loader.classList.contains('is-error')) return;
+          if (startupReady || loader.classList.contains('is-error')) return;
           loader.classList.add('is-error');
           var subtitle = loader.querySelector('.boot-sub');
-          if (subtitle) subtitle.textContent = 'The game did not start. Reload to try again.';
+          if (subtitle) subtitle.textContent = startupMessage;
           var retry = document.createElement('button');
           retry.type = 'button';
           retry.className = 'boot-retry';
@@ -60,8 +62,17 @@
           retry.addEventListener('click', function () { window.location.reload(); });
           loader.appendChild(retry);
         }
+        window.addEventListener('fruit-td-ready', function () {
+          startupReady = true;
+          var loader = document.getElementById('boot-loader');
+          if (!loader) return;
+          loader.classList.add('is-done');
+          window.setTimeout(function () { loader.remove(); }, 500);
+        });
         window.addEventListener('error', function (event) {
           if (event.target === window || (event.target && event.target.tagName === 'SCRIPT')) {
+            var detail = String(event.message || (event.error && event.error.message) || '');
+            if (/webgl|graphics context/i.test(detail)) startupMessage = 'Graphics are unavailable. FruitTD needs WebGL. Enable hardware acceleration in your browser or try another supported browser.';
             window.setTimeout(showStartupError, 100);
           }
         }, true);
@@ -1868,7 +1879,7 @@
           <div class="modal-card">
             <div class="modal-icon" data-lucide="Pause" data-lucide-size="32"></div>
             <p class="modal-title">Paused</p>
-            <p class="modal-sub">The fruit wait. The wall does not.</p>
+            <p class="modal-sub" id="pause-subtitle">The fruit wait. The wall does not.</p>
             <div class="modal-btns">
               <button id="btn-resume" class="modal-btn modal-btn--primary"><span data-lucide="Play" aria-hidden="true"></span> Resume</button>
               <button id="btn-restart" class="modal-btn"><span data-lucide="RotateCcw" aria-hidden="true"></span> Restart</button>

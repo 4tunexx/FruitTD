@@ -5,7 +5,7 @@ import type { HeroId } from './heroes';
 import { towerLevelFromXp } from './towerProgression';
 export interface CoopPlayer { userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
-export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; slowUntil?:number; slowMultiplier?:number; boss: boolean }
+export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; slowUntil?:number; slowMultiplier?:number; boss: boolean }
 export interface CoopMatch { towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
 export interface CoopConfig { bossEveryWaves: number; baseWaveSize: number; extraPerWave: number; spawnGapMs: number; intermissionMs: number; bossIntroMs: number; coinsPerKill: number; coinsPerWave: number; gemsEveryWaves: number; xpPerKill: number; towerXpPerWave: number; rewardCoinCap: number; bladeDamage: number; bladeRadius: number; bladeCooldownMs: number; bossHealthMultiplier: number; bossSpeedMultiplier: number; fruitSpeedMultiplier: number }
 export const DEFAULT_COOP_CONFIG: CoopConfig = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 25, rewardCoinCap: 3000, bladeDamage: 35, bladeRadius: .65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: .35, fruitSpeedMultiplier: .65 };
@@ -21,16 +21,26 @@ export function normalizeCoopConfig(raw: unknown): CoopConfig {
   })) as unknown as CoopConfig;
 }
 export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { towerXp: 0, id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
+export const COOP_MAX_PLAYERS=4;
 export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number): void {
-  if(match.status!=='waiting'||match.players.length!==1||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
-  match.players.push(player); match.status='countdown'; match.phaseUntil=now+3000; match.revision++;
+  if(match.status!=='waiting'||match.players.length>=COOP_MAX_PLAYERS||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
+  match.players.push(player);
+  if(match.players.length===COOP_MAX_PLAYERS){match.status='countdown';match.phaseUntil=now+3000;}
+  match.revision++;
 }
-export type CoopCommand = { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' } | {type:'upgrade'|'sell';towerId:string};
+export type CoopCommand = {type:'start'} | { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' } | {type:'upgrade'|'sell';towerId:string};
 const distance = (p:Point, a:Point, b:Point) => { const dx=b.x-a.x,dy=b.y-a.y; const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1))); return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy); };
 export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,command:CoopCommand,now:number,balance:PvpConfig,config:CoopConfig=DEFAULT_COOP_CONFIG):void {
   const player=match.players.find(p=>p.userId===userId); if(!player) throw new Error('Not a room member.');
   if(!Number.isSafeInteger(sequence)||sequence!==player.sequence+1) throw new Error('Stale command. Refresh the match.');
-  if(command.type==='leave') { match.status='complete'; match.reason='left'; }
+  if(command.type==='start') {
+    if(match.status!=='waiting'||match.players[0]?.userId!==userId||match.players.length<2)throw new Error('The host can start with two to four players.');
+    match.status='countdown';match.phaseUntil=now+3000;
+  }
+  else if(command.type==='leave') {
+    if(match.status==='waiting'&&match.players[0]?.userId!==userId)match.players=match.players.filter(member=>member.userId!==userId);
+    else {match.status='complete';match.reason='left';}
+  }
   else {
     if(match.status!=='playing'&&match.status!=='boss-intro'&&!(match.status==='countdown'&&['build','upgrade','sell'].includes(command.type))) throw new Error('Wait for the match to start.');
     if(command.type==='build') {
@@ -74,6 +84,9 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
   player.sequence=sequence; player.lastSeenAt=now; match.revision++;
 }
 function collectKills(match:CoopMatch,balance:PvpConfig):void { for(const f of match.fruits.filter(f=>f.hp<=0)) {match.kills++;match.score+=f.boss?300:10;match.fruts+=balance.attacks[f.type]!.rewardFruts;} match.fruits=match.fruits.filter(f=>f.hp>0); }
+export function coopFruitMaxHealth(baseHealth:number,boss:boolean,wave:number,players:number,config:CoopConfig):number {
+  return baseHealth*(boss?config.bossHealthMultiplier*Math.max(1,players/2):1)*(1+Math.floor(wave/8)*.2);
+}
 export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:PvpConfig,config:CoopConfig):void {
   if(match.status==='waiting'||match.status==='complete') return;
   if(match.players.some(p=>now-p.lastSeenAt>balance.reconnectGraceSeconds*1000)) {match.status='complete';match.reason='disconnect';match.revision++;return;}
@@ -81,16 +94,18 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
   match.fruts+=balance.incomePerSecond*delta;
   if(match.status==='countdown'||match.status==='boss-intro') {
     if(now<match.phaseUntil) {match.revision++;return;}
-    const boss=match.status==='boss-intro'; match.status='playing'; match.remainingSpawns=boss?1:Math.min(100,config.baseWaveSize+(match.wave-1)*config.extraPerWave); match.spawnAt=now;
+    const boss=match.status==='boss-intro'; match.status='playing'; match.remainingSpawns=boss?1:Math.min(100,Math.round((config.baseWaveSize+(match.wave-1)*config.extraPerWave)*Math.max(1,match.players.length/2))); match.spawnAt=now;
   }
   if(match.remainingSpawns>0&&now>=match.spawnAt) {
     const boss=match.wave%(config.bossEveryWaves+1)===0;
     const kind=boss?'armored':match.serial%7===0?'armored':match.serial%4===0?'swift':'normal'; const stats=balance.attacks[kind]!;
     // Stable server-generated spawn positions; clients cannot choose fruit or rewards.
     const serial=++match.serial;
-    match.fruits.push({id:`${match.id}:${serial}`,type:kind,x:boss?5:1+(serial*37%80)/10,y:0,hp:stats.health*(boss?config.bossHealthMultiplier:1)*(1+Math.floor(match.wave/8)*.2),boss});
+    const maxHp=coopFruitMaxHealth(stats.health,boss,match.wave,match.players.length,config);
+    match.fruits.push({id:`${match.id}:${serial}`,type:kind,x:boss?5:1+(serial*37%80)/10,y:0,hp:maxHp,maxHp,boss});
     match.remainingSpawns--;match.spawnAt=now+config.spawnGapMs;
   }
+  for(const fruit of match.fruits){fruit.maxHp??=Math.max(fruit.hp,coopFruitMaxHealth(balance.attacks[fruit.type]!.health,fruit.boss,match.wave,match.players.length,config));}
   for(const fruit of match.fruits) fruit.y+=balance.attacks[fruit.type]!.speed*delta*(fruit.boss?config.bossSpeedMultiplier:config.fruitSpeedMultiplier)*(now<(fruit.slowUntil??0)?fruit.slowMultiplier??.45:1);
   const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number,type='main',level=1):boolean=>{
     if(now-last<stats.cooldownMs) return false;

@@ -65,3 +65,17 @@ test('Creator wall and chain-burst artwork target the runtime skin and enemy key
  assert.equal(builtinEntityArtwork('tower-wall')!.source,WALL_SKINS[0]!.texture);
  assert.equal(enemyKindToStudioKey('chainburst'),'enemy-chainburst');
 });
+
+test('published revision-one centre-field pads migrate to the wall in every solo/local mode',()=>{
+ for(const mode of ['casual','horde','campaign','coop'] as const){
+  const map=defaultMapForMode(mode);map.world.depth=66;map.world.rows=66;map.revision=1;
+  map.entities.forEach((entity,index)=>{entity.y=.5-(index<4?0:1.35)/66;});
+  const normalized=normalizeBattleMap(map,mode),pads=battleMapPads(normalized).filter(pad=>!pad.main&&pad.enabled);
+  assert.equal(pads.length,8);assert.ok(pads.every(pad=>pad.z< -8),'all pads sit beside the wall');
+  assert.equal(pads.filter(pad=>pad.floor).length,4,'ground defences remain buildable');
+  assert.deepEqual(normalizeBattleMap(normalized,mode).entities,normalized.entities,'migration is idempotent');
+  const authored=structuredClone(map);authored.entities[0]!.x=.18;
+  const kept=battleMapPads(normalizeBattleMap(authored,mode)).filter(pad=>!pad.main&&pad.enabled);
+  assert.ok(kept.some(pad=>pad.z> -2),'an edited sample layout is retained');
+ }
+});

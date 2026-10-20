@@ -25,11 +25,12 @@ async function api(path:string,body?:object){
  if(!response.ok||!data||data.success===false)throw new Error(data?.error||'Co-op service unavailable. Please try again shortly.');
  return data;
 }
+export function disposeOnlineCoop(host:HTMLElement):void {cleanup.get(host)?.();cleanup.delete(host);}
 export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
  cleanup.get(host)?.();host.replaceChildren();
  const heading=el('header',{class:'ftd-pvp__heading ftd-coop-online-heading'},[
   el('button',{class:'ftd-hub-page-back',type:'button','aria-label':'Back to hub',title:'Back to hub'},[el('span',{'aria-hidden':'true',text:'←'}),el('span',{text:'Hub'})]),
-  el('div',{},[el('p',{class:'ftd-pvp__eyebrow',text:'MULTIPLAYER'}),el('h1',{text:'CO-OP · DEFEND TOGETHER'}),el('p',{class:'ftd-pvp__intro',text:'Two online players slice together, share one wall and Fruts, and receive equal match rewards.'})]),
+  el('div',{},[el('p',{class:'ftd-pvp__eyebrow',text:'MULTIPLAYER'}),el('h1',{text:'CO-OP · DEFEND TOGETHER'}),el('p',{class:'ftd-pvp__intro',text:'Two to four online players slice together, share one wall and Fruts, and receive equal match rewards.'})]),
  ]);
  heading.querySelector('button')?.addEventListener('click',()=>openScreen('MAIN_MENU'));
  host.append(heading);
@@ -73,18 +74,28 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
    const localOption=(typeof window.matchMedia !== 'function' || window.matchMedia('(pointer: fine)').matches)
     ? GameButton({label:'Play locally on this PC',variant:'ghost',onClick:()=>{dispose();startLocal();}})
     : el('p',{class:'ftd-pvp__intro',text:'Local keyboard-and-mouse Co-op is available on desktop. Use an online room on this device.'});
-   body.append(el('div',{class:'ftd-coop-online-actions'},[GameButton({label:'Find a teammate',tone:'primary',onClick:()=>void send('/create',{public:true})}),GameButton({label:'Create private room',variant:'outline',onClick:()=>void send('/create',{public:false})}),code,GameButton({label:'Join friend',variant:'outline',onClick:()=>void send('/join',{code:code.value})}),localOption]));return;
+   body.append(el('div',{class:'ftd-coop-online-actions'},[GameButton({label:'Find a team',tone:'primary',onClick:()=>void send('/create',{public:true})}),GameButton({label:'Create private room',variant:'outline',onClick:()=>void send('/create',{public:false})}),code,GameButton({label:'Join friend',variant:'outline',onClick:()=>void send('/join',{code:code.value})}),localOption]));return;
   }
   const own=room.players.find(p=>p.userId===yourId);if(!own)return;
-  if(room.status==='waiting'){const inviteName=el('input',{class:'admin-input',placeholder:'Friend username','aria-label':'Friend username to invite','maxlength':24}) as HTMLInputElement;body.append(el('h3',{text:`ROOM ${room.id.toUpperCase()}`}),LoadingIndicator('Waiting for your teammate…'),el('p',{text:'Share this code with a friend. Public rooms also accept the next available player.'}),GameButton({label:'Copy room code',variant:'outline',onClick:()=>{void navigator.clipboard.writeText(room!.id).then(()=>notice.textContent='Room code copied.').catch(()=>notice.textContent='Select and copy the room code above.');}}),el('div',{class:'ftd-coop-online-actions'},[inviteName,GameButton({label:'Invite friend',tone:'primary',onClick:()=>{if(!inviteName.value.trim()){notice.textContent='Enter a friend username first.';return;}void send(`/${room!.id}/invite`,{username:inviteName.value.trim()});}})]),GameButton({label:'Delete room',variant:'outline',onClick:()=>command({type:'leave'})}));return;}
+  if(room.status==='waiting'){
+   const inviteName=el('input',{class:'admin-input',placeholder:'Friend username','aria-label':'Friend username to invite','maxlength':24}) as HTMLInputElement;
+   const hostPlayer=room.players[0]?.userId===yourId;
+   body.append(el('h3',{text:`ROOM ${room.id.toUpperCase()} · ${room.players.length}/4 PLAYERS`}),
+    el('p',{text:room.players.map(member=>`${member.name} · ${member.hero}`).join(' + ')}),
+    el('p',{text:hostPlayer?'Invite up to three teammates. Start with two or three players, or the match starts when four join.':'Waiting for the host to start. The match starts automatically when four players join.'}),
+    GameButton({label:'Copy room code',variant:'outline',onClick:()=>{void navigator.clipboard.writeText(room!.id).then(()=>notice.textContent='Room code copied.').catch(()=>notice.textContent='Select and copy the room code above.');}}),
+    el('div',{class:'ftd-coop-online-actions'},[inviteName,GameButton({label:'Invite friend',tone:'primary',onClick:()=>{if(!inviteName.value.trim()){notice.textContent='Enter a friend username first.';return;}void send(`/${room!.id}/invite`,{username:inviteName.value.trim()});}})]));
+   if(hostPlayer)body.append(GameButton({label:`Start with ${room.players.length} players`,tone:'primary',disabled:room.players.length<2,onClick:()=>command({type:'start'})}));
+   body.append(GameButton({label:hostPlayer?'Close room':'Leave room',variant:'outline',onClick:()=>command({type:'leave'})}));return;
+  }
   if(room.status==='complete'){scene?.dispose();scene=null;sceneId='';client?.close();client=null;connectedRoom='';
    if(room.completedWaves||room.kills)recordRun({id:`coop:${room.id}`,mode:'coop',score:room.score,wave:room.wave,combo:0,kills:room.kills,strokes:0,hits:0,completed:room.reason!=='left',date:Date.now()});
    const coins=room.completedWaves?Math.min(coop.rewardCoinCap,room.kills*coop.coinsPerKill+room.completedWaves*coop.coinsPerWave):0;
    body.append(el('h3',{text:room.reason==='wall'?'WALL BREACHED':'TEAM RUN ENDED'}),el('p',{text:`${room.completedWaves} waves · ${room.kills} fruit · ${room.score} score`}),el('p',{text:`Each account earns ${coins} coins · ${Math.floor(room.completedWaves/coop.gemsEveryWaves)} gems. Server settlement applies XP and team achievements.`}),GameButton({label:'Back to Co-op lobby',tone:'primary',onClick:()=>void send(`/${room!.id}/ack`,{})}));return;
   }
   void attach();
-  const other=room.players.find(p=>p.userId!==yourId);
-  const snapshot={id:room.id,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStroke:other?.lastStroke,players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,wallSkin:loadSave().wallSkin,mainLevel:towerLevelFromXp(room.towerXp??0),mainLastFiredAt:room.mainLastFiredAt,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y}))}]};
+  const teammates=room.players.filter(p=>p.userId!==yourId);
+  const snapshot={id:room.id,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStrokes:teammates.filter(member=>member.lastStroke).map(member=>({userId:member.userId,stroke:member.lastStroke!})),players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,wallSkin:loadSave().wallSkin,mainLevel:towerLevelFromXp(room.towerXp??0),mainLastFiredAt:room.mainLastFiredAt,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y}))}]};
   if(sceneId!==room.id){scene?.dispose();scene=null;sceneId=room.id;sceneLoadingId=room.id;const loadingRoom=room.id;void import('./pvpBattlefield').then(({PvpBattlefield})=>{if(disposed||!body.isConnected||room?.id!==loadingRoom||room.status==='complete'){if(sceneLoadingId===loadingRoom)sceneLoadingId='';return;}scene=new PvpBattlefield(snapshot,balance,c=>{if(c.type==='slash'||c.type==='build')command(c);});sceneLoadingId='';render();}).catch(error=>{if(sceneLoadingId===loadingRoom)sceneLoadingId='';if(!disposed&&room?.id===loadingRoom){sceneFailure=error;render();}});}
   if(!scene){
    if(sceneFailure){const recovery=el('section');body.append(recovery);showScreenLoadFailure(recovery,'Co-op battlefield',sceneFailure,()=>{sceneFailure=null;sceneId='';render();});}
@@ -111,7 +122,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void):void {
     ]));
   }
   body.append(management);
-  body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls'},[el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. Both blades appear live.'}),...Object.entries(balance.towers).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;render();}}))])]));
+  body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls'},[el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. All teammates’ blades appear live.'}),...Object.entries(balance.towers).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;render();}}))])]));
  };
  body.append(LoadingIndicator('Connecting to online Co-op…'));
  const timer=setInterval(()=>{if(!body.isConnected){dispose();return;}void refresh().then(()=>drainCommands());},1000);

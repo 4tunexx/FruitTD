@@ -48,7 +48,7 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
     publish: async () => {},
     token: async (params) => params,
     collection: collection as any,
-    resolveUser: async (req) => ['one', 'two', 'three'].includes(String(req.headers.authorization)) ? { userId: String(req.headers.authorization), nickname: String(req.headers.authorization) } as any : null,
+    resolveUser: async (req) => ['one', 'two', 'three', 'four', 'five'].includes(String(req.headers.authorization)) ? { userId: String(req.headers.authorization), nickname: String(req.headers.authorization) } as any : null,
     creditReward: (async (user: string, receipt: string, reward: any) => { credits.set(`${user}:${receipt}`, reward); return { saveData: {} }; }) as any,
   });
   const app = express(); app.use(express.json()); app.use('/api/coop', service.router);
@@ -70,6 +70,7 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
   assert.equal((await post('/create', 'one')).status, 409);
   assert.equal((await post('/join', 'two', { code: 'invalid' })).status, 400);
   assert.equal((await post('/join', 'two', { code: id })).status, 200);
+  assert.equal((await post(`/${id}/command`, 'one', { sequence: 1, command: {type:'start'} })).status, 200);
   assert.equal((await post('/join', 'three', { code: id })).status, 404);
   assert.equal((await post(`/${id}/token`, 'three')).status, 404);
   const permissions = await (await post(`/${id}/token`, 'one')).json();
@@ -80,13 +81,13 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
   stored.fruits = [{ id: 'fruit', type: 'normal', x: 5, y: 5, hp: 60, boss: false }];
   const cut = { type: 'slash', from: { x: 4, y: 5 }, to: { x: 6, y: 5 } };
   assert.equal((await post(`/${id}/command`, 'three', { sequence: 1, command: cut })).status, 404);
-  assert.equal((await post(`/${id}/command`, 'one', { sequence: 1, command: cut })).status, 200);
+  assert.equal((await post(`/${id}/command`, 'one', { sequence: 2, command: cut })).status, 200);
   assert.equal((await post(`/${id}/command`, 'two', { sequence: 1, command: cut })).status, 200);
   assert.equal((await post(`/${id}/command`, 'one', { sequence: 1, command: cut })).status, 400);
   assert.equal((await status('one')).room.kills, 1);
   assert.equal((await status('two')).room.kills, 1);
   rows('coop_matches')[0].completedWaves = 6;
-  assert.equal((await post(`/${id}/command`, 'one', { sequence: 2, command: { type: 'leave' } })).status, 200);
+  assert.equal((await post(`/${id}/command`, 'one', { sequence: 3, command: { type: 'leave' } })).status, 200);
   await status('one'); await status('two');
   assert.equal(credits.size, 2);
   assert.deepEqual(credits.get(`one:coop:${id}`), credits.get(`two:coop:${id}`));
@@ -102,4 +103,12 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
   const paired = await (await post('/create', 'two', { public: true })).json();
   assert.equal(paired.room.id, publicRoom.room.id);
   assert.equal(paired.room.players.length, 2);
+  assert.equal(paired.room.status,'waiting');
+  assert.equal((await post(`/${publicRoom.room.id}/command`,'two',{sequence:1,command:{type:'leave'}})).status,200);
+  assert.deepEqual(rows('coop_matches').find(row=>row.id===publicRoom.room.id).activePlayers,['one']);
+  const rejoined=await(await post('/create','two',{public:true})).json();assert.equal(rejoined.room.id,publicRoom.room.id);
+  assert.equal((await post('/join','three',{code:publicRoom.room.id})).status,200);
+  const full=await(await post('/join','four',{code:publicRoom.room.id})).json();
+  assert.equal(full.room.players.length,4);assert.equal(full.room.status,'countdown');
+  assert.equal((await post('/join','five',{code:publicRoom.room.id})).status,404);
 });

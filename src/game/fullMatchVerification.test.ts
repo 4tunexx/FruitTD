@@ -26,9 +26,11 @@ test('complete simulated Arena and Ranked matches finish on all seven maps witho
  t.diagnostic(`14 full matches; ${ticks} simulation ticks; ${commands} validated commands; ${Math.round(performance.now()-start)} ms CPU wall time (not GPU FPS).`);
 });
 
-test('online Co-op survives repeated wave/boss cycles with two command streams and ends cleanly',t=>{
+for(const teamSize of [2,4])test(`online Co-op survives repeated wave/boss cycles with ${teamSize} command streams and ends cleanly`,t=>{
  const player=(id:string):CoopPlayer=>({userId:id,name:id,hero:'jiju',sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0});
  const first=player('first'),second=player('second'),game=newCoopMatch('long-coop',first,config);joinCoopMatch(game,second,1000);
+ if(teamSize===4){joinCoopMatch(game,player('third'),1000);joinCoopMatch(game,player('fourth'),1000);}
+ else applyCoopCommand(game,first.userId,1,{type:'start'},1000,config);
  let sawBoss=false,commands=0,ticks=0;const started=performance.now();
  for(let tick=1;tick<=2400&&game.status!=='complete';tick++){
   const now=1000+tick*250;game.players.forEach(p=>p.lastSeenAt=now);

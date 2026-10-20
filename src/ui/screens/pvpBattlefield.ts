@@ -1,3 +1,5 @@
+import {GraphicsRecovery} from '../../engine/graphicsRecovery';
+import {TeamBladeTrails,type TeamStroke} from '../../game/teamBladeTrails';
 import { createBuildPad } from '../../game/buildPads';
 import { TurretEffects } from '../../game/turretEffects';
 import { DefenderMotion } from '../../game/defenderMotion';
@@ -23,7 +25,7 @@ import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
 type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
-export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke };
+export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke;sharedStrokes?:TeamStroke[] };
 const TILE = 1.7;
 const TILE_X = TILE;
 const HEX_RADIUS = TILE / 1.5;
@@ -46,6 +48,7 @@ export class PvpBattlefield {
   readonly element = el('div', { class: 'ftd-pvp-scene' });
   private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Straight orchard siege field. Your keep is at the bottom; drag to pan and tap a build marker.' });
   private readonly renderer: WebGLRenderer;
+  private readonly graphicsRecovery:GraphicsRecovery;
   private readonly scene = new Scene();
   private readonly powerVfx = new PowerVfx(this.scene);
   private readonly turretEffects=new TurretEffects();
@@ -57,6 +60,7 @@ export class PvpBattlefield {
   private readonly pieces = new Group();
   private readonly trail = new BladeTrail();
   private readonly remoteTrail = new BladeTrail();
+  private readonly teammateTrails=new TeamBladeTrails();
   private readonly marker = new Mesh(new CircleGeometry(.58, 24), new MeshBasicMaterial({ color: 0xffca28, transparent: true, opacity: .5, side: DoubleSide }));
   private readonly observer: ResizeObserver;
   private readonly towers = new Map<string, { rig: TurretRig; type: string; own: boolean; cell: number; level?: number;lastFiredAt?:number }>();
@@ -111,6 +115,12 @@ export class PvpBattlefield {
     }
     const mobile=matchMedia('(pointer: coarse)').matches;
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: !mobile, alpha: false,powerPreference:mobile?'low-power':'high-performance' });
+    const graphicsNotice=el('div',{class:'ftd-graphics-notice',role:'status',text:'Graphics interrupted. The live match continues while the browser recovers. Your connection remains active.',hidden:true});
+    this.element.appendChild(graphicsNotice);
+    this.graphicsRecovery=new GraphicsRecovery(this.canvas,{
+      lost:()=>{graphicsNotice.hidden=false;this.canvas.style.pointerEvents='none';},
+      restored:()=>{graphicsNotice.hidden=true;this.canvas.style.pointerEvents='';this.previousAt=performance.now();},
+    });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia('(pointer: coarse)').matches?1:1.5));
     this.scene.background = new Color(0x202529);
     this.scene.add(new AmbientLight(0xc7deee, .85));
@@ -118,7 +128,7 @@ export class PvpBattlefield {
     const rim = new DirectionalLight(0x96d5ff, .55); rim.position.set(14, 12, -24); this.scene.add(rim);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
     this.marker.rotation.x = -Math.PI / 2;
-    this.scene.add(this.turretEffects.group,this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
+    this.scene.add(this.teammateTrails.group,this.turretEffects.group,this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
     this.marker.visible = false;
     this.rangeMarker.rotation.x = -Math.PI/2; this.rangeMarker.visible = false; this.scene.add(this.rangeMarker);
     const skin = findCatalogItem(loadSave().bladeSkin || 'blade-default');
@@ -139,6 +149,7 @@ export class PvpBattlefield {
     const map = snapshot.map; if (!map) return;
     const terrainKey = JSON.stringify([map, snapshot.players.map(p => [p.hero, p.wallSkin, p.mainLevel])]);
     if (this.mapKey !== terrainKey) { this.mapKey = terrainKey; this.buildTerrain(map); }
+    if(snapshot.sharedStrokes)this.teammateTrails.sync(snapshot.sharedStrokes,(x,y)=>{const point=pvpWorldPoint(map,x,y,true);point.y=.8;return point;});
     if (snapshot.sharedStroke && snapshot.sharedStroke.at > this.remoteAt) {
       this.remoteAt = snapshot.sharedStroke.at;
       const a = pvpWorldPoint(map, snapshot.sharedStroke.from.x, snapshot.sharedStroke.from.y, true);
@@ -506,6 +517,7 @@ export class PvpBattlefield {
   }
   private animate = (now: number) => {
     if (this.disposed) return;
+    if(this.graphicsRecovery.lost){this.previousAt=now;this.frame=requestAnimationFrame(this.animate);return;}
     if(document.hidden){this.previousAt=now;this.frame=requestAnimationFrame(this.animate);return;}
     if(matchMedia('(pointer: coarse)').matches && now-this.previousAt<1000/30-1){this.frame=requestAnimationFrame(this.animate);return;}
     const dt = Math.min(.05, (now - this.previousAt) / 1000); this.previousAt = now;
@@ -585,7 +597,7 @@ export class PvpBattlefield {
     }
     if (!this.stroke && now > this.trailUntil) this.trail.reset();
     if (Date.now() - this.remoteAt > 300) this.remoteTrail.reset();
-    this.turretEffects.update(dt);this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
+    this.teammateTrails.update(dt);this.turretEffects.update(dt);this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
     faceCombatPortraits(this.scene,this.camera);
     this.renderer.render(this.scene, this.camera); this.frame = requestAnimationFrame(this.animate);
   };
@@ -597,7 +609,7 @@ export class PvpBattlefield {
     if (this.disposed) return; this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect();
     this.release(this.terrain); this.release(this.pieces);
     for (const trail of [this.trail, this.remoteTrail]) { this.release(trail.line); this.release(trail.glowLine); trail.sparks.geometry.dispose(); (trail.sparks.material as MeshBasicMaterial).dispose(); }
-    this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
+    this.graphicsRecovery.dispose();this.teammateTrails.dispose();this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
     this.effects.forEach((effect) => this.release(effect.object));
   }
 }

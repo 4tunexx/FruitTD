@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { DEFAULT_PVP_CONFIG } from './pvp';
 import { DEFAULT_COOP_CONFIG, newCoopMatch, joinCoopMatch, applyCoopCommand, advanceCoopMatch, coopRewards, type CoopPlayer } from './onlineCoop';
 const player=(id:string):CoopPlayer=>({userId:id,name:id,hero:'jiju',sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0});
-const match=()=>{const room=newCoopMatch('test',player('one'),DEFAULT_PVP_CONFIG);joinCoopMatch(room,player('two'),1000);return room;};
+const match=()=>{const room=newCoopMatch('test',player('one'),DEFAULT_PVP_CONFIG);joinCoopMatch(room,player('two'),1000);room.status='countdown';room.phaseUntil=4000;return room;};
 test('a fresh Co-op room starts with zero Fruts and tower XP; cleared waves progress only that room',()=>{
   const room=match();assert.equal(room.fruts,0);assert.equal(room.towerXp,0);
   room.status='playing';room.remainingSpawns=0;room.fruits=[];
@@ -11,7 +11,33 @@ test('a fresh Co-op room starts with zero Fruts and tower XP; cleared waves prog
   assert.equal(room.towerXp,DEFAULT_COOP_CONFIG.towerXpPerWave);
   assert.equal(match().towerXp,0);
 });
-test('two distinct accounts join once, countdown starts, third player cannot join',()=>{const room=match();assert.equal(room.players.length,2);assert.equal(room.status,'countdown');assert.throws(()=>joinCoopMatch(room,player('three'),1000));advanceCoopMatch(room,.2,4001,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(room.status,'playing');assert.equal(room.fruits.length,1);});
+test('two to four teammates can form a room; only the host starts a smaller party',()=>{
+ const room=newCoopMatch('party',player('one'),DEFAULT_PVP_CONFIG);
+ assert.throws(()=>applyCoopCommand(room,'one',1,{type:'start'},1000,DEFAULT_PVP_CONFIG));
+ joinCoopMatch(room,player('two'),1000);assert.equal(room.status,'waiting');
+ assert.throws(()=>joinCoopMatch(room,player('two'),1001));
+ assert.throws(()=>applyCoopCommand(room,'two',1,{type:'start'},1001,DEFAULT_PVP_CONFIG));
+ applyCoopCommand(room,'one',1,{type:'start'},1001,DEFAULT_PVP_CONFIG);assert.equal(room.status,'countdown');
+ assert.throws(()=>joinCoopMatch(room,player('three'),1002));
+ advanceCoopMatch(room,.2,4002,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(room.status,'playing');assert.equal(room.fruits.length,1);
+ const four=newCoopMatch('four',player('one'),DEFAULT_PVP_CONFIG);
+ for(const id of ['two','three','four'])joinCoopMatch(four,player(id),1000);
+ assert.equal(four.players.length,4);assert.equal(four.status,'countdown');
+ assert.throws(()=>joinCoopMatch(four,player('five'),1001));
+ advanceCoopMatch(four,.2,4001,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
+ assert.equal(four.fruits.length+four.remainingSpawns,DEFAULT_COOP_CONFIG.baseWaveSize*2);
+});
+test('leaving a waiting room releases a guest without ending the host room',()=>{
+ const room=newCoopMatch('lobby',player('one'),DEFAULT_PVP_CONFIG);joinCoopMatch(room,player('two'),1000);
+ applyCoopCommand(room,'two',1,{type:'leave'},1001,DEFAULT_PVP_CONFIG);
+ assert.equal(room.status,'waiting');assert.deepEqual(room.players.map(member=>member.userId),['one']);
+});
+test('scaled Co-op fruit retain their original maximum health after hits and legacy snapshots recover it',()=>{
+ const room=match();room.wave=8;advanceCoopMatch(room,.2,4001,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
+ const fruit=room.fruits[0]!;assert.ok(fruit.maxHp!>DEFAULT_PVP_CONFIG.attacks[fruit.type]!.health);
+ const maximum=fruit.maxHp;fruit.hp-=10;advanceCoopMatch(room,0,4001,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(fruit.maxHp,maximum);
+ delete fruit.maxHp;advanceCoopMatch(room,0,4001,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(fruit.maxHp,maximum);
+});
 test('both players slice the same authoritative fruit and receive equal reward totals',()=>{const room=match();room.status='playing';room.remainingSpawns=1;room.fruits=[{id:'fruit',type:'normal',x:5,y:5,hp:60,boss:false}];const cmd={type:'slash' as const,from:{x:4,y:5},to:{x:6,y:5}};applyCoopCommand(room,'one',1,cmd,2000,DEFAULT_PVP_CONFIG);assert.equal(room.fruits[0]!.hp,25);applyCoopCommand(room,'two',1,cmd,2001,DEFAULT_PVP_CONFIG);assert.equal(room.fruits.length,0);assert.equal(room.kills,1);assert.equal(room.players[1]!.kills,1);assert.equal(room.players[0]!.lastStroke?.at,2000);room.completedWaves=6;const a=coopRewards(room,DEFAULT_COOP_CONFIG);assert.deepEqual(a,coopRewards(room,DEFAULT_COOP_CONFIG));assert.equal(a.gems,1);assert.equal(a.coins,61);});
 test('shared builds debit once and reject occupied pads, replays and unauthorized actions',()=>{const room=match();room.status='playing';room.fruts=100;const before=room.fruts;applyCoopCommand(room,'one',1,{type:'build',tower:'guillotine',cell:121},2000,DEFAULT_PVP_CONFIG);assert.equal(room.fruts,before-DEFAULT_PVP_CONFIG.towers.guillotine!.cost);assert.throws(()=>applyCoopCommand(room,'two',1,{type:'build',tower:'guillotine',cell:121},2000,DEFAULT_PVP_CONFIG));assert.throws(()=>applyCoopCommand(room,'one',1,{type:'build',tower:'guillotine',cell:122},2000,DEFAULT_PVP_CONFIG));assert.throws(()=>applyCoopCommand(room,'outsider',1,{type:'leave'},2000,DEFAULT_PVP_CONFIG));assert.equal(room.towers.length,1);});
 test('boss introduction counts down and creates an actual high-health boss',()=>{const room=match();room.wave=7;room.status='boss-intro';room.phaseUntil=5000;advanceCoopMatch(room,.2,4900,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(room.fruits.length,0);advanceCoopMatch(room,.2,5001,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);assert.equal(room.status,'playing');assert.equal(room.fruits[0]!.boss,true);assert.equal(room.remainingSpawns,0);assert.ok(room.fruits[0]!.hp>DEFAULT_PVP_CONFIG.attacks.armored!.health);});

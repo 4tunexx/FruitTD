@@ -279,3 +279,6 @@ body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { position:fixed;left:0;bottom:
 body[data-ftd-screen='PLAY'] #combat-status-toggle { display:block;position:absolute;right:58px;top:15px;z-index:45;min-height:32px;padding:4px 8px;border:1px solid #b28c4e;background:#202125;color:#ffe394;pointer-events:auto;font-size:10px; }
 #battle-status.is-collapsed { display:none!important; }
 body[data-ftd-screen='PLAY'] #super-fill { transition:none; }
+
+.ftd-graphics-notice {position:absolute;inset:35% 12px auto;z-index:90;padding:18px;border:1px solid #ffe394;background:#202125f5;color:#fff0cd;text-align:center;font-weight:700;}
+.ftd-graphics-notice[hidden]{display:none;}
