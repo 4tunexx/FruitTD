@@ -1,4 +1,5 @@
 import {GraphicsRecovery} from './engine/graphicsRecovery';
+import { gearPriceError } from './game/catalogEconomy';
 import { turretLevelTuning } from './game/studioRuntime';
 import { LoadingIndicator } from './ui/components/loading';
 import { heroArt } from './ui/heroArt';
@@ -515,6 +516,13 @@ function buySkin(id: string): void {
   const wall = WALL_SKINS.find((w) => w.id === id);
   if (!slicer && !wall) return;
 
+  const gear = slicer ?? wall!;
+  if (gearPriceError(gear.cost, gear.sellValue)) {
+    toast(state, 'This gear has invalid pricing. Please contact an admin.', 2.4);
+    sfx.denied();
+    return;
+  }
+
   if (!save.ownedSkins.includes(id)) {
     const cost = slicer?.cost ?? wall!.cost;
     if (save.coins < cost) {
@@ -605,6 +613,11 @@ function sellItem(id: string): void {
   const slicer = findSlicer(getSlicers(), id) || findSlicer(getLiveConfig().slicers, id);
   const wall = WALL_SKINS.find((w) => w.id === id);
   const sell = slicer?.sellValue ?? wall?.sellValue ?? 0;
+  if (gearPriceError(slicer?.cost ?? wall?.cost, sell)) {
+    toast(state, 'This gear has invalid pricing. Please contact an admin.', 2.4);
+    sfx.denied();
+    return;
+  }
   if (sell <= 0) {
     sfx.denied();
     return;

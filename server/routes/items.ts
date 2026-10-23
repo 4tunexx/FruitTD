@@ -1,4 +1,5 @@
 import { purchaseHeroPerk } from '../../src/game/heroPerkPurchase';
+import { gearPriceError } from '../../src/game/catalogEconomy';
 import { Router, type Request, type Response } from 'express';
 import type { Collection } from 'mongodb';
 import { getCollection, type CloudSaveDoc } from '../db';
@@ -57,6 +58,10 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       const heroId = id.startsWith('hero:') ? id.slice(5) as HeroId : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
       if (!['buy-vip', 'buy-skill', 'buy-ability', 'equip-ability', 'buy-perk'].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: 'Gear not found' });
+      if ((action === 'buy' || action === 'sell') && (slicer || wall)) {
+        const gear = slicer ?? wall!;
+        if (gearPriceError(gear.cost, gear.sellValue)) return res.status(422).json({ success: false, error: 'This gear has invalid pricing. Please contact an admin.' });
+      }
 
       const col = await deps.collection<CloudSaveDoc>('cloud_saves');
       const current = await col.findOne({ userId: user.userId });

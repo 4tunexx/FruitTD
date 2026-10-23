@@ -1,4 +1,5 @@
 import { FRUIT_DEFS } from '../game/fruitDefinitions';
+import { slicerCatalogError } from '../game/catalogEconomy';
 import { ENEMY_RULES } from '../game/enemies';
 import { normalizeCoopConfig } from '../game/onlineCoop';
 import { renderConfigForm } from './admin/configForm';
@@ -887,6 +888,11 @@ export class AdminController {
 
   private async saveCurrentConfig(): Promise<void> {
     if (!this.config) return;
+    const pricingError = slicerCatalogError(this.config.slicers);
+    if (pricingError) {
+      GameToast(pricingError, 'warning');
+      return;
+    }
     const invalid = this.modal?.querySelector<HTMLInputElement>('input:invalid, textarea:invalid');
     if (invalid) {
       invalid.reportValidity(); invalid.focus();

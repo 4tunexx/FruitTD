@@ -14,6 +14,7 @@ import {
   monthlyLeaderboardMode, migrateCoopCatalog,
 } from '../../src/game/requirements';
 import { DEFAULT_SLICERS } from '../../src/game/slicers';
+import { slicerCatalogError } from '../../src/game/catalogEconomy';
 import { campaignWaves } from '../../src/game/campaign';
 import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../../src/game/campaignStory';
 import { resolveRequestUser } from '../auth';
@@ -340,6 +341,8 @@ router.post('/config', async (req: Request, res: Response) => {
 
   try {
     const { dailyRewards, vipTiers, menuConfig, landscapeConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req.body;
+    const slicerError = slicers === undefined ? null : slicerCatalogError(slicers);
+    if (slicerError) return res.status(400).json({ success: false, error: slicerError });
     if (req.body.creatorMedia !== undefined) {
       try { normalizeCreatorMedia(req.body.creatorMedia); }
       catch (error) { return res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Invalid Creator media.' }); }
