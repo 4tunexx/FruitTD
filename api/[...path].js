@@ -3419,6 +3419,30 @@ import { Router as Router6 } from "express";
 // server/routes/admin.ts
 import { Router as Router5 } from "express";
 import { ObjectId } from "mongodb";
+
+// src/game/catalogEconomy.ts
+var MAX_COINS = 1e6;
+function gearPriceError(cost, sellValue) {
+  const valid = (value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= MAX_COINS;
+  if (!valid(cost) || !valid(sellValue)) return "Prices must be whole coins between 0 and 1,000,000.";
+  if (sellValue > cost) return "Sell value cannot exceed the purchase price.";
+  return null;
+}
+function slicerCatalogError(value) {
+  if (!Array.isArray(value)) return "Blades must be a list.";
+  const ids = /* @__PURE__ */ new Set();
+  for (const row of value) {
+    if (!row || typeof row.id !== "string" || !/^[a-zA-Z0-9_-]{1,120}$/.test(row.id)) return "Each blade needs a valid ID.";
+    if (row.id.startsWith("wall-") || ids.has(row.id)) return `Blade ID ${row.id} is reserved or repeated.`;
+    ids.add(row.id);
+    const error2 = gearPriceError(row.cost, row.sellValue);
+    if (error2) return `${row.id}: ${error2}`;
+    if (row.id === "blade-default" && (row.cost !== 0 || row.sellValue !== 0)) return "The starter blade must remain free and cannot be sold.";
+  }
+  return null;
+}
+
+// server/routes/admin.ts
 var adminRouter = Router5();
 var ADMIN_STEAM_ID = process.env.ADMIN_STEAM_ID || "";
 var ICON_TYPES = /* @__PURE__ */ new Set(["coin", "gem", "chest", "blade"]);
@@ -3629,6 +3653,8 @@ function createAdminConfigRouter(dependencies = {}) {
     }
     try {
       const { dailyRewards, vipTiers, menuConfig, landscapeConfig, gameplayConfig, missions, achievements, badges, ranks, slicers, enemies, waves, campaignBosses, campaignStories } = req2.body;
+      const slicerError = slicers === void 0 ? null : slicerCatalogError(slicers);
+      if (slicerError) return res.status(400).json({ success: false, error: slicerError });
       if (req2.body.creatorMedia !== void 0) {
         try {
           normalizeCreatorMedia(req2.body.creatorMedia);
@@ -5231,6 +5257,10 @@ function createItemsRouter(deps = defaultDeps6) {
       const heroId = id.startsWith("hero:") ? id.slice(5) : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
       if (!["buy-vip", "buy-skill", "buy-ability", "equip-ability", "buy-perk"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
+      if ((action === "buy" || action === "sell") && (slicer || wall)) {
+        const gear2 = slicer ?? wall;
+        if (gearPriceError(gear2.cost, gear2.sellValue)) return res.status(422).json({ success: false, error: "This gear has invalid pricing. Please contact an admin." });
+      }
       const col = await deps.collection("cloud_saves");
       const current = await col.findOne({ userId: user.userId });
       const currentRevision = serverRevision2(current?.revision);
