@@ -206,7 +206,7 @@ export class TurretRig {
   animate(dt:number, active=false):void {
     this.phase += dt;
     const skin=this.skinAnim.active?updateStudioAnim(this.skinAnim,dt,0,0):null;
-    if(skin){const mat=this.placeholder.material as MeshBasicMaterial;mat.map=skin;mat.needsUpdate=true;}
+    if(skin){const mat=this.placeholder.material as MeshBasicMaterial;if(mat.map!==skin){mat.map=skin;mat.needsUpdate=true;}}
     if(this.spin)this.spin.rotation.z+=dt*(active?9+this.visualLevel*.7:0);
     this.mechanism.scale.setScalar(1+(this.visualLevel-1)*.035+(active?.045:0)*Math.sin(this.phase*22));
   }

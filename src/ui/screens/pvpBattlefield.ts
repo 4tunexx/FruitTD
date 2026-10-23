@@ -1,4 +1,5 @@
 import {towerHealthRail} from '../../game/towerHealthRail';
+import { NetworkMotion } from '../../game/networkMotion';
 import {GraphicsRecovery} from '../../engine/graphicsRecovery';
 import {TeamBladeTrails,type TeamStroke} from '../../game/teamBladeTrails';
 import { createBuildPad } from '../../game/buildPads';
@@ -25,8 +26,8 @@ import { pvpTowerLevel, pvpTowerStats, pvpBuildCellAllowed, type PvpCommand, typ
 import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
-type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;sliceOnly?:boolean;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
-export type BattlefieldSnapshot = { id: string; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke;sharedStrokes?:TeamStroke[] };
+type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; movementSpeed?: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;sliceOnly?:boolean;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
+export type BattlefieldSnapshot = { id: string; revision?: number; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke;sharedStrokes?:TeamStroke[] };
 const TILE = 1.7;
 const TILE_X = TILE;
 const HEX_RADIUS = TILE / 1.5;
@@ -76,7 +77,7 @@ export class PvpBattlefield {
   private readonly keepMotion=new Map<string,{motion:DefenderMotion;at:number;studio?:StudioAnimState}>();
   private snapshot: BattlefieldSnapshot;
   private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] };
-  private receivedAt = performance.now();
+  private readonly movement = new Map<string, NetworkMotion>();
   private previousAt = performance.now();
   private frame = 0;
   private disposed = false;
@@ -147,7 +148,8 @@ export class PvpBattlefield {
   }
 
   update(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] }): void {
-    this.snapshot = snapshot; this.config = config; this.receivedAt = performance.now();
+    this.snapshot = snapshot; this.config = config;
+    const receivedAt = performance.now();
     const map = snapshot.map; if (!map) return;
     const terrainKey = JSON.stringify([map, snapshot.players.map(p => [p.hero, p.wallSkin, p.mainLevel])]);
     if (this.mapKey !== terrainKey) { this.mapKey = terrainKey; this.buildTerrain(map); }
@@ -224,6 +226,7 @@ export class PvpBattlefield {
           const size = fruit.type === 'armored' ? 1.36 : .96;
           const mesh = new Mesh(new CircleGeometry(size / 2, 40), new MeshLambertMaterial({ color: texture ? 0xffffff : def.color, map: texture, transparent: true, side: DoubleSide, depthWrite: false }));
           mesh.userData.combatPortrait=true;
+          mesh.userData.networkId=fruit.id;
           const token=combatTokenFrame(size / 2, fruit.boss ? 'boss' : 'fruit');
           if(fruit.sliceOnly){const rim=token.getObjectByName('token-rim') as Mesh;(rim.material as MeshBasicMaterial).color.setHex(0xf472b6);}
           mesh.add(token);
@@ -248,6 +251,13 @@ export class PvpBattlefield {
           const fill = entry.mesh.userData.hpFill as Mesh; fill.scale.x = Math.max(.01, fraction); fill.position.x = -(1 - fraction) * .375;
         }
         entry.player = player; entry.progress = fruit.progress; entry.x = fruit.x; entry.y = fruit.y; entry.boss = fruit.boss;entry.attackingTower=fruit.attackingTower;entry.lastTowerHitAt=fruit.lastTowerHitAt;entry.fighting=fruit.fighting;entry.fightTargetId=fruit.fightTargetId;entry.lastClashAt=fruit.lastClashAt;entry.slowUntil=fruit.slowUntil;entry.slowMultiplier=fruit.slowMultiplier;
+        let motion = this.movement.get(fruit.id);
+        if (!motion) { motion = new NetworkMotion(); this.movement.set(fruit.id, motion); }
+        const slow = Date.now() < (fruit.slowUntil ?? 0) ? fruit.slowMultiplier ?? (snapshot.shared ? .45 : .55) : 1;
+        const speed = fruit.fighting || fruit.attackingTower ? 0 : (fruit.movementSpeed ?? (config.attacks[fruit.type]?.speed || 0)
+          * (snapshot.shared ? fruit.boss ? .35 : .65 : Math.max(1, (map.pathCells.length - 1) / 13))) * slow;
+        const stamp = snapshot.revision ?? JSON.stringify([fruit.progress, fruit.x, fruit.y, fruit.fighting, fruit.attackingTower, fruit.slowUntil]);
+        motion.update(snapshot.shared ? fruit.y ?? fruit.progress : fruit.progress, speed, stamp, receivedAt);
       }
       if (snapshot.shared && !own && player.lastStroke && player.lastStroke.at > this.remoteAt) {
         this.remoteAt = player.lastStroke.at;
@@ -258,6 +268,7 @@ export class PvpBattlefield {
     }
     for (const [id, entry] of this.towers) if (!towerIds.has(id)) { this.release(entry.rig.group); this.towers.delete(id); }
     for (const [id, entry] of this.fruits) if (!fruitIds.has(id)) {
+      this.movement.delete(id);
       const captured = snapshot.players.some(player => player.captured?.some(item => item.id === `captured:${id}`));
       if (captured) {
         const cage = [...this.towers.values()].filter(tower => tower.own === entry.own && tower.type === 'catcher').sort((a, b) => a.rig.group.position.distanceTo(entry.mesh.position) - b.rig.group.position.distanceTo(entry.mesh.position))[0];
@@ -537,7 +548,7 @@ export class PvpBattlefield {
       if(!keep.studio||keep.studio.entityKey!==key||!keep.studio.active)keep.studio=createStudioAnimForKey(key);
       const sheet=keep.studio.active?updateStudioAnim(keep.studio,dt,0,0):sampleStudioTexture(key);
       const body=keep.motion.group.parent;
-      if(sheet&&body instanceof Mesh){const material=body.material as MeshLambertMaterial;material.map=sheet;material.color.setHex(0xffffff);material.needsUpdate=true;}
+      if(sheet&&body instanceof Mesh){const material=body.material as MeshLambertMaterial;if(material.map!==sheet){material.map=sheet;material.color.setHex(0xffffff);material.needsUpdate=true;}}
     }
     const wallSheet = sampleStudioTexture('tower-wall');
     if (wallSheet) for (const material of this.wallMaterials) if (material.userData.creatorWallAllowed && material.map !== wallSheet) { material.map = wallSheet; material.color.setHex(0xffffff); material.needsUpdate = true; }
@@ -548,13 +559,12 @@ export class PvpBattlefield {
     }
     const map = this.snapshot.map;
     if (map) for (const entry of this.fruits.values()) {
-      const slow=Date.now()<(entry.slowUntil??0)?entry.slowMultiplier??.45:1;
       if (this.snapshot.shared && entry.x !== undefined && entry.y !== undefined) {
-        const y = Math.min(13.5, entry.y + Math.min(.5, (now - this.receivedAt) / 1000) * (this.config.attacks[entry.type]?.speed || 0) * (entry.boss ? .35 : .65)*slow);
+        const y = Math.min(13.5, this.movement.get(entry.mesh.userData.networkId)?.sample(now) ?? entry.y);
         entry.mesh.position.copy(pvpWorldPoint(map, entry.x, y, true)); entry.mesh.position.y = .65 + Math.sin(now / 140) * .07;
         entry.mesh.scale.setScalar(entry.boss ? 2.5 : 1); entry.mesh.rotation.y = 0; entry.mesh.visible = true; continue;
       }
-      const progress=Math.min(map.pathCells.length-1,entry.progress+(entry.fighting?0:Math.min(.5,(now-this.receivedAt)/1000)*(this.config.attacks[entry.type]?.speed||0)*Math.max(1,(map.pathCells.length-1)/13)*slow));
+      const progress=Math.min(map.pathCells.length-1,this.movement.get(entry.mesh.userData.networkId)?.sample(now) ?? entry.progress);
       entry.mesh.visible=entry.progress>=-map.pathCells.length;
       const position = pvpArmyPoint(map,progress,entry.own);
       const facing = entry.fightTargetId ? this.fruits.get(entry.fightTargetId)?.mesh.position : undefined;
@@ -616,7 +626,7 @@ export class PvpBattlefield {
   }
   dispose(): void {
     if (this.disposed) return; this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect();
-    this.release(this.terrain); this.release(this.pieces);
+    this.release(this.terrain); this.release(this.pieces); this.movement.clear();
     for (const trail of [this.trail, this.remoteTrail]) { this.release(trail.line); this.release(trail.glowLine); trail.sparks.geometry.dispose(); (trail.sparks.material as MeshBasicMaterial).dispose(); }
     this.graphicsRecovery.dispose();this.teammateTrails.dispose();this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
     this.effects.forEach((effect) => this.release(effect.object));
