@@ -44,3 +44,5 @@
 #hud-gameover .modal-card--over.is-campaign-defeat #hud-final-wave { color:#ff7d68; font-size:11px; font-weight:1000; letter-spacing:.1em; }
 @media(max-width:400px){.campaign-defeat-faceoff{gap:3px;padding:9px 2px}.campaign-defeat-fighter{padding:6px 2px}.campaign-defeat-fighter small{font-size:7px}}
 @media(prefers-reduced-motion:reduce){.campaign-defeat-faceoff *,.campaign-defeat-faceoff:before{animation:none!important;transform:none!important}}
+
+.ftd-campaign-story__image{display:block;width:100%;max-height:28dvh;object-fit:contain;margin:0 0 16px;border-radius:6px;background:#07100b}.ftd-campaign-story__image.hidden{display:none}

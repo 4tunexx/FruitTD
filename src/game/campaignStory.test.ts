@@ -4,6 +4,21 @@ import { campaignStory, DEFAULT_CAMPAIGN_STORIES } from './campaignStory';
 import { campaignStoriesError } from '../../server/routes/admin';
 import { campaignBossDefeated, createState } from './state';
 
+test('chapter artwork survives custom story lookup and malformed uploads cannot be published', () => {
+  const image = 'data:image/webp;base64,UklGRg==';
+  const stories = DEFAULT_CAMPAIGN_STORIES.map((chapter) => ({ ...chapter, revealImage: image }));
+  assert.equal(campaignStoriesError(stories), null);
+  assert.equal(campaignStory(5, stories)?.revealImage, image);
+  for (const invalid of ['javascript:alert(1)', 'https://example.com/image.webp', 'data:image/svg+xml;base64,AA==', `data:image/webp;base64,${'A'.repeat(30_000)}`]) {
+    stories[0].revealImage = invalid;
+    assert.ok(campaignStoriesError(stories));
+    assert.equal(campaignStory(5, stories)?.revealImage, undefined);
+  }
+  stories[0].revealImage = '';
+  assert.equal(campaignStoriesError(stories), null);
+  assert.equal(campaignStory(5, stories)?.revealImage, undefined);
+});
+
 test('campaign reveals twenty distinct authored chapters at five-stage milestones', () => {
   const chapters = Array.from({ length: 20 }, (_, index) => campaignStory((index + 1) * 5)!);
   assert.equal(new Set(chapters.map((chapter) => chapter.title)).size, 20);

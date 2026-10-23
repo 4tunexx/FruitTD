@@ -252,6 +252,13 @@ export class AdminController {
     document.getElementById('btn-save-boss-names')?.addEventListener('click', () => this.saveBossNames());
     document.getElementById('admin-campaign-boss-stage')?.addEventListener('change', () => this.renderContentEditor());
     document.getElementById('admin-campaign-story-chapter')?.addEventListener('change', () => this.renderContentEditor());
+    document.getElementById('admin-campaign-story-image')?.addEventListener('change', (event) => void this.readCampaignBossImage(event, 'story'));
+    document.getElementById('admin-campaign-story-remove-image')?.addEventListener('click', () => {
+      this.campaignImageRequest++;
+      this.campaignStoryImage = '';
+      const preview = document.getElementById('admin-campaign-story-preview') as HTMLImageElement | null;
+      if (preview) { preview.removeAttribute('src'); preview.classList.add('hidden'); }
+    });
     document.getElementById('btn-save-campaign-story')?.addEventListener('click', () => void this.saveCampaignStory());
     document.getElementById('admin-campaign-boss-image')?.addEventListener('change', (event) => void this.readCampaignBossImage(event));
     for (const id of ['admin-campaign-boss-name', 'admin-campaign-boss-title', 'admin-campaign-boss-description', 'admin-campaign-boss-difficulty', 'admin-campaign-boss-coins', 'admin-campaign-boss-gems']) {
@@ -969,23 +976,30 @@ export class AdminController {
 
   // Main content editor (kept from post-PR#6)
   private campaignRevealImage = '';
+  private campaignStoryImage: string | undefined;
+  private campaignImageRequest = 0;
 
-  private async readCampaignBossImage(event: Event): Promise<void> {
+  private async readCampaignBossImage(event: Event, kind: 'boss' | 'story' = 'boss'): Promise<void> {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { GameToast('Choose a PNG, JPEG, or WebP image.', 'warning'); return; }
+    const request = ++this.campaignImageRequest;
     const imageUrl = URL.createObjectURL(file);
     try {
       const image = new Image(); image.src = imageUrl; await image.decode();
       const scale = Math.min(1, 320 / Math.max(image.naturalWidth, image.naturalHeight));
       const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
       canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+      if (request !== this.campaignImageRequest) return;
       let quality = 0.86;
-      do { this.campaignRevealImage = canvas.toDataURL('image/webp', quality); quality -= 0.12; } while (this.campaignRevealImage.length > 28_000 && quality >= 0.2);
-      if (this.campaignRevealImage.length > 30_000) { this.campaignRevealImage = ''; GameToast('Image is too detailed. Use a smaller PNG (320×320 recommended).', 'warning'); return; }
-      const preview = document.getElementById('admin-campaign-boss-preview') as HTMLImageElement | null;
-      if (preview) { preview.src = this.campaignRevealImage; preview.classList.remove('hidden'); }
-      this.previewCampaignBoss();
+      let optimized = '';
+      do { optimized = canvas.toDataURL('image/webp', quality); quality -= 0.12; } while (optimized.length > 28_000 && quality >= 0.2);
+      if (optimized.length > 30_000) { GameToast('Image is too detailed. Use a smaller PNG (320×320 recommended).', 'warning'); return; }
+      if (kind === 'story') this.campaignStoryImage = optimized;
+      else this.campaignRevealImage = optimized;
+      const preview = document.getElementById(`admin-campaign-${kind}-preview`) as HTMLImageElement | null;
+      if (preview) { preview.src = optimized; preview.classList.remove('hidden'); }
+      if (kind === 'boss') this.previewCampaignBoss();
     } catch { GameToast('Could not read that image.', 'danger'); }
     finally { URL.revokeObjectURL(imageUrl); }
   }
@@ -1024,7 +1038,7 @@ export class AdminController {
       GameToast('Choose a chapter and enter a title and story.', 'warning'); return;
     }
     const stories = DEFAULT_CAMPAIGN_STORIES.map((fallback) => this.config?.campaignStories?.[fallback.chapter - 1] ?? fallback);
-    stories[chapter - 1] = { chapter, title, text };
+    stories[chapter - 1] = { chapter, title, text, revealImage: this.campaignStoryImage ?? stories[chapter - 1].revealImage };
     const updated = { ...this.config, campaignStories: stories };
     const result = await saveAdminConfig(updated);
     if (!result.success) { GameToast(result.error || 'Could not save chapter.', 'danger'); return; }
@@ -1061,6 +1075,8 @@ export class AdminController {
   }
 
   private renderContentEditor(): void {
+    this.campaignImageRequest++;
+    this.campaignStoryImage = undefined;
     const storySelect = document.getElementById('admin-campaign-story-chapter') as HTMLSelectElement | null;
     if (storySelect && !storySelect.options.length) for (let chapter = 1; chapter <= 20; chapter++) storySelect.add(new Option(`Chapter ${String(chapter).padStart(2, '0')} · Stage ${chapter * 5}`, String(chapter)));
     if (storySelect) {
@@ -1069,6 +1085,14 @@ export class AdminController {
       const text = document.getElementById('admin-campaign-story-text') as HTMLTextAreaElement | null;
       if (title) title.value = story?.title || '';
       if (text) text.value = story?.text || '';
+      const image = document.getElementById('admin-campaign-story-preview') as HTMLImageElement | null;
+      if (image) {
+        if (story?.revealImage) image.src = story.revealImage;
+        else image.removeAttribute('src');
+        image.classList.toggle('hidden', !story?.revealImage);
+      }
+      const upload = document.getElementById('admin-campaign-story-image') as HTMLInputElement | null;
+      if (upload) upload.value = '';
     }
     const stageSelect = document.getElementById('admin-campaign-boss-stage') as HTMLSelectElement | null;
     if (stageSelect && !stageSelect.options.length) for (let stage = 1; stage <= 100; stage++) stageSelect.add(new Option(`Stage ${String(stage).padStart(2, '0')}`, String(stage)));

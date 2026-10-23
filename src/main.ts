@@ -1569,6 +1569,7 @@ function showCampaignChapter(clearedStage: number): void {
   if (clearedStage < 5 || clearedStage > 100 || clearedStage % 5 !== 0) return;
   campaignStoryActive = true;
   campaignStoryFinal = clearedStage === 100;
+  document.getElementById('campaign-story-image')?.classList.add('hidden');
   blade.reset();
   trail.reset();
   const title = document.getElementById('campaign-story-title');

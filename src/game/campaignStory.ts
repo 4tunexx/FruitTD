@@ -1,5 +1,5 @@
 /** Campaign chapters appear only after stages 5, 10, …, 100 are cleared. */
-export interface CampaignChapter { chapter: number; title: string; text: string }
+export interface CampaignChapter { chapter: number; title: string; text: string; revealImage?: string }
 
 export const DEFAULT_CAMPAIGN_STORIES: readonly CampaignChapter[] = [
   { chapter: 1, title: 'The First Signal', text: 'When the first Rot King falls, the wall radios crackle with a signal that sounds almost like a heartbeat. It is travelling through the orchard roots, and every infected fruit turns toward it. Your crew marks the source and heads beyond the safe lanes.' },
@@ -30,5 +30,10 @@ export function campaignStory(clearedStage: number, overrides?: readonly Campaig
   const fallback = DEFAULT_CAMPAIGN_STORIES[chapter - 1];
   const override = overrides?.find((entry) => entry?.chapter === chapter);
   if (!override || typeof override.title !== 'string' || !override.title.trim() || typeof override.text !== 'string' || !override.text.trim()) return fallback;
-  return { chapter, title: override.title, text: override.text };
+  return { chapter, title: override.title, text: override.text, ...(validChapterImage(override.revealImage) && override.revealImage ? { revealImage: override.revealImage } : {}) };
+}
+
+/** Small optimized uploads keep the shared configuration within its request budget. */
+export function validChapterImage(value: unknown): boolean {
+  return value === undefined || value === '' || (typeof value === 'string' && value.length <= 30_000 && /^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(value));
 }

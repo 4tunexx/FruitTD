@@ -1,3 +1,4 @@
+import { validChapterImage } from '../../src/game/campaignStory';
 import { migrateLegacyWeaponBalance } from '../../src/game/turretWeapons';
 import { normalizeCoopConfig, type CoopConfig } from '../../src/game/onlineCoop';
 import { normalizeCreatorMedia } from '../../src/game/creatorMedia';
@@ -112,8 +113,8 @@ export function campaignStoriesError(value: unknown): string | null {
   return value.some((chapter: any, index) =>
     !chapter || typeof chapter !== 'object' || chapter.chapter !== index + 1 ||
     typeof chapter.title !== 'string' || !chapter.title.trim() || chapter.title.length > 80 ||
-    typeof chapter.text !== 'string' || !chapter.text.trim() || chapter.text.length > 900)
-    ? 'Each chapter needs its numbered slot, a title under 80 characters and story under 900 characters.' : null;
+    typeof chapter.text !== 'string' || !chapter.text.trim() || chapter.text.length > 900 || !validChapterImage(chapter.revealImage))
+    ? 'Each chapter needs its numbered slot, a title under 80 characters and story under 900 characters; chapter images must be optimized WebP under 30 KB.' : null;
 }
 
 function normalizeDailyRewards(input: unknown): AdminConfigDoc['dailyRewards'] {

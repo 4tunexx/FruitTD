@@ -1908,6 +1908,9 @@ var DEFAULT_CAMPAIGN_STORIES = [
   { chapter: 19, title: "Before Dawn", text: "The last defense is built from repaired steel, salvaged blades, and every seed the growers carried. Nobody promises an easy victory. As the sky begins to pale, your crew steps into the core and gives the wall one final order: hold." },
   { chapter: 20, title: "A New Season", text: "The final overlord falls and the pulse goes quiet. The roots loosen their grip on the wall, leaving a scar across the orchard but no command to follow. In the clean soil beside the gate, the growers plant their first seed. This time, they let it grow on its own." }
 ];
+function validChapterImage(value) {
+  return value === void 0 || value === "" || typeof value === "string" && value.length <= 3e4 && /^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
 
 // src/ui/gameGlyphs.ts
 var solid = (d) => [["path", { d, fill: "currentColor", stroke: "none" }]];
@@ -3455,7 +3458,7 @@ function campaignBossRosterError(value) {
 }
 function campaignStoriesError(value) {
   if (!Array.isArray(value) || value.length !== 20) return "Provide exactly 20 campaign chapters.";
-  return value.some((chapter, index) => !chapter || typeof chapter !== "object" || chapter.chapter !== index + 1 || typeof chapter.title !== "string" || !chapter.title.trim() || chapter.title.length > 80 || typeof chapter.text !== "string" || !chapter.text.trim() || chapter.text.length > 900) ? "Each chapter needs its numbered slot, a title under 80 characters and story under 900 characters." : null;
+  return value.some((chapter, index) => !chapter || typeof chapter !== "object" || chapter.chapter !== index + 1 || typeof chapter.title !== "string" || !chapter.title.trim() || chapter.title.length > 80 || typeof chapter.text !== "string" || !chapter.text.trim() || chapter.text.length > 900 || !validChapterImage(chapter.revealImage)) ? "Each chapter needs its numbered slot, a title under 80 characters and story under 900 characters; chapter images must be optimized WebP under 30 KB." : null;
 }
 function normalizeDailyRewards(input) {
   const rows = Array.isArray(input) ? input : [];
