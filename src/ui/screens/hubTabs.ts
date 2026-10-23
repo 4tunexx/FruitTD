@@ -504,8 +504,8 @@ export function coopHubTab(onStart?: () => void): HubTab {
       root.appendChild(el('aside', { class: 'ftd-hub-context' }, [
         el('p', { class: 'ftd-hub-context__eyebrow', text: 'ONLINE TEAM PLAY' }),
         el('h2', { text: 'Defend together' }),
-        el('p', { text: 'Both online players use mouse or touch to slice fruit and build shared defenses.' }),
-        el('p', { text: 'Create a private room for a friend or find a random teammate.' }),
+        el('p', { text: 'Two to four online players use mouse or touch to slice fruit and build shared defences.' }),
+        el('p', { text: 'Create a private room for up to three friends or find a public team.' }),
         el('p', { text: 'The wall and Fruts are shared. Each connected account receives the same match rewards.' }),
         GameButton({ label: 'Choose another mode', variant: 'outline', block: true, onClick: () => openScreen('MAIN_MENU') }),
       ]));

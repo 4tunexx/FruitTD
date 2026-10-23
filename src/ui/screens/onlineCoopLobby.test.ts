@@ -23,3 +23,25 @@ test('Co-op lobby exposes the roster and wires a host-only start command',async(
   assert.ok([...host.querySelectorAll('button')].some(button=>button.textContent==='Leave room'));
  }finally{disposeOnlineCoop(host);globalThis.fetch=previous;resetDom();}
 });
+
+test('Co-op polling preserves room-code input and friend drafts across roster updates',async()=>{
+ resetDom();const previous=globalThis.fetch,oldInterval=globalThis.setInterval;
+ let poll=()=>{};globalThis.setInterval=((callback:()=>void)=>{poll=callback;return 0;}) as typeof setInterval;
+ const host=document.createElement('div');document.body.appendChild(host);
+ let room:any=null;
+ globalThis.fetch=async()=>new Response(JSON.stringify({success:true,room,balance:DEFAULT_PVP_CONFIG,coop:DEFAULT_COOP_CONFIG,yourId:'host'}));
+ try{
+  renderOnlineCoop(host,()=>{});await tick();
+  const code=host.querySelector<HTMLInputElement>('[aria-label="Friend room code"]')!;
+  code.value='abc123';code.dispatchEvent({type:'input'} as Event);
+  poll();await tick();assert.equal(host.querySelector('[aria-label="Friend room code"]'),code);assert.equal(code.value,'abc123');
+  room={id:'0123456789',status:'waiting',revision:0,players:[{userId:'host',name:'Host',hero:'jiju',sequence:0}],fruts:0,towers:[]};
+  poll();await tick();
+  const friend=host.querySelector<HTMLInputElement>('[aria-label="Friend username to invite"]')!;
+  friend.value='Teammate';friend.dispatchEvent({type:'input'} as Event);
+  room.players.push({userId:'guest',name:'Guest',hero:'ki',sequence:0});room.revision++;
+  poll();await tick();
+  assert.equal(host.querySelector<HTMLInputElement>('[aria-label="Friend username to invite"]')!.value,'Teammate');
+  assert.match(host.textContent||'',/2\/4 PLAYERS/);
+ }finally{disposeOnlineCoop(host);globalThis.fetch=previous;globalThis.setInterval=oldInterval;resetDom();}
+});

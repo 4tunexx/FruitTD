@@ -32,13 +32,24 @@ export function renderConfigForm(root: HTMLElement, config: object, onChange: ()
         input.type = typeof entry === 'boolean' ? 'checkbox' : typeof entry === 'number' ? 'range' : 'text';
         if (input.type === 'checkbox') input.checked = Boolean(entry);
         else input.value = String(entry ?? '');
-        let output: HTMLOutputElement | null = null;
+        let output: HTMLInputElement | null = null;
         if (input.type === 'range') {
           const range = bounds(key, entry as number);
           input.min = String(range.min); input.max = String(range.max); input.step = String(range.step);
           input.value = String(entry);
-          output = document.createElement('output'); output.className = 'admin-config-value'; output.value = String(entry);
-          output.textContent = String(entry);
+          output = document.createElement('input'); output.type = 'number';
+          output.className = 'admin-config-value admin-input'; output.value = String(entry);
+          output.min = input.min; output.max = input.max; output.step = input.step;
+          output.setAttribute('aria-label', `${label(key)} exact value`);
+          const exact = output;
+          exact.addEventListener('input', () => {
+            if (!exact.value.trim() || !Number.isFinite(Number(exact.value)) || !exact.checkValidity()) return;
+            value[key] = Number(exact.value); input.value = exact.value;
+            input.setAttribute('aria-valuetext', exact.value); onChange();
+          });
+          exact.addEventListener('change', () => {
+            exact.value = String(value[key]);
+          });
           input.setAttribute('aria-label', label(key));
           input.setAttribute('aria-valuetext', String(entry));
         }

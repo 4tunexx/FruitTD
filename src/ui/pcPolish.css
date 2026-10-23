@@ -1,7 +1,8 @@
 /* Match screens are document-level surfaces, independent of hub panel filters. */
 body > .ftd-pvp.is-battle { box-sizing:border-box; width:100vw; max-width:none; overflow:hidden; isolation:isolate; background:#202125; }
 .ftd-pvp.is-battle :is(.ftd-duel-hud,.ftd-duel-dock,.ftd-duel-panel,.ftd-duel-objective) { background:linear-gradient(145deg,#2c2d30,#191b1e); border-color:#ffe394; color:#eee5cf; }
-.ftd-pvp :is(.ftd-duel-player,.ftd-vs-portrait,.ftd-result-fighter,.ftd-clash-fighter,.ftd-versus-card) { --side:#ffe394!important; }
+.ftd-pvp .is-blue { --side:#38bdf8; }
+.ftd-pvp .is-red { --side:#f16a73; }
 .ftd-pvp :is(.ftd-duel-team,.ftd-duel-objective b,.ftd-duel-objective em) { color:#ffe394!important; }
 .ftd-pvp .ftd-duel-hp i { background:linear-gradient(90deg,#dca733,#ffe394); }
 .ftd-pvp :is(.ftd-versus-lineup,.ftd-duel-team,.ftd-duel-focus,.ftd-duel-camera button) { background:#202125ed; border-color:#ffe394; color:#ffe394; }

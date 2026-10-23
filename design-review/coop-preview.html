@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FruitTD · Isolated Co-op check</title></head>
+<body><main id="coop-preview"></main><script type="module">
+import '/src/style.css';
+import '/src/ui/screens/screens.css';
+import '/src/ui/screens/hub.css';
+import '/src/ui/screens/campaign.css';
+import '/src/ui/gameFeel.css';
+import '/src/ui/apocalypse.css';
+import '/src/ui/screens/gameSkin.css';
+import '/src/ui/numberMotion.css';
+import '/src/ui/battleLayout.css';
+import '/src/ui/admin/creatorWorkspace.css';
+import '/src/ui/pcPolish.css';
+import '/src/ui/combatRefinement.css';
+import { initThemeSystem } from '/src/ui/theme/index.ts';
+import { renderOnlineCoop } from '/src/ui/screens/onlineCoop.ts';
+import { DEFAULT_PVP_CONFIG as balance } from '/src/game/pvp.ts';
+import { DEFAULT_COOP_CONFIG as coop, newCoopMatch, joinCoopMatch, applyCoopCommand, advanceCoopMatch } from '/src/game/onlineCoop.ts';
+if(!import.meta.env.DEV)throw new Error('Development verification only');
+initThemeSystem();
+const player=(userId,name,hero)=>({userId,name,hero,sequence:0,lastSeenAt:Date.now(),lastSlashAt:0,kills:0,abilityLoadout:[hero+'-1']});
+let room=newCoopMatch('0123456789',player('local','You','jiju'),balance);
+joinCoopMatch(room,player('partner','Local teammate','ki'),Date.now());
+const request=async(path,payload)=>{
+ if(path.endsWith('/command'))applyCoopCommand(room,'local',payload.sequence,payload.command,Date.now(),balance,coop);
+ if(path.endsWith('/ack'))room=null;
+ return {success:true,room:room?structuredClone(room):null,balance,coop,yourId:'local'};
+};
+setInterval(()=>{if(!room)return;const now=Date.now();room.players.forEach(p=>p.lastSeenAt=now);advanceCoopMatch(room,.1,now,balance,coop);},100);
+renderOnlineCoop(document.querySelector('#coop-preview'),()=>{}, {request,realtime:false});
+</script></body></html>

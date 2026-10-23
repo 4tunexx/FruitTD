@@ -1,7 +1,7 @@
 import {HERO_ABILITIES} from '../../game/heroAbilities';
 import {powerStats} from '../../game/powerCombat';
 import { loadSave } from '../../game/save';
-import { pvpBuildCellAllowed, siegeBuildCells, type PvpConfig } from '../../game/pvp';
+import { PVP_MAX_TOWER_LEVEL, pvpBuildCellAllowed, siegeBuildCells, type PvpConfig } from '../../game/pvp';
 import { PvpBattlefield } from '../screens/pvpBattlefield';
 import { renderConfigForm } from './configForm';
 import { el } from '../components/dom';
@@ -10,7 +10,7 @@ const disposers = new WeakMap<HTMLElement, () => void>();
 /** Actual game scene plus connected-route painter for the seven veto maps. */
 export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   disposers.get(host)?.(); host.replaceChildren();
-  const header = el('header', { class: 'admin-preview-heading' }, [el('h3', { text: 'Arena / Ranked workshop' }), el('p', { text: 'Changes preview immediately. New matches use two long mirrored lanes. Pads stay in the defensive half of each lane. Tower upgrades extend hero-power range; power damage falls toward the range edge.' })]);
+  const header = el('header', { class: 'admin-preview-heading' }, [el('h3', { text: 'Arena / Ranked workshop' }), el('p', { text: 'Preview both keeps, edit defensive pads and tune the match. Save changes to publish.' })]);
   const layout = el('div', { class: 'admin-pvp-workshop' });
   const controls = el('div'); const preview = el('aside', { class: 'admin-pvp-preview' });
   layout.append(controls, preview); host.append(header, layout);
@@ -19,16 +19,16 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const select = el('select', { class: 'admin-input', 'aria-label': 'Preview map' });
   config.maps.forEach((map, index) => select.append(new Option(map.name, String(index))));
   const name = el('input', { class: 'admin-input', 'aria-label': 'Map name' });
-  const grid = el('div', { class: 'admin-route-grid', role: 'group', 'aria-label': 'Paint a connected route from the top edge to the bottom edge' });
+  const grid = el('div', { class: 'admin-route-grid', role: 'group', 'aria-label': 'Defensive build pads beside the straight road' });
   const notice = el('p', { role: 'status' });
   const map = () => config.maps[selected]!;
   const snapshot = () => {
     const save=loadSave();
     const previewMap=sharedPreview?{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[] as number[],buildCells:Array.from({length:8},(_,i)=>121+i)}:map();
     return {id:'admin-preview',map:previewMap,yourSide:'blue',shared:sharedPreview,players:(sharedPreview?['blue']:['blue','red']).map((side)=>({
-      userId:side,side,name:side==='blue'?save.nickname||'Your defender':'Rival defender',hero:save.hero,wallSkin:save.wallSkin,wallHealth:config.wallHealth,mainLevel:previewLevel,
-      towers:showUnits?previewMap.buildCells.slice(0,6).map((cell,index)=>({id:`${side}-preview-${index}`,cell,type:Object.keys(config.towers).filter(id=>id!=='catcher')[index%6]||'guillotine',level:previewLevel})):[],
-      attackers:showUnits?Object.keys(config.attacks).slice(0,5).map((type,index)=>({id:`${side}-fruit-${index}`,type,progress:Math.floor((index+1)*previewMap.height/6),hp:config.attacks[type]!.health*(index===0?1:.7),maxHp:config.attacks[type]!.health})):[],
+      userId:side,side,name:side==='blue'?save.nickname||'Your defender':'Rival defender',hero:save.hero,wallSkin:save.wallSkin,wallHealth:config.wallHealth*(sharedPreview?1:1+(previewLevel-1)*.25),wallMaxHealth:config.wallHealth*(sharedPreview?1:1+(previewLevel-1)*.25),mainLevel:previewLevel,
+      towers:showUnits?previewMap.buildCells.slice(0,6).map((cell,index)=>({id:`${side}-preview-${index}`,cell,type:Object.keys(config.towers).filter(id=>id!=='catcher')[index%6]||'guillotine',level:Math.min(PVP_MAX_TOWER_LEVEL,previewLevel)})):[],
+      attackers:showUnits?Object.keys(config.attacks).slice(0,5).map((type,index)=>({id:`${side}-fruit-${index}`,type,progress:Math.floor((index+1)*previewMap.height/6),...(sharedPreview?{x:2+index*1.4,y:2+index*1.8}:{}),hp:config.attacks[type]!.health*(index===0?1:.7),maxHp:config.attacks[type]!.health})):[],
     }))};
   };
   let scene: PvpBattlefield | null = null;
@@ -37,10 +37,16 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
   const refreshPreview = () => scene?.update(snapshot(), config);
   const previewControls=el('div',{class:'admin-route-actions'});
   const previewMode=el('select',{class:'admin-input','aria-label':'Live preview mode'},[el('option',{value:'pvp',text:'Arena / Ranked · two keeps'}),el('option',{value:'coop',text:'Online Co-op · shared wall'})]);
-  const level=el('select',{class:'admin-input','aria-label':'Preview turret level'},Array.from({length:3},(_,i)=>el('option',{value:String(i+1),text:`Level ${i+1}`})));
+  const level=el('select',{class:'admin-input','aria-label':'Preview main tower level'},Array.from({length:PVP_MAX_TOWER_LEVEL},(_,i)=>el('option',{value:String(i+1),text:`Level ${i+1}`})));
   const units=el('button',{type:'button',class:'studio-btn',text:'Hide sample units'});
   previewControls.append(previewMode,level,units);preview.prepend(previewControls);
-  previewMode.addEventListener('change',()=>{sharedPreview=previewMode.value==='coop';refreshPreview();});
+  previewMode.addEventListener('change',()=>{
+    sharedPreview=previewMode.value==='coop';
+    const maxLevel=sharedPreview?10:PVP_MAX_TOWER_LEVEL;
+    previewLevel=Math.min(previewLevel,maxLevel);
+    level.replaceChildren(...Array.from({length:maxLevel},(_,i)=>el('option',{value:String(i+1),text:`Level ${i+1}`,selected:i+1===previewLevel})));
+    refreshPreview();
+  });
   level.addEventListener('change',()=>{previewLevel=Number(level.value)||1;refreshPreview();});
   units.addEventListener('click',()=>{showUnits=!showUnits;units.textContent=showUnits?'Hide sample units':'Show sample units';refreshPreview();});
 
@@ -49,7 +55,7 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
     grid.style.gridTemplateColumns = `repeat(${current.width}, 1fr)`; grid.replaceChildren();
     const path = current.pathCells;
     for (let cell = 0; cell < current.width * current.height; cell++) {
-      const button = el('button', { type: 'button', class: path.includes(cell) ? 'is-path' : pvpBuildCellAllowed(current,cell) ? 'is-pad' : '', 'aria-label': `Column ${cell % current.width + 1}, row ${Math.floor(cell / current.width) + 1}`, 'aria-pressed': String(path.includes(cell)) });
+      const button = el('button', { type: 'button', class: path.includes(cell) ? 'is-path' : pvpBuildCellAllowed(current,cell) ? 'is-pad' : Math.floor(cell/current.width)<Math.ceil(current.height/2) ? 'is-forbidden' : '', 'aria-label': `Column ${cell % current.width + 1}, row ${Math.floor(cell / current.width) + 1}`, 'aria-pressed': String(current.buildCells.includes(cell)) });
       if (current.buildCells.includes(cell)) button.textContent = '+';
       if (cell === path[0]) button.textContent = 'IN';
       if (cell === path.at(-1)) button.textContent = 'END';
@@ -69,7 +75,7 @@ export function renderPvpEditor(host: HTMLElement, config: PvpConfig): void {
     }
   };
   const button = (text: string, fn: () => void) => { const node = el('button', { type: 'button', class: 'studio-btn', text }); node.addEventListener('click', fn); return node; };
-  controls.append(el('h4', { text: 'Map and paths' }), select, name, el('p', { text: 'A straight road joins mirrored towers. Battle length is two Casual-style lanes. Ten gold + pads define the defensive build positions for each player; the front half cannot be built on. Use Edit build pads to move them.' }), grid,
+  controls.append(el('h4', { text: 'Map and paths' }), select, name, el('p', { text: 'Ten pads per player, in the defensive half only. Select Edit build pads to move them.' }), grid,
     el('div', { class: 'admin-route-actions' }, [
       button('Restore defensive pads',()=>{const current=map();current.buildCells=siegeBuildCells(current.width,current.height).filter(cell=>!current.pathCells.includes(cell));if(config.map.id===current.id)config.map=structuredClone(current);paint();refreshPreview();}),
       button('Edit build pads', () => { paintingPads = !paintingPads; notice.textContent = paintingPads ? 'Tap a gold + to remove it; tap landscape to place it. Choose ten pads.' : 'Pad editing finished.'; paint(); }),

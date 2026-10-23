@@ -182,6 +182,7 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-build-guillotine"]')!.click(); await flush();
     assert.equal(game.players[0].towers.length, 1);
     select!(cell);await flush();
+    assert.equal(document.body.querySelector('[data-testid="arena-build-guillotine"]'),null,'an existing tower shows upgrades, not a build catalogue');
     assert.equal(document.body.querySelectorAll('[data-testid="arena-tower-upgrade"]').length, 1);
     const button = (text: string) => [...document.body.querySelectorAll<HTMLButtonElement>('button')].find(node => node.textContent?.startsWith(text))!;
     button('Upgrade').click(); await flush(); assert.equal(game.players[0].towers[0]!.level, 2);
@@ -314,4 +315,27 @@ test('failed battlefield startup does not loop on polls and retries only on requ
   root.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')!.click();
   assert.ok(root.querySelector('.ftd-duel-confirm'),'a failed renderer must not block the leave confirmation');
  } finally {disposePvpHub(root);globalThis.setInterval=oldInterval;setAuthToken(null);resetDom();}
+});
+
+test('snapshots preserve a pressed control while the battlefield continues updating', async () => {
+  resetDom(); setAuthToken('test-only');
+  const originalInterval = globalThis.setInterval;
+  let poll = () => {}; let updates = 0;
+  globalThis.setInterval = ((callback: () => void) => { poll = callback; return 0; }) as typeof setInterval;
+  const root = document.createElement('div'); document.body.append(root);
+  const game = newPvpMatch('held-control', 'arena', [createPvpPlayer('a','You','blue',config),createPvpPlayer('b','Rival','red',config)], Date.now(), config);
+  game.status = 'active'; game.map = config.map;
+  try {
+    renderPvpHub(root,'arena',{realtime:false,request:async()=>({success:true,config,match:{...structuredClone(game),yourSide:'blue',remainingMs:180000}}),createBattlefield:()=>({element:document.createElement('div'),interacting:false,update:()=>{updates++;},selectCell:()=>{},dispose:()=>{}})});
+    await flush();
+    const main = root.querySelector('.ftd-pvp')!;
+    const button = root.querySelector('[data-testid="arena-tab-attack"]')!;
+    main.dispatchEvent({type:'pointerdown',pointerId:1} as unknown as Event);
+    const before = updates; game.revision++; poll(); await flush();
+    assert.equal(root.querySelector('[data-testid="arena-tab-attack"]'),button,'pointer target must survive incoming snapshots');
+    assert.ok(updates>before,'units continue receiving snapshots during interaction');
+    document.dispatchEvent({type:'pointerup',pointerId:1} as unknown as Event);
+    await new Promise(resolve=>setTimeout(resolve,5)); await flush();
+    assert.notEqual(root.querySelector('[data-testid="arena-tab-attack"]'),button,'deferred controls update after release');
+  } finally { disposePvpHub(root); globalThis.setInterval=originalInterval; setAuthToken(null); resetDom(); }
 });

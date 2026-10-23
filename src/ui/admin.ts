@@ -45,7 +45,6 @@ import { renderIconLibrary } from './admin/iconLibrary';
 
 type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'maps' | 'sprites' | 'icons' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
 const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'maps', 'sprites', 'icons', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
-let sliderOutputId = 0;
 
 function syncRangeOutput(input: HTMLInputElement | null): void {
   if (!input?.dataset.valueOutput) return;
@@ -269,6 +268,20 @@ export class AdminController {
 
   private renderTabs(): void {
     const nav = this.modal?.querySelector<HTMLElement>('.admin-tabs-nav');
+    if (nav) {
+      let picker=nav.querySelector<HTMLSelectElement>('.admin-section-picker');
+      if(!picker){
+        picker=document.createElement('select');picker.className='admin-section-picker admin-input';
+        picker.setAttribute('aria-label','Admin section');
+        for(const button of nav.querySelectorAll<HTMLButtonElement>('.admin-tab-btn')){
+          const option=document.createElement('option');option.value=button.dataset.tab||'';option.textContent=button.textContent;picker.appendChild(option);
+        }
+        const select=picker;
+        select.addEventListener('change',()=>{nav.querySelector<HTMLButtonElement>(`[data-tab="${select.value}"]`)?.click();});
+        nav.appendChild(select);
+      }
+      picker.value=this.activeTab;
+    }
     nav?.setAttribute('role', 'tablist');
     nav?.setAttribute('aria-label', 'Admin workspace sections');
     nav?.querySelectorAll<HTMLButtonElement>('.admin-tab-btn').forEach((btn) => {
@@ -389,24 +402,12 @@ export class AdminController {
   private enhanceNumericControls(): void {
     const tab = document.getElementById(`admin-tab-${this.activeTab}`);
     if (!tab) return;
+    // Keep authored numeric fields editable. Converting them to range inputs
+    // silently rounded decimals and made exact prices/rewards hard to enter.
     for (const input of tab.querySelectorAll<HTMLInputElement>('input[type="number"]')) {
-      if (input.classList.contains('studio-input') || input.value.trim() === '') continue;
+      input.inputMode = input.step === '1' ? 'numeric' : 'decimal';
       const value = Number(input.value);
-      if (!Number.isFinite(value)) continue;
-      const min = input.min === '' ? 0 : Number(input.min);
-      const max = input.max === '' ? Math.max(min + 100, value * 2, 100) : Number(input.max);
-      input.min = String(Math.min(min, value));
-      input.max = String(Math.max(max, value));
-      if (!input.step || input.step === 'any') input.step = Number.isInteger(value) ? '1' : '0.1';
-      input.type = 'range';
-      const output = document.createElement('output');
-      output.className = 'admin-range-value';
-      output.id = `admin-range-value-${++sliderOutputId}`;
-      output.value = input.value;
-      output.textContent = input.value;
-      input.dataset.valueOutput = output.id;
-      input.setAttribute('aria-valuetext', input.value);
-      input.insertAdjacentElement('afterend', output);
+      if ((!input.step || input.step === 'any') && Number.isFinite(value) && !Number.isInteger(value)) input.step = 'any';
     }
   }
 
@@ -886,12 +887,18 @@ export class AdminController {
 
   private async saveCurrentConfig(): Promise<void> {
     if (!this.config) return;
+    const invalid = this.modal?.querySelector<HTMLInputElement>('input:invalid, textarea:invalid');
+    if (invalid) {
+      invalid.reportValidity(); invalid.focus();
+      GameToast('Correct the highlighted value before saving.', 'warning');
+      return;
+    }
     const statusEl = document.getElementById('admin-save-status');
     const saveBtn = document.getElementById('btn-admin-save') as HTMLButtonElement | null;
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving to Atlas...';
+      saveBtn.textContent = 'Saving…';
     }
 
     const inEyebrow = document.getElementById('admin-in-eyebrow') as HTMLInputElement | null;
@@ -950,7 +957,7 @@ export class AdminController {
 
     if (saveBtn) {
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save to MongoDB Atlas';
+      saveBtn.textContent = 'Save changes';
     }
   }
 

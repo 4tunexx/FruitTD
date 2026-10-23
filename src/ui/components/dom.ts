@@ -10,7 +10,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {
-    if (value === undefined || value === null || value === false) continue;
+    if (value === undefined || value === null || (value === false && !key.startsWith('aria-'))) continue;
     if (key === 'class') node.className = String(value);
     else if (key === 'text') node.textContent = String(value);
     else if (key.startsWith('data-') || key.startsWith('aria-')) node.setAttribute(key, String(value));

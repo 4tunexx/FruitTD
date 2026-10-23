@@ -301,18 +301,9 @@ export class PvpBattlefield {
     this.terrain.add(floor);
     if(this.snapshot.shared)this.terrain.add(battleScenery(fullWidth,fullLength,floor.position.z));
 
-    const shoulderMat = new MeshLambertMaterial({ color: 0x73583b });
-    const roadMat = new MeshLambertMaterial({ color: 0x55524b, map:battleTexture('stone') });
-    const laneMat = new MeshLambertMaterial({ color: 0xe9d09a });
-
-
     for (const player of this.snapshot.players) {
       const own = player.side === this.snapshot.yourSide;
       const teamColor = this.snapshot.shared?0xffe394:COLORS[player.side as keyof typeof COLORS]??COLORS.blue;
-      const route = map.pathCells.length ? map.pathCells : this.snapshot.shared
-        ? Array.from({ length: Math.max(1, map.height - 1) }, (_, row) => row * map.width + Math.floor(map.width / 2))
-        : [];
-
       // Both players get ten readable plots; only your own plots are pickable.
       for (const cell of map.buildCells.filter(cell=>this.snapshot.shared||pvpBuildCellAllowed(map,cell))) {
         const pad=createBuildPad();
@@ -321,26 +312,7 @@ export class PvpBattlefield {
         this.terrain.add(pad);if(own)this.buildPads.push(pad);
       }
 
-      // The lane is continuous and readable.
-      for (let location = 0; this.snapshot.shared && location < route.length; location++) {
-        const cell = route[location]!;
-        const point = this.cellPoint(cell, own);
-        const nextCell = route[location + 1];
-        if (nextCell === undefined) continue;
-        const next = this.cellPoint(nextCell, own);
-        const length = point.distanceTo(next) + .16;
-        const angle = Math.atan2(next.x - point.x, next.z - point.z);
-        const center = point.clone().add(next).multiplyScalar(.5);
-        const shoulder = new Mesh(new PlaneGeometry(TILE_X * .9, length), shoulderMat);
-        shoulder.position.set(center.x, .025, center.z); shoulder.rotation.set(-Math.PI/2,0,-angle); this.terrain.add(shoulder);
-        const road = new Mesh(new PlaneGeometry(TILE_X * .78, length), roadMat);
-        road.position.set(center.x, .085, center.z); road.rotation.set(-Math.PI/2,0,-angle); this.terrain.add(road);
-        if (location % 2 === 0) {
-          const dash = new Mesh(new PlaneGeometry(.11, .42), laneMat);
-          dash.position.set(center.x, .125, center.z); dash.rotation.set(-Math.PI/2,0,-angle); this.terrain.add(dash);
-        }
-      }
-
+      // The shared Casual battlefield texture already contains the road.
       const endpoint = this.cellPoint(map.pathCells.at(-1) ?? (map.height - 1) * map.width + Math.floor(map.width / 2), own);
       endpoint.z += own ? TILE * 1.5 : -TILE * 1.5;
       const gateX = endpoint.x;
@@ -506,7 +478,7 @@ export class PvpBattlefield {
   }
   setAttackView(attacking: boolean): void {
     if (this.snapshot.shared) return;
-    this.focusOwn = !attacking && this.element.getBoundingClientRect().width < 600;
+    this.focusOwn = !attacking;
     this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize();
   }
   private pointerCancel(event: PointerEvent): void { this.stroke=null;this.pointers.delete(event.pointerId);this.resetGesture();this.trail.reset(); }
@@ -518,7 +490,7 @@ export class PvpBattlefield {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     if (this.framingInitialised === false) {
       this.framingInitialised = true;
-      this.focusOwn = !this.snapshot.shared && rect.width<600;
+      this.focusOwn = !this.snapshot.shared;
     }
     this.element.classList.toggle('is-focused', this.focusOwn);
     const focus = this.element.querySelector<HTMLElement>('.ftd-duel-focus');
@@ -527,16 +499,19 @@ export class PvpBattlefield {
     const map = this.snapshot.map; const aspect = rect.width / rect.height;
     this.element.classList.remove('is-landscape');
     const focused = this.snapshot.shared || this.focusOwn;
-    const centerZ = focused && map ? (map.height + 2) * TILE / 2 : 0;
+    // Defence view frames the playable back half, at Casual-like scale.
+    // The full double lane remains available through Attack / Whole arena.
+    const nearZ = focused && map && !this.snapshot.shared ? Math.max(-TILE,(map.height / 2 - 2) * TILE) : -TILE;
+    const centerZ = focused && map ? (nearZ + (map.height + 4) * TILE) / 2 : 0;
     // Fit the actual projected world bounds, including keep height and scenery.
     // The straight road stays vertical on phones and PC alike.
     this.camera.up.set(0,1,0);
-    this.camera.position.set(0,54,centerZ+72);
+    this.camera.position.set(0,this.snapshot.shared?75:54,centerZ+(this.snapshot.shared?36:72));
     this.camera.lookAt(0,0,centerZ);this.camera.updateMatrixWorld(true);
     const extentZ = map ? (map.height+4)*TILE : 30;
-    const extentX = map ? map.width*TILE_X/2+4 : 14;
+    const extentX = map ? map.width*TILE_X/2+(this.snapshot.shared?1:4) : 14;
     let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-    for(const x of [-extentX,extentX])for(const y of [0,3.5])for(const z of [focused ? -TILE : -extentZ,extentZ]){
+    for(const x of [-extentX,extentX])for(const y of [0,3.5])for(const z of [focused ? nearZ : -extentZ,extentZ]){
       const point=new Vector3(x,y,z).applyMatrix4(this.camera.matrixWorldInverse);
       minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minY=Math.min(minY,point.y);maxY=Math.max(maxY,point.y);
     }
