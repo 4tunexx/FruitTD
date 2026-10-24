@@ -5,6 +5,10 @@ body[data-ftd-screen='PLAY'] #app,.ftd-pvp.is-battle,.ftd-coop-battle {
   font-family:Inter,'Segoe UI',Arial,sans-serif; color:var(--combat-text); background:radial-gradient(ellipse at 50% 45%,#293947,#0a111a 80%);
 }
 body[data-ftd-screen='PLAY'] #hud,body[data-ftd-screen='PLAY'] #sidebar,.ftd-pvp.is-battle button,.ftd-coop-battle button { font-family:Inter,'Segoe UI',Arial,sans-serif; }
+body[data-ftd-screen='PLAY'] #hud *,body[data-ftd-screen='PLAY'] #sidebar *,body > .ftd-pvp.is-battle *,body .ftd-coop-battle * { font-family:'Segoe UI',Arial,sans-serif!important; }
+body[data-ftd-screen='PLAY'] #sidebar .hp-row { border-color:#3e6577; background:#142b3a; border-radius:8px; }
+body[data-ftd-screen='PLAY'] #sidebar #hud-hp-fill { background:linear-gradient(90deg,#36bfae,#9ee1bb); }
+.ftd-pvp.is-battle .ftd-duel-hud:not(.is-expanded) .ftd-duel-player > div > span:not(.ftd-duel-player__side) { display:block; font-size:11px; color:#c4d2de; }
 body[data-ftd-screen='PLAY'] #hud::before { height:110px; background:linear-gradient(#0b1421,transparent); }
 body[data-ftd-screen='PLAY'] #game-canvas { border:0; border-radius:12px; box-shadow:0 12px 60px #0006; }
 body[data-ftd-screen='PLAY'] #battle-status { top:57px!important; left:12px; right:12px; width:auto; gap:8px; }
@@ -92,3 +96,6 @@ body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { bottom:24px; left:10px; min-w
   .ftd-pvp.is-battle .hero-ability-slot__portrait { width:36px; height:36px; }
   .ftd-pvp.is-battle .hero-ability-slot__icon { width:32px; height:32px; }
 }
+
+/* Atlas portraits must be sized independently of the HUD grid tracks. */
+.ftd-pvp.is-battle .ftd-vs-portrait > .ftd-hero-portrait.has-atlas { position:relative; display:block; width:100%; height:100%!important; min-height:0; aspect-ratio:1; }

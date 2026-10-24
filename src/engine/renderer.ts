@@ -158,8 +158,6 @@ export class GameRenderer {
       if (activeTouches.size < 2 || !pinchCenter) return;
       const points = [...activeTouches.values()];
       const nextCenter = center(points[0], points[1]);
-      const height = Math.max(1, canvas.clientHeight);
-
       panByScreen(nextCenter.x - pinchCenter.x, nextCenter.y - pinchCenter.y);
       pinchCenter = nextCenter;
       event.preventDefault();

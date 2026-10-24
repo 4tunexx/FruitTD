@@ -526,9 +526,9 @@ var names = {
   topfu: [["Cold Press", "Slow and crack every fruit.", "\u2744", "frost"], ["Soft Crush", "Burst damage around the front fruit.", "\u25CF", "burst"], ["Brittle Wave", "A freezing full-field wave.", "\u2727", "frost"], ["Heavy Drop", "High damage to the front pack.", "\u2B07", "pierce"], ["Chill Guard", "Slow the full field and steady the wall.", "\u2B21", "guard"], ["Deep Freeze", "Topfu\u2019s strongest field freeze.", "\u2739", "frost"]],
   lagen: [["Long Lance", "Pierce a line through the field.", "\u27A4", "pierce"], ["Far Reach", "Strike fruit across the whole field.", "\u2301", "shock"], ["Spearhead", "High damage to the lead fruit.", "\u2197", "pierce"], ["Raking Line", "A broad slash through the front pack.", "\u2571", "burst"], ["Vine Snare", "Slow every fruit in its path.", "\u2667", "frost"], ["Horizon Break", "A full field lance strike.", "\u2739", "shock"]],
   tripos: [["Triple Cut", "Three fast cuts across the field.", "\u224B", "burst"], ["Rose Burst", "A powerful clustered blast.", "\u273F", "burst"], ["Crosswind", "Strike the field from both sides.", "\u2723", "shock"], ["Pink Haze", "Slow and damage every fruit.", "\u274B", "frost"], ["Encore", "Repeat damage on the strongest fruit.", "\u266B", "pierce"], ["Grand Waltz", "Tripos\u2019 full field finale.", "\u2739", "shock"]],
-  ki: [["Golden Pulse", "A fast full-field pulse.", "\u263C", "shock"], ["Lucky Drop", "A heavy burst near the lead fruit.", "\u2726", "burst"], ["Sunbeam", "Pierce through the leading line.", "\u2600", "pierce"], ["Golden Guard", "Slow fruit and protect the wall.", "\u2B21", "guard"], ["Solar Bloom", "Blast the front pack with solar energy.", "\u273A", "burst"], ["Daybreak", "Ki\u2019s strongest full-field strike.", "\u2739", "shock"]]
+  ki: [["Golden Pulse", "A fast full-field pulse.", "\u263C", "shock"], ["Lucky Drop", "A heavy burst near the lead fruit.", "\u2726", "burst"], ["Sunbeam", "Pierce through the leading line.", "\u2600", "pierce"], ["Golden Guard", "Slow fruit and protect the wall.", "\u2B21", "guard"], ["Solar Bloom", "Ignite the front pack with solar fire, burning for 2.4 seconds.", "\u273A", "burst"], ["Daybreak", "A solar eruption across the field that burns enemies for 2.4 seconds.", "\u2739", "shock"]]
 };
-var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description: description + (effect === "shock" ? " Briefly staggers affected enemies." : "") + " Damage falls with distance from the tower.", icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [18e3, 22e3, 26e3, 3e4, 35e3, 42e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/icons/sigil-${String(["jiju", "topfu", "lagen", "tripos", "ki"].indexOf(hero) * 6 + i + 1).padStart(2, "0")}.svg` })));
+var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description: description + (effect === "shock" ? " Briefly staggers affected enemies." : "") + " Damage falls with distance from the tower.", icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [18e3, 22e3, 26e3, 3e4, 35e3, 42e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/powers/${hero}-${i + 1}.svg` })));
 var MAX_HERO_ABILITY_RANK = 5;
 function heroAbility(id) {
   return HERO_ABILITIES.find((a) => a.id === id);
@@ -846,6 +846,44 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   );
 }
 
+// src/game/combatStatus.ts
+function powerAffliction(ability) {
+  if (ability.id === "lagen-5") return "snare";
+  if (ability.id === "tripos-4") return "haze";
+  if (ability.hero === "ki") return ability.id === "ki-5" || ability.id === "ki-6" ? "burn" : "solar";
+  if (ability.effect === "frost" || ability.id === "topfu-5") return "frost";
+  if (ability.effect === "shock") return "shock";
+  if (ability.effect === "pierce") return "pierce";
+  return ability.hero === "topfu" ? "crush" : "cut";
+}
+function markStatus(target2, kind, now, duration = 650) {
+  if (duration <= 850 && (target2.statusUntil ?? 0) > now && ["frost", "snare", "haze", "shock"].includes(target2.statusKind ?? "")) return;
+  target2.statusKind = kind;
+  target2.statusUntil = now + duration;
+}
+function ignite(target2, now, dps, duration = 2200) {
+  if ((target2.burnUntil ?? 0) <= now) {
+    target2.burnTickAt = now;
+    target2.burnDps = dps;
+  } else target2.burnDps = Math.max(target2.burnDps ?? 0, dps);
+  target2.burnUntil = Math.max(target2.burnUntil ?? 0, now + duration);
+}
+function tickBurn(target2, now) {
+  const end = Math.min(now, target2.burnUntil ?? 0), start = target2.burnTickAt ?? end;
+  if (end <= start) return 0;
+  target2.burnTickAt = end;
+  return (end - start) / 1e3 * (target2.burnDps ?? 0);
+}
+function applyPowerStatus(target2, ability, now, slowMs, damage) {
+  const kind = powerAffliction(ability);
+  markStatus(target2, kind, now, slowMs || 850);
+  if (kind === "burn") ignite(target2, now, damage * 0.12, 2400);
+}
+function applyWeaponStatus(target2, behavior, now, damage) {
+  if (behavior === "vortex") ignite(target2, now, damage * 0.35);
+  else markStatus(target2, behavior === "sprinkler" ? "haze" : behavior === "laser" ? "pierce" : behavior === "guillotine" ? "cut" : "crush", now, behavior === "sprinkler" ? 1200 : 450);
+}
+
 // src/game/turretTargets.ts
 function turretVictims(type, origin, primary, units, point, range, level = 1) {
   const weapon = type;
@@ -876,7 +914,7 @@ function powerStats(ability, rawRank) {
     cost: ability.juiceCost,
     cooldownMs: Math.round(ability.cooldownMs * (1 - (rank - 1) * 0.05)),
     slowMs: ability.effect === "shock" ? 450 + (rank - 1) * 75 : ability.effect === "frost" || ability.effect === "guard" || ability.id === "topfu-6" ? 2e3 + (rank - 1) * 350 : 0,
-    slowMultiplier: ability.effect === "shock" ? 0.1 : ability.id === "topfu-6" ? 0.15 : 0.45,
+    slowMultiplier: ability.effect === "shock" ? 0.1 : ability.id === "topfu-6" || ability.id === "jiju-4" ? 0 : 0.45,
     healFraction: ability.effect === "guard" ? 0.12 + (rank - 1) * 0.02 : 0
   };
 }
@@ -941,7 +979,7 @@ var DEFAULT_PVP_CONFIG = {
     makeMap("long-harvest", "Long Harvest")
   ],
   durationSeconds: 180,
-  wallHealth: 1e3,
+  wallHealth: 100,
   startingFruts: 0,
   incomePerSecond: 6,
   reconnectGraceSeconds: 45,
@@ -956,10 +994,10 @@ var DEFAULT_PVP_CONFIG = {
     catcher: { cost: 150, damage: 8, range: 3, cooldownMs: 1800 }
   },
   attacks: {
-    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
-    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
-    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
-    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 }
+    normal: { cost: 35, health: 100, speed: 2, wallDamage: 6, rewardFruts: 4, packSize: 3 },
+    swift: { cost: 55, health: 70, speed: 3, wallDamage: 4, rewardFruts: 5, packSize: 2 },
+    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 16, rewardFruts: 24 },
+    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 28, rewardFruts: 22 }
   },
   rating: {
     start: 1e3,
@@ -1149,6 +1187,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     player.wallHealth = Math.min(player.wallMaxHealth ?? config.wallHealth, player.wallHealth + (player.wallMaxHealth ?? config.wallHealth) * stats.healFraction);
     player.powerCasts = appendPowerCast(player.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map(point) });
     for (const attacker of targets) {
+      applyPowerStatus(attacker, ability, now, stats.slowMs, stats.damage);
       attacker.hp -= stats.damage * powerDamageMultiplier(point(attacker), envelope);
       if (stats.slowMs) {
         attacker.slowUntil = Math.max(attacker.slowUntil ?? 0, now + stats.slowMs);
@@ -1220,6 +1259,7 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
       before.set(unit2.id, unit2.progress);
       unit2.fighting = false;
       delete unit2.fightTargetId;
+      unit2.hp -= tickBurn(unit2, now);
       if (unit2.hp <= 0) continue;
       unit2.progress += config.attacks[unit2.type].speed * dt * Math.max(1, (path.length - 1) / 13) * (now < (unit2.slowUntil ?? 0) ? unit2.slowMultiplier ?? 0.55 : 1);
     }
@@ -1247,7 +1287,7 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
     unit2.fighting = true;
     unit2.fightTargetId = target2.id;
     unit2.lastClashAt = Math.floor(now / 300) * 300;
-    const hit = config.attacks[unit2.type].wallDamage * 0.45 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
+    const hit = config.attacks[unit2.type].wallDamage * 1.8 * dt * (now < (enemy.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1);
     damage.set(target2.id, (damage.get(target2.id) ?? 0) + hit);
   }
   for (const player of match.players) for (const unit2 of player.attackers) unit2.hp -= damage.get(unit2.id) ?? 0;
@@ -1275,6 +1315,7 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
       };
       const victims = turretVictims(config.towers[type]?.chassis || type, { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5 }, target2, player.attackers.filter((unit2) => unit2.hp > 0 && unit2.progress >= 0), point, stats.range, level);
       for (const victim of victims) {
+        applyWeaponStatus(victim, behavior, now, stats.damage);
         hit(victim, behavior === "sprinkler" && victim !== target2 ? 0.65 : 1);
         if (behavior === "sprinkler") {
           victim.slowUntil = Math.max(victim.slowUntil || 0, now + 1200);
@@ -1348,7 +1389,7 @@ function normalizeCoopConfig(raw) {
   }));
 }
 function newCoopMatch(id, player, balance) {
-  return { towerXp: 0, id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
+  return { towerXp: 0, id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, wallMaxHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
 }
 var COOP_MAX_PLAYERS = 4;
 function joinCoopMatch(match, player, now) {
@@ -1409,13 +1450,14 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
       const envelope = mapPowerEnvelope({ x: 5, y: 13.5 }, { minX: 0, maxX: 10, minY: 0, maxY: 14 });
       const targets = powerTargets(match.fruits.filter((f) => f.hp > 0 && f.type !== "explosive" && !f.sliceOnly), ability, (f) => f, envelope);
-      if (!targets.length && (!stats.healFraction || match.wallHealth >= balance.wallHealth)) throw new Error("No vulnerable targets.");
+      if (!targets.length && (!stats.healFraction || match.wallHealth >= (match.wallMaxHealth ?? balance.wallHealth))) throw new Error("No vulnerable targets.");
       match.fruts -= stats.cost;
       player.abilityReadyAt ??= {};
       player.abilityReadyAt[ability.id] = now + stats.cooldownMs;
-      match.wallHealth = Math.min(balance.wallHealth, match.wallHealth + balance.wallHealth * stats.healFraction);
+      match.wallHealth = Math.min(match.wallMaxHealth ?? balance.wallHealth, match.wallHealth + (match.wallMaxHealth ?? balance.wallHealth) * stats.healFraction);
       match.powerCasts = appendPowerCast(match.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map((f) => ({ x: f.x, y: f.y })) });
       for (const fruit2 of targets) {
+        applyPowerStatus(fruit2, ability, now, stats.slowMs, stats.damage);
         fruit2.hp -= stats.damage * powerDamageMultiplier(fruit2, envelope);
         if (stats.slowMs) {
           fruit2.slowUntil = Math.max(fruit2.slowUntil ?? 0, now + stats.slowMs);
@@ -1493,6 +1535,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     match.spawnAt = now + config.spawnGapMs;
   }
   for (const fruit2 of match.fruits) {
+    fruit2.hp -= tickBurn(fruit2, now);
     fruit2.maxHp ??= Math.max(fruit2.hp, coopFruitMaxHealth(balance.attacks[fruit2.type].health, fruit2.boss, match.wave, match.players.length, config));
   }
   for (const fruit2 of match.fruits) fruit2.y += balance.attacks[fruit2.type].speed * delta * (fruit2.boss ? config.bossSpeedMultiplier : config.fruitSpeedMultiplier) * (now < (fruit2.slowUntil ?? 0) ? fruit2.slowMultiplier ?? 0.45 : 1);
@@ -1503,6 +1546,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     const behavior = balance.towers[type]?.chassis || type;
     const victims = turretVictims(balance.towers[type]?.chassis || type, { x, y }, fruit2, match.fruits.filter((f) => f.hp > 0 && !f.sliceOnly), (f) => f, stats.range, level);
     for (const target2 of victims) {
+      applyWeaponStatus(target2, behavior, now, stats.damage);
       target2.hp -= Math.round(stats.damage * (target2 === fruit2 || behavior !== "sprinkler" ? 1 : 0.65));
       if (behavior === "sprinkler") {
         target2.slowUntil = Math.max(target2.slowUntil || 0, now + 1200);
@@ -1515,7 +1559,7 @@ function advanceCoopMatch(match, dt, now, balance, config) {
   for (const tower2 of match.towers) if (fire(tower2.cell % 10 + 0.5, Math.floor(tower2.cell / 10) + 0.5, pvpTowerStats(balance.towers[tower2.type], tower2.level), tower2.lastFiredAt, tower2.type, tower2.level)) tower2.lastFiredAt = now;
   if (fire(5, 13.5, coopMainStats(match, balance), match.mainLastFiredAt)) match.mainLastFiredAt = now;
   collectKills(match, balance);
-  for (const f of match.fruits.filter((f2) => f2.y >= 13.5)) match.wallHealth = Math.max(0, match.wallHealth - balance.attacks[f.type].wallDamage * (f.boss ? 10 : 1));
+  for (const f of match.fruits.filter((f2) => f2.y >= 13.5)) match.wallHealth = Math.max(0, match.wallHealth - balance.attacks[f.type].wallDamage * (f.boss ? 2.5 : 1));
   match.fruits = match.fruits.filter((f) => f.y < 13.5);
   if (match.wallHealth <= 0) {
     match.status = "complete";
@@ -1526,6 +1570,11 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     match.wave++;
     match.status = match.wave % (config.bossEveryWaves + 1) === 0 ? "boss-intro" : "countdown";
     match.phaseUntil = now + (match.status === "boss-intro" ? config.bossIntroMs : config.intermissionMs);
+  }
+  const maximum = balance.wallHealth + 25 * (towerLevelFromXp(match.towerXp ?? 0) - 1);
+  if (maximum > (match.wallMaxHealth ?? balance.wallHealth)) {
+    match.wallHealth += maximum - (match.wallMaxHealth ?? balance.wallHealth);
+    match.wallMaxHealth = maximum;
   }
   match.revision++;
 }
@@ -2283,7 +2332,12 @@ function mergeAdminConfig(raw) {
   };
 }
 function mergePvpConfig(raw) {
-  const value = raw && typeof raw === "object" ? raw : {};
+  const value = structuredClone(raw && typeof raw === "object" ? raw : {});
+  if (value.wallHealth === 1e3) {
+    value.wallHealth = 100;
+    const old = { normal: 25, swift: 20, armored: 60, explosive: 110 };
+    for (const [id, damage] of Object.entries(old)) if (value.attacks?.[id]?.wallDamage === damage) value.attacks[id].wallDamage = DEFAULT_PVP_CONFIG.attacks[id].wallDamage;
+  }
   const bounded = (n, fallback, min, max) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
   const maps = normalizePvpMaps(value.maps);
   const towers = { ...DEFAULT_PVP_CONFIG.towers };
@@ -3800,7 +3854,7 @@ function normalizePvpConfig(input) {
     maps,
     map: maps[0],
     durationSeconds: bounded(row.durationSeconds, 180, 60, 600),
-    wallHealth: bounded(row.wallHealth, 1e3, 100, 1e5),
+    wallHealth: bounded(row.wallHealth, 100, 100, 1e5),
     startingFruts: 0,
     incomePerSecond: bounded(row.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
     reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300),

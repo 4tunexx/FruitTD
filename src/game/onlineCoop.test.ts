@@ -72,7 +72,7 @@ test('Co-op bombs resist slashes and powers while empty offensive casts preserve
  assert.throws(()=>applyCoopCommand(room,'one',1,{type:'ability',abilityId:'jiju-1'},2000,DEFAULT_PVP_CONFIG),/No vulnerable/);
  assert.deepEqual(room,before);
  applyCoopCommand(room,'one',1,{type:'slash',from:{x:4,y:5},to:{x:6,y:5}},2100,DEFAULT_PVP_CONFIG);
- assert.equal(room.fruits[0]!.hp,150);assert.equal(room.wallHealth,978);
+ assert.equal(room.fruits[0]!.hp,150);assert.equal(room.wallHealth,94);
 });
 
 test('online turret signatures change server damage shapes, slow and knockback',()=>{

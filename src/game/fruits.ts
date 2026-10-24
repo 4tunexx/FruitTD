@@ -201,6 +201,7 @@ export class FruitField {
   onSpawn: ((fruit: Fruit) => void) | null = null;
   onBossPhase: ((fruit: Fruit) => void) | null = null;
   onEnvironmentKill: ((fruit: Fruit) => void) | null = null;
+  onBurnKill: ((fruit: Fruit) => void) | null = null;
 
   constructor(private readonly sceneAdd: (group: Group) => void) {
     this.sceneAdd(this.statusVfx.group);
@@ -400,7 +401,7 @@ export class FruitField {
     for (const fruit of this.fruits) {
       if (!fruit.alive) continue;
       const burn=tickBurn(fruit,this.combatTime);
-      if(burn>0&&fruit.enemyKind!=='bladebound'&&this.hurt(fruit,burn,'turret')){this.onEnvironmentKill?.(fruit);continue;}
+      if(burn>0&&fruit.enemyKind!=='bladebound'&&this.hurt(fruit,burn,'turret')){this.onBurnKill?.(fruit);continue;}
       this.statusVfx.sync(String(fruit.spawnSerial),fruit.group,fruit,this.combatTime);
       fruit.bob += dt * (fruit.boss ? (fruit.enemyKind === 'swift' ? 4.8 : fruit.enemyKind === 'armored' ? 2.15 : 2.8) : 3);
       const route = fruit.routePoints;

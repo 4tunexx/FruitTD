@@ -1,0 +1,905 @@
+TAP version 13
+# THREE.Material: parameter 'blending' has value of undefined.
+# THREE.Material: parameter 'blending' has value of undefined.
+# THREE.Material: parameter 'blending' has value of undefined.
+# THREE.Material: parameter 'blending' has value of undefined.
+# THREE.Material: parameter 'blending' has value of undefined.
+# THREE.Material: parameter 'blending' has value of undefined.
+# Subtest: burn integrates elapsed time once, expires exactly, and refreshes without stacking runaway DPS
+ok 1 - burn integrates elapsed time once, expires exactly, and refreshes without stacking runaway DPS
+  ---
+  duration_ms: 3.0637
+  ...
+# Subtest: each hero power has a unique authored motif and icon; freeze, vine and solar effects match the simulation
+ok 2 - each hero power has a unique authored motif and icon; freeze, vine and solar effects match the simulation
+  ---
+  duration_ms: 139.7904
+  ...
+# Subtest: enemy status attachments follow their target, survive ordinary hits, and release on expiration
+ok 3 - enemy status attachments follow their target, survive ordinary hits, and release on expiration
+  ---
+  duration_ms: 6.9854
+  ...
+# Subtest: solo tower starts at 100 HP, fruit breach damage varies, and arena upgrades add 25 HP
+not ok 4 - solo tower starts at 100 HP, fruit breach damage varies, and arena upgrades add 25 HP
+  ---
+  duration_ms: 5.4378
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\combatStatus.test.ts:1:2463'
+  failureType: 'testCodeFailure'
+  error: 'Match timer has expired'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    applyPvpCommand (C:\Users\Airis\Desktop\FruitTD\src\game\pvp.ts:227:34)
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\combatStatus.test.ts:48:2)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: a fresh Co-op room starts with zero Fruts and tower XP; cleared waves progress only that room
+ok 5 - a fresh Co-op room starts with zero Fruts and tower XP; cleared waves progress only that room
+  ---
+  duration_ms: 3.4589
+  ...
+# Subtest: two to four teammates can form a room; only the host starts a smaller party
+ok 6 - two to four teammates can form a room; only the host starts a smaller party
+  ---
+  duration_ms: 2.3055
+  ...
+# Subtest: leaving a waiting room releases a guest without ending the host room
+ok 7 - leaving a waiting room releases a guest without ending the host room
+  ---
+  duration_ms: 1.5071
+  ...
+# Subtest: scaled Co-op fruit retain their original maximum health after hits and legacy snapshots recover it
+ok 8 - scaled Co-op fruit retain their original maximum health after hits and legacy snapshots recover it
+  ---
+  duration_ms: 0.7618
+  ...
+# Subtest: both players slice the same authoritative fruit and receive equal reward totals
+ok 9 - both players slice the same authoritative fruit and receive equal reward totals
+  ---
+  duration_ms: 0.7262
+  ...
+# Subtest: shared builds debit once and reject occupied pads, replays and unauthorized actions
+ok 10 - shared builds debit once and reject occupied pads, replays and unauthorized actions
+  ---
+  duration_ms: 0.7267
+  ...
+# Subtest: boss introduction counts down and creates an actual high-health boss
+ok 11 - boss introduction counts down and creates an actual high-health boss
+  ---
+  duration_ms: 0.4263
+  ...
+# Subtest: wall leaks end match; disconnect grace ends abandoned matches; no unearned rewards
+ok 12 - wall leaks end match; disconnect grace ends abandoned matches; no unearned rewards
+  ---
+  duration_ms: 0.9084
+  ...
+# Subtest: equipped hero power damages the authoritative Co-op field and enforces cooldowns
+ok 13 - equipped hero power damages the authoritative Co-op field and enforces cooldowns
+  ---
+  duration_ms: 2.7075
+  ...
+# Subtest: shared turret upgrades spend once, change damage, cap at three and sell at a loss
+ok 14 - shared turret upgrades spend once, change damage, cap at three and sell at a loss
+  ---
+  duration_ms: 1.7014
+  ...
+# Subtest: Co-op bombs resist slashes and powers while empty offensive casts preserve the match
+not ok 15 - Co-op bombs resist slashes and powers while empty offensive casts preserve the match
+  ---
+  duration_ms: 10.964
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\onlineCoop.test.ts:1:7576'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    94 !== 978
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 978
+  actual: 94
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\onlineCoop.test.ts:75:46)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: online turret signatures change server damage shapes, slow and knockback
+ok 16 - online turret signatures change server damage shapes, slow and knockback
+  ---
+  duration_ms: 2.3446
+  ...
+# Subtest: jiju-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 17 - jiju-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 86.4231
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    node:internal/test_runner/harness:255:12
+    node:internal/process/task_queues:140:7
+    AsyncResource.runInAsyncScope (node:async_hooks:206:9)
+    AsyncResource.runMicrotask (node:internal/process/task_queues:137:8)
+  ...
+# Subtest: jiju-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 18 - jiju-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 2.0815
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: jiju-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 19 - jiju-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.2118
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: jiju-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 20 - jiju-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9481
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: jiju-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 21 - jiju-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.7686
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: jiju-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 22 - jiju-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.973
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: topfu-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 23 - topfu-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.982
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: topfu-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 24 - topfu-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.3197
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: topfu-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 25 - topfu-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.5968
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: topfu-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 26 - topfu-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.2162
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: topfu-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 27 - topfu-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.0367
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: topfu-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 28 - topfu-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9927
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: lagen-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 29 - lagen-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.6671
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: lagen-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 30 - lagen-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.7937
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: lagen-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 31 - lagen-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.0028
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: lagen-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 32 - lagen-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9262
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: lagen-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 33 - lagen-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.8418
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: lagen-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 34 - lagen-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.7846
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: tripos-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 35 - tripos-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9372
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: tripos-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 36 - tripos-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.7884
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: tripos-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 37 - tripos-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.6859
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: tripos-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 38 - tripos-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.687
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: tripos-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 39 - tripos-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.6661
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: tripos-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 40 - tripos-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.8057
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: ki-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 41 - ki-1: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.8327
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: ki-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 42 - ki-2: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9514
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: ki-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 43 - ki-3: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.7491
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: ki-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 44 - ki-4: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 1.1042
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: ki-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 45 - ki-5: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.9863
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: ki-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+not ok 46 - ki-6: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events
+  ---
+  duration_ms: 0.797
+  location: 'C:\\Users\\Airis\\Desktop\\FruitTD\\src\\game\\powerCombat.test.ts:1:423'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.equal(own.powerCasts?.[0]?.abilityId,ability.id)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Airis\Desktop\FruitTD\src\game\powerCombat.test.ts:17:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: insufficient funds and unequipped casts leave both online match states unchanged
+ok 47 - insufficient funds and unequipped casts leave both online match states unchanged
+  ---
+  duration_ms: 6.1479
+  ...
+# Subtest: all online powers respect turret-only bombs; empty offensive casts never spend resources or cooldowns
+ok 48 - all online powers respect turret-only bombs; empty offensive casts never spend resources or cooldowns
+  ---
+  duration_ms: 23.756
+  ...
+# Subtest: shock staggers briefly while frost slows longer and guard repairs the wall
+ok 49 - shock staggers briefly while frost slows longer and guard repairs the wall
+  ---
+  duration_ms: 0.7471
+  ...
+# Subtest: all 30 powers create animated art, expire and release their scene objects
+ok 50 - all 30 powers create animated art, expire and release their scene objects
+  ---
+  duration_ms: 134.3256
+  ...
+# Subtest: hero signatures remain distinct and overlapping casts release GPU resources at the mobile cap
+ok 51 - hero signatures remain distinct and overlapping casts release GPU resources at the mobile cap
+  ---
+  duration_ms: 210.8507
+  ...
+1..51
+# tests 51
+# suites 0
+# pass 19
+# fail 32
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2166.1934

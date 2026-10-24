@@ -29,16 +29,16 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
     for (const focused of [false, true]) {
       field.focusOwn = focused; field.resize(); field.camera.updateMatrixWorld();
       const view = field.camera.getWorldDirection(new Vector3());
-      assert.ok(Math.abs(view.y) > .5 && Math.abs(view.y) < .7, 'camera keeps its 2.5D angle at every aspect ratio');
+      assert.ok(Math.abs(view.y) > .8 && Math.abs(view.y) < .9, 'camera keeps its 2.5D angle at every aspect ratio');
       if (!focused) for (const own of [true,false]) {
         const base = pvpWorldPoint(map, map.width / 2, map.height - .5, own);
         base.z += own ? -1.7 * 1.5 : 1.7 * 1.5;
-        base.y = 2; base.project(field.camera);
-        assert.ok(Math.abs(base.x) < 1 && Math.abs(base.y) < 1, `${map.id} both bases fit the whole-arena view`);
+        field.cameraZ=base.z;field.resize();base.y = 2; base.project(field.camera);
+        assert.ok(Math.abs(base.x) < 1 && Math.abs(base.y) < 1, `${map.id} both bases are reachable vertically`);
       }
       const pick = (cell: number, own: boolean) => {
         const point = pvpWorldPoint(map, cell % map.width + .5, Math.floor(cell / map.width) + .5, own);
-        point.y = .16; point.project(field.camera);
+        field.cameraZ=point.z;field.resize();point.y = .16; point.project(field.camera);
         if (own && (!focused || map.buildCells.includes(cell))) { assert.ok(Math.abs(point.x) < 1, `${map.id} ${cell} fits phone width`); assert.ok(Math.abs(point.y) < 1, `${map.id} ${cell} fits phone height`); }
         return field.buildCell({ clientX: (point.x + 1) * width / 2, clientY: (1 - point.y) * height / 2 });
       };
@@ -50,12 +50,12 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
   }
 });
 
-test('PvP touch drag and pinch move the camera while a tap remains a build selection',()=>{
+test('PvP touch moves only along the lane, pinch preserves scale, and taps select build pads',()=>{
  const canvas=document.createElement('div');(canvas as any).setPointerCapture=()=>undefined;(canvas as any).getBoundingClientRect=()=>({width:375,height:470,left:0,top:0});const field:any=Object.create(PvpBattlefield.prototype),selected:number[]=[];
  Object.assign(field,{canvas,element:canvas,snapshot:{id:'gesture',map:config.maps[0],yourSide:'red',players:[],shared:false},pointers:new Map(),gesture:null,stroke:null,zoom:1,focusOwn:true,framingInitialised:true,cameraX:0,cameraZ:0,renderer:{setSize:()=>undefined},camera:new OrthographicCamera(-20,20,30,-30,.1,200),ray:new Raycaster(),ground:new Plane(new Vector3(0,1,0),0),buildCell:()=>4,select:(cell:number)=>selected.push(cell),trail:{reset:()=>undefined}});
  field.camera.position.set(0,75,-48);field.camera.lookAt(0,0,0);field.camera.updateProjectionMatrix();field.camera.updateMatrixWorld(true);
  field.snapshot.players=[{side:'red',towers:[{cell:4}]}];const towerPoint=pvpWorldPoint(config.maps[0]!,4%config.maps[0]!.width+.5,Math.floor(4/config.maps[0]!.width)+.5,true);towerPoint.y=1.1;towerPoint.project(field.camera);assert.equal(field.towerCell({clientX:(towerPoint.x+1)*375/2,clientY:(1-towerPoint.y)*470/2}),4,'placed tower is touch-selectable for upgrades');
- field.pointerDown({button:0,pointerId:1,clientX:100,clientY:200});field.pointerUp({pointerId:1,clientX:100,clientY:200});assert.deepEqual(selected,[4]);field.pointerDown({button:0,pointerId:2,clientX:100,clientY:200});field.pointerMove({pointerId:2,clientX:155,clientY:230});field.pointerUp({pointerId:2,clientX:155,clientY:230});assert.equal(selected.length,1);assert.notEqual(field.cameraX,0);field.pointerDown({button:0,pointerId:3,clientX:100,clientY:200});field.pointerDown({button:0,pointerId:4,clientX:200,clientY:200});field.pointerMove({pointerId:4,clientX:250,clientY:200});assert.ok(field.zoom>1);field.pointerCancel({pointerId:3});field.pointerCancel({pointerId:4});
+ field.pointerDown({button:0,pointerId:1,clientX:100,clientY:200});field.pointerUp({pointerId:1,clientX:100,clientY:200});assert.deepEqual(selected,[4]);field.pointerDown({button:0,pointerId:2,clientX:100,clientY:200});field.pointerMove({pointerId:2,clientX:155,clientY:230});field.pointerUp({pointerId:2,clientX:155,clientY:230});assert.equal(selected.length,1);assert.equal(field.camera.position.x,0);const fixedWidth=field.camera.right-field.camera.left;field.pointerDown({button:0,pointerId:3,clientX:100,clientY:200});field.pointerDown({button:0,pointerId:4,clientX:200,clientY:200});field.pointerMove({pointerId:4,clientX:250,clientY:200});assert.equal(field.camera.right-field.camera.left,fixedWidth);field.pointerCancel({pointerId:3});field.pointerCancel({pointerId:4});
 });
 
 

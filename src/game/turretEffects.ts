@@ -1,5 +1,5 @@
 import { turretLevelTuning } from './studioRuntime';
-import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three';
+import { CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three';
 import type { TurretKind } from './turrets';
 import { COMBAT_GOLD } from './combatTokens';
 import { projectileTravelSeconds, TURRET_WEAPONS, weaponStats } from './turretWeapons';
@@ -8,7 +8,7 @@ type Effect={group:Group;age:number;duration:number;travel:number;kind:string;fr
 /** Presentation only. Simulation owns hits; every transient mesh has a lifetime. */
 export class TurretEffects {
  readonly group=new Group();private effects:Effect[]=[];
- private mesh(geometry:SphereGeometry|RingGeometry|CylinderGeometry|CircleGeometry,color:number,opacity=1):Mesh {
+ private mesh(geometry:SphereGeometry|RingGeometry|CylinderGeometry|CircleGeometry|ConeGeometry,color:number,opacity=1):Mesh {
   const mesh=new Mesh(geometry,new MeshBasicMaterial({color,transparent:true,opacity,side:DoubleSide,depthWrite:false,depthTest:false,toneMapped:false}));
   mesh.renderOrder=35;mesh.userData.opacity=opacity;return mesh;
  }
@@ -28,7 +28,8 @@ export class TurretEffects {
    mesh.position.copy(a).lerp(b,.5);mesh.quaternion.setFromUnitVectors(new Vector3(0,1,0),delta.normalize());group.add(mesh);return mesh;
   };
   if(behavior==='railgun'||behavior==='blender') {
-   const projectile=this.mesh(new SphereGeometry(behavior==='blender'?.19:.13,8,6),color);
+   const projectile=this.mesh(behavior==='blender'?new SphereGeometry(.24,10,8):new ConeGeometry(.15,.65,8),color);
+   if(behavior==='railgun')projectile.quaternion.setFromUnitVectors(new Vector3(0,1,0),to.clone().sub(from).normalize());
    projectile.userData.projectile=true;projectile.userData.arc=behavior==='blender'?1.8:.2;group.add(projectile);
    const smoke=this.mesh(new SphereGeometry(.15,6,4),0x938674,.5);smoke.userData.exhaust=true;group.add(smoke);
    const splash=stats!.blast*scale;
@@ -62,6 +63,15 @@ export class TurretEffects {
   this.group.add(group);this.effects.push({group,age:0,duration,travel,kind,from:from.clone(),to:to.clone()});
   while(this.effects.length>32)this.release(this.effects.shift()!.group);
  }
+ capture(from:Vector3,to:Vector3):void {
+  const group=new Group();
+  for(let i=0;i<3;i++){
+   const net=this.mesh(new RingGeometry(.45,.49,16),0x8af3cb,.9);
+   net.rotation.set(i*Math.PI/3,0,Math.PI/2);net.userData.capture=i;group.add(net);
+  }
+  this.group.add(group);this.effects.push({group,age:0,duration:.65,travel:0,kind:'capture',from:from.clone(),to:to.clone()});
+  while(this.effects.length>32)this.release(this.effects.shift()!.group);
+ }
  burst(point:Vector3,color:number,style:'juice'|'sparks'|'pulse'='juice',scale=1):void {
   const group=new Group();
   if(style==='pulse'){const ring=this.mesh(new RingGeometry(.7,.85,24),color);ring.position.copy(point);ring.rotation.x=-Math.PI/2;ring.userData.impact=true;group.add(ring);}
@@ -75,6 +85,7 @@ export class TurretEffects {
    const flight=e.travel?Math.min(1,e.age/e.travel):Math.min(1,t*2),blast=e.travel?Math.max(0,(e.age-e.travel)/.4):t;
    for(const child of e.group.children){const m=child as Mesh,mat=m.material as MeshBasicMaterial;
     mat.opacity=(m.userData.opacity??1)*(1-t);
+    if(m.userData.capture!==undefined){m.position.copy(e.to).lerp(e.from,t);m.scale.setScalar(1.4-t);m.rotation.z+=dt*5;}
     if(m.userData.projectile||m.userData.exhaust){
      const p=m.userData.exhaust?Math.max(0,flight-.12):flight;
      m.position.copy(e.from).lerp(e.to,p);m.position.y+=Math.sin(p*Math.PI)*(m.userData.arc??.2);m.visible=!e.travel||e.age<e.travel;

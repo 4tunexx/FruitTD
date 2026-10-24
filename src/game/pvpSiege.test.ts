@@ -10,12 +10,12 @@ const act = (game: ReturnType<typeof active>, userId: string, command: Parameter
 it('main upgrades spend match Fruts, improve damage/health, and cannot exceed level three or replay', () => {
   const game = active(); const player = game.players[0];
   assert.throws(() => act(game, 'a', { type: 'upgrade-main' }), /Not enough/);
-  player.fruts = 1000; player.wallHealth = 700;
+  player.fruts = 1000; player.wallHealth = 70;
   act(game, 'a', { type: 'upgrade-main' });
   assert.equal(player.fruts, 1000 - pvpMainUpgradeCost(1)); assert.equal(player.mainLevel, 2);
-  assert.equal(player.wallHealth, 950); assert.equal(player.wallMaxHealth, 1250);
+  assert.equal(player.wallHealth, 95); assert.equal(player.wallMaxHealth, 125);
   assert.throws(() => applyPvpCommand(game, 'a', { type: 'upgrade-main' }, 1, 2100, config), /replayed/);
-  act(game, 'a', { type: 'upgrade-main' }); assert.equal(player.mainLevel, 3); assert.equal(player.wallMaxHealth, 1500);
+  act(game, 'a', { type: 'upgrade-main' }); assert.equal(player.mainLevel, 3); assert.equal(player.wallMaxHealth, 150);
   const remaining = player.fruts; assert.throws(() => act(game, 'a', { type: 'upgrade-main' }), /fully upgraded/); assert.equal(player.fruts, remaining);
   player.attackers.push({ id: 'base', type: 'normal', hp: 100, progress: config.map.pathCells.length - 2 });
   advancePvpMatch(game, 0, 5000, config);

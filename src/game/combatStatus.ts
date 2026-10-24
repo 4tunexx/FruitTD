@@ -15,6 +15,7 @@ export function powerAffliction(ability:HeroAbility):Affliction {
   return ability.hero==='topfu'?'crush':'cut';
 }
 export function markStatus(target:CombatStatus,kind:Affliction,now:number,duration=650):void {
+  if(duration<=850&&(target.statusUntil??0)>now&&['frost','snare','haze','shock'].includes(target.statusKind??''))return;
   target.statusKind=kind;target.statusUntil=now+duration;
 }
 export function ignite(target:CombatStatus,now:number,dps:number,duration=2200):void {

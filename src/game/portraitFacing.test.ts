@@ -39,10 +39,10 @@ test('retired sample scenery upgrades while custom admin maps retain their exact
   assert.equal(new Set(['jiju','topfu','lagen','tripos','ki'].map(hero=>String(PORTRAIT_CELLS[hero]))).size,5);
 });
 
-test('hero powers retain their original distinct sigil artwork',()=>{
+test('hero powers use distinct authored power artwork',()=>{
   assert.equal(new Set(HERO_ABILITIES.map(ability=>ability.iconUrl)).size,30);
-  for(const [index,ability] of HERO_ABILITIES.entries()){
-    assert.equal(ability.iconUrl,`/assets/icons/sigil-${String(index+1).padStart(2,'0')}.svg`);
+  for(const ability of HERO_ABILITIES){
+    assert.equal(ability.iconUrl,`/assets/powers/${ability.id}.svg`);
     const source=readFileSync(`public${ability.iconUrl}`,'utf8');
     assert.ok(source.includes('<svg'));
   }

@@ -1,0 +1,92 @@
+TAP version 13
+# Subtest: combat polish regressions
+    # Subtest: enemies use one flat, legible health rail that shrinks after damage
+    ok 1 - enemies use one flat, legible health rail that shrinks after damage
+      ---
+      duration_ms: 429.7427
+      ...
+    # Subtest: published map routes spawn enemies at the top and guide them to the leak line
+    ok 2 - published map routes spawn enemies at the top and guide them to the leak line
+      ---
+      duration_ms: 91.9984
+      ...
+    # Subtest: solid map entities divert enemies around the authored footprint
+    ok 3 - solid map entities divert enemies around the authored footprint
+      ---
+      duration_ms: 50.12
+      ...
+    # Subtest: pit entities remove enemies through the environment kill callback
+    ok 4 - pit entities remove enemies through the environment kill callback
+      ---
+      duration_ms: 63.6046
+      ...
+    # Subtest: trail geometry updates GPU-backed positions and resets cleanly
+    ok 5 - trail geometry updates GPU-backed positions and resets cleanly
+      ---
+      duration_ms: 16.4116
+      ...
+    # Subtest: slash flashes are directional (not radial) and expire quickly
+    ok 6 - slash flashes are directional (not radial) and expire quickly
+      ---
+      duration_ms: 11.5832
+      ...
+    # Subtest: stroke contacts enforce one-hit-per-gesture and spawn-serial identity
+    ok 7 - stroke contacts enforce one-hit-per-gesture and spawn-serial identity
+      ---
+      duration_ms: 7.2148
+      ...
+    # Subtest: wave accounting excludes split children and requires strict perfect-wave equality
+    ok 8 - wave accounting excludes split children and requires strict perfect-wave equality
+      ---
+      duration_ms: 3.9481
+      ...
+    # Subtest: boss completion is consumed once and cannot leak into later pooled-enemy waves
+    ok 9 - boss completion is consumed once and cannot leak into later pooled-enemy waves
+      ---
+      duration_ms: 1.6575
+      ...
+    # Subtest: splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure
+    ok 10 - splitter parent is quarantined for this tick and pending children eventually spawn under pool pressure
+      ---
+      duration_ms: 49.6032
+      ...
+    # Subtest: a full fruit pool resumes queued wave spawns as soon as one slot is released
+    ok 11 - a full fruit pool resumes queued wave spawns as soon as one slot is released
+      ---
+      duration_ms: 49.2818
+      ...
+    # Subtest: explosive fruit hits damage the tower more in later waves
+    ok 12 - explosive fruit hits damage the tower more in later waves
+      ---
+      duration_ms: 38.5363
+      ...
+    # Subtest: Rocket Launcher damages a fruit after flight and consumes pink juice
+    ok 13 - Rocket Launcher damages a fruit after flight and consumes pink juice
+      ---
+      duration_ms: 65.4143
+      ...
+    # Subtest: brood bosses trigger a single halfway phase and release runners
+    ok 14 - brood bosses trigger a single halfway phase and release runners
+      ---
+      duration_ms: 64.0908
+      ...
+    1..14
+ok 1 - combat polish regressions
+  ---
+  duration_ms: 947.5715
+  type: 'suite'
+  ...
+# Subtest: upgraded towers start every solo mode at full health
+ok 2 - upgraded towers start every solo mode at full health
+  ---
+  duration_ms: 9.7888
+  ...
+1..2
+# tests 15
+# suites 1
+# pass 15
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2078.5111

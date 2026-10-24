@@ -899,6 +899,7 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, s
 }
 
 fruits.onEnvironmentKill = (fruit) => killFruit(fruit, new Vector3(0, 0.2, 1), 0.8);
+fruits.onBurnKill = (fruit) => killFruit(fruit, new Vector3(0, 0.2, 1), 0.8, 0, 'turret');
 
 function finishCampaignStage(): void {
   const cleared = state.level;

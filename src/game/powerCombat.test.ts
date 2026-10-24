@@ -8,13 +8,13 @@ import { newCoopMatch, applyCoopCommand, advanceCoopMatch, DEFAULT_COOP_CONFIG }
 for(const ability of HERO_ABILITIES)test(`${ability.id}: Arena and Co-op apply rank damage, costs, slow, healing and visible cast events`,()=>{
   const stats=powerStats(ability,5);
   const players=[createPvpPlayer('a','A','blue',cfg),createPvpPlayer('b','B','red',cfg)];
-  const own=players[0]!;Object.assign(own,{hero:ability.hero,abilityLoadout:[ability.id],abilityRanks:{[ability.id]:5},fruts:500,wallHealth:500});
+  const own=players[0]!;Object.assign(own,{hero:ability.hero,abilityLoadout:[ability.id],abilityRanks:{[ability.id]:5},fruts:500,wallHealth:50});
   own.attackers=[{id:'fruit',type:'armored',hp:1000,progress:cfg.map.pathCells.length-1}];
   const arena=newPvpMatch('test','arena',[players[0]!,players[1]!],1000,cfg);arena.status='active';arena.map=cfg.map;arena.endsAt=100000;
   applyPvpCommand(arena,'a',{type:'ability',abilityId:ability.id},1,2000,cfg);
   assert.equal(own.fruts,500-stats.cost);assert.equal(own.attackers[0]!.hp,1000-stats.damage);
   assert.equal(own.powerCasts?.[0]?.abilityId,ability.id);assert.equal(own.powerCasts?.[0]?.targets.length,1);
-  assert.ok(own.wallHealth>=500);if(stats.healFraction)assert.ok(own.wallHealth>500);
+  assert.ok(own.wallHealth>=50);if(stats.healFraction)assert.ok(own.wallHealth>50);
   if(stats.slowMs){assert.equal(own.attackers[0]!.slowUntil,2000+stats.slowMs);const previous=own.attackers[0]!.progress;advancePvpMatch(arena,.2,2100,cfg);assert.ok(own.attackers[0]!.progress-previous<cfg.attacks.armored!.speed*.2*Math.max(1,(cfg.map.pathCells.length-1)/13));}
   const after=structuredClone(own);assert.throws(()=>applyPvpCommand(arena,'a',{type:'ability',abilityId:ability.id},2,2100,cfg),/cooling down/);assert.deepEqual(own,after);
   const coop=newCoopMatch('coop',{userId:'a',name:'A',hero:ability.hero,abilityLoadout:[ability.id],abilityRanks:{[ability.id]:5},sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0},cfg);

@@ -1,4 +1,4 @@
-import { AdditiveBlending, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, RingGeometry, SphereGeometry } from 'three';
+import { AdditiveBlending, NormalBlending, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, Object3D, RingGeometry, SphereGeometry } from 'three';
 import type { Affliction, CombatStatus } from './combatStatus';
 
 const colors:Record<Affliction,number>={burn:0xff661c,frost:0x8deaff,shock:0x74bdff,snare:0x76d65e,haze:0xcd78ee,cut:0xd6f5ff,pierce:0xffefa6,solar:0xffd44f,crush:0xe3c6ff};
@@ -19,7 +19,7 @@ export class StatusVfx {
       const count=kind==='burn'?7:kind==='frost'?6:kind==='snare'?3:5;
       for(let i=0;i<count;i++){
         const geometry=kind==='snare'?new RingGeometry(.58,.64,24,1,0,Math.PI*1.6):kind==='frost'?new CircleGeometry(.24,4):kind==='burn'?new SphereGeometry(.17,5,4):new CircleGeometry(.13,kind==='shock'?3:5);
-        const material=new MeshBasicMaterial({color:i%3===0&&kind==='burn'?0xffe699:colors[kind],transparent:true,opacity:.8,side:DoubleSide,depthWrite:false,blending:kind==='burn'||kind==='shock'?AdditiveBlending:undefined});
+        const material=new MeshBasicMaterial({color:i%3===0&&kind==='burn'?0xffe699:colors[kind],transparent:true,opacity:.8,side:DoubleSide,depthWrite:false,blending:kind==='burn'||kind==='shock'?AdditiveBlending:NormalBlending});
         const mesh=new Mesh(geometry,material);mesh.renderOrder=40;group.add(mesh);
       }
       this.group.add(group);entry={group,target,kind,until,phase:0};this.entries.set(id,entry);

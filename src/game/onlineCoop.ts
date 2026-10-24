@@ -28,8 +28,6 @@ export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number)
   if(match.status!=='waiting'||match.players.length>=COOP_MAX_PLAYERS||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
   match.players.push(player);
   if(match.players.length===COOP_MAX_PLAYERS){match.status='countdown';match.phaseUntil=now+3000;}
-  const maximum=balance.wallHealth+25*(towerLevelFromXp(match.towerXp??0)-1);
-  if(maximum>(match.wallMaxHealth??balance.wallHealth)){match.wallHealth+=maximum-(match.wallMaxHealth??balance.wallHealth);match.wallMaxHealth=maximum;}
   match.revision++;
 }
 export type CoopCommand = {type:'start'} | { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' } | {type:'upgrade'|'sell';towerId:string};
@@ -70,7 +68,7 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       const targets=powerTargets(match.fruits.filter(f=>f.hp>0&&f.type!=='explosive'&&!f.sliceOnly),ability,f=>f,envelope);
       if(!targets.length&&(!stats.healFraction||match.wallHealth>=(match.wallMaxHealth??balance.wallHealth)))throw new Error('No vulnerable targets.');
       match.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
-      match.wallHealth=Math.min(match.wallMaxHealth??balance.wallHealth,match.wallHealth+balance.wallHealth*stats.healFraction);
+      match.wallHealth=Math.min(match.wallMaxHealth??balance.wallHealth,match.wallHealth+(match.wallMaxHealth??balance.wallHealth)*stats.healFraction);
       match.powerCasts=appendPowerCast(match.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(f=>({x:f.x,y:f.y}))});
       for(const fruit of targets){applyPowerStatus(fruit,ability,now,stats.slowMs,stats.damage);fruit.hp-=stats.damage*powerDamageMultiplier(fruit,envelope);if(stats.slowMs){fruit.slowUntil=Math.max(fruit.slowUntil??0,now+stats.slowMs);fruit.slowMultiplier=stats.slowMultiplier;}}
       const killed=match.fruits.filter(f=>f.hp<=0);player.kills+=killed.length;collectKills(match,balance);
@@ -131,10 +129,12 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
   for(const tower of match.towers) if(fire(tower.cell%10+.5,Math.floor(tower.cell/10)+.5,pvpTowerStats(balance.towers[tower.type]!,tower.level),tower.lastFiredAt,tower.type,tower.level)) tower.lastFiredAt=now;
   if(fire(5,13.5,coopMainStats(match,balance),match.mainLastFiredAt)) match.mainLastFiredAt=now;
   collectKills(match,balance);
-  for(const f of match.fruits.filter(f=>f.y>=13.5))match.wallHealth=Math.max(0,match.wallHealth-balance.attacks[f.type]!.wallDamage*(f.boss?10:1));
+  for(const f of match.fruits.filter(f=>f.y>=13.5))match.wallHealth=Math.max(0,match.wallHealth-balance.attacks[f.type]!.wallDamage*(f.boss?2.5:1));
   match.fruits=match.fruits.filter(f=>f.y<13.5);
   if(match.wallHealth<=0){match.status='complete';match.reason='wall';}
   else if(!match.remainingSpawns&&!match.fruits.length){match.completedWaves++;match.towerXp=(match.towerXp??0)+config.towerXpPerWave;match.wave++;match.status=match.wave%(config.bossEveryWaves+1)===0?'boss-intro':'countdown';match.phaseUntil=now+(match.status==='boss-intro'?config.bossIntroMs:config.intermissionMs);}
+  const maximum=balance.wallHealth+25*(towerLevelFromXp(match.towerXp??0)-1);
+  if(maximum>(match.wallMaxHealth??balance.wallHealth)){match.wallHealth+=maximum-(match.wallMaxHealth??balance.wallHealth);match.wallMaxHealth=maximum;}
   match.revision++;
 }
 export function coopRewards(match:CoopMatch,config:CoopConfig):{coins:number;gems:number;xp:number;towerXp:number} {

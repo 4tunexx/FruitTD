@@ -28,9 +28,9 @@ test('long server ticks cannot let fast opposing units tunnel past each other',(
 });
 test('surviving squads keep attacking the tower on a timed cadence rather than disappearing',()=>{
   const m=battle();m.players[0].attackers=[{id:'siege',type:'normal',hp:100,progress:config.map.pathCells.length-1}];
-  advancePvpMatch(m,.1,2000,config);assert.equal(m.players[0].wallHealth,config.wallHealth-25);assert.equal(m.players[0].attackers.length,1);
-  advancePvpMatch(m,.1,2100,config);assert.equal(m.players[0].wallHealth,config.wallHealth-25);
-  advancePvpMatch(m,.1,3000,config);assert.equal(m.players[0].wallHealth,config.wallHealth-50);assert.ok(m.players[0].attackers[0]!.attackingTower);
+  advancePvpMatch(m,.1,2000,config);assert.equal(m.players[0].wallHealth,config.wallHealth-config.attacks.normal!.wallDamage);assert.equal(m.players[0].attackers.length,1);
+  advancePvpMatch(m,.1,2100,config);assert.equal(m.players[0].wallHealth,config.wallHealth-config.attacks.normal!.wallDamage);
+  advancePvpMatch(m,.1,3000,config);assert.equal(m.players[0].wallHealth,config.wallHealth-2*config.attacks.normal!.wallDamage);assert.ok(m.players[0].attackers[0]!.attackingTower);
 });
 test('queued pack members cannot fight before they visibly spawn at their keep',()=>{
   const m=battle();m.players[0].attackers=[{id:'siege',type:'normal',hp:100,progress:config.map.pathCells.length-1}];

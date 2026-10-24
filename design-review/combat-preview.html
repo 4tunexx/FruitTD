@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FruitTD combat review</title></head><body><main id="review"></main>
+<script type="module">
+import '/src/style.css';
+import '/src/ui/screens/screens.css';
+import '/src/ui/screens/hub.css';
+import '/src/ui/apocalypse.css';
+import '/src/ui/screens/gameSkin.css';
+import '/src/ui/battleLayout.css';
+import '/src/ui/pcPolish.css';
+import '/src/ui/combatRefinement.css';
+import '/src/ui/combatExperience.css';
+import {renderPvpHub} from '/src/ui/screens/pvp.ts';
+import {DEFAULT_PVP_CONFIG,createPvpPlayer,newPvpMatch,applyPvpCommand,advancePvpMatch} from '/src/game/pvp.ts';
+import {HERO_ABILITIES} from '/src/game/heroAbilities.ts';
+import {fruitAtlas} from '/src/game/atlas.ts';
+import {initThemeSystem} from '/src/ui/theme/index.ts';
+if(!import.meta.env.DEV)throw new Error('Development review only');
+initThemeSystem();await fruitAtlas.load();
+const config=structuredClone(DEFAULT_PVP_CONFIG),now=Date.now();
+const hero=new URLSearchParams(location.search).get('hero')||'jiju';
+const players=[createPvpPlayer('review','You','blue',config,now),createPvpPlayer('rival','Orchard Siege Bot','red',config,now)];
+for(const p of players){p.hero=hero;p.fruts=600;p.abilityLoadout=HERO_ABILITIES.filter(a=>a.hero===hero).slice(0,3).map(a=>a.id);p.abilityRanks=Object.fromEntries(p.abilityLoadout.map(id=>[id,3]));p.turretLoadout=Object.keys(config.towers);}
+const game=newPvpMatch('combat-review','arena',players,now,config);game.status='active';game.map=config.map;game.endsAt=now+3600000;
+players[0].towers=Object.keys(config.towers).slice(0,6).map((type,i)=>({id:'tower-'+i,type,cell:game.map.buildCells[i+2],level:1,placedAt:now,lastFiredAt:0}));
+let serial=0;
+const addEnemy=()=>{for(const p of players)p.attackers.push({id:'enemy-'+(++serial),type:serial%3===0?'armored':'normal',progress:6+serial%10,hp:300,maxHp:300});};
+for(let i=0;i<6;i++)addEnemy();
+const snapshot=()=>({...game,players:structuredClone(players),yourSide:'blue',yourSequence:players[0].sequence,yourCombo:0,remainingMs:180000,testMatch:true,mapPool:[],yourVetoTurn:false,vetoesRemaining:0});
+const request=async(path,payload)=>{if(path.endsWith('/command'))applyPvpCommand(game,'review',payload.command,payload.sequence,Date.now(),config);return {success:true,match:snapshot(),config};};
+renderPvpHub(document.querySelector('#review'),'arena',{request,isAuthenticated:()=>true,realtime:false});
+let previous=performance.now();setInterval(()=>{const time=performance.now();players.forEach(p=>{p.lastSeenAt=Date.now();p.wallHealth=100;});game.status="active";advancePvpMatch(game,(time-previous)/1000,Date.now(),config);previous=time;if(players[0].attackers.length<7)addEnemy();},100);
+</script></body></html>

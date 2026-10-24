@@ -500,10 +500,10 @@ export class PvpBattlefield {
   private resetGesture(): void {const a=[...this.pointers.values()];if(a.length>=2){const [p,q]=a;this.gesture={x:(p!.x+q!.x)/2,y:(p!.y+q!.y)/2,distance:Math.hypot(p!.x-q!.x,p!.y-q!.y)};}else if(a.length===1)this.gesture={x:a[0]!.x,y:a[0]!.y,distance:0};else this.gesture=null;}
   private panBy(_dx:number,dy:number):void {
     const rect=this.canvas.getBoundingClientRect();
-    this.cameraZ+=(dy/Math.max(1,rect.height))*(this.camera.top-this.camera.bottom)/.86;
+    this.cameraZ-=(dy/Math.max(1,rect.height))*(this.camera.top-this.camera.bottom)/.86;
     this.resize();
   }
-  private wheel = (event: WheelEvent) => { event.preventDefault(); this.panBy(0,event.deltaY); };
+  private wheel = (event: WheelEvent) => { event.preventDefault(); this.panBy(0,-event.deltaY); };
   private resize(): void {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     const map=this.snapshot.map;if(!map)return;
@@ -592,7 +592,8 @@ export class PvpBattlefield {
         const a = entry.rig.group.position.clone(); a.y = 1;
         const tuning=turretLevelTuning(entry.type,entry.level||1);
         const color=tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):undefined;
-        this.turretEffects.shot(entry.rig.kind,a,target.mesh.position,entry.level,color,tuning.effectScale,(this.config.towers[entry.type]?pvpTowerStats(this.config.towers[entry.type]!,entry.level).range:3)*TILE);
+        if(entry.type==='catcher')this.turretEffects.capture(a,target.mesh.position);
+        else this.turretEffects.shot(entry.rig.kind,a,target.mesh.position,entry.level,color,tuning.effectScale,(this.config.towers[entry.type]?pvpTowerStats(this.config.towers[entry.type]!,entry.level).range:3)*TILE);
         if(!(fireStudioEvent(`tower-${entry.type}-level-${entry.level||1}`,'onAttack',a)||fireStudioEvent(`tower-${entry.type}`,'onAttack',a)))playStudioSound(`turret-${entry.type}`);
         fireStudioEvent(`tower-${entry.type}-level-${entry.level||1}`,'onImpact',target.mesh.position)||fireStudioEvent(`tower-${entry.type}`,'onImpact',target.mesh.position);
       }
