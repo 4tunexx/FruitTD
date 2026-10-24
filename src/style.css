@@ -5396,7 +5396,7 @@ button:not(:disabled):active {
 }
 
 .modal-card {
-  background: linear-gradient(145deg, rgba(20, 30, 18, 0.82), rgba(12, 18, 14, 0.88)) !important;
+  background: linear-gradient(145deg, #303036, #17191f) !important;
   border: 3px solid rgba(255, 202, 40, 0.45) !important;
   border-radius: 2px !important;
   backdrop-filter: blur(22px) saturate(150%);

@@ -528,7 +528,7 @@ var names = {
   tripos: [["Triple Cut", "Three fast cuts across the field.", "\u224B", "burst"], ["Rose Burst", "A powerful clustered blast.", "\u273F", "burst"], ["Crosswind", "Strike the field from both sides.", "\u2723", "shock"], ["Pink Haze", "Slow and damage every fruit.", "\u274B", "frost"], ["Encore", "Repeat damage on the strongest fruit.", "\u266B", "pierce"], ["Grand Waltz", "Tripos\u2019 full field finale.", "\u2739", "shock"]],
   ki: [["Golden Pulse", "A fast full-field pulse.", "\u263C", "shock"], ["Lucky Drop", "A heavy burst near the lead fruit.", "\u2726", "burst"], ["Sunbeam", "Pierce through the leading line.", "\u2600", "pierce"], ["Golden Guard", "Slow fruit and protect the wall.", "\u2B21", "guard"], ["Solar Bloom", "Blast the front pack with solar energy.", "\u273A", "burst"], ["Daybreak", "Ki\u2019s strongest full-field strike.", "\u2739", "shock"]]
 };
-var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description: description.replace(/whole field|full-field|full field|every fruit|the full field|the field/g, "enemies within tower range") + " Damage falls with distance from the tower.", icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [18e3, 22e3, 26e3, 3e4, 35e3, 42e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/icons/sigil-${String(["jiju", "topfu", "lagen", "tripos", "ki"].indexOf(hero) * 6 + i + 1).padStart(2, "0")}.svg` })));
+var HERO_ABILITIES = Object.keys(names).flatMap((hero) => names[hero].map(([name, description, icon, effect], i) => ({ id: hero + "-" + (i + 1), hero, name, description: description + (effect === "shock" ? " Briefly staggers affected enemies." : "") + " Damage falls with distance from the tower.", icon, unlockLevel: [1, 5, 10, 15, 20, 25][i], cooldownMs: [18e3, 22e3, 26e3, 3e4, 35e3, 42e3][i], juiceCost: [0, 15, 20, 25, 30, 40][i], damage: [18, 24, 30, 36, 44, 60][i], effect, iconUrl: `/assets/icons/sigil-${String(["jiju", "topfu", "lagen", "tripos", "ki"].indexOf(hero) * 6 + i + 1).padStart(2, "0")}.svg` })));
 var MAX_HERO_ABILITY_RANK = 5;
 function heroAbility(id) {
   return HERO_ABILITIES.find((a) => a.id === id);
@@ -875,8 +875,8 @@ function powerStats(ability, rawRank) {
     damage: ability.damage * (1 + (rank - 1) * 0.2),
     cost: ability.juiceCost,
     cooldownMs: Math.round(ability.cooldownMs * (1 - (rank - 1) * 0.05)),
-    slowMs: ability.effect === "frost" || ability.effect === "guard" || ability.id === "topfu-6" ? 2e3 + (rank - 1) * 350 : 0,
-    slowMultiplier: ability.id === "topfu-6" ? 0.15 : 0.45,
+    slowMs: ability.effect === "shock" ? 450 + (rank - 1) * 75 : ability.effect === "frost" || ability.effect === "guard" || ability.id === "topfu-6" ? 2e3 + (rank - 1) * 350 : 0,
+    slowMultiplier: ability.effect === "shock" ? 0.1 : ability.id === "topfu-6" ? 0.15 : 0.45,
     healFraction: ability.effect === "guard" ? 0.12 + (rank - 1) * 0.02 : 0
   };
 }

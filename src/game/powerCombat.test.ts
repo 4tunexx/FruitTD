@@ -53,3 +53,12 @@ test('all online powers respect turret-only bombs; empty offensive casts never s
   assert.equal(own.attackers[0]!.hp,150);assert.equal(coop.fruits[0]!.hp,150);
  }
 });
+
+test('shock staggers briefly while frost slows longer and guard repairs the wall',()=>{
+ const shock=powerStats(HERO_ABILITIES.find(a=>a.id==='jiju-1')!,1);
+ const frost=powerStats(HERO_ABILITIES.find(a=>a.id==='topfu-1')!,1);
+ const guard=powerStats(HERO_ABILITIES.find(a=>a.id==='ki-4')!,1);
+ assert.equal(shock.slowMs,450);assert.equal(shock.slowMultiplier,.1);
+ assert.ok(frost.slowMs>shock.slowMs);assert.ok(frost.slowMultiplier>shock.slowMultiplier);
+ assert.ok(guard.healFraction>0);assert.equal(shock.healFraction,0);
+});

@@ -799,13 +799,13 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, source: 'blade' | 'turret' | 'super' = 'blade'): void {
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
-  debris.spawnPair(fruit, swipe, cutNormal);
+  if (source === 'blade') debris.spawnPair(fruit, swipe, cutNormal);
   wall.combatEffects.burst(fruit.group.position,FRUIT_DEFS[fruit.kind].splash);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
   const juiceMul = equippedSlicer()?.juiceMul ?? 1;
   juice.burst(fruit.group.position.x, fruit.group.position.y, fruit.group.position.z, fruit.kind, swipe, mul);
   try {
-    fireCreatorSlicerVfx(equippedSlicer()?.id, 'onKill', {
+    if (source === 'blade') fireCreatorSlicerVfx(equippedSlicer()?.id, 'onKill', {
       x: fruit.group.position.x,
       y: fruit.group.position.y,
       z: fruit.group.position.z,

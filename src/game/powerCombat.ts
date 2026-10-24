@@ -4,8 +4,8 @@ export function powerStats(ability:HeroAbility, rawRank:number) {
   const rank=Math.max(1,Math.min(MAX_HERO_ABILITY_RANK,Math.floor(rawRank)||1));
   // Costs are temporary match resources. Permanent upgrades use skill points.
   return { rank, damage:ability.damage*(1+(rank-1)*.2), cost:ability.juiceCost, cooldownMs:Math.round(ability.cooldownMs*(1-(rank-1)*.05)),
-    slowMs:ability.effect==='frost'||ability.effect==='guard'||ability.id==='topfu-6'?2000+(rank-1)*350:0,
-    slowMultiplier:ability.id==='topfu-6'?.15:.45, healFraction:ability.effect==='guard'?.12+(rank-1)*.02:0 };
+    slowMs:ability.effect==='shock'?450+(rank-1)*75:ability.effect==='frost'||ability.effect==='guard'||ability.id==='topfu-6'?2000+(rank-1)*350:0,
+    slowMultiplier:ability.effect==='shock'?.1:ability.id==='topfu-6'?.15:.45, healFraction:ability.effect==='guard'?.12+(rank-1)*.02:0 };
 }
 export function equippedPower(id:string,hero:string,loadout:string[]|undefined,ranks:Record<string,number>|undefined) {
   const ability=heroAbility(id); const rank=id==='jiju-1'?Math.max(1,ranks?.[id]??0):ranks?.[id]??0;

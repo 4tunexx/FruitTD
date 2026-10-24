@@ -137,3 +137,24 @@
 .ftd-coop-result__stats strong { display:block; color:#c7f17b; font-size:24px; }
 .ftd-coop-result__stats small { font-size:9px; color:#c3d0bd; }
 .ftd-coop-result > p { line-height:1.5; font-size:13px; }
+
+/* Shared combat surfaces: charcoal and amber, anchored sheets on touch layouts. */
+#hud-pause { background:#090b10d9; backdrop-filter:blur(8px); }
+#hud-pause .modal-card { background:linear-gradient(145deg,#303036,#17191f); border:1px solid #ad7c37; color:#f1eadb; }
+#hud-pause .modal-title { color:#ffd260; }
+#hud-pause .modal-sub { color:#c5beb1; }
+#hud-pause .modal-btn { background:#25272e; border:1px solid #786749; color:#f1eadb; }
+#hud-pause .modal-btn--primary { background:#ffd260; color:#18191d; border-color:#ffd260; }
+@media(max-width:860px) {
+  #hud-pause { align-items:flex-end; padding:0; }
+  #hud-pause .modal-card { width:100%; max-width:none; margin:0; box-sizing:border-box; border-radius:0; max-height:90dvh; overflow-y:auto; padding:24px 18px max(18px,env(safe-area-inset-bottom)); transform:none; clip-path:none !important; }
+  #hud-pause .modal-btns { display:grid; grid-template-columns:1fr 1fr; }
+  #hud-pause .modal-btn { min-height:48px; }
+  .ftd-pvp.is-battle .ftd-duel-panel { position:fixed; left:0; right:0; bottom:0; width:100%; max-width:none; margin:0; border-radius:0; max-height:45dvh; box-sizing:border-box; padding:12px 12px max(12px,env(safe-area-inset-bottom)); background:#1c1e24; overscroll-behavior:contain; }
+  .ftd-coop-battle .ftd-coop-tower-manager { position:absolute; left:0; right:0; bottom:0; width:100%; max-width:none; border-radius:0; background:#1c1e24; overscroll-behavior:contain; }
+  .ftd-coop-battle .ftd-pvp__siege-controls { left:0; right:0; bottom:0; margin:0; border-radius:0; background:#1c1e24; padding-bottom:max(6px,env(safe-area-inset-bottom)); }
+}
+@media(max-width:860px) {
+  body[data-ftd-screen='PLAY'] #sidebar { position:fixed; inset:auto 0 0; width:100%; max-width:none; height:auto; max-height:52dvh; box-sizing:border-box; margin:0; padding-bottom:max(12px,env(safe-area-inset-bottom)); border-radius:0; background:#1c1e24!important; border:1px solid #ad7c37!important; transform:none!important; transition:opacity .16s,visibility .16s; }
+  body[data-ftd-screen='PLAY'] #app.sidebar-open #btn-sidebar-toggle { visibility:hidden; pointer-events:none; }
+}

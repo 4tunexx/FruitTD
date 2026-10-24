@@ -1842,9 +1842,9 @@
 
         <!-- ════ Pause overlay ════ -->
         <div id="hud-pause" class="hidden">
-          <div class="modal-card">
+          <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pause-title">
             <div class="modal-icon" data-lucide="Pause" data-lucide-size="32"></div>
-            <p class="modal-title">Paused</p>
+            <p class="modal-title" id="pause-title">Paused</p>
             <p class="modal-sub" id="pause-subtitle">The fruit wait. The wall does not.</p>
             <div class="modal-btns">
               <button id="btn-resume" class="modal-btn modal-btn--primary"><span data-lucide="Play" aria-hidden="true"></span> Resume</button>
