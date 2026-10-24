@@ -20,13 +20,13 @@ export interface TowerMilestoneBonuses {
 
 /** Main Tower milestones apply only while the current run has enough XP. */
 export const TOWER_MILESTONES: TowerMilestone[] = [
-  { level: 2, name: 'Fortified Base', description: 'Your tower has survived its first major upgrade.', reward: '+1 starting life' },
+  { level: 2, name: 'Fortified Base', description: 'Your tower has survived its first major upgrade.', reward: '+10 tower HP' },
   { level: 3, name: 'Juice Core', description: 'The tower starts converting clean defence into more Juice.', reward: '+5% Juice gain' },
-  { level: 4, name: 'Reinforced Wall', description: 'A stronger defence gives you more room for mistakes.', reward: '+1 maximum life' },
+  { level: 4, name: 'Reinforced Wall', description: 'A stronger defence gives you more room for mistakes.', reward: '+10 tower HP' },
   { level: 5, name: 'Rapid Defence', description: 'Your tower systems respond faster to pressure.', reward: '+5% defence fire rate' },
   { level: 6, name: 'Combo Battery', description: 'Long combos feed the tower systems.', reward: '+5% combo reward' },
   { level: 7, name: 'Emergency Core', description: 'Low-health defence becomes more rewarding.', reward: '+10% Last Stand reward' },
-  { level: 8, name: 'Fortress', description: 'The Main Tower enters endgame progression.', reward: '+1 maximum life' },
+  { level: 8, name: 'Fortress', description: 'The Main Tower enters endgame progression.', reward: '+10 tower HP' },
   { level: 9, name: 'Elite Core', description: 'High-level defence earns better progression rewards.', reward: '+10% Tower XP from perfect waves' },
   { level: 10, name: 'Master Fortress', description: 'The Main Tower has reached maximum mastery for this run.', reward: 'Master Tower for this run' },
 ];
@@ -56,13 +56,13 @@ export function getTowerMilestoneBonuses(runTowerLevel: number): TowerMilestoneB
   };
   
   for (const milestone of unlocked) {
-    if (milestone.level === 2) bonuses.startingLives += 1;
+    if (milestone.level === 2) bonuses.startingLives += 10;
     if (milestone.level === 3) bonuses.juiceGainMultiplier += 0.05;
-    if (milestone.level === 4) bonuses.maxLives += 1;
+    if (milestone.level === 4) bonuses.maxLives += 10;
     if (milestone.level === 5) bonuses.defenceFireRateMultiplier += 0.05;
     if (milestone.level === 6) bonuses.comboRewardMultiplier += 0.05;
     if (milestone.level === 7) bonuses.lastStandRewardMultiplier += 0.1;
-    if (milestone.level === 8) bonuses.maxLives += 1;
+    if (milestone.level === 8) bonuses.maxLives += 10;
     if (milestone.level === 9) bonuses.perfectWaveXpMultiplier += 0.1;
     if (milestone.level === 10) bonuses.masterFortressBadge = true;
   }

@@ -1,3 +1,4 @@
+import { applyPowerStatus, applyWeaponStatus, tickBurn, type CombatStatus } from './combatStatus';
 import { turretAllowed } from './turretLoadout';
 import { turretVictims } from './turretTargets';
 import { mapPowerEnvelope, equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
@@ -52,7 +53,7 @@ export const DEFAULT_PVP_CONFIG: PvpConfig = {
     makeMap('stone-arch', 'Stone Arch'),
     makeMap('long-harvest', 'Long Harvest'),
   ],
-  durationSeconds: 180, wallHealth: 1000, startingFruts: 0, incomePerSecond: 6, reconnectGraceSeconds: 45,
+  durationSeconds: 180, wallHealth: 100, startingFruts: 0, incomePerSecond: 6, reconnectGraceSeconds: 45,
   mainTower: { damage: 18, range: 2, cooldownMs: 1000 },
   towers: {
     guillotine: { cost: 80, damage: 28, range: 3, cooldownMs: 900 },
@@ -64,10 +65,10 @@ export const DEFAULT_PVP_CONFIG: PvpConfig = {
     catcher: { cost: 150, damage: 8, range: 3, cooldownMs: 1800 },
   },
   attacks: {
-    normal: { cost: 35, health: 100, speed: 2, wallDamage: 25, rewardFruts: 4, packSize: 3 },
-    swift: { cost: 55, health: 70, speed: 3, wallDamage: 20, rewardFruts: 5, packSize: 2 },
-    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 60, rewardFruts: 24 },
-    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 110, rewardFruts: 22 },
+    normal: { cost: 35, health: 100, speed: 2, wallDamage: 6, rewardFruts: 4, packSize: 3 },
+    swift: { cost: 55, health: 70, speed: 3, wallDamage: 4, rewardFruts: 5, packSize: 2 },
+    armored: { cost: 90, health: 260, speed: 0.65, wallDamage: 16, rewardFruts: 24 },
+    explosive: { cost: 100, health: 150, speed: 0.9, wallDamage: 28, rewardFruts: 22 },
   },
   rating: {
     start: 1000, win: 50, tie: 20, loss: -50, bonusCap: 20,
@@ -149,7 +150,7 @@ export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_
 export const PVP_CAPTURE_CAPACITY = 3;
 export function pvpMainUpgradeCost(level = 1): number { return pvpTowerLevel(level) === 1 ? 220 : 340; }
 export function pvpReleaseCost(attackCost: number, packSize = 1): number { return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * .5)); }
-export interface PvpPlayer { turretLoadout?:string[]; powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
+export interface PvpPlayer { turretLoadout?:string[]; powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<CombatStatus & { id: string; type: string; hp: number; maxHp?: number; progress: number; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
 export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
 export type PvpCommand = { type: 'ability'; abilityId: string } | { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
 
@@ -257,7 +258,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     player.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
     player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+(player.wallMaxHealth??config.wallHealth)*stats.healFraction);
     player.powerCasts=appendPowerCast(player.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(point)});
-    for(const attacker of targets){attacker.hp-=stats.damage*powerDamageMultiplier(point(attacker),envelope);if(stats.slowMs){attacker.slowUntil=Math.max(attacker.slowUntil??0,now+stats.slowMs);attacker.slowMultiplier=stats.slowMultiplier;}}
+    for(const attacker of targets){applyPowerStatus(attacker,ability,now,stats.slowMs,stats.damage);attacker.hp-=stats.damage*powerDamageMultiplier(point(attacker),envelope);if(stats.slowMs){attacker.slowUntil=Math.max(attacker.slowUntil??0,now+stats.slowMs);attacker.slowMultiplier=stats.slowMultiplier;}}
     const killed=player.attackers.filter(a=>a.hp<=0);player.score+=killed.length*10;
     player.fruts+=killed.reduce((sum,a)=>sum+(config.attacks[a.type]?.rewardFruts??0),0);player.attackers=player.attackers.filter(a=>a.hp>0);
   } else if (command.type === 'rally') {
@@ -320,6 +321,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
     player.fruts+=config.incomePerSecond*dt;
     for(const unit of player.attackers){
       before.set(unit.id,unit.progress);unit.fighting=false;delete unit.fightTargetId;
+      unit.hp-=tickBurn(unit,now);
       if(unit.hp<=0)continue;
       unit.progress+=config.attacks[unit.type]!.speed*dt*Math.max(1,(path.length-1)/13)*(now<(unit.slowUntil??0)?unit.slowMultiplier??.55:1);
     }
@@ -339,7 +341,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
   for(const [team,enemy] of [[a,b],[b,a]] as const)for(const unit of team.attackers.filter(u=>u.hp>0&&u.progress>=-path.length)){
     const target=enemy.attackers.filter(u=>u.hp>0&&u.progress>=-path.length&&Math.abs(unit.progress+u.progress+1)<=reach+.0001).sort((x,y)=>Math.abs(unit.progress+x.progress+1)-Math.abs(unit.progress+y.progress+1)||x.id.localeCompare(y.id))[0];
     if(!target)continue;unit.fighting=true;unit.fightTargetId=target.id;unit.lastClashAt=Math.floor(now/300)*300;
-    const hit=config.attacks[unit.type]!.wallDamage*.45*dt*(now<(enemy.rallyUntil??0)?PVP_RALLY.damageMultiplier:1);
+    const hit=config.attacks[unit.type]!.wallDamage*1.8*dt*(now<(enemy.rallyUntil??0)?PVP_RALLY.damageMultiplier:1);
     damage.set(target.id,(damage.get(target.id)??0)+hit);
   }
   for(const player of match.players)for(const unit of player.attackers)unit.hp-=damage.get(unit.id)??0;
@@ -360,7 +362,7 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
       const hit = (attacker: typeof target, mul = 1) => { attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === 'armored' && behavior !== 'laser' && behavior !== 'railgun' ? .55 : 1)); };
       const point=(attacker:typeof target)=>{const c=path[Math.max(0,Math.min(path.length-1,Math.floor(attacker.progress)))]!;return {x:c%map.width+.5,y:Math.floor(c/map.width)+.5};};
       const victims=turretVictims(config.towers[type]?.chassis||type,{x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5},target,player.attackers.filter(unit=>unit.hp>0&&unit.progress>=0),point,stats.range,level);
-      for(const victim of victims){hit(victim,behavior==='sprinkler'&&victim!==target?.65:1);
+      for(const victim of victims){applyWeaponStatus(victim,behavior,now,stats.damage);hit(victim,behavior==='sprinkler'&&victim!==target?.65:1);
         if(behavior==='sprinkler'){victim.slowUntil=Math.max(victim.slowUntil||0,now+1200);victim.slowMultiplier=.55;}
         if(behavior==='railgun')victim.progress=Math.max(0,victim.progress-.45);
       }

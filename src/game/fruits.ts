@@ -1,3 +1,5 @@
+import { tickBurn, type CombatStatus } from './combatStatus';
+import { StatusVfx } from './statusVfx';
 import { enemyPortrait } from './characterPortraits';
 import { combatTokenFrame, setCombatTokenKind } from './combatTokens';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RingGeometry, Vector3 } from 'three';
@@ -25,7 +27,7 @@ import { FRUIT_DEFS, type FruitDef, type FruitKind, type FruitFamily } from './f
 
 export function fruitFamily(kind: FruitKind): FruitFamily { return FRUIT_DEFS[kind].family; }
 
-export interface Fruit {
+export interface Fruit extends CombatStatus {
   alive: boolean; kind: FruitKind; enemyKind: EnemyKind; radius: number; group: Group; body: Mesh; outline: Mesh; hpBar: Mesh; hpBack: Mesh;
   hazardRing: Mesh; armorRing: Mesh;
   squash: number; vel: Vector3; spin: Vector3; bob: number; hp: number; maxHp: number; dodgeX: number; dodgeZ: number;
@@ -185,6 +187,8 @@ function applyStudioTexture(fruit: Fruit, dt: number, vx: number, vz: number): v
 
 export class FruitField {
   readonly fruits: Fruit[] = [];
+  combatTime = 0;
+  private readonly statusVfx=new StatusVfx();
   private queue: SpawnItem[] = [];
   private spawnCd = 0;
   private spawnGap = 0.7;
@@ -199,6 +203,7 @@ export class FruitField {
   onEnvironmentKill: ((fruit: Fruit) => void) | null = null;
 
   constructor(private readonly sceneAdd: (group: Group) => void) {
+    this.sceneAdd(this.statusVfx.group);
     for (let i = 0; i < 64; i++) {
       const fruit = makeFruit();
       this.fruits.push(fruit);
@@ -265,6 +270,7 @@ export class FruitField {
     idle.alive = true; idle.kind = kind; idle.enemyKind = enemyKind; idle.boss = boss;
     idle.radius = def.radius * (boss ? 1.05 : 0.62);
     idle.hp = Math.max(1, Math.round(def.hp * this.hpScale * enemy.hpMultiplier * (boss ? 3.6 : 1)));
+    idle.statusKind=undefined;idle.statusUntil=0;idle.burnUntil=0;idle.burnDps=0;idle.burnTickAt=0;
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.powerSlowLeft = 0; idle.powerSlowMultiplier = 1; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false; idle.bossEnraged = false;
     idle.splitChild = false;
@@ -298,7 +304,7 @@ export class FruitField {
       fruit.volatileTriggered = true;
       const damage = damageTower(
         this.activeState,
-        Math.round(rule.towerDamageOnHit * dangerousLeakMultiplier(this.activeState.wave) * modeRules(this.activeState.mode).leakMul),
+        Math.round(rule.towerDamageOnHit * 8 * dangerousLeakMultiplier(this.activeState.wave) * modeRules(this.activeState.mode).leakMul),
       );
       if (damage > 0) {
         this.activeState.waveLeaks += 1;
@@ -376,6 +382,8 @@ export class FruitField {
   }
 
   update(dt: number, state: GameState, onLeak: (fruit: Fruit) => void): void {
+    this.combatTime+=dt*1000;
+    this.statusVfx.update(dt,this.combatTime);
     this.retired.clear();
     this.flushSplitChildren();
     this.activeState = state;
@@ -391,6 +399,9 @@ export class FruitField {
     const hw = ARENA_W / 2 - 0.45; const top = ARENA_D / 2 - 0.2; const rules = modeRules(state.mode);
     for (const fruit of this.fruits) {
       if (!fruit.alive) continue;
+      const burn=tickBurn(fruit,this.combatTime);
+      if(burn>0&&fruit.enemyKind!=='bladebound'&&this.hurt(fruit,burn,'turret')){this.onEnvironmentKill?.(fruit);continue;}
+      this.statusVfx.sync(String(fruit.spawnSerial),fruit.group,fruit,this.combatTime);
       fruit.bob += dt * (fruit.boss ? (fruit.enemyKind === 'swift' ? 4.8 : fruit.enemyKind === 'armored' ? 2.15 : 2.8) : 3);
       const route = fruit.routePoints;
       const map = this.battleMap;

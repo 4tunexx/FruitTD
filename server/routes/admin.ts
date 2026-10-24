@@ -419,7 +419,7 @@ function normalizePvpConfig(input: unknown): PvpConfig {
   })) as PvpConfig['attacks'];
   const tiers = Array.isArray(row.rating?.tiers) ? row.rating!.tiers : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
-    version: 1, maps, map: maps[0]!, durationSeconds: bounded(row.durationSeconds, 180, 60, 600), wallHealth: bounded(row.wallHealth, 1000, 100, 100000),
+    version: 1, maps, map: maps[0]!, durationSeconds: bounded(row.durationSeconds, 180, 60, 600), wallHealth: bounded(row.wallHealth, 100, 100, 100000),
     startingFruts: 0, incomePerSecond: bounded(row.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1000), reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300), towers, attacks,
     mainTower: { damage: bounded(row.mainTower?.damage, 18, 0, 10000), range: bounded(row.mainTower?.range, 2, 0, 24), cooldownMs: bounded(row.mainTower?.cooldownMs, 1000, 100, 60000) },
     rating: { ...DEFAULT_PVP_CONFIG.rating, ...(row.rating || {}), start: bounded(row.rating?.start, 1000, 0, 1_000_000), win: bounded(row.rating?.win, 50, 0, 1000), tie: bounded(row.rating?.tie, 20, 0, 1000), loss: -bounded(Math.abs(row.rating?.loss ?? -50), 50, 1, 1000), bonusCap: bounded(row.rating?.bonusCap, 20, 0, 1000), seasonResetPercent: bounded(row.rating?.seasonResetPercent, 25, 0, 100), combo: DEFAULT_PVP_CONFIG.rating.combo, tiers: DEFAULT_PVP_CONFIG.rating.tiers.map((base, i) => ({ name: base.name, min: bounded(tiers[i]?.min, base.min, 0, 1_000_000) })) },

@@ -1,3 +1,6 @@
+import type { CombatStatus } from '../../game/combatStatus';
+import { StatusVfx } from '../../game/statusVfx';
+import { laneFrame } from '../../engine/laneCamera';
 import {TURRET_WEAPONS} from '../../game/turretWeapons';
 import {towerHealthRail} from '../../game/towerHealthRail';
 import { NetworkMotion } from '../../game/networkMotion';
@@ -9,7 +12,7 @@ import { DefenderMotion } from '../../game/defenderMotion';
 import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
 import { faceCombatPortraits } from '../../game/portraitFacing';
 import { combatTokenFrame } from '../../game/combatTokens';
-import { battleScenery, battleTexture } from '../../game/battleArt';
+import { battleScenery } from '../../game/battleArt';
 import { PowerVfx } from '../../game/powerVfx';
 import { heroAbility } from '../../game/heroAbilities';
 import type { PowerCast } from '../../game/powerCombat';
@@ -27,7 +30,7 @@ import { pvpTowerLevel, pvpTowerStats, pvpBuildCellAllowed, type PvpCommand, typ
 import { el } from '../components/dom';
 
 type Stroke = { from: { x: number; y: number }; to: { x: number; y: number }; at: number };
-type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; movementSpeed?: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;sliceOnly?:boolean;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
+type PlayerView = { mainLastFiredAt?:number; powerCasts?:PowerCast[]; userId: string; name: string; side: string; wallHealth: number; wallMaxHealth?: number; mainLevel?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<CombatStatus & { id: string; type: string; progress: number; movementSpeed?: number; x?: number; y?: number; boss?: boolean; hp?: number; maxHp?: number; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;sliceOnly?:boolean;slowUntil?:number; slowMultiplier?:number; released?: boolean }>; lastStroke?: Stroke | null };
 export type BattlefieldSnapshot = { id: string; revision?: number; map: PvpMap | null; yourSide: string; players: PlayerView[]; shared?: boolean; sharedStroke?: Stroke;sharedStrokes?:TeamStroke[] };
 const TILE = 1.7;
 const TILE_X = TILE;
@@ -49,10 +52,11 @@ export function pvpArmyPoint(map:PvpMap,progress:number,own:boolean):Vector3 {
 
 export class PvpBattlefield {
   readonly element = el('div', { class: 'ftd-pvp-scene' });
-  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Straight orchard siege field. Your keep is at the bottom; drag to pan and tap a build marker.' });
+  private readonly canvas = el('canvas', { class: 'ftd-pvp-scene__canvas', 'aria-label': 'Straight orchard siege field. Your keep is at the bottom; drag up or down and tap a build marker.' });
   private readonly renderer: WebGLRenderer;
   private readonly graphicsRecovery:GraphicsRecovery;
   private readonly scene = new Scene();
+  private readonly statusVfx=new StatusVfx();
   private readonly powerVfx = new PowerVfx(this.scene);
   private readonly turretEffects=new TurretEffects();
   private readonly seenCasts = new Map<string,number>();
@@ -88,10 +92,10 @@ export class PvpBattlefield {
   private remoteAt = 0;
   private readonly shots = new Map<string, number>();
   private readonly effects: Array<{ object: Mesh | Line; life: number; velocity?: Vector3; target?: Vector3 }> = [];
-  private zoom = 1;
+  private laneMin = 0;
+  private laneMax = 0;
   private focusOwn = false;
   private framingInitialised = false;
-  private cameraX = 0;
   private cameraZ = 0;
   private readonly pointers = new Map<number, { x:number; y:number; startX:number; startY:number; moved:boolean }>();
   private gesture: { x:number; y:number; distance:number } | null = null;
@@ -104,20 +108,14 @@ export class PvpBattlefield {
     refreshCreatorTurrets();
     for(const [id,stats] of Object.entries(config.towers)){if(!TURRET_WEAPONS[id as TurretKind]&&stats.chassis&&TURRET_WEAPONS[stats.chassis as TurretKind])TURRET_WEAPONS[id as TurretKind]={...TURRET_WEAPONS[stats.chassis as TurretKind],name:id,chassis:stats.chassis as any};}
     if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
-    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Your keep · bottom  |  Rival keep · top  ·  Tap a gold build pad · Drag to pan · Pinch to zoom' }));
+    this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Your keep · bottom  |  Rival keep · top  ·  Tap a gold build pad · Drag up / down · Width locked' }));
     if (!snapshot.shared) {
       const opponent = snapshot.players.find(player => player.side !== snapshot.yourSide);
       const opposingSide = opponent?.side || (snapshot.yourSide === 'blue' ? 'red' : 'blue');
       this.element.append(el('div', { class: `ftd-duel-team is-own is-${snapshot.yourSide}`, text: `YOUR TOWER` }), el('div', { class: `ftd-duel-team is-rival is-${opposingSide}`, text: `RIVAL TOWER` }));
-      const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'My defence', 'aria-label': 'Zoom to your build territory' });
-      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize(); }); this.element.appendChild(focus);
-      const cameraControls = el('details', { class:'ftd-duel-camera', 'aria-label':'Camera zoom controls' });
-      cameraControls.append(el('summary',{'aria-label':'Show zoom controls',text:'Zoom'}));
-      const zoomIn = el('button', { type:'button', text:'+', 'aria-label':'Zoom in' });
-      const zoomOut = el('button', { type:'button', text:'−', 'aria-label':'Zoom out' });
-      zoomIn.addEventListener('click', () => { this.zoom=Math.min(3.2,this.zoom*1.18);this.resize(); });
-      zoomOut.addEventListener('click', () => { this.zoom=Math.max(.7,this.zoom/1.18);this.resize(); });
-      cameraControls.append(zoomIn,zoomOut);this.element.appendChild(cameraControls);
+      const focus = el('button', { class: 'ftd-duel-focus', type: 'button', 'data-testid':'arena-view-toggle', text: 'Rival base ↑', 'aria-label': 'Look up to the rival base' });
+      focus.addEventListener('click', () => { this.focusOwn = !this.focusOwn; this.cameraZ=this.focusOwn?this.laneMax:this.laneMin; this.resize(); }); this.element.appendChild(focus);
+
     }
     const mobile=matchMedia('(pointer: coarse)').matches;
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: !mobile, alpha: false,powerPreference:mobile?'low-power':'high-performance' });
@@ -134,7 +132,7 @@ export class PvpBattlefield {
     const rim = new DirectionalLight(0x96d5ff, .55); rim.position.set(14, 12, -24); this.scene.add(rim);
     this.camera.position.set(0, 75, -48); this.camera.lookAt(0, 0, 0);
     this.marker.rotation.x = -Math.PI / 2;
-    this.scene.add(this.teammateTrails.group,this.turretEffects.group,this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
+    this.scene.add(this.statusVfx.group,this.teammateTrails.group,this.turretEffects.group,this.terrain, this.pieces, this.marker, this.trail.line, this.trail.glowLine, this.trail.sparks, this.remoteTrail.line, this.remoteTrail.glowLine, this.remoteTrail.sparks);
     this.marker.visible = false;
     this.rangeMarker.rotation.x = -Math.PI/2; this.rangeMarker.visible = false; this.scene.add(this.rangeMarker);
     const skin = findCatalogItem(loadSave().bladeSkin || 'blade-default');
@@ -255,6 +253,7 @@ export class PvpBattlefield {
           entry.mesh.userData.hp = fruit.hp;
           const fill = entry.mesh.userData.hpFill as Mesh; fill.scale.x = Math.max(.01, fraction); fill.position.x = -(1 - fraction) * .375;
         }
+        this.statusVfx.sync(fruit.id,entry.mesh,fruit,Date.now());
         entry.player = player; entry.progress = fruit.progress; entry.x = fruit.x; entry.y = fruit.y; entry.boss = fruit.boss;entry.attackingTower=fruit.attackingTower;entry.lastTowerHitAt=fruit.lastTowerHitAt;entry.fighting=fruit.fighting;entry.fightTargetId=fruit.fightTargetId;entry.lastClashAt=fruit.lastClashAt;entry.slowUntil=fruit.slowUntil;entry.slowMultiplier=fruit.slowMultiplier;
         let motion = this.movement.get(fruit.id);
         if (!motion) { motion = new NetworkMotion(); this.movement.set(fruit.id, motion); }
@@ -311,7 +310,7 @@ export class PvpBattlefield {
       const rivalFloor = new Mesh(floor.geometry.clone(), (floor.material as MeshBasicMaterial).clone());
       rivalFloor.rotation.set(-Math.PI / 2, 0, Math.PI); rivalFloor.position.set(0, -.05, -fullLength / 4);
       this.terrain.add(rivalFloor);
-      const outskirts = new Mesh(new PlaneGeometry(fullWidth * 8, fullLength * 3), new MeshBasicMaterial({color:0x343336, map:battleTexture('stone'),side:DoubleSide}));
+      const outskirts = new Mesh(new PlaneGeometry(fullWidth * 8, fullLength * 3), new MeshBasicMaterial({color:0x141b22, side:DoubleSide}));
       outskirts.rotation.x = -Math.PI/2; outskirts.position.y = -.12; this.terrain.add(outskirts);
     }
     this.terrain.add(floor);
@@ -438,7 +437,7 @@ export class PvpBattlefield {
     if (!this.snapshot.shared && this.pointers.has(event.pointerId)) {
       const p=this.pointers.get(event.pointerId)!;p.x=event.clientX;p.y=event.clientY;const active=[...this.pointers.values()];
       if(active.length===1){const a=active[0]!;if(Math.hypot(a.x-a.startX,a.y-a.startY)>7)a.moved=true;if(a.moved)this.panBy(a.x-(this.gesture?.x??a.x),a.y-(this.gesture?.y??a.y));this.gesture={x:a.x,y:a.y,distance:0};}
-      else if(active.length>=2){const a=active[0]!,c=active[1]!,x=(a.x+c.x)/2,y=(a.y+c.y)/2,d=Math.hypot(a.x-c.x,a.y-c.y);if(this.gesture&&this.gesture.distance>0){this.panBy(x-this.gesture.x,y-this.gesture.y);this.zoom=Math.max(.7,Math.min(3.2,this.zoom*d/this.gesture.distance));this.resize();}a.moved=c.moved=true;this.gesture={x,y,distance:d};}return;
+      else if(active.length>=2){const a=active[0]!,c=active[1]!,x=(a.x+c.x)/2,y=(a.y+c.y)/2,d=Math.hypot(a.x-c.x,a.y-c.y);if(this.gesture&&this.gesture.distance>0){this.panBy(x-this.gesture.x,y-this.gesture.y);}a.moved=c.moved=true;this.gesture={x,y,distance:d};}return;
     }
     const point = this.point(event); const map = this.snapshot.map!;
     if (point && this.selectedCell === null) {
@@ -495,48 +494,33 @@ export class PvpBattlefield {
   setAttackView(attacking: boolean): void {
     if (this.snapshot.shared) return;
     this.focusOwn = !attacking;
-    this.zoom = 1; this.cameraX=this.cameraZ=0; this.resize();
+    this.cameraZ=attacking?this.laneMin:this.laneMax; this.resize();
   }
   private pointerCancel(event: PointerEvent): void { this.stroke=null;this.pointers.delete(event.pointerId);this.resetGesture();this.trail.reset(); }
   private resetGesture(): void {const a=[...this.pointers.values()];if(a.length>=2){const [p,q]=a;this.gesture={x:(p!.x+q!.x)/2,y:(p!.y+q!.y)/2,distance:Math.hypot(p!.x-q!.x,p!.y-q!.y)};}else if(a.length===1)this.gesture={x:a[0]!.x,y:a[0]!.y,distance:0};else this.gesture=null;}
-  private groundPoint(x:number,y:number):Vector3|null{const r=this.canvas.getBoundingClientRect();if(!r.width||!r.height)return null;this.ray.setFromCamera(new Vector2((x-r.left)/r.width*2-1,1-(y-r.top)/r.height*2),this.camera);return this.ray.ray.intersectPlane(this.ground,new Vector3());}
-  private panBy(dx:number,dy:number):void{const r=this.canvas.getBoundingClientRect(),a=this.groundPoint(r.left+r.width/2-dx/2,r.top+r.height/2-dy/2),c=this.groundPoint(r.left+r.width/2+dx/2,r.top+r.height/2+dy/2);if(!a||!c)return;this.cameraX+=a.x-c.x;this.cameraZ+=a.z-c.z;this.resize();}
-  private wheel = (event: WheelEvent) => { event.preventDefault(); this.zoom = Math.max(.65, Math.min(3.2, this.zoom * (event.deltaY > 0 ? .92 : 1.08))); this.resize(); };
+  private panBy(_dx:number,dy:number):void {
+    const rect=this.canvas.getBoundingClientRect();
+    this.cameraZ+=(dy/Math.max(1,rect.height))*(this.camera.top-this.camera.bottom)/.86;
+    this.resize();
+  }
+  private wheel = (event: WheelEvent) => { event.preventDefault(); this.panBy(0,event.deltaY); };
   private resize(): void {
     const rect = this.element.getBoundingClientRect(); if (!rect.width || !rect.height) return;
-    if (this.framingInitialised === false) {
-      this.framingInitialised = true;
-      this.focusOwn = !this.snapshot.shared;
-    }
-    this.element.classList.toggle('is-focused', this.focusOwn);
-    const focus = this.element.querySelector<HTMLElement>('.ftd-duel-focus');
-    if (focus) { focus.textContent = this.focusOwn ? 'My defence' : 'Whole arena'; focus.title=focus.textContent; focus.setAttribute('aria-label', this.focusOwn ? 'Show both bases and attack routes' : 'Focus on your defence'); }
-    this.renderer.setSize(rect.width, rect.height, false);
-    const map = this.snapshot.map; const aspect = rect.width / rect.height;
+    const map=this.snapshot.map;if(!map)return;
+    const extent=(map.height+4)*TILE;
+    if(!this.framingInitialised){this.framingInitialised=true;this.cameraZ=extent;this.focusOwn=true;}
+    const frame=laneFrame(rect.width,rect.height,map.width*TILE_X+5,this.snapshot.shared?0:-extent,extent,this.cameraZ,this.snapshot.shared);
+    this.cameraZ=frame.centerZ;this.laneMin=frame.low;this.laneMax=frame.high;
+    this.focusOwn=this.cameraZ>=0;
+    this.element.classList.toggle('is-focused',this.focusOwn);
     this.element.classList.remove('is-landscape');
-    const focused = this.snapshot.shared || this.focusOwn;
-    // Defence view frames the playable back half, at Casual-like scale.
-    // The full double lane remains available through Attack / Whole arena.
-    const nearZ = focused && map && !this.snapshot.shared ? Math.max(-TILE,(map.height / 2 - 2) * TILE) : -TILE;
-    const centerZ = focused && map ? (nearZ + (map.height + 4) * TILE) / 2 : 0;
-    // Fit the actual projected world bounds, including keep height and scenery.
-    // The straight road stays vertical on phones and PC alike.
-    this.camera.up.set(0,1,0);
-    this.camera.position.set(0,this.snapshot.shared?75:54,centerZ+(this.snapshot.shared?36:72));
-    this.camera.lookAt(0,0,centerZ);this.camera.updateMatrixWorld(true);
-    const extentZ = map ? (map.height+4)*TILE : 30;
-    const extentX = map ? map.width*TILE_X/2+(this.snapshot.shared?1:4) : 14;
-    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-    for(const x of [-extentX,extentX])for(const y of [0,3.5])for(const z of [focused ? nearZ : -extentZ,extentZ]){
-      const point=new Vector3(x,y,z).applyMatrix4(this.camera.matrixWorldInverse);
-      minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minY=Math.min(minY,point.y);maxY=Math.max(maxY,point.y);
-    }
-    const half=Math.max((maxY-minY)/2,(maxX-minX)/(2*aspect))*1.025/this.zoom;
-    const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
-    this.camera.left=cx-half*aspect;this.camera.right=cx+half*aspect;this.camera.top=cy+half;this.camera.bottom=cy-half;
-    this.camera.position.x+=this.cameraX;this.camera.position.z+=this.cameraZ;
-    this.camera.lookAt(this.cameraX,0,centerZ+this.cameraZ);
-    this.camera.updateProjectionMatrix();
+    const focus=this.element.querySelector<HTMLElement>('.ftd-duel-focus');
+    if(focus){focus.textContent=this.focusOwn?'Rival base ↑':'Your base ↓';focus.setAttribute('aria-label',this.focusOwn?'Look up to the rival base':'Return to your base');}
+    this.renderer.setSize(rect.width,rect.height,false);
+    this.camera.left=-frame.viewWidth/2;this.camera.right=frame.viewWidth/2;
+    this.camera.top=frame.viewHeight/2;this.camera.bottom=-frame.viewHeight/2;
+    this.camera.position.set(0,60,this.cameraZ+35.6);this.camera.lookAt(0,0,this.cameraZ);
+    this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld(true);
   }
   private animate = (now: number) => {
     if (this.disposed) return;
@@ -621,7 +605,7 @@ export class PvpBattlefield {
     }
     if (!this.stroke && now > this.trailUntil) this.trail.reset();
     if (Date.now() - this.remoteAt > 300) this.remoteTrail.reset();
-    this.teammateTrails.update(dt);this.turretEffects.update(dt);this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
+    this.statusVfx.update(dt,Date.now());this.teammateTrails.update(dt);this.turretEffects.update(dt);this.powerVfx.update(dt);this.trail.update(dt); this.remoteTrail.update(dt);
     faceCombatPortraits(this.scene,this.camera);
     this.renderer.render(this.scene, this.camera); this.frame = requestAnimationFrame(this.animate);
   };
@@ -633,7 +617,7 @@ export class PvpBattlefield {
     if (this.disposed) return; this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect();
     this.release(this.terrain); this.release(this.pieces); this.movement.clear();
     for (const trail of [this.trail, this.remoteTrail]) { this.release(trail.line); this.release(trail.glowLine); trail.sparks.geometry.dispose(); (trail.sparks.material as MeshBasicMaterial).dispose(); }
-    this.graphicsRecovery.dispose();this.teammateTrails.dispose();this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
+    this.statusVfx.clear();this.graphicsRecovery.dispose();this.teammateTrails.dispose();this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
     this.effects.forEach((effect) => this.release(effect.object));
   }
 }

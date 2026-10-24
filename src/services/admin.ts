@@ -191,7 +191,12 @@ export function mergeAdminConfig(raw: Partial<AdminConfig> | null | undefined): 
 
 
 function mergePvpConfig(raw: unknown): PvpConfig {
-  const value = raw && typeof raw === 'object' ? raw as Partial<PvpConfig> : {};
+  const value = structuredClone(raw && typeof raw === 'object' ? raw as Partial<PvpConfig> : {});
+  if(value.wallHealth===1000){
+    value.wallHealth=100;
+    const old:Record<string,number>={normal:25,swift:20,armored:60,explosive:110};
+    for(const [id,damage] of Object.entries(old))if(value.attacks?.[id]?.wallDamage===damage)value.attacks[id]!.wallDamage=DEFAULT_PVP_CONFIG.attacks[id]!.wallDamage;
+  }
   const bounded = (n: unknown, fallback: number, min: number, max: number) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
   const maps = normalizePvpMaps(value.maps);
   const towers = { ...DEFAULT_PVP_CONFIG.towers };

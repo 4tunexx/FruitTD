@@ -179,8 +179,8 @@
               <p id="hud-currency" class="stat-value" data-testid="combat-currency">140 F</p>
             </div>
             <div class="stat-card stat-card--lives">
-              <p class="stat-label">Lives</p>
-              <p id="hud-lives" class="stat-value" data-testid="combat-lives">15</p>
+              <p class="stat-label">Tower HP</p>
+              <p id="hud-lives" class="stat-value" data-testid="combat-lives">100</p>
             </div>
             <div class="stat-card">
               <p class="stat-label">Wave</p>
@@ -190,7 +190,7 @@
 
           <!-- The single tower health rail is attached to the wall in the arena. -->
           <div id="hp-row">
-            <div class="hp-heading"><p class="stat-label">Wall HP</p><strong id="hud-hp-value">15 / 15</strong></div>
+            <div class="hp-heading"><p class="stat-label">Wall HP</p><strong id="hud-hp-value">100 / 100</strong></div>
             <div id="tower-xp-row" aria-label="Main Tower experience">
               <div class="tower-xp-heading">
                 <span class="stat-label">Main Tower XP</span>
@@ -1741,7 +1741,7 @@
                   <input id="admin-in-money" type="range" class="admin-input" min="0" max="0" step="1" value="0" disabled data-value-output="admin-in-money-value" /><output id="admin-in-money-value" class="admin-range-value">0</output>
                 </label>
                 <label>
-                  <span>Starting Wall Lives</span>
+                  <span>Starting Tower HP</span>
                   <input id="admin-in-lives" type="range" class="admin-input" min="1" max="100" step="1" data-value-output="admin-in-lives-value" /><output id="admin-in-lives-value" class="admin-range-value">1</output>
                 </label>
                 <label>

@@ -17,9 +17,11 @@ export { arenaFrustum } from './combatCamera';
 import { frameCombatCamera } from './combatCamera';
 
 export function combatViewport(width:number,height:number) {
- if(width<1100||height<600)return {left:0,top:0,width,height};
- const top=104,h=height-top-16,w=Math.min(width-480,h*1.38);
- return {left:Math.round((width-w)/2),top,width:Math.round(w),height:h};
+ const desktop=width>=1100&&height>=600;
+ const top=desktop?78:112,bottom=desktop?100:96;
+ const available=desktop?width-320:width;
+ const h=Math.max(160,height-top-bottom),w=Math.min(available,h*1.05);
+ return {left:Math.round((desktop?304:0)+(available-w)/2),top,width:Math.round(w),height:h};
 }
 
 export class GameRenderer {
@@ -95,12 +97,10 @@ export class GameRenderer {
   private installCameraControls(canvas: HTMLCanvasElement): void {
     type TouchPoint = { x: number; y: number };
     const activeTouches = new Map<number, TouchPoint>();
-    let pinchDistance = 0;
     let pinchCenter: TouchPoint | null = null;
     let panPointer: { id: number; x: number; y: number } | null = null;
     canvas.style.touchAction = 'none';
 
-    const distance = (a: TouchPoint, b: TouchPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
     const center = (a: TouchPoint, b: TouchPoint): TouchPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     const panByScreen = (dx: number, dy: number): void => {
       const height = Math.max(1, canvas.clientHeight);
@@ -117,7 +117,7 @@ export class GameRenderer {
 
     canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
-      this.zoom(event.deltaY * 0.012);
+      this.pan(0, -event.deltaY * 0.025);
     }, { passive: false });
 
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -137,7 +137,6 @@ export class GameRenderer {
       activeTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (activeTouches.size < 2) return;
       const points = [...activeTouches.values()];
-      pinchDistance = distance(points[0], points[1]);
       pinchCenter = center(points[0], points[1]);
       for (const id of activeTouches.keys()) cancelBladePointer(id);
       event.preventDefault();
@@ -158,12 +157,10 @@ export class GameRenderer {
       activeTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (activeTouches.size < 2 || !pinchCenter) return;
       const points = [...activeTouches.values()];
-      const nextDistance = distance(points[0], points[1]);
       const nextCenter = center(points[0], points[1]);
       const height = Math.max(1, canvas.clientHeight);
-      this.zoom(((pinchDistance - nextDistance) / height) * this.viewH * 1.25);
+
       panByScreen(nextCenter.x - pinchCenter.x, nextCenter.y - pinchCenter.y);
-      pinchDistance = nextDistance;
       pinchCenter = nextCenter;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -179,7 +176,6 @@ export class GameRenderer {
       const wasPinching = activeTouches.size > 1;
       activeTouches.delete(event.pointerId);
       if (activeTouches.size < 2) {
-        pinchDistance = 0;
         pinchCenter = null;
       }
       if (wasPinching) {
@@ -192,7 +188,6 @@ export class GameRenderer {
     window.addEventListener('blur', () => {
       activeTouches.clear();
       panPointer = null;
-      pinchDistance = 0;
       pinchCenter = null;
     });
   }
@@ -213,9 +208,10 @@ export class GameRenderer {
     this.cameraBase.set(0,frame.baseY,frame.baseZ);this.lookZ=frame.lookZ;
   }
 
-  pan(dx: number, dz: number): void {
-    this.panX = Math.max(-11, Math.min(11, this.panX + dx));
-    this.panZ = Math.max(-2, Math.min(8, this.panZ + dz));
+  pan(_dx: number, dz: number): void {
+    this.panX = 0;
+    this.panZ = Math.max(0, Math.min(12, this.panZ + dz));
+    this.resize();
   }
 
   resetView(): void {
@@ -227,8 +223,8 @@ export class GameRenderer {
     this.resize();
   }
 
-  zoom(delta: number): void {
-    this.viewH = Math.max(13, Math.min(28, this.viewH + delta));
+  zoom(_delta: number): void {
+    this.viewH = 28;
     this.resize();
   }
 

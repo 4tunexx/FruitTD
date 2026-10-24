@@ -1,3 +1,5 @@
+import { applyPowerStatus, applyWeaponStatus } from './game/combatStatus';
+import { TURRET_WEAPONS } from './game/turretWeapons';
 import {turretOffers,equippedTurrets,ownsTurret} from './game/turretLoadout';
 import {getPublishedCreatorMedia} from './game/creatorMedia';
 import {GraphicsRecovery} from './engine/graphicsRecovery';
@@ -96,6 +98,7 @@ import './ui/battleLayout.css';
 import './ui/admin/creatorWorkspace.css';
 import './ui/pcPolish.css';
 import './ui/combatRefinement.css';
+import './ui/combatExperience.css';
 import { installPowerHotkeys } from './ui/powerButton';
 
 // Theme + layout must be applied before any UI renders.
@@ -790,6 +793,9 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
   }
 
   if (result.towerLeveledUp) {
+    const before=getTowerMilestoneBonuses(result.towerLevelBefore),after=getTowerMilestoneBonuses(result.towerLevelAfter);
+    const health=after.startingLives+after.maxLives-before.startingLives-before.maxLives;
+    if(health>0){state.maxLives+=health;state.lives+=health;}
     for (const name of result.towerMilestoneNames) toast(state, `MAIN TOWER ${name}`, 2.6);
     if (result.towerMaxed) toast(state, 'MAIN TOWER — MASTER FORTRESS (Lv 10)', 3.2);
     sfx.unlockItem();
@@ -1101,6 +1107,7 @@ function tryUpgrade(): void {
   }
   state.currency -= cost;
   wall.upgradeSelected();
+  if(slot.main){state.maxLives+=25;state.lives+=25;wall.setTowerHealth(state.lives/state.maxLives);}
   toast(state, `${slot.main ? 'Main' : slot.kind} is now Lv ${slot.level}/${MAX_TOWER_LEVEL}`);
   emit({ type: 'turret_upgrade' });
   sfx.unlockItem();
@@ -1321,7 +1328,7 @@ function resolveSlash(slash: Slash): void {
           sfx.bombExplode();
           renderer.impulseBlast(1.1);
           combatImpact.trigger('blast');
-          const damage = damageTower(state, Math.round(2 * dangerousLeakMultiplier(state.wave) * modeRules(state.mode).leakMul));
+          const damage = damageTower(state, Math.round(18 * dangerousLeakMultiplier(state.wave) * modeRules(state.mode).leakMul));
           state.waveLeaks += 1;
           toast(state, damage > 0 ? `Bomb blast · Tower −${damage} HP` : 'Bomb blast');
           maybeOver();
@@ -1438,6 +1445,7 @@ function tryHeroAbility(id: string): void {
     const tint = ability.effect === 'frost' ? 0x7dd3fc : ability.hero === 'tripos' ? 0xf472b6 : heroDef(state.hero).color;
     slashFx.spawn(fruit.group.position.x, fruit.group.position.z, tint);
     if (stats.slowMs) { fruit.powerSlowLeft = Math.max(fruit.powerSlowLeft ?? 0, stats.slowMs/1000); fruit.powerSlowMultiplier = stats.slowMultiplier; }
+    applyPowerStatus(fruit,ability,fruits.combatTime,stats.slowMs,stats.damage);
     const damage=stats.damage*powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope);
     if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2, 0, 'super');
   }
@@ -1909,7 +1917,7 @@ function simulate(dt: number): void {
       ? dangerousLeakMultiplier(state.wave)
       : 1;
     const leakDamage = Math.round(baseCost * enemy.towerDamageOnLeak * towerGuardianMul * dangerScale);
-    damageTower(state, state.mode === 'campaign' && fruit.boss ? state.lives : leakDamage);
+    damageTower(state, leakDamage);
     sessionLeaks += 1;
     state.waveLeaks += 1;
     sfx.leak();
@@ -1946,7 +1954,7 @@ function simulate(dt: number): void {
       const value = document.getElementById('boss-health-value');
       const fill = document.getElementById('boss-health-fill') as HTMLElement | null;
       if (label && label.textContent !== name) label.textContent = name;
-      if (value) value.textContent = `${percent}%`;
+      if (value) value.textContent = `${Math.max(0,Math.ceil(activeBoss.hp))} / ${Math.ceil(activeBoss.maxHp)} HP`;
       if (fill) fill.style.width = `${percent}%`;
       bossHealth.setAttribute('aria-valuenow', String(percent));
     }
@@ -1967,6 +1975,7 @@ function simulate(dt: number): void {
       sfx.bossHit();
       renderer.impulseShake(0.22);
     }
+    if(hit.kind)applyWeaponStatus(hit.fruit,TURRET_WEAPONS[hit.kind]?.chassis||hit.kind,fruits.combatTime,dmg);
     const hitScreen = worldPct(hit.fruit.group.position.x, hit.fruit.group.position.y + .55, hit.fruit.group.position.z);
     floatingScore.spawn(String(Math.max(1, Math.round(Math.min(hit.fruit.hp, dmg)))), hitScreen.nx, hitScreen.ny, 'damage');
     if (fruits.hurt(hit.fruit, dmg)) {

@@ -1,3 +1,4 @@
+import { applyPowerStatus, applyWeaponStatus, tickBurn, type CombatStatus } from './combatStatus';
 import { turretAllowed } from './turretLoadout';
 import { turretVictims } from './turretTargets';
 import { mapPowerEnvelope, equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
@@ -6,8 +7,8 @@ import type { HeroId } from './heroes';
 import { towerLevelFromXp } from './towerProgression';
 export interface CoopPlayer { turretLoadout?:string[]; userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
-export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; sliceOnly?:boolean; slowUntil?:number; slowMultiplier?:number; boss: boolean }
-export interface CoopMatch { towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
+export interface CoopFruit extends CombatStatus { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; sliceOnly?:boolean; slowUntil?:number; slowMultiplier?:number; boss: boolean }
+export interface CoopMatch { wallMaxHealth?:number; towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
 export interface CoopConfig { bossEveryWaves: number; baseWaveSize: number; extraPerWave: number; spawnGapMs: number; intermissionMs: number; bossIntroMs: number; coinsPerKill: number; coinsPerWave: number; gemsEveryWaves: number; xpPerKill: number; towerXpPerWave: number; rewardCoinCap: number; bladeDamage: number; bladeRadius: number; bladeCooldownMs: number; bossHealthMultiplier: number; bossSpeedMultiplier: number; fruitSpeedMultiplier: number }
 export const DEFAULT_COOP_CONFIG: CoopConfig = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 25, rewardCoinCap: 3000, bladeDamage: 35, bladeRadius: .65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: .35, fruitSpeedMultiplier: .65 };
 export function normalizeCoopConfig(raw: unknown): CoopConfig {
@@ -21,12 +22,14 @@ export function normalizeCoopConfig(raw: unknown): CoopConfig {
     return [key, Number.isFinite(value) ? Math.max(min, Math.min(max, fractional ? value : Math.floor(value))) : fallback];
   })) as unknown as CoopConfig;
 }
-export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { towerXp: 0, id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
+export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { towerXp: 0, id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, wallMaxHealth:balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
 export const COOP_MAX_PLAYERS=4;
 export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number): void {
   if(match.status!=='waiting'||match.players.length>=COOP_MAX_PLAYERS||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
   match.players.push(player);
   if(match.players.length===COOP_MAX_PLAYERS){match.status='countdown';match.phaseUntil=now+3000;}
+  const maximum=balance.wallHealth+25*(towerLevelFromXp(match.towerXp??0)-1);
+  if(maximum>(match.wallMaxHealth??balance.wallHealth)){match.wallHealth+=maximum-(match.wallMaxHealth??balance.wallHealth);match.wallMaxHealth=maximum;}
   match.revision++;
 }
 export type CoopCommand = {type:'start'} | { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' } | {type:'upgrade'|'sell';towerId:string};
@@ -65,11 +68,11 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       if(match.fruts<stats.cost)throw new Error('Not enough shared Fruts.');
       const envelope=mapPowerEnvelope({x:5,y:13.5},{minX:0,maxX:10,minY:0,maxY:14});
       const targets=powerTargets(match.fruits.filter(f=>f.hp>0&&f.type!=='explosive'&&!f.sliceOnly),ability,f=>f,envelope);
-      if(!targets.length&&(!stats.healFraction||match.wallHealth>=balance.wallHealth))throw new Error('No vulnerable targets.');
+      if(!targets.length&&(!stats.healFraction||match.wallHealth>=(match.wallMaxHealth??balance.wallHealth)))throw new Error('No vulnerable targets.');
       match.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
-      match.wallHealth=Math.min(balance.wallHealth,match.wallHealth+balance.wallHealth*stats.healFraction);
+      match.wallHealth=Math.min(match.wallMaxHealth??balance.wallHealth,match.wallHealth+balance.wallHealth*stats.healFraction);
       match.powerCasts=appendPowerCast(match.powerCasts,{id:`${userId}:${sequence}`,abilityId:ability.id,at:now,rank:stats.rank,targets:targets.map(f=>({x:f.x,y:f.y}))});
-      for(const fruit of targets){fruit.hp-=stats.damage*powerDamageMultiplier(fruit,envelope);if(stats.slowMs){fruit.slowUntil=Math.max(fruit.slowUntil??0,now+stats.slowMs);fruit.slowMultiplier=stats.slowMultiplier;}}
+      for(const fruit of targets){applyPowerStatus(fruit,ability,now,stats.slowMs,stats.damage);fruit.hp-=stats.damage*powerDamageMultiplier(fruit,envelope);if(stats.slowMs){fruit.slowUntil=Math.max(fruit.slowUntil??0,now+stats.slowMs);fruit.slowMultiplier=stats.slowMultiplier;}}
       const killed=match.fruits.filter(f=>f.hp<=0);player.kills+=killed.length;collectKills(match,balance);
     } else if(command.type==='slash') {
       for(const p of [command.from,command.to]) if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>10||p.y<0||p.y>14) throw new Error('Invalid blade stroke.');
@@ -112,14 +115,14 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
     match.fruits.push({id:`${match.id}:${serial}`,type:kind,x:boss?5:1+(serial*37%80)/10,y:0,hp:maxHp,maxHp,boss,sliceOnly:boss?Math.floor(match.wave/(config.bossEveryWaves+1))%2===0:match.wave>=7&&serial%9===0});
     match.remainingSpawns--;match.spawnAt=now+config.spawnGapMs;
   }
-  for(const fruit of match.fruits){fruit.maxHp??=Math.max(fruit.hp,coopFruitMaxHealth(balance.attacks[fruit.type]!.health,fruit.boss,match.wave,match.players.length,config));}
+  for(const fruit of match.fruits){fruit.hp-=tickBurn(fruit,now);fruit.maxHp??=Math.max(fruit.hp,coopFruitMaxHealth(balance.attacks[fruit.type]!.health,fruit.boss,match.wave,match.players.length,config));}
   for(const fruit of match.fruits) fruit.y+=balance.attacks[fruit.type]!.speed*delta*(fruit.boss?config.bossSpeedMultiplier:config.fruitSpeedMultiplier)*(now<(fruit.slowUntil??0)?fruit.slowMultiplier??.45:1);
   const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number,type='main',level=1):boolean=>{
     if(now-last<stats.cooldownMs) return false;
     const fruit=match.fruits.filter(f=>f.hp>0&&!f.sliceOnly&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false;
     const behavior=balance.towers[type]?.chassis||type;
     const victims=turretVictims(balance.towers[type]?.chassis||type,{x,y},fruit,match.fruits.filter(f=>f.hp>0&&!f.sliceOnly),f=>f,stats.range,level);
-    for(const target of victims){target.hp-=Math.round(stats.damage*(target===fruit||behavior!=='sprinkler'?1:.65));
+    for(const target of victims){applyWeaponStatus(target,behavior,now,stats.damage);target.hp-=Math.round(stats.damage*(target===fruit||behavior!=='sprinkler'?1:.65));
       if(behavior==='sprinkler'){target.slowUntil=Math.max(target.slowUntil||0,now+1200);target.slowMultiplier=.55;}
       if(behavior==='railgun')target.y=Math.max(0,target.y-.45);
     }

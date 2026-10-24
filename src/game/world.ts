@@ -2,7 +2,7 @@ export const ARENA_W = 22;
 // PvP retains its long approach; solo modes use a compact combat field.
 export const ARENA_D = 132;
 export const SOLO_ARENA_D = 44;
-export const MAX_LIVES = 15;
+export const MAX_LIVES = 100;
 export const MAX_TOWER_LEVEL = 10;
 export const PARTICLE_CAP = 180;
 export const DROPLETS_PER_SLICE = 12;

@@ -320,10 +320,10 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     if (match.status === 'complete') {
       const won = match.winnerId === own.userId;
       if (battlefield) {
-        battlefield.update(match, { wallHealth:status.config?.wallHealth || 1000, towers:status.config?.towers || {}, attacks:status.config?.attacks || {} });
+        battlefield.update(match, { wallHealth:status.config?.wallHealth || 100, towers:status.config?.towers || {}, attacks:status.config?.attacks || {} });
         body.append(battlefield.element);
       }
-      const wallResult = (player: typeof own) => Math.round(player.wallHealth / (player.wallMaxHealth ?? status.config?.wallHealth ?? 1000) * 100);
+      const wallResult = (player: typeof own) => Math.round(player.wallHealth / (player.wallMaxHealth ?? status.config?.wallHealth ?? 100) * 100);
       const title = match.resultReason === 'draft-cancelled' ? 'DRAFT CANCELLED' : match.resultReason === 'test-ended' ? 'TEST ENDED' : won ? 'VICTORY' : match.winnerId ? 'DEFEAT' : 'DRAW';
       const faceoff = (player: typeof own, winner: boolean, rival: boolean) => el('div', { class: `ftd-result-fighter ${rival ? 'is-rival' : 'is-own'} is-${player.side}${winner ? ' is-winner' : ''}` }, [playerPortrait(player), el('strong', { text: player.name }), el('span', { text: rival ? 'OPPONENT' : 'YOU' }), el('small', { text: `${wallResult(player)}% WALL` })]);
       const animateResult = clashShownMatchId !== `result:${match.id}`;
@@ -341,7 +341,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       return;
     }
     const timer = Math.ceil(match.remainingMs / 1000);
-    const maxHealth = status.config?.wallHealth || 1000;
+    const maxHealth = status.config?.wallHealth || 100;
     const playerCard = (player: typeof own, rival: boolean) => el('div', { class: `ftd-duel-player ${rival ? 'is-rival' : 'is-own'} is-${player.side === 'red' ? 'red' : 'blue'}` }, [
       playerPortrait(player, 'ftd-duel-player__crest'),
       el('div', {}, [el('strong', { text: player.name }), el('span', { class:'ftd-duel-player__side', text:rival ? 'OPPONENT' : 'YOU' }), el('span', { text: `${Math.ceil(player.wallHealth)} / ${Math.ceil(player.wallMaxHealth ?? maxHealth)} · Lv ${pvpTowerLevel(player.mainLevel)}` }),
@@ -444,7 +444,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const actionRail = el('div', { class:'ftd-duel-rail', 'aria-label':'Battle actions' });
     const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(dockExpanded&&tab==='attack');render(); };
     const railButton = (iconName:string, labelText:string, action:()=>void, disabled=false, testId?:string, selected=false) => {
-      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':'CAPTURE','arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??''})]);
+      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':'CAPTURE','arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??'MORE'})]);
       button.addEventListener('click',action);return button;
     };
     actionRail.append(
@@ -466,7 +466,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy,'fruts',own.abilityRanks?.[id]??1);
       powerRail.appendChild(power);
     }
-    tray.append(resource,actionRail,tools);body.append(powerRail);
+    tray.append(resource,powerRail,actionRail,tools);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
     const closePanel=el('button',{class:'ftd-duel-panel-close',type:'button','aria-label':'Close action panel'},[lucideIcon('X','',18)]);
     closePanel.addEventListener('click',()=>{dockExpanded=false;selectedCell=null;pendingBuildCell=null;render();});panel.append(closePanel);
@@ -492,7 +492,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       }); cards.append(button);
     } else if (dockTab === 'attack') for (const [id, info] of Object.entries(status.config?.attacks || {})) {
       const button = el('button', { type: 'button', class: 'ftd-duel-card is-attack', disabled: busy || own.fruts < info.cost, 'data-testid': `arena-send-${id}` }, [
-        lucideIcon(attackIcons[id] || 'Apple', 'ftd-duel-card__art', 30), el('strong', { text: id === 'normal' ? 'Fruit pack' : id === 'swift' ? 'Runners' : id === 'armored' ? 'Brutes' : 'Exploders' }), el('small', { text: `${info.cost} F · ×${info.packSize || 1}` }), el('small', { text: `${info.health} HP · ${Math.round(info.wallDamage*.45)} DPS · ${info.wallDamage} breach` }), el('small', { text: id === 'swift' ? 'Fast rush' : id === 'armored' ? 'Armor · use pierce' : id === 'explosive' ? 'Wall breaker' : 'Swarm · use splash' }),
+        lucideIcon(attackIcons[id] || 'Apple', 'ftd-duel-card__art', 30), el('strong', { text: id === 'normal' ? 'Fruit pack' : id === 'swift' ? 'Runners' : id === 'armored' ? 'Brutes' : 'Exploders' }), el('small', { text: `${info.cost} F · ×${info.packSize || 1}` }), el('small', { text: `${info.health} HP · ${Math.round(info.wallDamage*1.8)} DPS · ${info.wallDamage} breach` }), el('small', { text: id === 'swift' ? 'Fast rush' : id === 'armored' ? 'Armor · use pierce' : id === 'explosive' ? 'Wall breaker' : 'Swarm · use splash' }),
       ]);
       button.addEventListener('click', () => issue({ type: 'send', enemy: id })); cards.append(button);
     }

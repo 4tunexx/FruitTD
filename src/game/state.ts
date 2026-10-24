@@ -141,7 +141,7 @@ export function resetState(state: GameState): void {
   const bonuses = getTowerMilestoneBonuses(tower.level);
   const startingLives = Math.max(1, Math.round((rules.lives + bonuses.startingLives) * getStartLivesScale()));
   // The state setter caps lives at maxLives, so raise the cap before assigning
-  // modes that start above the default 15 lives (Casual and Co-op).
+  // the starting tower health and milestone bonuses.
   state.maxLives = Math.max(startingLives, startingLives + bonuses.maxLives);
   state.lives = state.maxLives;
   state.currency = 0;
@@ -149,8 +149,9 @@ export function resetState(state: GameState): void {
 
 export function leakCost(state: GameState, fruitKind: string, boss: boolean): number {
   const rules = modeRules(state.mode);
-  let n = fruitKind === 'bomb' ? 2 : 1;
-  if (boss) n += 2;
+  const damage:Record<string,number>={lemon:5,orange:6,watermelon:10,strawberry:4,pineapple:9,kiwi:5,bomb:18,apple:7};
+  let n = damage[fruitKind] ?? 6;
+  if (boss) n = Math.max(30,n*3);
   return Math.max(1, Math.round(n * rules.leakMul));
 }
 

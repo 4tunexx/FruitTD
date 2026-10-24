@@ -74,7 +74,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
   if(!room)return null;
   const own=room.players.find(p=>p.userId===yourId);if(!own)return null;
   const teammates=room.players.filter(p=>p.userId!==yourId);
-  return {id:room.id,revision:room.revision,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[] as number[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStrokes:teammates.filter(member=>member.lastStroke).map(member=>({userId:member.userId,stroke:member.lastStroke!})),players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,wallSkin:loadSave().wallSkin,mainLevel:towerLevelFromXp(room.towerXp??0),mainLastFiredAt:room.mainLastFiredAt,powerCasts:room.powerCasts,wallHealth:room.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y,movementSpeed:(balance.attacks[f.type]?.speed??0)*(f.boss?coop.bossSpeedMultiplier:coop.fruitSpeedMultiplier)}))}]};
+  return {id:room.id,revision:room.revision,map:{id:'coop-orchard',name:'Shared Orchard',width:10,height:14,pathCells:[] as number[],buildCells:Array.from({length:8},(_,i)=>121+i)},yourSide:'blue',shared:true,sharedStrokes:teammates.filter(member=>member.lastStroke).map(member=>({userId:member.userId,stroke:member.lastStroke!})),players:[{userId:room.id,name:'Team',side:'blue',hero:own.hero,wallSkin:loadSave().wallSkin,mainLevel:towerLevelFromXp(room.towerXp??0),mainLastFiredAt:room.mainLastFiredAt,powerCasts:room.powerCasts,wallHealth:room.wallHealth,wallMaxHealth:room.wallMaxHealth??balance.wallHealth,towers:room.towers,attackers:room.fruits.map(f=>({...f,progress:f.y,movementSpeed:(balance.attacks[f.type]?.speed??0)*(f.boss?coop.bossSpeedMultiplier:coop.fruitSpeedMultiplier)}))}]};
  };
  const pressed=new Set<number>();let pendingRender=false;let inputTimer:ReturnType<typeof setTimeout>|undefined;
  const pointerDown=(event:PointerEvent)=>pressed.add(event.pointerId);
@@ -149,7 +149,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
   body.append(el('header',{class:'ftd-coop-hud'},[
     el('div',{},[el('strong',{text:`WAVE ${room.wave}`}),el('small',{text:`Tower Lv ${towerLevelFromXp(room.towerXp??0)} · ${room.score} score`})]),
     el('div',{class:'ftd-coop-wallet'},[el('strong',{text:`${Math.floor(room.fruts)} F`}),el('small',{text:'SHARED FRUTS'})]),leaveButton,
-    el('div',{class:'ftd-coop-health',role:'progressbar','aria-label':'Team wall health','aria-valuemin':0,'aria-valuemax':balance.wallHealth,'aria-valuenow':room.wallHealth},[el('i',{style:`width:${Math.max(0,Math.min(100,room.wallHealth/balance.wallHealth*100))}%`})]),
+    el('div',{class:'ftd-coop-health',role:'progressbar','aria-label':'Team wall health','aria-valuemin':0,'aria-valuemax':room.wallMaxHealth??balance.wallHealth,'aria-valuenow':room.wallHealth},[el('i',{style:`width:${Math.max(0,Math.min(100,room.wallHealth/(room.wallMaxHealth??balance.wallHealth)*100))}%`})]),
   ]));
   const roster=el('details',{class:'ftd-coop-roster',open:rosterExpanded},[
     el('summary',{text:`TEAM · ${room.players.length}/4`}),
