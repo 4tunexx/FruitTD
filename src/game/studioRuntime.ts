@@ -183,7 +183,14 @@ if (typeof window !== 'undefined') window.addEventListener('storage', event => {
 });
 
 /** Entity data even without a sheet (for event hooks). */
+let previewEntities:Record<string,EntityStudioData>|undefined;
+/** Synchronous preview scope: unpublished edits never replace live game config. */
+export function withStudioPreview<T>(entities:Record<string,EntityStudioData>|undefined,render:()=>T):T {
+  const previous=previewEntities;previewEntities=entities;
+  try{return render();}finally{previewEntities=previous;}
+}
 export function getStudioEntityData(entityKey: string): EntityStudioData | null {
+  if(previewEntities)return previewEntities[entityKey]||null;
   const entities = refreshStoreCache();
   return entities[entityKey] || null;
 }

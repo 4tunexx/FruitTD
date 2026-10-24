@@ -53,6 +53,7 @@ function profileDeps(revision = 2): { deps: ProfileRouteDeps; cloud: any } {
 
 test('profile sync rejects a stale or missing server revision and accepts the current revision', async (t) => {
   const { deps, cloud } = profileDeps(2);
+  delete cloud.saveData.ownedTurrets; delete cloud.saveData.turretLoadout; // Pre-turret cloud profile.
   const { server, base } = await listen(createProfileRouter(deps), '/api/profile');
   closeAfter(t, server);
 
@@ -79,6 +80,8 @@ test('profile sync rejects a stale or missing server revision and accepts the cu
   assert.equal(cloud.saveData.nickname, 'Fresh Lime');
   assert.deepEqual(cloud.saveData.campaignProgress, { unlocked: 3, cleared: [1, 2] });
   assert.equal(cloud.saveData.mode, 'campaign');
+  assert.deepEqual(cloud.saveData.turretLoadout, defaultSave().turretLoadout);
+  assert.deepEqual(cloud.saveData.ownedTurrets, []);
 });
 
 test('profile sync rejects forged catalog ownership and in-cap balances', async (t) => {

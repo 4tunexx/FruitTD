@@ -164,3 +164,12 @@ test('entity pack import/export round-trip', () => {
   assert.equal(parsed!.entity.clips.hit.fps, 14);
   assert.equal(parseEntityPack({ kind: 'nope' }), null);
 });
+
+test('turret packs preserve independent base and top artwork', () => {
+  const entity=emptyEntityData(),base=emptyEntityData(),top=emptyEntityData();
+  base.sheetDataUrl='/api/media/111111111111111111111111';
+  top.sheetDataUrl='/api/media/222222222222222222222222';
+  const parsed=parseEntityPack(buildEntityPack('tower-laser-level-2',entity,{base,top}));
+  assert.equal(parsed?.layers?.base?.sheetDataUrl,base.sheetDataUrl);
+  assert.equal(parsed?.layers?.top?.sheetDataUrl,top.sheetDataUrl);
+});

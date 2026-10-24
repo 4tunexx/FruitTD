@@ -1,3 +1,5 @@
+import { withStudioPreview } from '../../game/studioRuntime';
+import type { EntityStudioData } from '../adminMediaStudio';
 import type { TurretTuning } from '../../game/turretTuning';
 import { weaponStats, projectileTravelSeconds } from '../../game/turretWeapons';
 import { turretLevelTuning } from '../../game/studioRuntime';
@@ -38,7 +40,7 @@ export class CombatPreview {
  private observer:ResizeObserver;
  private selected:TurretKind='railgun';
  
- constructor(private readonly host:HTMLElement){
+ constructor(private readonly host:HTMLElement,private readonly draftEntities?:()=>Record<string,EntityStudioData>){
   this.canvas.className='ftd-combat-preview';this.canvas.setAttribute('aria-label','Live gameplay preview');
   this.renderer=new WebGLRenderer({canvas:this.canvas,antialias:true,alpha:false});
   this.renderer.setClearColor(0x202529);this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
@@ -57,7 +59,8 @@ export class CombatPreview {
   this.field.applyBattleMap(map);this.wall.applyBattleMap(map);this.wall.setHero(save.hero);this.wall.applyWallSkin(skin.color,skin.texture);
   this.resize();
  }
- setEntity(key:string,tuning?:TurretTuning):void {
+ setEntity(key:string,tuning?:TurretTuning):void {withStudioPreview(this.draftEntities?.(),()=>this.buildEntity(key,tuning));}
+ private buildEntity(key:string,tuning?:TurretTuning):void {
   const same=this.entityKey===key;this.entityKey=key;this.draftTuning=tuning;
   this.mapMode=false;this.clearStage();this.field.group.visible=false;this.wall.group.visible=false;
   const match=key.match(/^tower-(guillotine|vortex|laser|railgun|sprinkler|blender|custom-[a-z0-9-]+?)(?:-level-(\d+))?$/);
@@ -76,7 +79,8 @@ export class CombatPreview {
   }
   this.resize();
  }
- setPreviewLevel(level:number):void {
+ setPreviewLevel(level:number):void {withStudioPreview(this.draftEntities?.(),()=>this.applyPreviewLevel(level));}
+ private applyPreviewLevel(level:number):void {
   this.level=Math.max(1,Math.min(10,Math.round(level)));this.rig?.refreshAppearance(this.level);
  }
  private clearStage():void {
@@ -106,9 +110,11 @@ export class CombatPreview {
   }
   if(!this.frame){this.last=0;this.frame=requestAnimationFrame(this.tick);}
  };
- private tick=(time:number)=>{
+ private tick=(time:number)=>withStudioPreview(this.draftEntities?.(),()=>this.renderFrame(time));
+ private renderFrame=(time:number)=>{
   this.frame=0;if(this.disposed||!this.canvas.isConnected||!this.host.getClientRects().length)return;
   const dt=this.last?Math.min(.05,(time-this.last)/1000):0;this.last=time;
+  this.rig?.refreshAppearance(this.level);
   this.wall.animatePreview(dt);this.rig?.aimAt(0,4);this.rig?.animate(dt,true);
   this.effects.update(dt);this.nextShot-=dt;
   if(this.nextShot<=0){
@@ -117,7 +123,7 @@ export class CombatPreview {
     const tuning=this.draftTuning||turretLevelTuning(this.rig.kind,this.level),stats=weaponStats(this.rig.kind,this.level);
     const color=tuning.effectColor?parseInt(tuning.effectColor.slice(1),16):undefined;
     this.nextShot=stats.cooldown*tuning.cooldownMultiplier;
-    this.effects.shot(this.rig.kind,new Vector3(0,.7,0),this.target.position.clone(),this.level,color,tuning.effectScale,(weaponStats(this.rig.kind,this.level).range*tuning.rangeMultiplier));
+    this.effects.shot(this.rig.kind,new Vector3(0,.7,0),this.target.position.clone(),this.level,color,tuning.effectScale,(weaponStats(this.rig.kind,this.level).range*tuning.rangeMultiplier),tuning.projectileCount??1);
     this.impacts.push({left:projectileTravelSeconds(this.rig.kind,1.7),damage:stats.damage*tuning.damageMultiplier});
    }
    if(this.mapMode)for(const slot of this.wall.slots)if(slot.turret)this.effects.shot(slot.turret.kind,new Vector3(slot.x,1,slot.z),new Vector3(slot.x,1,slot.z+3),slot.level,undefined,1,turretRange(slot.turret.kind,slot.level));

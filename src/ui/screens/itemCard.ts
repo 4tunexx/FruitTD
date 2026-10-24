@@ -31,6 +31,7 @@ export interface ItemCardState {
   affordable: boolean;
   /** Why selling is blocked, if it is. */
   sellBlockedReason?: string;
+  equipBlockedReason?:string;
 }
 
 /**
@@ -66,13 +67,14 @@ function swatch(item: CatalogItem): HTMLElement {
     return preview;
   }
   const node = el('div', { class: 'ftd-item-card__swatch' }, [
-    el('span', { class: 'ftd-item-card__swatch-mark', 'aria-hidden': 'true' }, [lucideIcon(item.category === 'walls' ? 'Shield' : item.category === 'heroes' ? 'Swords' : 'Sparkles', '', 42)]),
+    el('span', { class: 'ftd-item-card__swatch-mark', 'aria-hidden': 'true' }, [lucideIcon(item.category === 'turrets' ? 'TowerControl' : item.category === 'walls' ? 'Shield' : item.category === 'heroes' ? 'Swords' : 'Sparkles', '', 42)]),
   ]);
   node.style.background = `linear-gradient(135deg, ${item.color}, ${item.glowColor})`;
   return node;
 }
 
 function slotLabel(item: CatalogItem): string | null {
+  if(item.slot==='turret')return 'TURRET';
   if (item.slot === 'blade') return 'BLADE';
   if (item.slot === 'wall') return 'WALL';
   if (item.slot === 'hero') return 'HERO';
@@ -141,7 +143,7 @@ export function renderItemCard(
   } else {
     if (state.equipped) {
       footer.appendChild(el('span', { class: 'ftd-item-card__equipped', text: `${slotLabel(item) ?? 'ITEM'} EQUIPPED` }));
-      if (actions.onUnequip && (item.slot === 'blade' || item.slot === 'wall')) {
+      if (actions.onUnequip && (item.slot === 'blade' || item.slot === 'wall' || item.slot === 'turret')) {
         const unequip = GameButton({ label: 'Unequip', variant: 'outline', size: 'sm', onClick: () => actions.onUnequip?.(item.id) });
         unequip.dataset.testid = `inventory-unequip-${item.id}`;
         footer.appendChild(unequip);
@@ -149,14 +151,15 @@ export function renderItemCard(
     } else if (item.slot) {
       footer.appendChild(
         GameButton({
-          label: 'Equip',
+          label: state.equipBlockedReason || 'Equip',
+          disabled:Boolean(state.equipBlockedReason),
           tone: 'primary',
           size: 'sm',
           onClick: () => actions.onEquip?.(item.id),
         }),
       );
     }
-    if (actions.onSell) {
+    if (actions.onSell && item.slot !== 'turret') {
       const blocked = Boolean(state.sellBlockedReason);
       const sell = GameButton({
         label: item.sellValue > 0 ? `Sell ${item.sellValue}` : 'Sell',

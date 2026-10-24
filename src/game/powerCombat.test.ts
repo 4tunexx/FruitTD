@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HERO_ABILITIES } from './heroAbilities';
-import { powerStats, powerDamageMultiplier } from './powerCombat';
+import { powerStats, powerDamageMultiplier, mapPowerEnvelope } from './powerCombat';
 import { DEFAULT_PVP_CONFIG as cfg, createPvpPlayer, newPvpMatch, applyPvpCommand, advancePvpMatch } from './pvp';
 import { newCoopMatch, applyCoopCommand, advanceCoopMatch, DEFAULT_COOP_CONFIG } from './onlineCoop';
 
@@ -20,7 +20,7 @@ for(const ability of HERO_ABILITIES)test(`${ability.id}: Arena and Co-op apply r
   const coop=newCoopMatch('coop',{userId:'a',name:'A',hero:ability.hero,abilityLoadout:[ability.id],abilityRanks:{[ability.id]:5},sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0},cfg);
   coop.status='playing';coop.fruts=500;coop.wallHealth=50;coop.remainingSpawns=1;coop.spawnAt=10000;coop.fruits=[{id:'fruit',type:'armored',x:5,y:12.5,hp:1000,boss:false}];
   applyCoopCommand(coop,'a',1,{type:'ability',abilityId:ability.id},2000,cfg);
-  assert.equal(coop.fruts,500-stats.cost);assert.equal(coop.fruits[0]!.hp,1000-stats.damage*powerDamageMultiplier({x:5,y:12.5},{x:5,y:13.5,radius:cfg.mainTower.range}));assert.equal(coop.powerCasts?.[0]?.abilityId,ability.id);
+  assert.equal(coop.fruts,500-stats.cost);assert.equal(coop.fruits[0]!.hp,1000-stats.damage*powerDamageMultiplier({x:5,y:12.5},mapPowerEnvelope({x:5,y:13.5},{minX:0,maxX:10,minY:0,maxY:14})));assert.equal(coop.powerCasts?.[0]?.abilityId,ability.id);
   if(stats.slowMs){assert.equal(coop.fruits[0]!.slowUntil,2000+stats.slowMs);advanceCoopMatch(coop,.2,2100,cfg,DEFAULT_COOP_CONFIG);assert.ok(coop.fruits[0]!.y-12.5<cfg.attacks.armored!.speed*.2*DEFAULT_COOP_CONFIG.fruitSpeedMultiplier);}
 });
 test('insufficient funds and unequipped casts leave both online match states unchanged',()=>{

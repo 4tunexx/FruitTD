@@ -29,12 +29,12 @@ const HEROES = ['jiju', 'topfu', 'lagen', 'tripos', 'ki'];
 const SKILLS = ['edge', 'reach', 'flow', 'steel', 'storm'];
 const HERO_PERKS = ['combo', 'juice', 'tower', 'critical', 'survival'];
 const DEFAULT_OWNABLE_SKINS = new Set(['blade-default', 'blade-gold', 'blade-ink', 'blade-cherry', 'wall-brick', 'wall-stone', 'wall-night']);
-const SAVE_KEYS = new Set(['hero', 'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore', 'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'nickname', 'avatar', 'skillPoints', 'skills', 'ownedSkins', 'bladeSkin', 'wallSkin', 'mode', 'heroPerkRanks', 'heroAbilityRanks', 'heroAbilityLoadouts', 'vipStatus', 'saveRevision', 'savedAt', 'campaignProgress']);
+const SAVE_KEYS = new Set(['hero', 'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore', 'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'nickname', 'avatar', 'skillPoints', 'skills', 'ownedSkins', 'ownedTurrets', 'turretLoadout', 'bladeSkin', 'wallSkin', 'mode', 'heroPerkRanks', 'heroAbilityRanks', 'heroAbilityLoadouts', 'vipStatus', 'saveRevision', 'savedAt', 'campaignProgress']);
 
 export const SERVER_OWNED_SAVE_KEYS = [
   'xp', 'ownedHeroes', 'towerXp', 'towerLifetimeXp', 'highScore', 'rankedScore',
   'bestWave', 'bestCombo', 'games', 'coins', 'gems', 'skillPoints', 'skills',
-  'ownedSkins', 'heroPerkRanks', 'heroAbilityRanks', 'heroAbilityLoadouts', 'vipStatus', 'hero', 'bladeSkin', 'wallSkin',
+  'ownedSkins', 'ownedTurrets', 'turretLoadout', 'heroPerkRanks', 'heroAbilityRanks', 'heroAbilityLoadouts', 'vipStatus', 'hero', 'bladeSkin', 'wallSkin',
 ] as const;
 
 function sameJsonValue(a: unknown, b: unknown): boolean {
@@ -72,10 +72,11 @@ export function saveValidationError(value: unknown, allowedSkinIds: ReadonlySet<
   if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 5))) return 'Invalid hero ability ranks';
   if (save.heroAbilityLoadouts && Object.entries(save.heroAbilityLoadouts).some(([hero, ids]) => !HEROES.includes(hero) || !Array.isArray(ids) || ids.length > 3 || new Set(ids).size !== ids.length || ids.some((id) => typeof id !== 'string' || !new RegExp('^' + hero + '-[1-6]$').test(id)))) return 'Invalid hero ability loadout';
   if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES.includes(hero) || !ranks || typeof ranks !== 'object' || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS.includes(id) || !boundedInteger(rank, 3)))) return 'Invalid hero perk ranks';
-  for (const key of ['ownedSkins', 'ownedHeroes']) {
+  for (const key of ['ownedSkins', 'ownedHeroes', 'ownedTurrets', 'turretLoadout']) {
     const list = save[key];
     if (list !== undefined && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
   }
+  if (Array.isArray(save.turretLoadout) && (save.turretLoadout.length>6||new Set(save.turretLoadout).size!==save.turretLoadout.length)) return 'Invalid turret loadout';
   if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES.includes(id))) return 'Unknown hero';
   if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return 'Unknown owned skin';
   if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return 'Duplicate owned skin';

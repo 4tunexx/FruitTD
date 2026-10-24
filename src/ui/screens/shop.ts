@@ -19,6 +19,7 @@ export interface ShopCallbacks {
 
 const LABELS: Record<string, string> = {
   all: 'All',
+  turrets:'Turrets',
   slicers: 'Slicers',
   walls: 'Walls',
   effects: 'Effects',

@@ -1,6 +1,79 @@
 // Bundled Fruit TD API for Vercel
 
 
+// src/game/turretWeapons.ts
+var TURRET_WEAPONS = {
+  guillotine: { name: "Rotor Saw", icon: "Scissors", pattern: "radial", color: 16765803, range: 1.6, rangeGrowth: 0.1, cooldown: 0.75, damage: 24, damageGrowth: 6, blast: 0 },
+  vortex: { name: "Flamethrower", icon: "Flame", pattern: "cone", color: 16753213, range: 3.8, rangeGrowth: 0.16, cooldown: 0.22, damage: 5, damageGrowth: 1.5, blast: 0 },
+  laser: { name: "Lemon Laser", icon: "Zap", pattern: "pierce", color: 16772497, range: 7.2, rangeGrowth: 0.3, cooldown: 0.4, damage: 9, damageGrowth: 3, blast: 0 },
+  railgun: { name: "Rocket Launcher", icon: "Rocket", pattern: "rocket", color: 16760162, range: 8, rangeGrowth: 0.25, cooldown: 2.4, damage: 45, damageGrowth: 11, blast: 1.4 },
+  sprinkler: { name: "Fertiliser Sprinkler", icon: "Sprout", pattern: "radial", color: 12179331, range: 3.6, rangeGrowth: 0.14, cooldown: 0.65, damage: 4, damageGrowth: 1, blast: 0 },
+  blender: { name: "Bomb Thrower", icon: "Bomb", pattern: "bomb", color: 16765803, range: 6, rangeGrowth: 0.2, cooldown: 1.8, damage: 32, damageGrowth: 8, blast: 1.8 }
+};
+function weaponStats(id, level) {
+  const base = TURRET_WEAPONS[id], upgrade = Math.max(0, Math.min(9, Math.floor(level) - 1));
+  return { ...base, range: base.range + base.rangeGrowth * upgrade, damage: base.damage + base.damageGrowth * upgrade, blast: base.blast ? base.blast + upgrade * 0.08 : 0, cooldown: base.cooldown / (1 + upgrade * 0.07) };
+}
+function migrateLegacyWeaponBalance(id, row) {
+  if (!row) return row;
+  const old = { vortex: [120, 16, 4, 600], sprinkler: [150, 12, 3, 350], blender: [200, 42, 2, 700] };
+  const current = { vortex: [8, 3.5, 250], sprinkler: [5, 3, 650], blender: [60, 5, 1800] };
+  const legacy = old[id];
+  if (!legacy || [row.cost, row.damage, row.range, row.cooldownMs].some((value, index) => value !== legacy[index])) return row;
+  const [damage, range, cooldownMs] = current[id];
+  return { ...row, damage, range, cooldownMs };
+}
+
+// src/game/turretTuning.ts
+var DEFAULT_TURRET_TUNING = { damageMultiplier: 1, rangeMultiplier: 1, cooldownMultiplier: 1, effectColor: "", effectScale: 1 };
+function normalizeTurretTuning(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return void 0;
+  const r = raw;
+  const n = (key, min, max) => r[key] !== "" && Number.isFinite(Number(r[key])) ? Math.max(min, Math.min(max, Number(r[key]))) : DEFAULT_TURRET_TUNING[key];
+  const extra = {};
+  if (r.shopPrice !== void 0 && r.shopPrice !== "") extra.shopPrice = Math.max(0, Math.min(1e6, Math.floor(Number(r.shopPrice) || 0)));
+  if (r.projectileCount !== void 0) extra.projectileCount = Math.max(1, Math.min(5, Math.floor(Number(r.projectileCount) || 1)));
+  if (["juice", "sparks", "pulse"].includes(String(r.deathEffect))) extra.deathEffect = r.deathEffect;
+  if (typeof r.chassis === "string" && ["guillotine", "vortex", "laser", "railgun", "sprinkler", "blender"].includes(r.chassis)) extra.chassis = r.chassis;
+  for (const [key, min, max] of [["baseDamage", 0.1, 500], ["damageGrowth", 0, 100], ["baseRange", 0.5, 15], ["rangeGrowth", 0, 1], ["baseCooldown", 0.1, 10], ["cost", 1, 5e3], ["deathScale", 0.5, 3]]) {
+    if (r[key] !== void 0 && r[key] !== "" && Number.isFinite(Number(r[key]))) extra[key] = Math.max(min, Math.min(max, Number(r[key])));
+  }
+  return { ...extra, damageMultiplier: n("damageMultiplier", 0.1, 10), rangeMultiplier: n("rangeMultiplier", 0.25, 3), cooldownMultiplier: n("cooldownMultiplier", 0.2, 5), effectScale: n("effectScale", 0.5, 3), effectColor: typeof r.effectColor === "string" && /^#[a-f0-9]{6}$/i.test(r.effectColor) ? r.effectColor : "" };
+}
+
+// src/game/turretLoadout.ts
+var STARTER_TURRETS = ["guillotine", "vortex", "laser", "railgun", "sprinkler", "blender"];
+var TURRET_SLOTS = 6;
+function turretOffers(media) {
+  const offers = STARTER_TURRETS.map((kind) => ({ kind, name: TURRET_WEAPONS[kind].name, price: 0, chassis: kind }));
+  for (const [key, entity2] of Object.entries(media?.entities ?? {})) {
+    if (!/^tower-custom-[a-z0-9_-]{1,48}$/.test(key) || /-level-|-(base|top)$/.test(key)) continue;
+    const tuning = normalizeTurretTuning(entity2.turret);
+    if (!tuning?.chassis) continue;
+    offers.push({ kind: key.slice(6), name: entity2.label || key.slice(6), price: tuning.shopPrice ?? 0, chassis: tuning.chassis, image: media?.entities[`${key}-top`]?.sheetDataUrl || entity2.sheetDataUrl || void 0 });
+  }
+  return offers;
+}
+function ownsTurret(save, offer) {
+  return offer.price === 0 || Boolean(save.ownedTurrets?.includes(offer.kind));
+}
+function equippedTurrets(save, offers) {
+  return [...new Set(save.turretLoadout ?? STARTER_TURRETS)].filter((kind) => offers.some((offer) => offer.kind === kind && ownsTurret(save, offer))).slice(0, TURRET_SLOTS);
+}
+function turretAllowed(kind, loadout) {
+  return kind === "catcher" || (loadout ?? STARTER_TURRETS).includes(kind);
+}
+function withCreatorTurrets(balance, media) {
+  const towers = { ...balance.towers };
+  for (const offer of turretOffers(media).filter((offer2) => offer2.kind.startsWith("custom-"))) {
+    const t = normalizeTurretTuning(media.entities[`tower-${offer.kind}`].turret);
+    const base = balance.towers[offer.chassis];
+    if (!base) continue;
+    towers[offer.kind] = { cost: t.cost ?? base.cost, damage: (t.baseDamage ?? base.damage) * t.damageMultiplier, range: (t.baseRange ?? base.range) * t.rangeMultiplier, cooldownMs: (t.baseCooldown === void 0 ? base.cooldownMs : t.baseCooldown * 1e3) * t.cooldownMultiplier, chassis: offer.chassis };
+  }
+  return { ...balance, towers };
+}
+
 // server/routes/coop.ts
 import { Router } from "express";
 import { randomUUID as randomUUID2 } from "node:crypto";
@@ -691,6 +764,8 @@ function defaultSave() {
     avatar: defaultAvatar("Slicer"),
     skillPoints: 0,
     skills: emptySkills(),
+    ownedTurrets: [],
+    turretLoadout: [...STARTER_TURRETS],
     ownedSkins: ["blade-default", "wall-brick"],
     bladeSkin: "blade-default",
     wallSkin: "wall-brick",
@@ -771,29 +846,6 @@ async function creditClaimReward(userId, receiptKey, reward, saves) {
   );
 }
 
-// src/game/turretWeapons.ts
-var TURRET_WEAPONS = {
-  guillotine: { name: "Rotor Saw", icon: "Scissors", pattern: "radial", color: 16765803, range: 1.6, rangeGrowth: 0.1, cooldown: 0.75, damage: 24, damageGrowth: 6, blast: 0 },
-  vortex: { name: "Flamethrower", icon: "Flame", pattern: "cone", color: 16753213, range: 3.8, rangeGrowth: 0.16, cooldown: 0.22, damage: 5, damageGrowth: 1.5, blast: 0 },
-  laser: { name: "Lemon Laser", icon: "Zap", pattern: "pierce", color: 16772497, range: 7.2, rangeGrowth: 0.3, cooldown: 0.4, damage: 9, damageGrowth: 3, blast: 0 },
-  railgun: { name: "Rocket Launcher", icon: "Rocket", pattern: "rocket", color: 16760162, range: 8, rangeGrowth: 0.25, cooldown: 2.4, damage: 45, damageGrowth: 11, blast: 1.4 },
-  sprinkler: { name: "Fertiliser Sprinkler", icon: "Sprout", pattern: "radial", color: 12179331, range: 3.6, rangeGrowth: 0.14, cooldown: 0.65, damage: 4, damageGrowth: 1, blast: 0 },
-  blender: { name: "Bomb Thrower", icon: "Bomb", pattern: "bomb", color: 16765803, range: 6, rangeGrowth: 0.2, cooldown: 1.8, damage: 32, damageGrowth: 8, blast: 1.8 }
-};
-function weaponStats(id, level) {
-  const base = TURRET_WEAPONS[id], upgrade = Math.max(0, Math.min(9, Math.floor(level) - 1));
-  return { ...base, range: base.range + base.rangeGrowth * upgrade, damage: base.damage + base.damageGrowth * upgrade, blast: base.blast ? base.blast + upgrade * 0.08 : 0, cooldown: base.cooldown / (1 + upgrade * 0.07) };
-}
-function migrateLegacyWeaponBalance(id, row) {
-  if (!row) return row;
-  const old = { vortex: [120, 16, 4, 600], sprinkler: [150, 12, 3, 350], blender: [200, 42, 2, 700] };
-  const current = { vortex: [8, 3.5, 250], sprinkler: [5, 3, 650], blender: [60, 5, 1800] };
-  const legacy = old[id];
-  if (!legacy || [row.cost, row.damage, row.range, row.cooldownMs].some((value, index) => value !== legacy[index])) return row;
-  const [damage, range, cooldownMs] = current[id];
-  return { ...row, damage, range, cooldownMs };
-}
-
 // src/game/turretTargets.ts
 function turretVictims(type, origin, primary, units, point, range, level = 1) {
   const weapon = type;
@@ -854,6 +906,9 @@ function powerTargets(items, ability, point, envelope) {
 }
 function appendPowerCast(casts, cast) {
   return [...(casts ?? []).filter((item) => cast.at - item.at < 5e3), cast].slice(-24);
+}
+function mapPowerEnvelope(origin, bounds) {
+  return { ...origin, radius: Math.max(...[bounds.minX, bounds.maxX].flatMap((x) => [bounds.minY, bounds.maxY].map((y) => Math.hypot(x - origin.x, y - origin.y)))) };
 }
 
 // src/game/pvp.ts
@@ -951,9 +1006,28 @@ function normalizePvpMaps(input) {
 function pvpBuildCellAllowed(map2, cell) {
   return Number.isInteger(cell) && cell >= 0 && cell < map2.width * map2.height && Math.floor(cell / map2.width) >= Math.ceil(map2.height / 2) && !map2.pathCells.includes(cell) && map2.buildCells.includes(cell);
 }
-function pvpPowerEnvelope(map2, config, level = 1) {
-  const cell = map2.pathCells.at(-1) ?? 0;
-  return { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5, radius: pvpTowerStats({ ...config.mainTower, cost: 0 }, level).range };
+function pvpPowerPoint(map2, progress) {
+  const point = (index, opposite = false) => {
+    const cell = map2.pathCells[Math.max(0, Math.min(map2.pathCells.length - 1, index))] ?? 0;
+    const x = cell % map2.width + 0.5, y = Math.floor(cell / map2.width) + 0.5;
+    return opposite ? { x: 2 * (Math.floor(map2.width / 2) - 0.5) - x, y: -y - 2 } : { x, y };
+  };
+  let a, b, t;
+  if (progress < 0 && progress > -1) {
+    a = point(0, true);
+    b = point(0);
+    t = progress + 1;
+  } else {
+    const index = progress <= -1 ? -progress - 1 : progress, whole = Math.floor(index);
+    a = point(whole, progress <= -1);
+    b = point(whole + 1, progress <= -1);
+    t = index - whole;
+  }
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, progress };
+}
+function pvpPowerEnvelope(map2, _config, _level = 1) {
+  const point = pvpPowerPoint(map2, map2.pathCells.length - 1);
+  return mapPowerEnvelope(point, { minX: -2, maxX: map2.width, maxY: map2.height, minY: -map2.height - 2 });
 }
 function pvpTier(points, config = DEFAULT_PVP_CONFIG) {
   return [...config.rating.tiers].sort((a, b) => a.min - b.min).filter((tier) => points >= tier.min).at(-1)?.name ?? "Amateur";
@@ -1065,13 +1139,9 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down");
     if (player.fruts < stats.cost) throw new Error("Not enough match Fruts");
     const map2 = match.map ?? config.map;
-    const point = (attacker) => {
-      const index = Math.max(0, Math.min(map2.pathCells.length - 1, attacker.progress));
-      const cell = map2.pathCells[Math.floor(index)] ?? 0, next = map2.pathCells[Math.min(map2.pathCells.length - 1, Math.floor(index) + 1)] ?? cell, t = index - Math.floor(index);
-      return { x: cell % map2.width + 0.5 + (next % map2.width - cell % map2.width) * t, y: Math.floor(cell / map2.width) + 0.5 + (Math.floor(next / map2.width) - Math.floor(cell / map2.width)) * t, progress: attacker.progress };
-    };
+    const point = (attacker) => pvpPowerPoint(map2, attacker.progress);
     const envelope = pvpPowerEnvelope(map2, config, player.mainLevel);
-    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0 && a.type !== "explosive" && a.progress >= 0), ability, point, envelope);
+    const targets = powerTargets(player.attackers.filter((a) => a.hp > 0 && a.type !== "explosive"), ability, point, envelope);
     if (!targets.length && (!stats.healFraction || player.wallHealth >= (player.wallMaxHealth ?? config.wallHealth))) throw new Error("No vulnerable targets.");
     player.fruts -= stats.cost;
     player.abilityReadyAt ??= {};
@@ -1094,6 +1164,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
     player.rallyUntil = now + PVP_RALLY.durationMs;
     player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
   } else if (command.type === "build") {
+    if (!turretAllowed(command.tower, player.turretLoadout)) throw new Error("Equip this turret in Inventory before the match.");
     const tower2 = config.towers[command.tower];
     const map2 = match.map ?? config.map;
     if (!tower2 || !pvpBuildCellAllowed(map2, command.cell)) throw new Error("Invalid tower or build cell");
@@ -1194,21 +1265,22 @@ function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAU
         player.attackers = player.attackers.filter((item) => item !== target2);
         return true;
       }
+      const behavior = config.towers[type]?.chassis || type;
       const hit = (attacker, mul = 1) => {
-        attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === "armored" && type !== "laser" && type !== "railgun" ? 0.55 : 1));
+        attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === "armored" && behavior !== "laser" && behavior !== "railgun" ? 0.55 : 1));
       };
       const point = (attacker) => {
         const c = path[Math.max(0, Math.min(path.length - 1, Math.floor(attacker.progress)))];
         return { x: c % map2.width + 0.5, y: Math.floor(c / map2.width) + 0.5 };
       };
-      const victims = turretVictims(type, { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5 }, target2, player.attackers.filter((unit2) => unit2.hp > 0 && unit2.progress >= 0), point, stats.range, level);
+      const victims = turretVictims(config.towers[type]?.chassis || type, { x: cell % map2.width + 0.5, y: Math.floor(cell / map2.width) + 0.5 }, target2, player.attackers.filter((unit2) => unit2.hp > 0 && unit2.progress >= 0), point, stats.range, level);
       for (const victim of victims) {
-        hit(victim, type === "sprinkler" && victim !== target2 ? 0.65 : 1);
-        if (type === "sprinkler") {
+        hit(victim, behavior === "sprinkler" && victim !== target2 ? 0.65 : 1);
+        if (behavior === "sprinkler") {
           victim.slowUntil = Math.max(victim.slowUntil || 0, now + 1200);
           victim.slowMultiplier = 0.55;
         }
-        if (type === "railgun") victim.progress = Math.max(0, victim.progress - 0.45);
+        if (behavior === "railgun") victim.progress = Math.max(0, victim.progress - 0.45);
       }
       return true;
     };
@@ -1310,6 +1382,7 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
   } else {
     if (match.status !== "playing" && match.status !== "boss-intro" && !(match.status === "countdown" && ["build", "upgrade", "sell"].includes(command.type))) throw new Error("Wait for the match to start.");
     if (command.type === "build") {
+      if (!turretAllowed(command.tower, player.turretLoadout)) throw new Error("Equip this turret in Inventory before the match.");
       const stats = balance.towers[command.tower];
       if (!stats || !Number.isInteger(command.cell) || command.cell < 121 || command.cell > 128 || match.towers.some((t) => t.cell === command.cell)) throw new Error("Choose an empty wall pad.");
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
@@ -1334,7 +1407,7 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
       const { ability, stats } = equippedPower(command.abilityId, player.hero, player.abilityLoadout, player.abilityRanks);
       if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down.");
       if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
-      const envelope = { x: 5, y: 13.5, radius: coopMainStats(match, balance).range };
+      const envelope = mapPowerEnvelope({ x: 5, y: 13.5 }, { minX: 0, maxX: 10, minY: 0, maxY: 14 });
       const targets = powerTargets(match.fruits.filter((f) => f.hp > 0 && f.type !== "explosive" && !f.sliceOnly), ability, (f) => f, envelope);
       if (!targets.length && (!stats.healFraction || match.wallHealth >= balance.wallHealth)) throw new Error("No vulnerable targets.");
       match.fruts -= stats.cost;
@@ -1427,14 +1500,15 @@ function advanceCoopMatch(match, dt, now, balance, config) {
     if (now - last < stats.cooldownMs) return false;
     const fruit2 = match.fruits.filter((f) => f.hp > 0 && !f.sliceOnly && Math.hypot(f.x - x, f.y - y) <= stats.range).sort((a, b) => b.y - a.y)[0];
     if (!fruit2) return false;
-    const victims = turretVictims(type, { x, y }, fruit2, match.fruits.filter((f) => f.hp > 0 && !f.sliceOnly), (f) => f, stats.range, level);
+    const behavior = balance.towers[type]?.chassis || type;
+    const victims = turretVictims(balance.towers[type]?.chassis || type, { x, y }, fruit2, match.fruits.filter((f) => f.hp > 0 && !f.sliceOnly), (f) => f, stats.range, level);
     for (const target2 of victims) {
-      target2.hp -= Math.round(stats.damage * (target2 === fruit2 || type !== "sprinkler" ? 1 : 0.65));
-      if (type === "sprinkler") {
+      target2.hp -= Math.round(stats.damage * (target2 === fruit2 || behavior !== "sprinkler" ? 1 : 0.65));
+      if (behavior === "sprinkler") {
         target2.slowUntil = Math.max(target2.slowUntil || 0, now + 1200);
         target2.slowMultiplier = 0.55;
       }
-      if (type === "railgun") target2.y = Math.max(0, target2.y - 0.45);
+      if (behavior === "railgun") target2.y = Math.max(0, target2.y - 0.45);
     }
     return true;
   };
@@ -1460,21 +1534,6 @@ function coopRewards(match, config) {
   return { coins: Math.min(config.rewardCoinCap, match.kills * config.coinsPerKill + match.completedWaves * config.coinsPerWave), gems: Math.floor(match.completedWaves / config.gemsEveryWaves), xp: Math.min(1e4, match.kills * config.xpPerKill), towerXp: Math.min(1e4, match.completedWaves * config.towerXpPerWave) };
 }
 
-// src/game/turretTuning.ts
-var DEFAULT_TURRET_TUNING = { damageMultiplier: 1, rangeMultiplier: 1, cooldownMultiplier: 1, effectColor: "", effectScale: 1 };
-function normalizeTurretTuning(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return void 0;
-  const r = raw;
-  const n = (key, min, max) => r[key] !== "" && Number.isFinite(Number(r[key])) ? Math.max(min, Math.min(max, Number(r[key]))) : DEFAULT_TURRET_TUNING[key];
-  const extra = {};
-  if (["juice", "sparks", "pulse"].includes(String(r.deathEffect))) extra.deathEffect = r.deathEffect;
-  if (typeof r.chassis === "string" && ["guillotine", "vortex", "laser", "railgun", "sprinkler", "blender"].includes(r.chassis)) extra.chassis = r.chassis;
-  for (const [key, min, max] of [["baseDamage", 0.1, 500], ["damageGrowth", 0, 100], ["baseRange", 0.5, 15], ["rangeGrowth", 0, 1], ["baseCooldown", 0.1, 10], ["cost", 1, 5e3], ["deathScale", 0.5, 3]]) {
-    if (r[key] !== void 0 && r[key] !== "" && Number.isFinite(Number(r[key]))) extra[key] = Math.max(min, Math.min(max, Number(r[key])));
-  }
-  return { ...extra, damageMultiplier: n("damageMultiplier", 0.1, 10), rangeMultiplier: n("rangeMultiplier", 0.25, 3), cooldownMultiplier: n("cooldownMultiplier", 0.2, 5), effectScale: n("effectScale", 0.5, 3), effectColor: typeof r.effectColor === "string" && /^#[a-f0-9]{6}$/i.test(r.effectColor) ? r.effectColor : "" };
-}
-
 // src/game/creatorMedia.ts
 var number = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
 function normalizeCreatorMedia(raw) {
@@ -1486,6 +1545,8 @@ function normalizeCreatorMedia(raw) {
   const entities = /* @__PURE__ */ Object.create(null);
   for (const [key, value] of Object.entries(row.entities)) {
     if (!/^[a-z][a-z0-9-]{1,63}$/.test(key) || !value || typeof value !== "object") throw new Error("Invalid Creator entity.");
+    const price = value.turret?.shopPrice;
+    if (price !== void 0 && (!Number.isSafeInteger(price) || price < 0 || price > 1e6)) throw new Error("Turret unlock prices must be whole Coins between 0 and 1,000,000.");
     const sheet = value.sheetDataUrl;
     if (sheet && (typeof sheet !== "string" || sheet.length > 14e5 || !/^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/api\/media\/[a-f0-9]{24})$/i.test(sheet))) throw new Error("Sprite sheets must be a saved Admin image or PNG, JPEG, WebP data under 1 MB.");
     const cols = Math.floor(number(value.cols, 1, 1, 64));
@@ -2299,9 +2360,10 @@ function createCoopService(deps = {}) {
   let authority = null;
   let ticking = false;
   const fail2 = (res, code, error2) => res.status(code).json({ success: false, error: error2 });
-  async function config() {
+  async function config(room) {
+    if (room?.balance && room.coop) return { balance: room.balance, coop: room.coop };
     const row = await (await getCollection2("admin_config")).findOne({ configKey: "game_config" });
-    const balance = mergeAdminConfig(row).pvpConfig;
+    const balance = withCreatorTurrets(mergeAdminConfig(row).pvpConfig, row?.creatorMedia);
     delete balance.towers.catcher;
     return { balance, coop: normalizeCoopConfig(row?.coopConfig) };
   }
@@ -2320,7 +2382,7 @@ function createCoopService(deps = {}) {
   }
   async function settle(room) {
     if (room.status !== "complete" || room.settled) return;
-    const cfg = await config();
+    const cfg = await config(room);
     const reward = coopRewards(room, cfg.coop);
     for (const player2 of room.players) {
       if (room.completedWaves < 1) continue;
@@ -2346,7 +2408,7 @@ function createCoopService(deps = {}) {
   }
   async function tick(room, now) {
     if (room.status === "complete") return room;
-    const cfg = await config();
+    const cfg = await config(room);
     const revision = room.revision;
     if (room.status === "waiting") {
       if (now - room.players[0].lastSeenAt <= cfg.balance.reconnectGraceSeconds * 1e3) return room;
@@ -2377,7 +2439,8 @@ function createCoopService(deps = {}) {
     const hero = data.hero;
     const validHero = HEROES.some((h) => h.id === hero) ? hero : "jiju";
     const loadout = Array.isArray(data.heroAbilityLoadouts?.[validHero]) ? data.heroAbilityLoadouts[validHero].filter((id) => heroAbility(id)?.hero === validHero).slice(0, 3) : validHero === "jiju" ? ["jiju-1"] : [];
-    return { userId: user.userId, name: String(user.nickname || "Slicer").slice(0, 64), hero: validHero, abilityLoadout: loadout, abilityRanks: data.heroAbilityRanks ?? {}, abilityReadyAt: {}, sequence: 0, lastSeenAt: Date.now(), lastSlashAt: 0, kills: 0 };
+    const admin = await (await getCollection2("admin_config")).findOne({ configKey: "game_config" });
+    return { turretLoadout: equippedTurrets(data, turretOffers(admin?.creatorMedia)), userId: user.userId, name: String(user.nickname || "Slicer").slice(0, 64), hero: validHero, abilityLoadout: loadout, abilityRanks: data.heroAbilityRanks ?? {}, abilityReadyAt: {}, sequence: 0, lastSeenAt: Date.now(), lastSlashAt: 0, kills: 0 };
   }
   coopRouter2.get("/status", async (req2, res) => {
     const user = await resolveRequestUser2(req2);
@@ -2394,7 +2457,7 @@ function createCoopService(deps = {}) {
           if (room?.status === "complete") await settle(room);
         }
       }
-      const cfg = await config();
+      const cfg = await config(room);
       res.json({ success: true, room, balance: cfg.balance, coop: cfg.coop, yourId: user.userId });
     } catch (error2) {
       console.error("Co-op status failed", error2);
@@ -2425,7 +2488,7 @@ function createCoopService(deps = {}) {
           }
         }
       }
-      const room = { ...newCoopMatch(randomUUID2().replace(/-/g, "").slice(0, 10), self, cfg.balance), public: req2.body?.public === true, activePlayers: [user.userId], updatedAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1e3) };
+      const room = { ...newCoopMatch(randomUUID2().replace(/-/g, "").slice(0, 10), self, cfg.balance), balance: structuredClone(cfg.balance), coop: structuredClone(cfg.coop), public: req2.body?.public === true, activePlayers: [user.userId], updatedAt: /* @__PURE__ */ new Date(), expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1e3) };
       await rooms.insertOne(room);
       res.json({ success: true, room });
     } catch (error2) {
@@ -2487,7 +2550,7 @@ function createCoopService(deps = {}) {
       const room = await rooms.findOne({ id: req2.params.id, "players.userId": user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
       if (!room) return fail2(res, 404, "Room is unavailable.");
       if (room.status === "complete") return fail2(res, 409, "Match has finished.");
-      const cfg = await config();
+      const cfg = await config(room);
       const revision = room.revision;
       try {
         applyCoopCommand(room, user.userId, req2.body.sequence, req2.body.command, Date.now(), cfg.balance, cfg.coop);
@@ -2616,7 +2679,7 @@ var HEROES2 = ["jiju", "topfu", "lagen", "tripos", "ki"];
 var SKILLS2 = ["edge", "reach", "flow", "steel", "storm"];
 var HERO_PERKS2 = ["combo", "juice", "tower", "critical", "survival"];
 var DEFAULT_OWNABLE_SKINS = /* @__PURE__ */ new Set(["blade-default", "blade-gold", "blade-ink", "blade-cherry", "wall-brick", "wall-stone", "wall-night"]);
-var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "heroAbilityRanks", "heroAbilityLoadouts", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
+var SAVE_KEYS = /* @__PURE__ */ new Set(["hero", "xp", "ownedHeroes", "towerXp", "towerLifetimeXp", "highScore", "rankedScore", "bestWave", "bestCombo", "games", "coins", "gems", "nickname", "avatar", "skillPoints", "skills", "ownedSkins", "ownedTurrets", "turretLoadout", "bladeSkin", "wallSkin", "mode", "heroPerkRanks", "heroAbilityRanks", "heroAbilityLoadouts", "vipStatus", "saveRevision", "savedAt", "campaignProgress"]);
 var SERVER_OWNED_SAVE_KEYS = [
   "xp",
   "ownedHeroes",
@@ -2632,6 +2695,8 @@ var SERVER_OWNED_SAVE_KEYS = [
   "skillPoints",
   "skills",
   "ownedSkins",
+  "ownedTurrets",
+  "turretLoadout",
   "heroPerkRanks",
   "heroAbilityRanks",
   "heroAbilityLoadouts",
@@ -2668,10 +2733,11 @@ function saveValidationError(value, allowedSkinIds = DEFAULT_OWNABLE_SKINS) {
   if (save.heroAbilityRanks && Object.entries(save.heroAbilityRanks).some(([id, rank]) => !/^(jiju|topfu|lagen|tripos|ki)-[1-6]$/.test(id) || !boundedInteger(rank, 5))) return "Invalid hero ability ranks";
   if (save.heroAbilityLoadouts && Object.entries(save.heroAbilityLoadouts).some(([hero, ids]) => !HEROES2.includes(hero) || !Array.isArray(ids) || ids.length > 3 || new Set(ids).size !== ids.length || ids.some((id) => typeof id !== "string" || !new RegExp("^" + hero + "-[1-6]$").test(id)))) return "Invalid hero ability loadout";
   if (save.heroPerkRanks && Object.entries(save.heroPerkRanks).some(([hero, ranks]) => !HEROES2.includes(hero) || !ranks || typeof ranks !== "object" || Array.isArray(ranks) || Object.entries(ranks).some(([id, rank]) => !HERO_PERKS2.includes(id) || !boundedInteger(rank, 3)))) return "Invalid hero perk ranks";
-  for (const key of ["ownedSkins", "ownedHeroes"]) {
+  for (const key of ["ownedSkins", "ownedHeroes", "ownedTurrets", "turretLoadout"]) {
     const list = save[key];
     if (list !== void 0 && (!Array.isArray(list) || list.length > 500 || !list.every(validId))) return `Invalid ${key}`;
   }
+  if (Array.isArray(save.turretLoadout) && (save.turretLoadout.length > 6 || new Set(save.turretLoadout).size !== save.turretLoadout.length)) return "Invalid turret loadout";
   if (Array.isArray(save.ownedHeroes) && save.ownedHeroes.some((id) => !HEROES2.includes(id))) return "Unknown hero";
   if (Array.isArray(save.ownedSkins) && save.ownedSkins.some((id) => !allowedSkinIds.has(id))) return "Unknown owned skin";
   if (Array.isArray(save.ownedSkins) && new Set(save.ownedSkins).size !== save.ownedSkins.length) return "Duplicate owned skin";
@@ -4627,7 +4693,7 @@ function createProfileRouter(deps = defaultDeps5) {
         res.setHeader("ETag", etag(currentRevision));
         return res.status(409).json({ success: false, error: "Save conflict: reload the current server revision", revision: currentRevision });
       }
-      const authoritative = current?.saveData ?? defaultSave();
+      const authoritative = { ...defaultSave(), ...current?.saveData };
       const authorityError = serverOwnedSaveError(incoming, authoritative);
       if (authorityError) return res.status(422).json({ success: false, error: authorityError, revision: currentRevision });
       const saveData = { ...authoritative, ...incoming };
@@ -5233,6 +5299,7 @@ var VIP_FALLBACK = {
   gold: { price: 5e3, coins: 5e3 }
 };
 var defaultDeps6 = {
+  turrets: async () => turretOffers((await (await getCollection("admin_config")).findOne({ configKey: "game_config" }))?.creatorMedia),
   resolveUser: resolveRequestUser,
   collection: getCollection,
   slicers: async () => (await loadQuestCatalog()).slicers
@@ -5255,11 +5322,13 @@ function createItemsRouter(deps = defaultDeps6) {
         return res.status(400).json({ success: false, error: "Invalid gear action" });
       }
       const slicers = await deps.slicers();
+      const offers = await deps.turrets?.() ?? turretOffers(null);
+      const turret = id.startsWith("turret:") ? offers.find((offer) => offer.kind === id.slice(7)) : void 0;
       const slicer = isSlicer(id, slicers);
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith("hero:") ? id.slice(5) : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
-      if (!["buy-vip", "buy-skill", "buy-ability", "equip-ability", "buy-perk"].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: "Gear not found" });
+      if (!["buy-vip", "buy-skill", "buy-ability", "equip-ability", "buy-perk"].includes(action) && !slicer && !wall && !hero && !turret) return res.status(404).json({ success: false, error: "Gear not found" });
       if ((action === "buy" || action === "sell") && (slicer || wall)) {
         const gear2 = slicer ?? wall;
         if (gearPriceError(gear2.cost, gear2.sellValue)) return res.status(422).json({ success: false, error: "This gear has invalid pricing. Please contact an admin." });
@@ -5270,7 +5339,7 @@ function createItemsRouter(deps = defaultDeps6) {
       const saveData = { ...defaultSave(), ...structuredClone(current?.saveData ?? {}) };
       const ownedSkins = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
       const ownedHeroes = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
-      const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
+      const owned = turret ? ownsTurret(saveData, turret) : hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
       if (action === "buy-perk") {
         const [heroId2, perkId] = id.split(":");
         const error2 = purchaseHeroPerk(saveData, heroId2 ?? "", perkId ?? "");
@@ -5318,7 +5387,12 @@ function createItemsRouter(deps = defaultDeps6) {
         saveData.skills[skill.id] += 1;
       }
       if (action === "buy") {
-        if (hero) {
+        if (turret) {
+          if (owned) return res.status(409).json({ success: false, error: "Turret already unlocked" });
+          if (!Number.isSafeInteger(saveData.coins) || saveData.coins < turret.price) return res.status(422).json({ success: false, error: "Not enough coins" });
+          saveData.coins -= turret.price;
+          saveData.ownedTurrets = [...saveData.ownedTurrets || [], turret.kind];
+        } else if (hero) {
           const result = purchaseHeroAtomic(saveData, hero.id);
           if (!result.ok) return res.status(result.error === "already-owned" ? 409 : 422).json({ success: false, error: result.message });
         } else {
@@ -5333,17 +5407,24 @@ function createItemsRouter(deps = defaultDeps6) {
         }
       } else if (action === "equip") {
         if (!owned) return res.status(403).json({ success: false, error: "Gear is not owned" });
-        if (hero) {
+        if (turret) {
+          const loadout = equippedTurrets(saveData, offers);
+          if (!loadout.includes(turret.kind) && loadout.length >= TURRET_SLOTS) return res.status(409).json({ success: false, error: "All six turret slots are full. Unequip one first." });
+          saveData.turretLoadout = [.../* @__PURE__ */ new Set([...loadout, turret.kind])];
+        } else if (hero) {
           if (!canEquipHero(saveData, hero.id)) return res.status(403).json({ success: false, error: "Hero is not unlocked" });
           saveData.hero = hero.id;
         } else if (slicer) saveData.bladeSkin = id;
         else saveData.wallSkin = id;
       } else if (action === "unequip") {
         if (hero) return res.status(422).json({ success: false, error: "A hero must remain selected" });
-        if (slicer && saveData.bladeSkin === id) saveData.bladeSkin = "";
+        if (turret) {
+          saveData.turretLoadout = equippedTurrets(saveData, offers).filter((kind) => kind !== turret.kind);
+        } else if (slicer && saveData.bladeSkin === id) saveData.bladeSkin = "";
         else if (wall && saveData.wallSkin === id) saveData.wallSkin = "";
         else return res.status(409).json({ success: false, error: "Gear is not equipped" });
       } else if (action === "sell") {
+        if (turret) return res.status(422).json({ success: false, error: "Turret unlocks are permanent and cannot be sold." });
         if (hero) return res.status(422).json({ success: false, error: "Heroes cannot be sold" });
         const sellValue = slicer?.sellValue ?? wall?.sellValue ?? 0;
         if (!owned) return res.status(403).json({ success: false, error: "Gear is not owned" });
@@ -5438,7 +5519,7 @@ function choosePvpBotCommand(match, botUserId, config, now = match.createdAt) {
   const captured = bot.captured?.find((item) => opponent.attackers.length < 128 && bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost, config.attacks[item.type].packSize));
   if (captured) return { type: "release", capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < 0.75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: "upgrade-main" };
-  const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
+  const availableTowers = Object.entries(config.towers).filter(([id, stats]) => turretAllowed(id, bot.turretLoadout) && bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)];
     const cells = map2.buildCells.filter((cell) => pvpBuildCellAllowed(map2, cell) && !bot.towers.some((tower2) => tower2.cell === cell));
@@ -5487,7 +5568,7 @@ var ablyPublisher = null;
 var ablySubscriber = null;
 async function currentPvpConfig() {
   const doc = await (await getCollection("admin_config")).findOne({ configKey: "game_config" });
-  return doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig }).pvpConfig : DEFAULT_PVP_CONFIG;
+  return withCreatorTurrets(doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig }).pvpConfig : DEFAULT_PVP_CONFIG, doc?.creatorMedia);
 }
 async function ratingFor(userId, config) {
   const col = await getCollection("pvp_ratings");
@@ -5565,7 +5646,7 @@ function publicMatch(match, userId) {
     vetoTurnId: match.vetoTurn,
     yourVetoTurn: match.vetoTurn === userId,
     vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side,
@@ -5580,7 +5661,8 @@ async function equippedAppearance(userId) {
   const wallSkin = WALL_SKINS.some((item) => item.id === save?.wallSkin) && (save?.wallSkin === "wall-brick" || save?.ownedSkins?.includes(save.wallSkin)) ? save.wallSkin : "wall-brick";
   const rawLoadout = save?.heroAbilityLoadouts?.[hero];
   const abilityLoadout = Array.isArray(rawLoadout) ? rawLoadout.filter((id) => heroAbility(id)?.hero === hero).slice(0, 3) : hero === "jiju" ? ["jiju-1"] : [];
-  return { hero, wallSkin, abilityLoadout, abilityRanks: save?.heroAbilityRanks ?? {}, abilityReadyAt: {} };
+  const admin = await (await getCollection("admin_config")).findOne({ configKey: "game_config" });
+  return { turretLoadout: equippedTurrets(save ?? {}, turretOffers(admin?.creatorMedia)), hero, wallSkin, abilityLoadout, abilityRanks: save?.heroAbilityRanks ?? {}, abilityReadyAt: {} };
 }
 async function makeMatch(queue, left, right, config) {
   const match = newPvpMatch(randomUUID5(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);

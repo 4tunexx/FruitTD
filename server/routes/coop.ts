@@ -1,3 +1,4 @@
+import { withCreatorTurrets,turretOffers,equippedTurrets } from '../../src/game/turretLoadout';
 import { Router, type Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { Rest } from 'ably';
@@ -14,14 +15,14 @@ const getCollection = deps.collection ?? defaultCollection;
 const resolveRequestUser = deps.resolveUser ?? defaultResolveUser;
 const creditClaimReward = deps.creditReward ?? defaultCreditReward;
 const coopRouter=Router();
-type Room=CoopMatch & {public:boolean;updatedAt:Date;expiresAt:Date;settled?:boolean;seenBy?:string[];activePlayers?:string[]};
+type Room=CoopMatch & {balance?:ReturnType<typeof withCreatorTurrets>;coop?:ReturnType<typeof normalizeCoopConfig>;public:boolean;updatedAt:Date;expiresAt:Date;settled?:boolean;seenBy?:string[];activePlayers?:string[]};
 let publisher:Rest|null=null;let authority:ReturnType<typeof setInterval>|null=null;let ticking=false;
 const fail=(res:Response,code:number,error:string)=>res.status(code).json({success:false,error});
-async function config(){const row=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});const balance=mergeAdminConfig(row).pvpConfig;delete balance.towers.catcher;return {balance,coop:normalizeCoopConfig(row?.coopConfig)};}
+async function config(room?:Room|null){if(room?.balance&&room.coop)return {balance:room.balance,coop:room.coop};const row=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});const balance=withCreatorTurrets(mergeAdminConfig(row).pvpConfig,row?.creatorMedia);delete balance.towers.catcher;return {balance,coop:normalizeCoopConfig(row?.coopConfig)};}
 async function publish(room:Room){try{if(deps.publish){await deps.publish(`fruittd-coop-${room.id}`,room);return;}if(!process.env.ABLY_API_KEY)return;publisher??=new Rest({key:process.env.ABLY_API_KEY});await publisher.channels.get(`fruittd-coop-${room.id}`).publish('match.snapshot',room);}catch(error){console.error('Co-op publish failed',error);}}
 async function settle(room:Room){
  if(room.status!=='complete'||room.settled)return;
- const cfg=await config();const reward=coopRewards(room,cfg.coop);
+ const cfg=await config(room);const reward=coopRewards(room,cfg.coop);
  for(const player of room.players){
   if(room.completedWaves<1)continue;
   await creditClaimReward(player.userId,'coop:'+room.id,{coins:reward.coins,gems:reward.gems,xp:{[player.hero]:reward.xp},towerXp:reward.towerXp,games:1,bestWave:room.completedWaves,highScore:room.score});
@@ -43,7 +44,7 @@ async function settle(room:Room){
  }
  await(await getCollection<Room>('coop_matches')).updateOne({id:room.id},{$set:{settled:true}});room.settled=true;
 }
-async function tick(room:Room,now:number){if(room.status==='complete')return room;const cfg=await config();const revision=room.revision;
+async function tick(room:Room,now:number){if(room.status==='complete')return room;const cfg=await config(room);const revision=room.revision;
  if(room.status==='waiting') {
   if(now-room.players[0]!.lastSeenAt<=cfg.balance.reconnectGraceSeconds*1000)return room;
   room.status='complete';room.reason='disconnect';room.revision++;
@@ -55,19 +56,20 @@ async function tick(room:Room,now:number){if(room.status==='complete')return roo
 async function player(user:NonNullable<Awaited<ReturnType<typeof resolveRequestUser>>>):Promise<CoopPlayer>{
  const save=await(await getCollection<any>('cloud_saves')).findOne({userId:user.userId});const data=save?.saveData??{};const hero=data.hero;
  const validHero=HEROES.some(h=>h.id===hero)?hero:'jiju';const loadout=Array.isArray(data.heroAbilityLoadouts?.[validHero])?data.heroAbilityLoadouts[validHero].filter((id:string)=>heroAbility(id)?.hero===validHero).slice(0,3):validHero==='jiju'?['jiju-1']:[];
- return {userId:user.userId,name:String(user.nickname||'Slicer').slice(0,64),hero:validHero,abilityLoadout:loadout,abilityRanks:data.heroAbilityRanks??{},abilityReadyAt:{},sequence:0,lastSeenAt:Date.now(),lastSlashAt:0,kills:0};
+ const admin=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});
+ return {turretLoadout:equippedTurrets(data,turretOffers(admin?.creatorMedia)),userId:user.userId,name:String(user.nickname||'Slicer').slice(0,64),hero:validHero,abilityLoadout:loadout,abilityRanks:data.heroAbilityRanks??{},abilityReadyAt:{},sequence:0,lastSeenAt:Date.now(),lastSlashAt:0,kills:0};
 }
 coopRouter.get('/status',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in to play online Co-op.');try{
  const rooms=await getCollection<Room>('coop_matches');let room=await rooms.findOne({'players.userId':user.userId,expiresAt:{$gt:new Date()},$or:[{status:{$ne:'complete'}},{status:'complete',seenBy:{$ne:user.userId}}]});
  if(room){await rooms.updateOne({id:room.id},{$set:{'players.$[self].lastSeenAt':Date.now()},$inc:{revision:1}},{arrayFilters:[{'self.userId':user.userId}]});room=await rooms.findOne({id:room.id});if(room){await tick(room,Date.now());room=await rooms.findOne({id:room.id});if(room?.status==='complete')await settle(room);}}
- const cfg=await config();res.json({success:true,room,balance:cfg.balance,coop:cfg.coop,yourId:user.userId});
+ const cfg=await config(room);res.json({success:true,room,balance:cfg.balance,coop:cfg.coop,yourId:user.userId});
  }catch(error){console.error('Co-op status failed',error);fail(res,503,'Co-op storage is unavailable.');}});
 coopRouter.post('/create',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in first.');try{
  await(await getCollection<Room>('coop_matches')).updateOne({activePlayers:user.userId,expiresAt:{$lte:new Date()}},{$unset:{activePlayers:''},$set:{status:'complete',reason:'expired'}});
  const rooms=await getCollection<Room>('coop_matches');const existing=await rooms.findOne({'players.userId':user.userId,status:{$ne:'complete'},expiresAt:{$gt:new Date()}});if(existing)return fail(res,409,'Leave your current room first.');
  const cfg=await config();const self=await player(user);
  if(req.body?.public===true){const open=await rooms.findOne({public:true,status:'waiting','players.0.lastSeenAt':{$gt:Date.now()-cfg.balance.reconnectGraceSeconds*1000},'players.userId':{$ne:user.userId},expiresAt:{$gt:new Date()}});if(open){const revision=open.revision;joinCoopMatch(open,self,Date.now());open.activePlayers=open.players.map(p=>p.userId);open.updatedAt=new Date();const updated=await rooms.replaceOne({id:open.id,revision,status:'waiting'},open);if(updated.modifiedCount){void publish(open);return res.json({success:true,room:open});}}}
- const room:Room={...newCoopMatch(randomUUID().replace(/-/g,'').slice(0,10),self,cfg.balance),public:req.body?.public===true,activePlayers:[user.userId],updatedAt:new Date(),expiresAt:new Date(Date.now()+2*60*60*1000)};await rooms.insertOne(room);res.json({success:true,room});
+ const room:Room={...newCoopMatch(randomUUID().replace(/-/g,'').slice(0,10),self,cfg.balance),balance:structuredClone(cfg.balance),coop:structuredClone(cfg.coop),public:req.body?.public===true,activePlayers:[user.userId],updatedAt:new Date(),expiresAt:new Date(Date.now()+2*60*60*1000)};await rooms.insertOne(room);res.json({success:true,room});
  }catch(error){if((error as {code?:number}).code===11000)return fail(res,409,'You already have an active Co-op room.');console.error('Co-op room creation failed',error);fail(res,503,'Could not create the room.');}});
 coopRouter.post('/join',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in first.');try{
  await(await getCollection<Room>('coop_matches')).updateOne({activePlayers:user.userId,expiresAt:{$lte:new Date()}},{$unset:{activePlayers:''},$set:{status:'complete',reason:'expired'}});
@@ -84,7 +86,7 @@ coopRouter.post('/:id/invite',async(req,res)=>{const user=await resolveRequestUs
  }catch(error){console.error('Co-op invite failed',error);fail(res,503,'Could not send Co-op invite.');}});
 coopRouter.post('/:id/command',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in first.');try{
  const rooms=await getCollection<Room>('coop_matches');const room=await rooms.findOne({id:req.params.id,'players.userId':user.userId,expiresAt:{$gt:new Date()}});if(!room)return fail(res,404,'Room is unavailable.');if(room.status==='complete')return fail(res,409,'Match has finished.');
- const cfg=await config();const revision=room.revision;try{applyCoopCommand(room,user.userId,req.body.sequence,req.body.command,Date.now(),cfg.balance,cfg.coop);}catch(error){return fail(res,400,error instanceof Error?error.message:'Invalid action.');}
+ const cfg=await config(room);const revision=room.revision;try{applyCoopCommand(room,user.userId,req.body.sequence,req.body.command,Date.now(),cfg.balance,cfg.coop);}catch(error){return fail(res,400,error instanceof Error?error.message:'Invalid action.');}
  if((room as Room).status==='complete')delete room.activePlayers;else room.activePlayers=room.players.map(member=>member.userId);const saved=await rooms.replaceOne({id:room.id,revision},room);if(!saved.modifiedCount)return fail(res,409,'Match updated. Try the action again.');void publish(room);await settle(room);res.json({success:true,room});
  }catch(error){console.error('Co-op command failed',error);fail(res,503,'Could not apply the action.');}});
 coopRouter.post('/:id/ack',async(req,res)=>{const user=await resolveRequestUser(req);if(!user)return fail(res,401,'Sign in first.');await(await getCollection<Room>('coop_matches')).updateOne({id:req.params.id,status:'complete','players.userId':user.userId},{$addToSet:{seenBy:user.userId}});res.json({success:true});});

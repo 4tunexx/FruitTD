@@ -33,3 +33,8 @@ export function powerTargets<T>(items:T[],ability:HeroAbility,point:(item:T)=>{x
   return ordered;
 }
 export function appendPowerCast(casts:PowerCast[]|undefined,cast:PowerCast):PowerCast[]{return [...(casts??[]).filter(item=>cast.at-item.at<5000),cast].slice(-24);}
+
+/** Cover the authored field without tying hero reach to a turret's firing radius. */
+export function mapPowerEnvelope(origin:{x:number;y:number}, bounds:{minX:number;maxX:number;minY:number;maxY:number}):PowerEnvelope {
+  return {...origin,radius:Math.max(...[bounds.minX,bounds.maxX].flatMap(x=>[bounds.minY,bounds.maxY].map(y=>Math.hypot(x-origin.x,y-origin.y))))};
+}

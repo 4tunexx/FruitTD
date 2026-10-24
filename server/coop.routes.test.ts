@@ -63,6 +63,11 @@ test('two authenticated Co-op clients share rooms, commands and equal idempotent
   assert.equal((await fetch(base + '/status')).status, 401);
   const created = await (await post('/create', 'one', { public: false })).json();
   const id = created.room.id;
+  assert.ok(created.room.balance && created.room.coop, 'rooms freeze their combat and reward rules');
+  rows('admin_config').push({configKey:'game_config',pvpConfig:{incomePerSecond:9876}});
+  const frozen = await status('one');
+  assert.equal(frozen.balance.incomePerSecond, created.room.balance.incomePerSecond);
+  rows('admin_config').length=0;
   assert.equal((await post(`/${id}/invite`, 'one', { username: 'two' })).status, 200);
   assert.equal(rows('notifications').length, 1);
   assert.equal(rows('notifications')[0].type, 'coop_invite');

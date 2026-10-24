@@ -1,3 +1,6 @@
+import {turretOffers,equippedTurrets,TURRET_SLOTS} from '../../game/turretLoadout';
+import {getPublishedCreatorMedia} from '../../game/creatorMedia';
+import {lucideIcon} from '../lucideIcon';
 /**
  * INVENTORY (§7) — "things I own".
  *
@@ -28,6 +31,7 @@ export interface InventoryCallbacks {
 
 const LABELS: Record<string, string> = {
   all: 'All',
+  turrets:'Turrets',
   slicers: 'Slicers',
   walls: 'Walls',
   effects: 'Effects',
@@ -39,20 +43,23 @@ const LABELS: Record<string, string> = {
 let activeCategory: string = 'all';
 
 /** Shows what is currently equipped, so the loadout is never a mystery. */
-function loadoutStrip(save: SaveData): HTMLElement {
+function loadoutStrip(save: SaveData,cb:InventoryCallbacks): HTMLElement {
   const blade = save.bladeSkin ? findCatalogItem(save.bladeSkin) : null;
   const wall = save.wallSkin ? findCatalogItem(save.wallSkin) : null;
   const slot = (label: string, name: string, color?: string) => {
     const node = el('div', { class: 'ftd-loadout-slot' }, [
+      ...(label.startsWith('TURRET')?[lucideIcon('TowerControl','',24)]:[]),
       el('span', { class: 'ftd-loadout-slot__label', text: label }),
       el('span', { class: 'ftd-loadout-slot__name', text: name }),
     ]);
     if (color) node.style.setProperty('--slot-color', color);
     return node;
   };
+  const offers=turretOffers(getPublishedCreatorMedia()),loadout=equippedTurrets(save,offers);
   return el('div', { class: 'ftd-loadout-strip' }, [
     slot('BLADE', blade?.name ?? 'None equipped', blade?.color),
     slot('WALL', wall?.name ?? 'None equipped', wall?.color),
+    ...Array.from({length:TURRET_SLOTS},(_,i)=>{const kind=loadout[i],offer=offers.find(offer=>offer.kind===kind);const card=slot(`TURRET ${i+1}`,offer?.name??'Empty slot','#b4ff3a');if(offer&&cb.onUnequip)card.appendChild(GameButton({label:'Unequip',size:'sm',variant:'ghost',onClick:()=>cb.onUnequip?.(`turret:${kind}`)}));return card;}),
   ]);
 }
 
@@ -71,7 +78,7 @@ export function renderInventory(root: HTMLElement, save: SaveData, cb: Inventory
     ],
   });
 
-  body.appendChild(loadoutStrip(save));
+  body.appendChild(loadoutStrip(save,cb));
 
   const owned = inventoryItems(save);
   const categories = ['all', ...categoriesWithItems(owned)];
@@ -109,6 +116,7 @@ export function renderInventory(root: HTMLElement, save: SaveData, cb: Inventory
           owned: true,
           equipped: isEquipped(save, item),
           affordable: true,
+          equipBlockedReason:item.slot==='turret'&&!isEquipped(save,item)&&equippedTurrets(save,turretOffers(getPublishedCreatorMedia())).length>=TURRET_SLOTS?'Free a turret slot first':undefined,
           sellBlockedReason: sellCheck.ok ? undefined : sellCheck.message,
         },
         { onEquip: cb.onEquip, onUnequip: cb.onUnequip, onSell: cb.onSell },

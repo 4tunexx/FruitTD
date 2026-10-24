@@ -1,3 +1,5 @@
+import {turretOffers,ownsTurret,equippedTurrets} from './turretLoadout';
+import {getPublishedCreatorMedia} from './creatorMedia';
 /**
  * Unified item catalog — ONE source of truth for everything ownable.
  *
@@ -16,11 +18,11 @@ import type { CatalogSlicer, SlicerRarity } from './slicers';
 import { getEnabledSlicers } from '../services/liveConfig';
 import { WALL_SKINS, type SaveData } from './save';
 
-export type ItemCategory = 'slicers' | 'walls' | 'effects' | 'cosmetics' | 'heroes' | 'special';
+export type ItemCategory = 'turrets' | 'slicers' | 'walls' | 'effects' | 'cosmetics' | 'heroes' | 'special';
 export type { SlicerRarity };
 
 /** Slot an item occupies when equipped. `null` = not equippable. */
-export type EquipSlot = 'blade' | 'wall' | 'hero' | null;
+export type EquipSlot = 'turret' | 'blade' | 'wall' | 'hero' | null;
 
 export interface CatalogItem {
   id: string;
@@ -160,7 +162,7 @@ export function dedupeCatalogItems(items: CatalogItem[]): CatalogItem[] {
 
 /** Every item that exists, across all categories. */
 export function allCatalogItems(): CatalogItem[] {
-  const items: CatalogItem[] = [];
+  const items: CatalogItem[] = turretOffers(getPublishedCreatorMedia()).map(offer=>({id:`turret:${offer.kind}`,name:offer.name,description:'Permanent turret unlock. Equip in one of six slots; build and upgrade with match Fruts.',category:'turrets',rarity:'common',price:offer.price,sellValue:0,slot:'turret',color:'#b4ff3a',glowColor:'#b4ff3a',previewImage:offer.image,starter:offer.price===0,stats:[]}));
   for (const slicer of getEnabledSlicers()) items.push(slicerToItem(slicer));
   for (const wall of WALL_SKINS) items.push(wallToItem(wall));
   for (const hero of HEROES) {
@@ -177,6 +179,7 @@ export function findCatalogItem(id: string): CatalogItem | null {
 
 /** True when the save owns this item. Heroes use `ownedHeroes`, skins `ownedSkins`. */
 export function ownsItem(save: SaveData, item: CatalogItem): boolean {
+  if(item.category==='turrets')return ownsTurret(save,{kind:item.id.slice(7),price:item.price} as ReturnType<typeof turretOffers>[number]);
   if (item.category === 'heroes') {
     const heroId = item.id.replace(/^hero:/, '') as HeroId;
     return save.ownedHeroes.includes(heroId);
@@ -186,6 +189,7 @@ export function ownsItem(save: SaveData, item: CatalogItem): boolean {
 
 /** True when this exact item is currently equipped in its slot. */
 export function isEquipped(save: SaveData, item: CatalogItem): boolean {
+  if(item.slot==='turret')return equippedTurrets(save,turretOffers(getPublishedCreatorMedia())).includes(item.id.slice(7));
   if (item.slot === 'blade') return save.bladeSkin === item.id;
   if (item.slot === 'wall') return save.wallSkin === item.id;
   if (item.slot === 'hero') return `hero:${save.hero}` === item.id;
@@ -223,7 +227,7 @@ export function inventoryItems(save: SaveData, category?: ItemCategory): Catalog
 
 /** Categories that actually contain something, for tab rendering. */
 export function categoriesWithItems(items: CatalogItem[]): ItemCategory[] {
-  const order: ItemCategory[] = ['slicers', 'walls', 'effects', 'cosmetics', 'heroes', 'special'];
+  const order: ItemCategory[] = ['turrets', 'slicers', 'walls', 'effects', 'cosmetics', 'heroes', 'special'];
   return order.filter((category) => items.some((item) => item.category === category));
 }
 

@@ -1,3 +1,4 @@
+import {TURRET_WEAPONS} from '../../game/turretWeapons';
 import {towerHealthRail} from '../../game/towerHealthRail';
 import { NetworkMotion } from '../../game/networkMotion';
 import {GraphicsRecovery} from '../../engine/graphicsRecovery';
@@ -13,7 +14,7 @@ import { PowerVfx } from '../../game/powerVfx';
 import { heroAbility } from '../../game/heroAbilities';
 import type { PowerCast } from '../../game/powerCombat';
 import { AmbientLight, BackSide, CircleGeometry, BufferGeometry, Color, DirectionalLight, DoubleSide, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, PlaneGeometry, Raycaster, RingGeometry, Scene, Sprite, TextureLoader, SRGBColorSpace, Vector2, Vector3, WebGLRenderer } from 'three';
-import { TurretRig, TURRETS, type TurretKind } from '../../game/turrets';
+import { TurretRig, refreshCreatorTurrets, TURRETS, type TurretKind } from '../../game/turrets';
 import { BladeTrail } from '../../game/trail';
 import { FRUIT_DEFS } from '../../game/fruits';
 import { fruitAtlas } from '../../game/atlas';
@@ -100,6 +101,8 @@ export class PvpBattlefield {
 
   constructor(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] }, private readonly command: (command: PvpCommand) => void, private readonly select?: (cell: number) => void) {
     this.snapshot = snapshot; this.config = config;
+    refreshCreatorTurrets();
+    for(const [id,stats] of Object.entries(config.towers)){if(!TURRET_WEAPONS[id as TurretKind]&&stats.chassis&&TURRET_WEAPONS[stats.chassis as TurretKind])TURRET_WEAPONS[id as TurretKind]={...TURRET_WEAPONS[stats.chassis as TurretKind],name:id,chassis:stats.chassis as any};}
     if (snapshot.shared) this.canvas.setAttribute('aria-label', 'Co-op battlefield. Tap a pad to build. Drag across incoming fruit to slice.');
     this.element.append(this.canvas, el('div', { class: 'ftd-pvp-scene__hint', text: snapshot.shared ? 'Tap a pad to build · Drag to slice' : 'Your keep · bottom  |  Rival keep · top  ·  Tap a gold build pad · Drag to pan · Pinch to zoom' }));
     if (!snapshot.shared) {
@@ -149,6 +152,8 @@ export class PvpBattlefield {
 
   update(snapshot: BattlefieldSnapshot, config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] }): void {
     this.snapshot = snapshot; this.config = config;
+    refreshCreatorTurrets();
+    for(const [id,stats] of Object.entries(config.towers)){if(!TURRET_WEAPONS[id as TurretKind]&&stats.chassis&&TURRET_WEAPONS[stats.chassis as TurretKind])TURRET_WEAPONS[id as TurretKind]={...TURRET_WEAPONS[stats.chassis as TurretKind],name:id,chassis:stats.chassis as any};}
     const receivedAt = performance.now();
     const map = snapshot.map; if (!map) return;
     const terrainKey = JSON.stringify([map, snapshot.players.map(p => [p.hero, p.wallSkin, p.mainLevel])]);

@@ -1,3 +1,4 @@
+import {turretAllowed} from '../../game/turretLoadout';
 import { lucideIcon } from '../lucideIcon';
 import { loadSave } from '../../game/save';
 import { showScreenLoadFailure } from './loadFailure';
@@ -172,7 +173,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
     ]));
   }
   body.append(management);
-  body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls',hidden:pendingBuildCell===null},[GameButton({label:'Close',variant:'ghost',onClick:()=>{pendingBuildCell=null;scene?.selectCell(null);render();}}),el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. All teammates’ blades appear live.'}),...Object.entries(balance.towers).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;if(pendingBuildCell!==null){const cell=pendingBuildCell;pendingBuildCell=null;command({type:'build',tower:id,cell});}render();}}))])]));
+  body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls',hidden:pendingBuildCell===null},[GameButton({label:'Close',variant:'ghost',onClick:()=>{pendingBuildCell=null;scene?.selectCell(null);render();}}),el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. All teammates’ blades appear live.'}),...Object.entries(balance.towers).filter(([id])=>turretAllowed(id,own.turretLoadout)).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;if(pendingBuildCell!==null){const cell=pendingBuildCell;pendingBuildCell=null;command({type:'build',tower:id,cell});}render();}}))])]));
  };
  body.append(LoadingIndicator('Connecting to online Co-op…'));
  const timer=setInterval(()=>{if(!heading.isConnected||!body.isConnected){dispose();return;}void refresh().then(()=>drainCommands());},1000);

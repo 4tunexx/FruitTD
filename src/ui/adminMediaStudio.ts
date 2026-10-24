@@ -339,14 +339,16 @@ export interface EntityPackJson {
   kind: 'fruittd-creator-entity';
   entityKey: string;
   entity: EntityStudioData;
+  layers?: Partial<Record<'base'|'top',EntityStudioData>>;
 }
 
-export function buildEntityPack(entityKey: string, ent: EntityStudioData): EntityPackJson {
+export function buildEntityPack(entityKey: string, ent: EntityStudioData, layers?:EntityPackJson['layers']): EntityPackJson {
   return {
     version: 2,
     kind: 'fruittd-creator-entity',
     entityKey,
     entity: normalizeEntityData(ent),
+    ...(layers?{layers}:{}),
   };
 }
 
@@ -360,6 +362,7 @@ export function parseEntityPack(raw: unknown): EntityPackJson | null {
     kind: 'fruittd-creator-entity',
     entityKey: p.entityKey,
     entity: normalizeEntityData(p.entity),
+    ...(p.layers&&typeof p.layers==='object'?{layers:Object.fromEntries(['base','top'].filter(part=>(p.layers as Record<string,unknown>)[part]).map(part=>[part,normalizeEntityData((p.layers as Record<string,unknown>)[part])]))}:{}),
   };
 }
 
@@ -426,7 +429,11 @@ function pushEventLog(line: string): void {
 function knownEntityKeys(): string[] {
   const keys = new Set<string>();
   for (const o of STUDIO_ENTITY_OPTIONS) keys.add(o.key);
-  for (const k of Object.keys(store.entities)) keys.add(k);
+  for (const k of Object.keys(store.entities)) {
+    if(/^tower-.*-(base|top)$/.test(k))continue;
+    keys.add(k);
+    if(/^tower-custom-/.test(k)&&!/-level-/.test(k)&&store.entities[k]?.turret)for(let level=1;level<=10;level++)keys.add(`${k}-level-${level}`);
+  }
   return [...keys];
 }
 
@@ -529,8 +536,15 @@ function syncEventInputs(): void {
   const settings=$('studio-turret-settings');if(settings)settings.hidden=!store.selectedEntity.startsWith('tower-');
   const tuning=ent.turret||DEFAULT_TURRET_TUNING;
   const weapon=TURRET_WEAPONS[store.selectedEntity.replace(/^tower-/,'').replace(/-level-\d+$/,'') as WeaponId];
-  const defaults={baseDamage:weapon?.damage,damageGrowth:weapon?.damageGrowth,baseRange:weapon?.range,rangeGrowth:weapon?.rangeGrowth,baseCooldown:weapon?.cooldown,cost:80,chassis:weapon?(weapon.chassis||store.selectedEntity.replace(/^tower-/,'').replace(/-level-\d+$/,'')):'laser',deathEffect:'juice',deathScale:1};
+  const layerPanel=document.querySelector<HTMLElement>('.studio-layer-art');if(layerPanel)layerPanel.hidden=!weapon;
+  for(const part of ['base','top']){
+    const image=$(`studio-turret-${part}-preview`) as HTMLImageElement|null;
+    const url=store.entities[`${store.selectedEntity}-${part}`]?.sheetDataUrl||store.entities[`${store.selectedEntity.replace(/-level-\d+$/,'')}-${part}`]?.sheetDataUrl;
+    if(image){if(url)image.src=url;else image.removeAttribute('src');image.hidden=!url;}
+  }
+  const defaults={baseDamage:weapon?.damage,damageGrowth:weapon?.damageGrowth,baseRange:weapon?.range,rangeGrowth:weapon?.rangeGrowth,baseCooldown:weapon?.cooldown,cost:80,chassis:weapon?(weapon.chassis||store.selectedEntity.replace(/^tower-/,'').replace(/-level-\d+$/,'')):'laser',deathEffect:'juice',deathScale:1,projectileCount:1,shopPrice:0};
   for(const key of [...Object.keys(DEFAULT_TURRET_TUNING),...Object.keys(defaults)] as Array<keyof TurretTuning>){const input=$(`studio-turret-${key}`) as HTMLInputElement|null;if(input){input.value=String(tuning[key]??defaults[key as keyof typeof defaults]??'');const output=input.nextElementSibling;if(output?.tagName==='OUTPUT')output.textContent=input.value;}}
+  const price=$('studio-turret-shopPrice') as HTMLInputElement|null;if(price){const canSell=/^tower-custom-/.test(store.selectedEntity)&&!/-level-/.test(store.selectedEntity);price.disabled=!canSell;price.closest('label')?.toggleAttribute('hidden',!canSell);}
   const baseOnly=/-level-\d+$/.test(store.selectedEntity)||store.selectedEntity==='tower-main'||store.selectedEntity==='tower-wall';
   for(const field of ['baseDamage','damageGrowth','baseRange','rangeGrowth','baseCooldown','cost','chassis']){
     const input=$(`studio-turret-${field}`) as HTMLInputElement|null;if(input){input.disabled=baseOnly;input.closest('label')?.toggleAttribute('hidden',baseOnly);}
@@ -590,7 +604,7 @@ function renderCombatModel(key:string):void {
       void import('./admin/combatPreview').then(({CombatPreview})=>{
         if(request!==combatPreviewRequest||!previewHost!.isConnected)return;
         const viewport=document.createElement('div');viewport.className='studio-combat-preview__viewport';previewHost!.appendChild(viewport);
-        try{combatPreview=new CombatPreview(viewport);combatPreview.setEntity(store.selectedEntity,currentEntity().turret);button.hidden=true;}
+        try{combatPreview=new CombatPreview(viewport,()=>store.entities);combatPreview.setEntity(store.selectedEntity,currentEntity().turret);button.hidden=true;}
         catch(error){viewport.remove();setStatus(error instanceof Error?`Live model unavailable: ${error.message}`:'Live model unavailable.',false);button.disabled=false;}
       }).catch(()=>{button.disabled=false;setStatus('Live model could not load. Reload Creator and try again.',false);});
     });
@@ -1019,7 +1033,7 @@ function exportSelectedFrame(): void {
 }
 
 function exportEntityPack(): void {
-  const pack = buildEntityPack(store.selectedEntity, currentEntity());
+  const pack = buildEntityPack(store.selectedEntity, currentEntity(), Object.fromEntries(['base','top'].filter(part=>store.entities[`${store.selectedEntity}-${part}`]).map(part=>[part,store.entities[`${store.selectedEntity}-${part}`]])));
   const json = JSON.stringify(pack);
   const kb = Math.round(json.length / 1024);
   if (kb > 4000) {
@@ -1045,6 +1059,7 @@ function importEntityPackFile(file: File): void {
       }
       const key = parsed.entityKey;
       store.entities[key] = parsed.entity;
+      for(const part of ['base','top'] as const){if(parsed.layers?.[part])store.entities[`${key}-${part}`]=parsed.layers[part]!;}
       persistAll();
       store.selectedEntity = key;
       fillEntitySelect();
@@ -1070,6 +1085,7 @@ function duplicateEntity(): void {
   const copy = normalizeEntityData(JSON.parse(JSON.stringify(src)));
   copy.label = `${entityLabel(srcKey, src)} (copy)`;
   store.entities[key] = copy;
+  for(const part of ['base','top']){const layer=store.entities[`${srcKey}-${part}`];if(layer)store.entities[`${key}-${part}`]=normalizeEntityData(structuredClone(layer));}
   store.selectedEntity = key;
   fillEntitySelect();
   void onEntityChange();
@@ -1292,6 +1308,31 @@ function bindControls(): void {
     renderEntityRail();
   });
 
+  for (const part of ['base','top'] as const) {
+    $(`studio-turret-${part}-upload`)?.addEventListener('change', async (event) => {
+      const input=event.target as HTMLInputElement;const file=input.files?.[0];
+      if(!file)return;
+      if(file.type!=='image/png'||file.size>1_000_000){setStatus('Use a transparent PNG under 1 MB.',false);return;}
+      const entityKey=store.selectedEntity;
+      if(!TURRET_WEAPONS[entityKey.replace(/^tower-/,'').replace(/-level-\d+$/,'') as WeaponId]){setStatus('Select a turret or upgrade level first.',false);return;}
+      input.disabled=true;
+      try {
+        const image=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Could not read PNG'));reader.readAsDataURL(file);});
+        const token=getAuthToken();
+        const response=await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify({image})});
+        const result=await response.json();if(!response.ok||!result.url)throw new Error(result.error||'Upload failed');
+        store.entities[`${entityKey}-${part}`]={...emptyEntityData(),sheetDataUrl:result.url,cols:1,rows:1,clips:{idle:{startFrame:0,frameCount:1}},label:`${entityKey} ${part}`};
+        saveStudioStore(store);notifyStudioRuntimeChanged();
+        if(store.selectedEntity===entityKey){syncEventInputs();combatPreview?.setEntity(entityKey,currentEntity().turret);}
+        setStatus(`${part==='base'?'Base':'Aiming top'} uploaded for ${entityKey}. Publish pack to apply it to players.`);
+      }catch(error){setStatus(error instanceof Error?error.message:'Upload failed',false);}
+      finally{input.disabled=false;input.value='';}
+    });
+    $(`studio-turret-${part}-clear`)?.addEventListener('click',()=>{
+      delete store.entities[`${store.selectedEntity}-${part}`];saveStudioStore(store);notifyStudioRuntimeChanged();syncEventInputs();combatPreview?.setEntity(store.selectedEntity,currentEntity().turret);setStatus('Layer reset in draft. Publish pack to apply.');
+    });
+  }
+
   $('studio-sheet-upload')?.addEventListener('change', (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
@@ -1420,7 +1461,7 @@ function bindControls(): void {
     const output=document.createElement('output');output.setAttribute('for',slider.id);output.textContent=slider.value;
     slider.after(output);slider.addEventListener('input',()=>{output.textContent=slider.value;});
   }
-  const turretFields=[...Object.keys(DEFAULT_TURRET_TUNING),'chassis','baseDamage','damageGrowth','baseRange','rangeGrowth','baseCooldown','cost','deathEffect','deathScale'];
+  const turretFields=[...Object.keys(DEFAULT_TURRET_TUNING),'chassis','baseDamage','damageGrowth','baseRange','rangeGrowth','baseCooldown','cost','deathEffect','deathScale','projectileCount','shopPrice'];
   for(const key of turretFields)$(`studio-turret-${key}`)?.addEventListener('input',()=>{
     const raw:Record<string,string>={};for(const field of turretFields)raw[field]=($(`studio-turret-${field}`) as HTMLInputElement)?.value||'';
     currentEntity().turret=normalizeTurretTuning(raw);saveStudioStore(store);notifyStudioRuntimeChanged();

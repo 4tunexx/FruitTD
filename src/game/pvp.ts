@@ -1,5 +1,6 @@
+import { turretAllowed } from './turretLoadout';
 import { turretVictims } from './turretTargets';
-import { equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
+import { mapPowerEnvelope, equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
 /** Shared Arena/Ranked PvP contracts and deterministic server rules. */
 export type PvpQueue = 'arena' | 'ranked';
 export type PvpTier = 'Amateur' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Emerald' | 'Sapphire';
@@ -33,7 +34,7 @@ export interface PvpConfig {
   incomePerSecond: number;
   reconnectGraceSeconds: number;
   mainTower: { damage: number; range: number; cooldownMs: number };
-  towers: Record<string, { cost: number; damage: number; range: number; cooldownMs: number }>;
+  towers: Record<string, { cost: number; damage: number; range: number; cooldownMs: number; chassis?:string }>;
   attacks: Record<string, { cost: number; health: number; speed: number; wallDamage: number; rewardFruts: number; packSize?: number }>;
   rating: { start: number; win: number; tie: number; loss: number; bonusCap: number; combo: Array<{ at: number; points: number }>; multiKill3: number; multiKill5: number; seasonResetPercent: number; tiers: Array<{ name: PvpTier; min: number }> };
   seasonRewards: Array<{ tier: PvpTier; coins: number; gems: number; badgeId: string }>;
@@ -111,9 +112,16 @@ export function normalizePvpMaps(input: unknown): PvpMap[] {
 export function pvpBuildCellAllowed(map:PvpMap,cell:number):boolean {
   return Number.isInteger(cell)&&cell>=0&&cell<map.width*map.height&&Math.floor(cell/map.width)>=Math.ceil(map.height/2)&&!map.pathCells.includes(cell)&&map.buildCells.includes(cell);
 }
-export function pvpPowerEnvelope(map:PvpMap,config:PvpConfig,level=1) {
-  const cell=map.pathCells.at(-1)??0;
-  return {x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5,radius:pvpTowerStats({...config.mainTower,cost:0},level).range};
+export function pvpPowerPoint(map:PvpMap,progress:number):{x:number;y:number;progress:number} {
+  const point=(index:number,opposite=false)=>{const cell=map.pathCells[Math.max(0,Math.min(map.pathCells.length-1,index))]??0;const x=cell%map.width+.5,y=Math.floor(cell/map.width)+.5;return opposite?{x:2*(Math.floor(map.width/2)-.5)-x,y:-y-2}:{x,y};};
+  let a,b,t;
+  if(progress<0&&progress>-1){a=point(0,true);b=point(0);t=progress+1;}
+  else{const index=progress<=-1?-progress-1:progress,whole=Math.floor(index);a=point(whole,progress<=-1);b=point(whole+1,progress<=-1);t=index-whole;}
+  return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,progress};
+}
+export function pvpPowerEnvelope(map:PvpMap,_config:PvpConfig,_level=1) {
+  const point=pvpPowerPoint(map,map.pathCells.length-1);
+  return mapPowerEnvelope(point,{minX:-2,maxX:map.width,maxY:map.height,minY:-map.height-2});
 }
 
 export function pvpTier(points: number, config: PvpConfig = DEFAULT_PVP_CONFIG): PvpTier {
@@ -141,7 +149,7 @@ export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_
 export const PVP_CAPTURE_CAPACITY = 3;
 export function pvpMainUpgradeCost(level = 1): number { return pvpTowerLevel(level) === 1 ? 220 : 340; }
 export function pvpReleaseCost(attackCost: number, packSize = 1): number { return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * .5)); }
-export interface PvpPlayer { powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
+export interface PvpPlayer { turretLoadout?:string[]; powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<{ id: string; type: string; hp: number; maxHp?: number; progress: number; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
 export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
 export type PvpCommand = { type: 'ability'; abilityId: string } | { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
 
@@ -242,9 +250,9 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down');
     if(player.fruts<stats.cost)throw new Error('Not enough match Fruts');
     const map=match.map??config.map;
-    const point=(attacker:PvpPlayer['attackers'][number])=>{const index=Math.max(0,Math.min(map.pathCells.length-1,attacker.progress));const cell=map.pathCells[Math.floor(index)]??0,next=map.pathCells[Math.min(map.pathCells.length-1,Math.floor(index)+1)]??cell,t=index-Math.floor(index);return {x:cell%map.width+.5+(next%map.width-cell%map.width)*t,y:Math.floor(cell/map.width)+.5+(Math.floor(next/map.width)-Math.floor(cell/map.width))*t,progress:attacker.progress};};
+    const point=(attacker:PvpPlayer['attackers'][number])=>pvpPowerPoint(map,attacker.progress);
     const envelope=pvpPowerEnvelope(map,config,player.mainLevel);
-    const targets=powerTargets(player.attackers.filter(a=>a.hp>0&&a.type!=='explosive'&&a.progress>=0),ability,point,envelope);
+    const targets=powerTargets(player.attackers.filter(a=>a.hp>0&&a.type!=='explosive'),ability,point,envelope);
     if(!targets.length&&(!stats.healFraction||player.wallHealth>=(player.wallMaxHealth??config.wallHealth)))throw new Error('No vulnerable targets.');
     player.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
     player.wallHealth=Math.min(player.wallMaxHealth??config.wallHealth,player.wallHealth+(player.wallMaxHealth??config.wallHealth)*stats.healFraction);
@@ -256,6 +264,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
     if (now < (player.rallyReadyAt ?? match.createdAt + PVP_RALLY.openingMs)) throw new Error('Rally is cooling down');
     player.rallyUntil = now + PVP_RALLY.durationMs; player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
   } else if (command.type === 'build') {
+    if(!turretAllowed(command.tower,player.turretLoadout))throw new Error('Equip this turret in Inventory before the match.');
     const tower = config.towers[command.tower];
     const map = match.map ?? config.map;
     if (!tower || !pvpBuildCellAllowed(map,command.cell)) throw new Error('Invalid tower or build cell');
@@ -347,12 +356,13 @@ export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = D
         player.attackers = player.attackers.filter(item => item !== target);
         return true;
       }
-      const hit = (attacker: typeof target, mul = 1) => { attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === 'armored' && type !== 'laser' && type !== 'railgun' ? .55 : 1)); };
+      const behavior=config.towers[type]?.chassis||type;
+      const hit = (attacker: typeof target, mul = 1) => { attacker.hp -= Math.round(stats.damage * mul * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1) * (attacker.type === 'armored' && behavior !== 'laser' && behavior !== 'railgun' ? .55 : 1)); };
       const point=(attacker:typeof target)=>{const c=path[Math.max(0,Math.min(path.length-1,Math.floor(attacker.progress)))]!;return {x:c%map.width+.5,y:Math.floor(c/map.width)+.5};};
-      const victims=turretVictims(type,{x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5},target,player.attackers.filter(unit=>unit.hp>0&&unit.progress>=0),point,stats.range,level);
-      for(const victim of victims){hit(victim,type==='sprinkler'&&victim!==target?.65:1);
-        if(type==='sprinkler'){victim.slowUntil=Math.max(victim.slowUntil||0,now+1200);victim.slowMultiplier=.55;}
-        if(type==='railgun')victim.progress=Math.max(0,victim.progress-.45);
+      const victims=turretVictims(config.towers[type]?.chassis||type,{x:cell%map.width+.5,y:Math.floor(cell/map.width)+.5},target,player.attackers.filter(unit=>unit.hp>0&&unit.progress>=0),point,stats.range,level);
+      for(const victim of victims){hit(victim,behavior==='sprinkler'&&victim!==target?.65:1);
+        if(behavior==='sprinkler'){victim.slowUntil=Math.max(victim.slowUntil||0,now+1200);victim.slowMultiplier=.55;}
+        if(behavior==='railgun')victim.progress=Math.max(0,victim.progress-.45);
       }
       return true;
     };

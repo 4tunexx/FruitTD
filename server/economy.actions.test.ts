@@ -147,3 +147,20 @@ test('malformed or profitable resale pricing cannot mutate a wallet', async (t) 
     }
   }
 });
+
+test('turret unlock is bought once, occupies an explicit slot, and remains owned after unequip',async(t)=>{
+ const {deps,cloud}=setup();cloud.saveData.coins=1000;
+ deps.turrets=async()=>[{kind:'laser',name:'Laser',price:0,chassis:'laser'},{kind:'custom-test',name:'Test turret',price:300,chassis:'laser'},...['guillotine','vortex','railgun','sprinkler','blender'].map(kind=>({kind,name:kind,price:0,chassis:'laser' as const}))];
+ const {server,base}=await listen(createItemsRouter(deps));closeAfter(t,server);
+ const action=async(action:string,id='turret:custom-test')=>{const response=await fetch(base,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,id})});return {status:response.status,body:await response.json() as any};};
+ assert.equal((await action('equip')).status,403);
+ assert.equal((await action('buy')).status,200);assert.equal(cloud.saveData.coins,700);
+ assert.equal((await action('buy')).status,409);
+ assert.equal((await action('equip')).status,409,'full slots must not silently replace a turret');
+ assert.equal((await action('unequip','turret:laser')).status,200);
+ assert.equal((await action('equip')).status,200);
+ assert.ok(cloud.saveData.turretLoadout.includes('custom-test'));
+ assert.equal((await action('unequip')).status,200);
+ assert.ok(cloud.saveData.ownedTurrets.includes('custom-test'));
+ assert.equal((await action('sell')).status,422);assert.equal(cloud.saveData.coins,700);
+});

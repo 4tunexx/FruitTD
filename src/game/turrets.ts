@@ -113,6 +113,8 @@ export class TurretRig {
   private skinAnim=createStudioAnimForKey('tower-main');
   private readonly placeholder: Mesh;
   private readonly mechanism = new Group();
+  private readonly baseArt = new Mesh(new PlaneGeometry(1.1,1.1),new MeshBasicMaterial({transparent:true,side:DoubleSide,depthWrite:false}));
+  private readonly topArt = new Mesh(new PlaneGeometry(1.1,1.1),new MeshBasicMaterial({transparent:true,side:DoubleSide,depthWrite:false}));
   private projectile: {target:Fruit;x:number;z:number;left:number;level:number} | null = null;
 
   constructor(kind: TurretKind) {
@@ -129,6 +131,8 @@ export class TurretRig {
     placeholder.add(this.mechanism);
     this.mechanism.position.z = .07;
     this.mechanism.name='turret-aim';
+    this.baseArt.position.z=.04;this.baseArt.visible=false;placeholder.add(this.baseArt);
+    this.topArt.position.z=.08;this.topArt.visible=false;this.mechanism.add(this.topArt);
     // Original, gold-contoured mechanical silhouettes; published studio art
     // replaces these parts while retaining the shared token frame.
     const part = (geometry: PlaneGeometry | CircleGeometry | RingGeometry | ShapeGeometry, color: number, x=0, y=0): Mesh => {
@@ -188,6 +192,17 @@ export class TurretRig {
     this.levelMarks.forEach((mark,i)=>mark.visible=i<this.visualLevel-1);
     const key=`tower-${this.kind}`;
     const levelKey=`${key}-level-${this.visualLevel}`;
+    const base = sampleStudioTexture(`${levelKey}-base`) || sampleStudioTexture(`${key}-base`);
+    const top = sampleStudioTexture(`${levelKey}-top`) || sampleStudioTexture(`${key}-top`);
+    const layered = Boolean(base || top);
+    this.baseArt.visible=Boolean(base);this.topArt.visible=Boolean(top);
+    for(const [mesh,texture] of [[this.baseArt,base],[this.topArt,top]] as const) {
+      const material=mesh.material as MeshBasicMaterial;
+      if(material.map!==texture){material.map=texture;material.needsUpdate=true;}
+    }
+    (this.placeholder.material as MeshBasicMaterial).opacity=layered?0:.98;
+    this.mechanism.children.forEach(child=>{if(child!==this.topArt)child.visible=!layered;});
+    if(layered){this.mechanism.visible=Boolean(top);this.skinAnim.active=false;return;}
     const selected=sampleStudioTexture(levelKey)?levelKey:key;
     if(this.skinAnim.entityKey!==selected||!this.skinAnim.active)resetStudioAnimForKey(this.skinAnim,selected);
     const texture = sampleStudioTexture(selected);

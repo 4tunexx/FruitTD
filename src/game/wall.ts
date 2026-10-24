@@ -1,3 +1,5 @@
+import { mapPowerEnvelope } from './powerCombat';
+import { SOLO_ARENA_D } from './world';
 import { towerHealthRail } from './towerHealthRail';
 import { WALL_SKINS } from './save';
 import { createBuildPad, battleMapPads } from './buildPads';
@@ -171,7 +173,9 @@ export class WallBase {
   }
 
   /** Apply the same authored slots shown by Map Creator before a new run. */
+  private powerField={width:ARENA_W,depth:SOLO_ARENA_D};
   applyBattleMap(map:BattleMap):void {
+    this.powerField={width:map.world.width,depth:map.world.depth};
     for(const slot of this.slots){
       slot.turret?.dispose();
       for(const object of [slot.pad,slot.head])if(object){object.removeFromParent();object.traverse(node=>{if(node instanceof Mesh){node.geometry.dispose();const materials=Array.isArray(node.material)?node.material:[node.material];materials.forEach(material=>material.dispose());}});}
@@ -519,6 +523,11 @@ export class WallBase {
     return this.slots[this.selected];
   }
 
+
+  get abilityEnvelope():{x:number;y:number;radius:number} {
+    const slot=this.slots[MAIN_INDEX];
+    return mapPowerEnvelope({x:slot.x,y:-slot.z},{minX:-this.powerField.width/2,maxX:this.powerField.width/2,minY:-this.powerField.depth/2,maxY:this.powerField.depth/2});
+  }
 
   get powerEnvelope():{x:number;y:number;radius:number} {
     const slot=this.slots[MAIN_INDEX];

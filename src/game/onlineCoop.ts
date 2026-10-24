@@ -1,9 +1,10 @@
+import { turretAllowed } from './turretLoadout';
 import { turretVictims } from './turretTargets';
-import { equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
+import { mapPowerEnvelope, equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
 import { pvpTowerLevel, pvpTowerStats, pvpUpgradeCost, pvpSellRefund, PVP_MAX_TOWER_LEVEL, type PvpConfig } from './pvp';
 import type { HeroId } from './heroes';
 import { towerLevelFromXp } from './towerProgression';
-export interface CoopPlayer { userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
+export interface CoopPlayer { turretLoadout?:string[]; userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
 export interface CoopFruit { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; sliceOnly?:boolean; slowUntil?:number; slowMultiplier?:number; boss: boolean }
 export interface CoopMatch { towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
@@ -44,6 +45,7 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
   else {
     if(match.status!=='playing'&&match.status!=='boss-intro'&&!(match.status==='countdown'&&['build','upgrade','sell'].includes(command.type))) throw new Error('Wait for the match to start.');
     if(command.type==='build') {
+      if(!turretAllowed(command.tower,player.turretLoadout))throw new Error('Equip this turret in Inventory before the match.');
       const stats=balance.towers[command.tower]; if(!stats||!Number.isInteger(command.cell)||command.cell<121||command.cell>128||match.towers.some(t=>t.cell===command.cell)) throw new Error('Choose an empty wall pad.');
       if(match.fruts<stats.cost) throw new Error('Not enough shared Fruts.');
       match.fruts-=stats.cost; match.towers.push({id:`${match.id}:${command.cell}`,type:command.tower,cell:command.cell,lastFiredAt:now,level:1});
@@ -61,7 +63,7 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
       const {ability,stats}=equippedPower(command.abilityId,player.hero,player.abilityLoadout,player.abilityRanks);
       if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down.');
       if(match.fruts<stats.cost)throw new Error('Not enough shared Fruts.');
-      const envelope={x:5,y:13.5,radius:coopMainStats(match,balance).range};
+      const envelope=mapPowerEnvelope({x:5,y:13.5},{minX:0,maxX:10,minY:0,maxY:14});
       const targets=powerTargets(match.fruits.filter(f=>f.hp>0&&f.type!=='explosive'&&!f.sliceOnly),ability,f=>f,envelope);
       if(!targets.length&&(!stats.healFraction||match.wallHealth>=balance.wallHealth))throw new Error('No vulnerable targets.');
       match.fruts-=stats.cost;player.abilityReadyAt??={};player.abilityReadyAt[ability.id]=now+stats.cooldownMs;
@@ -115,10 +117,11 @@ export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:Pv
   const fire=(x:number,y:number,stats:{damage:number;range:number;cooldownMs:number},last:number,type='main',level=1):boolean=>{
     if(now-last<stats.cooldownMs) return false;
     const fruit=match.fruits.filter(f=>f.hp>0&&!f.sliceOnly&&Math.hypot(f.x-x,f.y-y)<=stats.range).sort((a,b)=>b.y-a.y)[0]; if(!fruit)return false;
-    const victims=turretVictims(type,{x,y},fruit,match.fruits.filter(f=>f.hp>0&&!f.sliceOnly),f=>f,stats.range,level);
-    for(const target of victims){target.hp-=Math.round(stats.damage*(target===fruit||type!=='sprinkler'?1:.65));
-      if(type==='sprinkler'){target.slowUntil=Math.max(target.slowUntil||0,now+1200);target.slowMultiplier=.55;}
-      if(type==='railgun')target.y=Math.max(0,target.y-.45);
+    const behavior=balance.towers[type]?.chassis||type;
+    const victims=turretVictims(balance.towers[type]?.chassis||type,{x,y},fruit,match.fruits.filter(f=>f.hp>0&&!f.sliceOnly),f=>f,stats.range,level);
+    for(const target of victims){target.hp-=Math.round(stats.damage*(target===fruit||behavior!=='sprinkler'?1:.65));
+      if(behavior==='sprinkler'){target.slowUntil=Math.max(target.slowUntil||0,now+1200);target.slowMultiplier=.55;}
+      if(behavior==='railgun')target.y=Math.max(0,target.y-.45);
     }
     return true;
   };

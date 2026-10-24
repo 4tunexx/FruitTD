@@ -13,6 +13,8 @@ export function normalizeCreatorMedia(raw: unknown): MediaStudioStore | null {
   const entities: Record<string, EntityStudioData> = Object.create(null);
   for (const [key, value] of Object.entries(row.entities)) {
     if (!/^[a-z][a-z0-9-]{1,63}$/.test(key) || !value || typeof value !== 'object') throw new Error('Invalid Creator entity.');
+    const price=value.turret?.shopPrice;
+    if(price!==undefined&&(!Number.isSafeInteger(price)||price<0||price>1_000_000))throw new Error('Turret unlock prices must be whole Coins between 0 and 1,000,000.');
     const sheet = value.sheetDataUrl;
     if (sheet && (typeof sheet !== 'string' || sheet.length > 1_400_000 || !(/^(?:data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+|\/api\/media\/[a-f0-9]{24})$/i.test(sheet)))) throw new Error('Sprite sheets must be a saved Admin image or PNG, JPEG, WebP data under 1 MB.');
     const cols = Math.floor(number(value.cols, 1, 1, 64)); const rows = Math.floor(number(value.rows, 1, 1, 64));

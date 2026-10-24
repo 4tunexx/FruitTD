@@ -157,7 +157,7 @@ test('a new player owns starter gear and nothing else', () => {
   const owned = inventoryItems(save).map((i) => i.id);
   assert.ok(owned.includes('blade-default'));
   assert.ok(owned.includes('wall-brick'));
-  assert.equal(owned.length, 2, `unexpected starting inventory: ${owned.join(', ')}`);
+  assert.equal(owned.length, 8, `unexpected starting inventory: ${owned.join(', ')}`);
 });
 
 test('tower wall catalog has one textured default and two textured shop skins', () => {

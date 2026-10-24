@@ -107,20 +107,21 @@ test('active inventory exposes a working Unequip action for equipped blades', ()
   const root = host();
   let unequipped = '';
   renderInventory(root, richSave(), { onEquip: noop, onUnequip: (id) => { unequipped = id; }, onSell: noop });
-  const button = Array.from(root.querySelectorAll('button')).find((node) => node.textContent === 'Unequip');
+  const button = Array.from(root.querySelectorAll('button')).find(node => node.dataset.testid === 'inventory-unequip-blade-gold');
   assert.ok(button, 'the equipped blade card must expose Unequip');
   (button as unknown as { click: () => void }).click();
   assert.equal(unequipped, 'blade-gold');
 });
 
-test('inventory shows a helpful empty state rather than a blank page', () => {
+test('inventory retains free starter turrets when the skin collection is empty', () => {
   resetInventoryView();
   const root = host();
   const save = defaultSave();
   save.ownedSkins = [];
   save.ownedHeroes = [];
   renderInventory(root, save, { onEquip: noop, onSell: noop });
-  assert.match(root.innerHTML, /ftd-empty/);
+  assert.match(root.innerHTML, /TURRET 1/);
+  assert.match(root.innerHTML, /turret:laser/);
 });
 
 test('hero screen renders roster, level and an action', () => {

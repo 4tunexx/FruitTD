@@ -1,3 +1,4 @@
+import { turretOffers,ownsTurret,equippedTurrets,TURRET_SLOTS,type TurretOffer } from '../../src/game/turretLoadout';
 import { purchaseHeroPerk } from '../../src/game/heroPerkPurchase';
 import { gearPriceError } from '../../src/game/catalogEconomy';
 import { Router, type Request, type Response } from 'express';
@@ -22,9 +23,11 @@ export interface ItemsRouteDeps {
   resolveUser(req: Request): Promise<RequestUser>;
   collection<T extends Record<string, any>>(name: string): Promise<Collection<T>>;
   slicers(): Promise<CatalogSlicer[]>;
+  turrets?():Promise<TurretOffer[]>;
 }
 
 const defaultDeps: ItemsRouteDeps = {
+  turrets:async()=>turretOffers((await (await getCollection<any>('admin_config')).findOne({configKey:'game_config'}))?.creatorMedia),
   resolveUser: resolveRequestUser,
   collection: getCollection,
   slicers: async () => (await loadQuestCatalog()).slicers,
@@ -53,11 +56,13 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       }
 
       const slicers = await deps.slicers();
+      const offers=await deps.turrets?.()??turretOffers(null);
+      const turret=id.startsWith('turret:')?offers.find(offer=>offer.kind===id.slice(7)):undefined;
       const slicer = isSlicer(id, slicers);
       const wall = WALL_SKINS.find((item) => item.id === id);
       const heroId = id.startsWith('hero:') ? id.slice(5) as HeroId : null;
       const hero = heroId && HEROES.find((item) => item.id === heroId);
-      if (!['buy-vip', 'buy-skill', 'buy-ability', 'equip-ability', 'buy-perk'].includes(action) && !slicer && !wall && !hero) return res.status(404).json({ success: false, error: 'Gear not found' });
+      if (!['buy-vip', 'buy-skill', 'buy-ability', 'equip-ability', 'buy-perk'].includes(action) && !slicer && !wall && !hero && !turret) return res.status(404).json({ success: false, error: 'Gear not found' });
       if ((action === 'buy' || action === 'sell') && (slicer || wall)) {
         const gear = slicer ?? wall!;
         if (gearPriceError(gear.cost, gear.sellValue)) return res.status(422).json({ success: false, error: 'This gear has invalid pricing. Please contact an admin.' });
@@ -72,7 +77,7 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       const saveData = { ...defaultSave(), ...structuredClone(current?.saveData ?? {}) };
       const ownedSkins: string[] = Array.isArray(saveData.ownedSkins) ? saveData.ownedSkins : [];
       const ownedHeroes: string[] = Array.isArray(saveData.ownedHeroes) ? saveData.ownedHeroes : [];
-      const owned = hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
+      const owned = turret ? ownsTurret(saveData,turret) : hero ? ownedHeroes.includes(hero.id) : ownedSkins.includes(id);
 
       if(action==='buy-perk') {
         const [heroId,perkId]=id.split(':');
@@ -121,7 +126,11 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
       }
 
       if (action === 'buy') {
-        if (hero) {
+        if(turret){
+          if(owned)return res.status(409).json({success:false,error:'Turret already unlocked'});
+          if(!Number.isSafeInteger(saveData.coins)||saveData.coins<turret.price)return res.status(422).json({success:false,error:'Not enough coins'});
+          saveData.coins-=turret.price;saveData.ownedTurrets=[...(saveData.ownedTurrets||[]),turret.kind];
+        } else if (hero) {
           const result = purchaseHeroAtomic(saveData as SaveData, hero.id);
           if (!result.ok) return res.status(result.error === 'already-owned' ? 409 : 422).json({ success: false, error: result.message });
         } else {
@@ -136,17 +145,23 @@ export function createItemsRouter(deps: ItemsRouteDeps = defaultDeps): Router {
         }
       } else if (action === 'equip') {
         if (!owned) return res.status(403).json({ success: false, error: 'Gear is not owned' });
-        if (hero) {
+        if(turret){
+          const loadout=equippedTurrets(saveData,offers);
+          if(!loadout.includes(turret.kind)&&loadout.length>=TURRET_SLOTS)return res.status(409).json({success:false,error:'All six turret slots are full. Unequip one first.'});
+          saveData.turretLoadout=[...new Set([...loadout,turret.kind])];
+        } else if (hero) {
           if (!canEquipHero(saveData as SaveData, hero.id)) return res.status(403).json({ success: false, error: 'Hero is not unlocked' });
           saveData.hero = hero.id;
         } else if (slicer) saveData.bladeSkin = id;
         else saveData.wallSkin = id;
       } else if (action === 'unequip') {
         if (hero) return res.status(422).json({ success: false, error: 'A hero must remain selected' });
-        if (slicer && saveData.bladeSkin === id) saveData.bladeSkin = '';
+        if(turret){saveData.turretLoadout=equippedTurrets(saveData,offers).filter(kind=>kind!==turret.kind);}
+        else if (slicer && saveData.bladeSkin === id) saveData.bladeSkin = '';
         else if (wall && saveData.wallSkin === id) saveData.wallSkin = '';
         else return res.status(409).json({ success: false, error: 'Gear is not equipped' });
       } else if (action === 'sell') {
+        if(turret)return res.status(422).json({success:false,error:'Turret unlocks are permanent and cannot be sold.'});
         if (hero) return res.status(422).json({ success: false, error: 'Heroes cannot be sold' });
         const sellValue = slicer?.sellValue ?? wall?.sellValue ?? 0;
         if (!owned) return res.status(403).json({ success: false, error: 'Gear is not owned' });

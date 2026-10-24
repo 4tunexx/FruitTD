@@ -1,3 +1,5 @@
+import {turretOffers,equippedTurrets} from '../game/turretLoadout';
+import {getPublishedCreatorMedia} from '../game/creatorMedia';
 import { TitleStory } from './titleStory';
 import { TURRET_WEAPONS } from '../game/turretWeapons';
 import type { JuiceBank } from '../game/juice';
@@ -161,10 +163,11 @@ export class Hud {
 
   private refreshTurretShop():void {
     refreshCreatorTurrets();
+    const available=equippedTurrets(this.currentSave||loadSave(),turretOffers(getPublishedCreatorMedia()));
     for(const button of this.shop.querySelectorAll('button[data-turret]')){
-      if(!TURRETS.some(def=>def.kind===(button as HTMLElement).dataset.turret))button.remove();
+      if(!available.includes((button as HTMLElement).dataset.turret||''))button.remove();
     }
-    for (const def of TURRETS) {
+    for (const def of TURRETS.filter(def=>available.includes(def.kind))) {
       if(this.shop.querySelector(`[data-turret="${def.kind}"]`))continue;
       const btn = document.createElement('button');
       btn.type = 'button';

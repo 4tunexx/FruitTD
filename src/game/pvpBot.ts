@@ -1,3 +1,4 @@
+import {turretAllowed} from './turretLoadout';
 import { applyPvpCommand, pvpBuildCellAllowed, pvpUpgradeCost, pvpTowerLevel, pvpReleaseCost, pvpMainUpgradeCost, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
 
 /** Runs the test opponent through the same validated commands as a human player. */
@@ -11,7 +12,7 @@ export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: 
   const captured = bot.captured?.find(item => opponent.attackers.length<128 && bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost, config.attacks[item.type]!.packSize));
   if (captured) return { type: 'release', capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < .75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: 'upgrade-main' };
-  const availableTowers = Object.entries(config.towers).filter(([, stats]) => bot.fruts >= stats.cost);
+  const availableTowers = Object.entries(config.towers).filter(([id, stats]) => turretAllowed(id,bot.turretLoadout)&&bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)]!;
     const cells = map.buildCells.filter((cell) => pvpBuildCellAllowed(map,cell)&&!bot.towers.some((tower) => tower.cell === cell));

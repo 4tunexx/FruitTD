@@ -666,6 +666,7 @@
 
 .ftd-item-card__footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -705,7 +706,7 @@
 /* Equipped loadout strip */
 .ftd-loadout-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
   gap: 0.6rem;
 }
 
@@ -1477,3 +1478,5 @@ body:not([data-ftd-screen='PLAY']):not([data-ftd-screen='PAUSED']):not([data-ftd
  .ftd-power-row__track { gap:2px; }
  .ftd-power-row__hex { flex-basis:23px; width:23px; height:27px; }
 }
+
+.ftd-loadout-slot{min-width:0;gap:6px}.ftd-loadout-slot__name{overflow-wrap:anywhere}.ftd-loadout-slot>svg{color:var(--slot-color,#b4ff3a)}

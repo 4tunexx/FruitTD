@@ -91,7 +91,7 @@ export function createProfileRouter(deps: ProfileRouteDeps = defaultDeps): Route
         return res.status(409).json({ success: false, error: 'Save conflict: reload the current server revision', revision: currentRevision });
       }
 
-      const authoritative = current?.saveData ?? defaultSave();
+      const authoritative = { ...defaultSave(), ...current?.saveData };
       const authorityError = serverOwnedSaveError(incoming as Record<string, unknown>, authoritative as unknown as Record<string, unknown>);
       if (authorityError) return res.status(422).json({ success: false, error: authorityError, revision: currentRevision });
 

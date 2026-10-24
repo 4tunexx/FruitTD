@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {heroAbility,HERO_ABILITIES} from './heroAbilities';
 import {powerDamageMultiplier,powerTargets,powerStats,superKillCharge,superSliceCharge} from './powerCombat';
-import {DEFAULT_PVP_CONFIG as cfg,pvpBuildCellAllowed,pvpPowerEnvelope,normalizePvpMaps,createPvpPlayer,newPvpMatch,applyPvpCommand} from './pvp';
+import {DEFAULT_PVP_CONFIG as cfg,pvpBuildCellAllowed,normalizePvpMaps,createPvpPlayer,newPvpMatch,applyPvpCommand} from './pvp';
 import {newCoopMatch,applyCoopCommand,advanceCoopMatch,coopMainStats,DEFAULT_COOP_CONFIG} from './onlineCoop';
 import {towerHealthRail} from './towerHealthRail';
 
@@ -42,18 +42,14 @@ test('Arena/Ranked enforce defensive build territory even on stale maps with for
  assert.deepEqual(normalizePvpMaps(legacy),cfg.maps);
 });
 
-test('PvP powers reject distant attackers without spending, then tower upgrades extend actual reach with falloff',()=>{
+test('PvP powers reach the opposite approach with less damage than near the keep',()=>{
  const own=createPvpPlayer('a','A','blue',cfg),other=createPvpPlayer('b','B','red',cfg);
  Object.assign(own,{hero:'jiju',abilityLoadout:['jiju-1'],abilityRanks:{'jiju-1':1},fruts:1000});
  const game=newPvpMatch('range','arena',[own,other],0,cfg);game.status='active';game.map=cfg.map;game.endsAt=100000;
- own.attackers=[{id:'outside',type:'normal',hp:100,maxHp:100,progress:cfg.map.pathCells.length-3.5}];
- const before=structuredClone(game);
- assert.throws(()=>applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},1,2000,cfg),/No vulnerable/);assert.deepEqual(game,before);
- const initialRange=pvpPowerEnvelope(cfg.map,cfg,1).radius;
- applyPvpCommand(game,'a',{type:'upgrade-main'},1,2100,cfg);
- assert.ok(pvpPowerEnvelope(cfg.map,cfg,2).radius>initialRange);
- applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},2,2200,cfg);
+ own.attackers=[{id:'distant',type:'normal',hp:100,maxHp:100,progress:-cfg.map.pathCells.length}];
+ applyPvpCommand(game,'a',{type:'ability',abilityId:'jiju-1'},1,2000,cfg);
  assert.ok(own.attackers[0]!.hp<100);assert.ok(own.attackers[0]!.hp>100-heroAbility('jiju-1')!.damage);
+ assert.equal(own.powerCasts?.[0]?.targets[0]?.progress,-cfg.map.pathCells.length);
 });
 
 test('online Co-op slice-only enemies and bosses ignore turret fire and powers but take direct blade damage',()=>{

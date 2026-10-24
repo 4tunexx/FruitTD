@@ -1,3 +1,4 @@
+import { STARTER_TURRETS } from './turretLoadout';
 import { HEROES, heroXpForLevel, heroXpToLevel, MAX_HERO_LEVEL, type HeroId } from './heroes';
 import { SKILLS, emptySkills, type SkillId, type SkillMap } from './skills';
 import { getTowerProgression, syncTowerProgression } from './towerProgression';
@@ -31,6 +32,8 @@ export interface SaveData {
   skillPoints: number;
   skills: SkillMap;
   ownedSkins: string[];
+  ownedTurrets:string[];
+  turretLoadout:string[];
   bladeSkin: string;
   wallSkin: string;
   mode: GameMode;
@@ -74,7 +77,7 @@ export function defaultSave(): SaveData {
   return {
     hero:'jiju', xp:emptyXp(), ownedHeroes:['jiju'], towerXp:0, towerLifetimeXp:0,
     highScore:0, rankedScore:0, bestWave:1, bestCombo:0, games:0, coins:0, gems:0, nickname:'Slicer', avatar:defaultAvatar('Slicer'),
-    skillPoints:0, skills:emptySkills(), ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
+    skillPoints:0, skills:emptySkills(), ownedTurrets:[],turretLoadout:[...STARTER_TURRETS],ownedSkins:['blade-default','wall-brick'], bladeSkin:'blade-default', wallSkin:'wall-brick', mode:'casual',
     heroPerkRanks:emptyPerkRanks(), heroAbilityRanks:emptyHeroAbilityRanks(), heroAbilityLoadouts:emptyHeroAbilityLoadouts(), vipStatus:'none',
     saveRevision:0, savedAt:0, campaignProgress: { unlocked: 1, cleared: [] },
   };
@@ -92,6 +95,8 @@ export function sanitiseSave(data: SaveData): SaveData {
 
   for (const hero of HEROES) data.xp[hero.id] = safeInt(data.xp[hero.id], 0, 0, Math.min(MAX_HERO_XP, heroXpForLevel(MAX_HERO_LEVEL)));
   data.ownedHeroes = [...new Set(data.ownedHeroes.filter((id) => HEROES.some((h) => h.id === id)))];
+  data.ownedTurrets=uniqueStrings(data.ownedTurrets,[]);
+  data.turretLoadout=uniqueStrings(data.turretLoadout,STARTER_TURRETS).slice(0,6);
   data.ownedSkins = uniqueStrings(data.ownedSkins, base.ownedSkins);
   for (const skill of SKILLS) data.skills[skill.id] = safeInt(data.skills[skill.id], 0, 0, skill.max);
   data.towerLifetimeXp = Math.max(safeInt(data.towerLifetimeXp, 0), safeInt(data.towerXp, 0));

@@ -1,3 +1,4 @@
+import { withCreatorTurrets,turretOffers,equippedTurrets } from '../../src/game/turretLoadout';
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { Rest } from 'ably';
@@ -30,7 +31,7 @@ let ablySubscriber: Rest | null = null;
 
 async function currentPvpConfig(): Promise<PvpConfig> {
   const doc = await (await getCollection<any>('admin_config')).findOne({ configKey: 'game_config' });
-  return doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig } as any).pvpConfig : DEFAULT_PVP_CONFIG;
+  return withCreatorTurrets(doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig } as any).pvpConfig : DEFAULT_PVP_CONFIG,doc?.creatorMedia);
 }
 async function ratingFor(userId: string, config: PvpConfig): Promise<RatingDoc> {
   const col = await getCollection<RatingDoc>('pvp_ratings');
@@ -93,7 +94,7 @@ export function publicMatch(match: StoredMatch, userId: string) {
   if (!match.players.some((player) => player.userId === userId)) return null;
   return { id: match.id, queue: match.queue, status: match.status, testMatch: Boolean(match.testMatch), remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision,
     map: match.map, mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })), vetoTurnId: match.vetoTurn, yourVetoTurn: match.vetoTurn === userId, vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...(id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}), ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...(id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}), ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side, winnerId: match.winnerId, resultReason: match.resultReason };
@@ -104,7 +105,8 @@ async function equippedAppearance(userId: string) {
   const hero = HEROES.some(item => item.id === save?.hero) && (save?.hero === 'jiju' || save?.ownedHeroes?.includes(save.hero)) ? save.hero : 'jiju';
   const wallSkin = WALL_SKINS.some(item => item.id === save?.wallSkin) && (save?.wallSkin === 'wall-brick' || save?.ownedSkins?.includes(save.wallSkin)) ? save.wallSkin : 'wall-brick';
   const rawLoadout=save?.heroAbilityLoadouts?.[hero];const abilityLoadout=Array.isArray(rawLoadout)?rawLoadout.filter((id:string)=>heroAbility(id)?.hero===hero).slice(0,3):hero==='jiju'?['jiju-1']:[];
-  return { hero, wallSkin, abilityLoadout, abilityRanks:save?.heroAbilityRanks??{}, abilityReadyAt:{} };
+  const admin=await(await getCollection<any>('admin_config')).findOne({configKey:'game_config'});
+  return {turretLoadout:equippedTurrets(save??{},turretOffers(admin?.creatorMedia)), hero, wallSkin, abilityLoadout, abilityRanks:save?.heroAbilityRanks??{}, abilityReadyAt:{} };
 }
 async function makeMatch(queue: PvpQueue, left: { userId: string; name: string }, right: { userId: string; name: string }, config: PvpConfig): Promise<StoredMatch> {
   const match = newPvpMatch(randomUUID(), queue, [createPvpPlayer(left.userId, left.name, 'blue', config), createPvpPlayer(right.userId, right.name, 'red', config)], Date.now(), config) as StoredMatch;

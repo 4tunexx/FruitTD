@@ -1,3 +1,4 @@
+import { turretLevelTuning } from './studioRuntime';
 import { CircleGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three';
 import type { TurretKind } from './turrets';
 import { COMBAT_GOLD } from './combatTokens';
@@ -11,7 +12,8 @@ export class TurretEffects {
   const mesh=new Mesh(geometry,new MeshBasicMaterial({color,transparent:true,opacity,side:DoubleSide,depthWrite:false,depthTest:false,toneMapped:false}));
   mesh.renderOrder=35;mesh.userData.opacity=opacity;return mesh;
  }
- shot(kind:TurretKind|'main',from:Vector3,to:Vector3,level=1,color=kind==='main'?TURRET_COLORS.main:TURRET_WEAPONS[kind].color,scale=1,radius?:number):void {
+ shot(kind:TurretKind|'main',from:Vector3,to:Vector3,level=1,color=kind==='main'?TURRET_COLORS.main:TURRET_WEAPONS[kind].color,scale=1,radius?:number,rounds=turretLevelTuning(kind,level).projectileCount??1):void {
+  if(rounds>1){const count=Math.max(1,Math.min(5,Math.floor(rounds)));const side=new Vector3(-(to.z-from.z),0,to.x-from.x).normalize();for(let i=0;i<count;i++){const offset=side.clone().multiplyScalar((i-(count-1)/2)*.18);this.shot(kind,from.clone().add(offset),to.clone().add(offset),level,color,scale,radius,1);}return;}
   const group=new Group(),strength=(1+Math.min(9,level-1)*.065)*scale;
   const behavior=kind==='main'?'main':TURRET_WEAPONS[kind].chassis||kind;
   const travel=projectileTravelSeconds(kind,from.distanceTo(to));
@@ -26,7 +28,7 @@ export class TurretEffects {
    mesh.position.copy(a).lerp(b,.5);mesh.quaternion.setFromUnitVectors(new Vector3(0,1,0),delta.normalize());group.add(mesh);return mesh;
   };
   if(behavior==='railgun'||behavior==='blender') {
-   const projectile=this.mesh(new SphereGeometry(behavior==='blender'?.19:.13,8,6),behavior==='blender'?0x272d30:COMBAT_GOLD);
+   const projectile=this.mesh(new SphereGeometry(behavior==='blender'?.19:.13,8,6),color);
    projectile.userData.projectile=true;projectile.userData.arc=behavior==='blender'?1.8:.2;group.add(projectile);
    const smoke=this.mesh(new SphereGeometry(.15,6,4),0x938674,.5);smoke.userData.exhaust=true;group.add(smoke);
    const splash=stats!.blast*scale;

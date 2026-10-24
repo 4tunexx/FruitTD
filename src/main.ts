@@ -1,3 +1,5 @@
+import {turretOffers,equippedTurrets,ownsTurret} from './game/turretLoadout';
+import {getPublishedCreatorMedia} from './game/creatorMedia';
 import {GraphicsRecovery} from './engine/graphicsRecovery';
 import { gearPriceError } from './game/catalogEconomy';
 import { turretLevelTuning } from './game/studioRuntime';
@@ -508,6 +510,7 @@ function buySkin(id: string): void {
     void performSignedInCatalogueAction('buy', id);
     return;
   }
+  if(id.startsWith('turret:')){const offer=turretOffers(getPublishedCreatorMedia()).find(row=>row.kind===id.slice(7));if(!offer||ownsTurret(save,offer)||save.coins<offer.price){sfx.denied();return;}save.coins-=offer.price;save.ownedTurrets.push(offer.kind);persist();refreshCurrentScreen();return;}
   if (id.startsWith('hero:')) {
     hud.onHeroPurchase?.(id.slice(5) as HeroId);
     return;
@@ -549,6 +552,7 @@ function equipItem(id: string): void {
     void performSignedInCatalogueAction('equip', id);
     return;
   }
+  if(id.startsWith('turret:')){const offers=turretOffers(getPublishedCreatorMedia()),offer=offers.find(row=>row.kind===id.slice(7)),loadout=equippedTurrets(save,offers);if(!offer||!ownsTurret(save,offer))return;if(!loadout.includes(offer.kind)&&loadout.length>=6){toast(state,'Six turret slots are full. Unequip one first.',2.4);return;}save.turretLoadout=[...new Set([...loadout,offer.kind])];persist();refreshCurrentScreen();return;}
   if (id.startsWith('hero:')) {
     const heroId = id.slice(5) as HeroId;
     if (canEquipHero(save, heroId)) selectHero(heroId);
@@ -574,6 +578,7 @@ function unequipItem(id: string): void {
     void performSignedInCatalogueAction('unequip', id);
     return;
   }
+  if(id.startsWith('turret:')){save.turretLoadout=equippedTurrets(save,turretOffers(getPublishedCreatorMedia())).filter(kind=>kind!==id.slice(7));persist();refreshCurrentScreen();return;}
   if (!id) return;
   let changed = false;
   if (save.bladeSkin === id) {
@@ -1055,6 +1060,7 @@ function maybeOver(): void {
 }
 
 function tryPlace(kind: TurretKind): void {
+  if(!equippedTurrets(save,turretOffers(getPublishedCreatorMedia())).includes(kind)){toast(state,'Equip this turret in Inventory first.',2);return;}
   if (!navigation.canInteract() || !state.running) return;
   const slot = wall.selectedSlot();
   const pad = slot;
@@ -1417,7 +1423,7 @@ function tryHeroAbility(id: string): void {
   const swipe = new Vector3(0, 0.4, 1);
   const living = fruits.fruits.filter((fruit) => fruit.alive && fruit.enemyKind!=='explosive' && fruit.enemyKind!=='bladebound');
   const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
-  const stats=powerStats(ability,rank);const envelope=wall.powerEnvelope;
+  const stats=powerStats(ability,rank);const envelope=wall.abilityEnvelope;
   const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:-fruit.group.position.z}),envelope);
   if(!targets.length&&(!stats.healFraction||state.lives>=state.maxLives)){toast(state,'No vulnerable targets',1.2);sfx.denied();return;}
   state.superJuice-=stats.cost;heroAbilityReadyAt[id]=Date.now()+stats.cooldownMs;
