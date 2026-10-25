@@ -2008,6 +2008,17 @@ function draw(): void {
 
 const loop = new GameLoop(simulate, draw, () => {
   hud.sync(state, wall, bank, loop.fps, () => undefined, save.skillPoints, navigation.isInGame());
+  if (navigation.isInGame() && state.running && wall.hasSelection) {
+    const fieldRect = canvas.getBoundingClientRect();
+    wall.selectedSlot().pad.getWorldPosition(_scr);
+    _scr.y += 1.2;
+    _scr.project(renderer.camera);
+    hud.setCommandAnchor(
+      fieldRect.left + (_scr.x * .5 + .5) * fieldRect.width,
+      fieldRect.top + (-_scr.y * .5 + .5) * fieldRect.height,
+      fieldRect,
+    );
+  }
   updateTowerChip();
 });
 hud.onPlace = (kind) => {

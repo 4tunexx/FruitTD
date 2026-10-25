@@ -466,7 +466,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy,'fruts',own.abilityRanks?.[id]??1);
       powerRail.appendChild(power);
     }
-    tray.append(resource,powerRail,actionRail,tools);
+    tray.append(resource,actionRail,tools);
+    battlefield.element.querySelector('.ftd-duel-powers')?.remove();
+    battlefield.element.appendChild(powerRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
     const closePanel=el('button',{class:'ftd-duel-panel-close',type:'button','aria-label':'Close action panel'},[lucideIcon('X','',18)]);
     closePanel.addEventListener('click',()=>{dockExpanded=false;selectedCell=null;pendingBuildCell=null;render();});panel.append(closePanel);

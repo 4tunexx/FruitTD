@@ -9,7 +9,7 @@ export function combatHudSlots(profileBottom:number,statusHeight:number,bossHeig
 /** Measured HUD slots share one owner; no inline position overrides compete with CSS. */
 export function installCombatHudLayout():void {
   const hud=document.getElementById('hud'),profile=document.getElementById('player-chip');
-  const status=document.getElementById('battle-status'),boss=document.getElementById('boss-health'),notice=document.getElementById('hud-toast');
+  const status=document.getElementById('battle-status'),boss=document.getElementById('boss-health'),notice=document.getElementById('hud-toast'),field=document.getElementById('game-canvas');
   if(!hud||!profile||!status)return;
   const toggle=document.createElement('button');
   toggle.type='button';toggle.id='combat-status-toggle';toggle.textContent='Hide info';
@@ -21,6 +21,11 @@ export function installCombatHudLayout():void {
     toggle.setAttribute('aria-expanded',String(!collapsed));
   });
   const align=()=>{
+    const fieldRect=field?.getBoundingClientRect();
+    if(fieldRect&&fieldRect.width>0&&fieldRect.height>0){
+      const bounds={left:fieldRect.left,top:fieldRect.top,right:fieldRect.right,bottom:fieldRect.bottom,width:fieldRect.width,height:fieldRect.height,centerY:fieldRect.top+fieldRect.height/2};
+      for(const [name,value] of Object.entries(bounds))document.documentElement.style.setProperty(`--combat-field-${name}`,`${value}px`);
+    }
     const origin=hud.getBoundingClientRect().top;
     const slots=combatHudSlots(profile.getBoundingClientRect().bottom-origin,status.getBoundingClientRect().height,
       boss?.getBoundingClientRect().height??0,window.innerHeight<=520&&window.innerWidth>=640,notice?.getBoundingClientRect().height??0);
@@ -30,6 +35,6 @@ export function installCombatHudLayout():void {
     }
   };
   const observer=new ResizeObserver(align);
-  for(const element of [profile,status,boss,notice])if(element)observer.observe(element);
+  for(const element of [profile,status,boss,notice,field])if(element)observer.observe(element);
   window.addEventListener('resize',align,{passive:true});align();
 }

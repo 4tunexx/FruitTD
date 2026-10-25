@@ -83,6 +83,7 @@ export class Hud {
   private readonly upgrade = document.getElementById('btn-upgrade')!;
   private readonly sell = document.getElementById('btn-sell')!;
   private readonly move = document.getElementById('btn-move')!;
+  private readonly actionButtons = document.getElementById('action-btns')!;
   private readonly place = document.getElementById('btn-place')!;
   private readonly toggle = document.getElementById('btn-toggle')!;
   private readonly pause = document.getElementById('hud-pause')!;
@@ -95,6 +96,10 @@ export class Hud {
   };
   private readonly shop = document.getElementById('hud-shop')!;
   private readonly commandPopup = document.getElementById('command-popup')!;
+  private readonly turretNav = document.querySelector<HTMLElement>('.command-carousel__nav')!;
+  private readonly turretPrev = document.getElementById('btn-turret-prev') as HTMLButtonElement;
+  private readonly turretNext = document.getElementById('btn-turret-next') as HTMLButtonElement;
+  private readonly turretPageLabel = document.getElementById('turret-page-label')!;
   private readonly hero = document.getElementById('hud-hero')!;
   private readonly hpValue = document.getElementById('hud-hp-value');
   private readonly hpPanel = document.getElementById('hp-row');
@@ -165,8 +170,9 @@ export class Hud {
   private refreshTurretShop():void {
     refreshCreatorTurrets();
     const available=equippedTurrets(this.currentSave||loadSave(),turretOffers(getPublishedCreatorMedia()));
+    let changed=false;
     for(const button of this.shop.querySelectorAll('button[data-turret]')){
-      if(!available.includes((button as HTMLElement).dataset.turret||''))button.remove();
+      if(!available.includes((button as HTMLElement).dataset.turret||'')){button.remove();changed=true;}
     }
     for (const def of TURRETS.filter(def=>available.includes(def.kind))) {
       if(this.shop.querySelector(`[data-turret="${def.kind}"]`))continue;
@@ -174,11 +180,30 @@ export class Hud {
       btn.type = 'button';
       btn.dataset.turret = def.kind;
       btn.className = 'turret-btn';
-      btn.append(lucideIcon(TURRET_WEAPONS[def.kind].icon || 'TowerControl', 'turret-btn__glyph', 20), document.createElement('span'));
-      const detail=document.createElement('small');detail.className='turret-btn__detail';detail.textContent=def.blurb+(def.fuel==='none'?'':` Uses ${def.fuel} juice.`);btn.appendChild(detail);
+      const name=document.createElement('span');name.className='turret-btn__name';name.textContent=def.name;
+      const cost=document.createElement('strong');cost.className='turret-btn__cost';cost.textContent=`${def.cost} F`;
+      const detail=document.createElement('small');detail.className='turret-btn__detail';detail.textContent=def.blurb+(def.fuel==='none'?'':` Uses ${def.fuel} juice.`);
+      const status=document.createElement('small');status.className='turret-btn__status';
+      btn.append(lucideIcon(TURRET_WEAPONS[def.kind].icon || 'TowerControl', 'turret-btn__glyph', 20),name,cost,detail,status);
+      btn.title = `${def.name} · ${def.cost} Fruts · ${def.blurb}`;
+      btn.setAttribute('aria-label', btn.title);
       btn.addEventListener('click', () => this.onPlace?.(def.kind));
       this.shop.appendChild(btn);
+      changed=true;
     }
+    if(changed)requestAnimationFrame(() => this.updateTurretCarousel());
+  }
+
+  private updateTurretCarousel(): void {
+    const width = Math.max(1, this.shop.clientWidth);
+    const maxScroll = Math.max(0, this.shop.scrollWidth - width);
+    const pageCount = Math.max(1, Math.ceil(this.shop.scrollWidth / width));
+    const atEnd = this.shop.scrollLeft >= maxScroll - 3;
+    const page = atEnd ? pageCount : Math.min(pageCount, Math.floor(this.shop.scrollLeft / width) + 1);
+    this.turretNav.hidden = maxScroll <= 3;
+    this.turretPrev.disabled = this.shop.scrollLeft <= 3;
+    this.turretNext.disabled = atEnd;
+    this.turretPageLabel.textContent = `${page} / ${pageCount}`;
   }
 
   constructor(private readonly sfx?: Sfx) {
@@ -227,6 +252,23 @@ export class Hud {
     backdrop?.classList.toggle('hidden', !open);
   }
 
+  setCommandAnchor(screenX: number, screenY: number, field: DOMRect): void {
+    const gap = 14;
+    const inset = 12;
+    const width = this.commandPopup.offsetWidth || Math.min(360, field.width - inset * 2);
+    const height = this.commandPopup.offsetHeight || Math.min(360, field.height - inset * 2);
+    const rightLimit = field.right - inset - 82;
+    const rightSpace = rightLimit - screenX - gap;
+    const leftSpace = screenX - field.left - gap - inset;
+    const left = rightSpace >= width || rightSpace >= leftSpace
+      ? screenX + gap
+      : screenX - width - gap;
+    const top = screenY - height / 2;
+    this.commandPopup.style.left = `${Math.max(field.left + inset, Math.min(left, rightLimit - width))}px`;
+    this.commandPopup.style.top = `${Math.max(field.top + inset, Math.min(top, field.bottom - height - inset))}px`;
+    this.commandPopup.style.bottom = 'auto';
+  }
+
   mountAbilityBar(save: SaveData, onUse: (id: string) => void, cooldowns: () => Record<string, number>): void {
     this.abilitySave = save; this.abilityUse = onUse; this.abilityCooldowns = cooldowns;
     if (!this.abilityBar) { this.abilityBar = document.createElement('div'); this.abilityBar.className = 'hero-ability-bar hero-ability-bar--solo'; this.abilityBar.setAttribute('aria-label', 'Equipped hero powers'); document.getElementById('hud')?.appendChild(this.abilityBar); }
@@ -256,6 +298,15 @@ export class Hud {
     });
     document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
     document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
+    this.turretPrev.addEventListener('click', () => {
+      this.shop.scrollBy({ left: -Math.max(1, this.shop.clientWidth), behavior: 'smooth' });
+    });
+    this.turretNext.addEventListener('click', () => {
+      this.shop.scrollBy({ left: Math.max(1, this.shop.clientWidth), behavior: 'smooth' });
+    });
+    this.shop.addEventListener('scroll', () => this.updateTurretCarousel(), { passive: true });
+    new ResizeObserver(() => this.updateTurretCarousel()).observe(this.shop);
+    this.updateTurretCarousel();
   }
 
   showMenu(open: boolean): void {
@@ -1173,6 +1224,8 @@ export class Hud {
     const slot = wall.selectedSlot();
     const pad = slot;
     this.commandPopup.classList.toggle('hidden', !playActive || !state.running || !wall.hasSelection);
+    this.commandPopup.classList.toggle('is-build-selection', !wall.moving && !slot.main && !slot.filled);
+    this.actionButtons.classList.toggle('is-main-upgrade', slot.main);
     if (wall.moving) {
       this.pick.textContent = 'Click a gold pad to move · click again to cancel';
       this.shop.classList.add('hidden');
@@ -1180,7 +1233,7 @@ export class Hud {
       this.sell.classList.add('hidden');
       this.toggle.classList.add('hidden');
       this.move.classList.remove('hidden');
-      this.move.textContent = '↩ Cancel move';
+      this.move.querySelector<HTMLElement>('.action-btn__label')!.textContent = 'Cancel';
     } else if (slot.main) {
       this.pick.textContent = `Main tower  ·  Lv ${slot.level}/${MAX_TOWER_LEVEL}`;
       this.shop.classList.add('hidden');
@@ -1195,30 +1248,39 @@ export class Hud {
       this.shop.classList.add('hidden');
       this.upgrade.classList.remove('hidden');
       this.sell.classList.remove('hidden');
-      this.sell.textContent = `Sell  +${sellRefund(slot.kind, slot.level)} F`;
+      const sellLabel = `Sell +${sellRefund(slot.kind, slot.level)} F`;
+      this.sell.querySelector<HTMLElement>('.action-btn__label')!.textContent = sellLabel;
+      this.sell.setAttribute('aria-label', sellLabel);
       this.move.classList.remove('hidden');
-      this.move.textContent = 'Move  M';
+      this.move.querySelector<HTMLElement>('.action-btn__label')!.textContent = 'Move · M';
       this.toggle.classList.add('hidden');
       this.setUpgrade(state.currency, slot.level, def.name);
     } else {
       this.pick.textContent = pad.floor ? 'Ground defence pad' : 'Wall pad — turret';
+      const shopWasHidden=this.shop.classList.contains('hidden');
       this.shop.classList.remove('hidden');
       this.upgrade.classList.add('hidden');
       this.sell.classList.add('hidden');
       this.move.classList.add('hidden');
       this.toggle.classList.add('hidden');
       this.refreshTurretShop();
+      if(shopWasHidden)requestAnimationFrame(()=>this.updateTurretCarousel());
       for (const btn of this.shop.querySelectorAll('button')) {
         const kind = btn.dataset.turret as TurretKind;
         const def = turretDef(kind);
         const affordable = state.currency >= def.cost;
         const fits = canPlaceTurret(kind, pad);
         btn.disabled = !fits || !affordable;
-        const caption = btn.querySelector('span');
-        if (caption) caption.textContent = `${def.name}  ${def.cost} F${fits ? '' : '  (floor only)'}${!affordable && fits ? '  insufficient' : ''}`;
+        const cost = btn.querySelector<HTMLElement>('.turret-btn__cost');
+        if (cost) cost.textContent = `${def.cost} F`;
+        const badge = btn.querySelector<HTMLElement>('.turret-btn__status');
+        if (badge) {
+          badge.textContent = !fits ? 'FLOOR PAD' : !affordable ? `NEED ${def.cost - state.currency} F` : 'READY TO BUILD';
+          badge.classList.toggle('is-warning', !fits || !affordable);
+        }
+        btn.setAttribute('aria-label',`${def.name} · ${def.cost} Fruts · ${!fits?'floor pad required':!affordable?`need ${def.cost-state.currency} more Fruts`:'ready to build'} · ${def.blurb}`);
       }
     }
-
     if (state.toast && state.toast !== '__restart__' && state.toast !== this.lastToast) {
       this.lastToast = state.toast;
       onToast(state.toast);
@@ -1245,13 +1307,16 @@ export class Hud {
   }
 
   private setUpgrade(money: number, level: number, label: string): void {
+    const actionLabel = this.upgrade.querySelector<HTMLElement>('.action-btn__label');
     const cost = upgradeCost(level);
     if (cost == null) {
-      this.upgrade.textContent = `${label} maxed  ★ Lv ${MAX_TOWER_LEVEL}`;
+      if(actionLabel)actionLabel.textContent = 'MAXED';
+      this.upgrade.setAttribute('aria-label',`${label} maxed · level ${MAX_TOWER_LEVEL}`);
       this.upgrade.toggleAttribute('disabled', true);
       return;
     }
-    this.upgrade.textContent = `Level up ${label}  ${cost} F`;
+    if(actionLabel)actionLabel.textContent = `Level up · ${cost} F`;
+    this.upgrade.setAttribute('aria-label',`Level up ${label} · ${cost} Fruts`);
     this.upgrade.toggleAttribute('disabled', money < cost);
   }
 

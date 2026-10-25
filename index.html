@@ -238,6 +238,11 @@
         <section id="command-popup" class="hidden" aria-label="Selected tower quick actions">
           <header class="command-popup__header">
             <div><span>FIELD COMMAND</span><strong>QUICK ACTIONS</strong></div>
+            <div class="command-carousel__nav" aria-label="Choose a turret">
+              <button id="btn-turret-prev" type="button" aria-label="Previous turrets" title="Previous turrets"><span data-lucide="ChevronLeft" aria-hidden="true"></span></button>
+              <span id="turret-page-label" aria-live="polite">1 / 1</span>
+              <button id="btn-turret-next" type="button" aria-label="Next turrets" title="Next turrets"><span data-lucide="ChevronRight" aria-hidden="true"></span></button>
+            </div>
             <button id="btn-command-close" type="button" aria-label="Close quick actions" title="Close">
               <span data-lucide="X" aria-hidden="true"></span>
             </button>
@@ -245,11 +250,11 @@
           <p id="hud-pick" aria-live="polite">Main tower · Lv 1</p>
           <div id="hud-shop" aria-label="Turrets available to build"></div>
           <div id="action-btns">
-            <button id="btn-place" class="hidden action-btn"><span data-lucide="Plus" aria-hidden="true"></span> Place</button>
-            <button id="btn-upgrade" class="action-btn action-btn--primary"><span data-lucide="ArrowUpCircle" aria-hidden="true"></span> Level up</button>
-            <button id="btn-sell" class="hidden action-btn action-btn--danger"><span data-lucide="Coins" aria-hidden="true"></span> Sell</button>
-            <button id="btn-move" class="hidden action-btn action-btn--info">Move  M</button>
-            <button id="btn-toggle" class="hidden action-btn">Toggle blender  B</button>
+            <button id="btn-place" class="hidden action-btn"><span data-lucide="Plus" aria-hidden="true"></span><span class="action-btn__label">Place</span></button>
+            <button id="btn-upgrade" class="action-btn action-btn--primary"><span data-lucide="ArrowUpCircle" aria-hidden="true"></span><span class="action-btn__label">Level up</span></button>
+            <button id="btn-sell" class="hidden action-btn action-btn--danger"><span data-lucide="Coins" aria-hidden="true"></span><span class="action-btn__label">Sell</span></button>
+            <button id="btn-move" class="hidden action-btn action-btn--info"><span data-lucide="Move" aria-hidden="true"></span><span class="action-btn__label">Move · M</span></button>
+            <button id="btn-toggle" class="hidden action-btn"><span data-lucide="Blend" aria-hidden="true"></span><span class="action-btn__label">Toggle · B</span></button>
           </div>
         </section>
 
