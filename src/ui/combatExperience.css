@@ -348,6 +348,27 @@ body[data-ftd-screen="PLAY"] .hero-ability-bar--solo {
   body[data-ftd-screen="PLAY"] #hud-shop { max-height:min(37dvh,300px); }
   .ftd-pvp.is-battle .ftd-duel-powers { right:6px; padding:5px; }
 }
+@media(max-width:860px) {
+  /* Keep the always-ready powers in their own corner, clear of STATUS and the
+     contextual build card that rises from the opposite edge. */
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo {
+    top:auto!important; right:10px!important; bottom:calc(10px + env(safe-area-inset-bottom,0px));
+    left:auto!important; transform:none!important; max-width:calc(100vw - 82px)!important;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup {
+    bottom:calc(104px + env(safe-area-inset-bottom,0px)); max-height:min(47dvh,400px);
+  }
+}
+@media(max-width:520px) {
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo { gap:3px; padding:5px; }
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot {
+    width:70px; min-width:0; min-height:72px; grid-template-rows:36px 12px 12px; gap:2px;
+  }
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__portrait { width:36px; height:36px; }
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__icon { width:32px; height:32px; }
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__name,
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__cooldown { font-size:9px; line-height:12px; }
+}
 @media(prefers-reduced-motion:reduce) {
   body[data-ftd-screen="PLAY"] #sidebar { transition:none; }
 }

@@ -24,4 +24,6 @@ test('combat status and quick action surfaces use the glass command treatment', 
   assert.match(css, /#app\.sidebar-open #sidebar \{\s*visibility:visible!important/);
   assert.match(css, /#command-popup \{[\s\S]*?backdrop-filter:blur\(18px\)/);
   assert.match(css, /\.ftd-pvp\.is-battle \.ftd-duel-powers \{\s*position:fixed/);
+  assert.match(css, /@media\(max-width:860px\)\s*\{[\s\S]*?hero-ability-bar--solo \{[\s\S]*?right:10px!important[\s\S]*?#command-popup \{[\s\S]*?bottom:calc\(104px/);
+  assert.match(css, /@media\(max-width:520px\)[\s\S]*?hero-ability-bar--solo \.hero-ability-slot \{[\s\S]*?width:70px/);
 });
