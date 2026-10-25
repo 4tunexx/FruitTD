@@ -549,7 +549,24 @@ function homeMain(getSelected: () => GameMode | null, onSelect: (mode: GameMode,
       ]),
       el('p', { class: 'ftd-playcard__tagline', text: 'SLICE. BUILD. SURVIVE.' }),
       el('p', { class: 'ftd-playcard__brief', text: 'Swipe the fruit. Power your defences. Keep the wall standing.' }),
-      GameButton({ label: getSelected() ? 'BATTLE!' : 'CHOOSE A RUN', tone: 'primary', size: 'lg', class: 'ftd-playcard__cta', onClick: () => { const mode = getSelected(); if (mode) onLaunch(mode); } }),
+      GameButton({
+        label: getSelected() ? 'BATTLE!' : 'CHOOSE A RUN',
+        tone: 'primary',
+        size: 'lg',
+        class: 'ftd-playcard__cta',
+        onClick: () => {
+          const mode = getSelected();
+          if (mode) {
+            onLaunch(mode);
+            return;
+          }
+          const chooser = root.querySelector<HTMLElement>('.ftd-mode-select');
+          if (chooser) {
+            chooser.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+            chooser.querySelector<HTMLButtonElement>('.ftd-mode-card')?.focus({ preventScroll: true });
+          }
+        },
+      }),
       el('p', { class: 'ftd-playcard__mode', 'data-testid': 'mode-selection-hint', text: getSelected() ? `${modeRules(getSelected()!).name.toUpperCase()} / REVIEW THE BRIEFING` : 'CHOOSE A RUN TO SEE ITS BRIEFING' }),
       el('p', { class: 'ftd-playcard__mobile-brief', text: getSelected() ? modeRules(getSelected()!).blurb : 'Pick a mode below to see your mission.' }),
     ]);
@@ -705,7 +722,10 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
     const nextIndex = HOME_MODES.findIndex((entry) => entry.id === mode);
     selectedMode = mode;
     const hub = mainRoot.closest<HTMLElement>('#screen-hub');
-    if (hub) applyPanelOneAppearance(hub, HUB_HOME, mode);
+    if (hub) {
+      hub.classList.add('has-selected-mode');
+      applyPanelOneAppearance(hub, HUB_HOME, mode);
+    }
     onMode?.(mode);
     const activeMain = currentMain ?? mainRoot;
     for (const button of activeMain.querySelectorAll<HTMLButtonElement>('.ftd-mode-card')) {
@@ -735,8 +755,19 @@ export function homeHubTab(onPlay: () => void, onMode?: (mode: GameMode) => void
     id: HUB_HOME,
     label: 'Home',
     icon: Home,
-    renderMain: (root, save) => { currentMain = root; const hub = root.closest<HTMLElement>('#screen-hub'); if (hub) applyPanelOneAppearance(hub, HUB_HOME, selectedMode || ''); homeMain(() => selectedMode, selectMode, launchSelectedMode)(root, save); },
+    renderMain: (root, save) => {
+      currentMain = root;
+      const hub = root.closest<HTMLElement>('#screen-hub');
+      if (hub) {
+        hub.classList.toggle('has-selected-mode', !!selectedMode);
+        applyPanelOneAppearance(hub, HUB_HOME, selectedMode || '');
+      }
+      homeMain(() => selectedMode, selectMode, launchSelectedMode)(root, save);
+    },
     renderSub,
-    onHome: () => { selectedMode = null; },
+    onHome: () => {
+      selectedMode = null;
+      currentMain?.closest<HTMLElement>('#screen-hub')?.classList.remove('has-selected-mode');
+    },
   };
 }

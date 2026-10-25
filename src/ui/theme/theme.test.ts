@@ -26,6 +26,9 @@ test('default theme is valid and complete', () => {
   const res = validateTheme(DEFAULT_THEME);
   assert.equal(res.ok, true, res.errors.join(', '));
   assert.deepEqual(res.theme, DEFAULT_THEME);
+  assert.deepEqual(DEFAULT_THEME.shapes, {
+    panelRadius: '0px', buttonRadius: '0px', cardRadius: '0px', borderWidth: '1px',
+  });
 });
 
 test('every builtin preset validates and has a unique id', () => {

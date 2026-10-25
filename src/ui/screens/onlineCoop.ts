@@ -147,10 +147,18 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
   const leaveButton=el('button',{type:'button',class:'ftd-coop-leave','aria-label':'Leave match',title:'Leave match'},[lucideIcon('LogOut','',18)]);
   leaveButton.addEventListener('click',()=>void leave());
   body.append(el('header',{class:'ftd-coop-hud'},[
-    el('div',{},[el('strong',{text:`WAVE ${room.wave}`}),el('small',{text:`Tower Lv ${towerLevelFromXp(room.towerXp??0)} · ${room.score} score`})]),
+    el('div',{},[el('strong',{text:`WAVE ${room.wave}`}),el('small',{text:`Tower Lv ${towerLevelFromXp(room.towerXp??0)} · ${Math.ceil(room.wallHealth)} / ${room.wallMaxHealth??balance.wallHealth} HP`})]),
     el('div',{class:'ftd-coop-wallet'},[el('strong',{text:`${Math.floor(room.fruts)} F`}),el('small',{text:'SHARED FRUTS'})]),leaveButton,
     el('div',{class:'ftd-coop-health',role:'progressbar','aria-label':'Team wall health','aria-valuemin':0,'aria-valuemax':room.wallMaxHealth??balance.wallHealth,'aria-valuenow':room.wallHealth},[el('i',{style:`width:${Math.max(0,Math.min(100,room.wallHealth/(room.wallMaxHealth??balance.wallHealth)*100))}%`})]),
   ]));
+  const activeBoss=room.fruits.find(fruit=>fruit.boss&&fruit.hp>0);
+  if(activeBoss){
+    const maximum=activeBoss.maxHp??activeBoss.hp;
+    body.append(el('div',{class:'ftd-coop-boss',role:'progressbar','aria-label':'Boss health','aria-valuemin':0,'aria-valuemax':maximum,'aria-valuenow':activeBoss.hp},[
+      el('strong',{text:'OVERLORD'}),el('span',{text:`${Math.ceil(activeBoss.hp)} / ${Math.ceil(maximum)} HP`}),
+      el('div',{class:'ftd-coop-boss__track'},[el('i',{style:`width:${Math.max(0,Math.min(100,activeBoss.hp/maximum*100))}%`})]),
+    ]));
+  }
   const roster=el('details',{class:'ftd-coop-roster',open:rosterExpanded},[
     el('summary',{text:`TEAM · ${room.players.length}/4`}),
     ...room.players.map(player=>el('p',{text:`${player.name}${player.userId===yourId?' · YOU':''}`})),
@@ -163,7 +171,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
   })));
   if(room.status==='boss-intro'||room.status==='countdown')body.append(el('div',{class:'ftd-coop-phase',role:'status'},[el('strong',{text:room.status==='boss-intro'?'OVERLORD APPROACHING':'NEXT WAVE'}),el('span',{text:`${Math.max(0,Math.ceil((room.phaseUntil-Date.now())/1000))}s`})]));
   const management=el('details',{class:'ftd-coop-tower-manager',open:towerManagerOpen},[el('summary',{text:`TEAM TOWERS · ${room.towers.length}/8`})]);
-  management.addEventListener('toggle',()=>{if(management.isConnected)towerManagerOpen=management.open;});
+  management.addEventListener('toggle',()=>{if(management.isConnected){towerManagerOpen=management.open;requestAnimationFrame(()=>{if(management.isConnected)body.style.setProperty('--coop-manager-height',`${management.getBoundingClientRect().height}px`);});}});
   for(const tower of room.towers){
     const stats=balance.towers[tower.type];if(!stats)continue;const level=pvpTowerLevel(tower.level);
     const cost=pvpUpgradeCost(stats.cost,level),name=turretDef(tower.type as TurretKind)?.name||tower.type;
@@ -173,6 +181,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
     ]));
   }
   body.append(management);
+  body.style.setProperty('--coop-manager-height',`${management.getBoundingClientRect().height}px`);
   body.append(el('div',{class:'ftd-pvp__siege-layout'},[scene.element,el('aside',{class:'ftd-pvp__siege-controls',hidden:pendingBuildCell===null},[GameButton({label:'Close',variant:'ghost',onClick:()=>{pendingBuildCell=null;scene?.selectCell(null);render();}}),el('h3',{text:'SHARED DEFENCE'}),el('p',{text:'Swipe incoming fruit. Click an empty wall pad to place the selected tower. All teammates’ blades appear live.'}),...Object.entries(balance.towers).filter(([id])=>turretAllowed(id,own.turretLoadout)).map(([id,stats])=>GameButton({label:`${turretDef(id as TurretKind)?.name||id} · ${stats.cost} F`,variant:selected===id?'outline':'ghost',disabled:room!.fruts<stats.cost,onClick:()=>{selected=id;if(pendingBuildCell!==null){const cell=pendingBuildCell;pendingBuildCell=null;command({type:'build',tower:id,cell});}render();}}))])]));
  };
  body.append(LoadingIndicator('Connecting to online Co-op…'));

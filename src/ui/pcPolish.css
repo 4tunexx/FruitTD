@@ -29,11 +29,12 @@ body > .ftd-pvp.is-battle { box-sizing:border-box; width:100vw; max-width:none; 
   #screen-hub.ftd-hub.is-single-panel .ftd-hub__body { grid-template-columns:1fr; }
   #screen-hub.ftd-hub .ftd-hub__sub:not(.is-empty) { align-self:start; height:auto; max-height:100%; min-height:0; overflow:auto; }
   #screen-hub.ftd-hub .ftd-hub__main { height:100%; }
-  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab { min-height:76px; gap:8px; padding:10px 8px; overflow:visible!important; clip-path:none!important; }
+  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab { min-height:76px; gap:6px; padding:8px 8px; overflow:hidden!important; border-radius:0; clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))!important; }
   #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab__label { display:block!important; opacity:1!important; font-size:11px; line-height:1.2; }
-  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab__icon { width:34px!important; height:34px!important; flex-basis:34px!important; }
+  #screen-hub.ftd-hub .ftd-hub__footer .ftd-hub-tab__icon { width:26px!important; height:26px!important; flex-basis:26px!important; transform:none!important; }
   #screen-hub.ftd-hub .ftd-hub-tab:is(:hover,:active,:focus-visible,.is-active) .ftd-hub-tab__icon,
   #screen-hub.ftd-hub .ftd-mode-card:is(:hover,:active,:focus-visible,.is-active) .ftd-mode-card__icon { transform:translateY(-2px)!important; filter:drop-shadow(0 1px 0 #ffe394)!important; }
+  #screen-hub.ftd-hub .ftd-hub-tab:is(:hover,:active,:focus-visible,.is-active) .ftd-hub-tab__icon { transform:none!important; filter:none!important; }
   #screen-hub.ftd-hub .ftd-hub-tab:hover { background:#3d3527; border-color:#ffe394; }
   .ftd-pvp.is-battle .ftd-pvp__body { display:grid; grid-template-columns:300px minmax(0,1fr); grid-template-rows:82px 32px minmax(0,1fr); }
   .ftd-pvp.is-battle .ftd-duel-hud { grid-column:1/-1; grid-row:1; padding:12px 24px; }

@@ -5,7 +5,8 @@ import { getCollection, type UserDoc } from '../db';
 import { fetchSteamPlayerSummary } from '../steam';
 import { createSession, resolveSession } from '../auth';
 import { sanitizeSteamUsername, validateUsername } from '../username';
-import { unlockSteamAchievement, bearer } from './auth';
+import { requestSessionToken } from '../auth';
+import { unlockSteamAchievement } from './auth';
 import { creditClaimReward } from '../claimWallet';
 
 export const steamRouter = Router();
@@ -210,7 +211,7 @@ steamRouter.get('/callback', async (req: Request, res: Response) => {
 // Legacy manual link kept for tools / older clients
 steamRouter.post('/link', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user) return res.status(401).json({ success: false, error: 'Sign in first to link Steam.' });
 
     return res.status(400).json({
@@ -225,7 +226,7 @@ steamRouter.post('/link', async (req: Request, res: Response) => {
 
 steamRouter.get('/status', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user || !user.steamId) {
       return res.json({ success: true, linked: false });
     }

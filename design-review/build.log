@@ -1,3 +1,7 @@
+
+> fruit-td@1.1.0 build
+> tsc --noEmit && vite build && node scripts/bundle-api.mjs
+
 vite v6.4.3 building for production...
 transforming...
 ✓ 2267 modules transformed.
@@ -8,13 +12,13 @@ dist/assets/equip-screen-move-2-_pnJMo0E.wav             4.40 kB
 dist/assets/equip-screen-move-3-CDhphlQA.wav             5.42 kB
 dist/assets/Bonus-count-up-DuaBKrLo.wav                  6.45 kB
 dist/assets/Next-screen-button-C99Ki1jH.wav              6.45 kB
-dist/assets/popup-5-CI6iO7uO.wav                         7.47 kB
 dist/assets/popup-6-HA4Akr_X.wav                         7.47 kB
+dist/assets/popup-5-CI6iO7uO.wav                         7.47 kB
 dist/assets/popup-7-78t17Dqf.wav                         7.47 kB
 dist/assets/popup-8-D_syVbCd.wav                         7.47 kB
 dist/assets/store-fruit-slice-BzGlhMAE.wav               8.24 kB
-dist/assets/popup-2-DS3VOioQ.wav                         8.49 kB
 dist/assets/popup-1-CaeOkTaD.wav                         8.49 kB
+dist/assets/popup-2-DS3VOioQ.wav                         8.49 kB
 dist/assets/popup-3-C-R6fDVT.wav                         8.49 kB
 dist/assets/popup-4-D7waBYha.wav                         8.49 kB
 dist/assets/progress-count-CLnh8byM.wav                  8.62 kB
@@ -52,8 +56,8 @@ dist/assets/Sword-swipe-7-_7fK1Lq4.wav                  18.09 kB
 dist/assets/equip-locked-xU29XM7J.wav                   18.22 kB
 dist/assets/impact-music-4-BlIHr990.wav                 18.22 kB
 dist/assets/impact-music-6-Bl5g5ZLG.wav                 18.73 kB
-dist/assets/Sword-swipe-2-BlpZOP_Q.wav                  18.86 kB
 dist/assets/Sword-swipe-3-uHIfrjrr.wav                  18.86 kB
+dist/assets/Sword-swipe-2-BlpZOP_Q.wav                  18.86 kB
 dist/assets/bamboo-swipe-1-wxEJLcn_.wav                 18.99 kB
 dist/assets/Sword-swipe-6-B5J0Xd_a.wav                  19.12 kB
 dist/assets/pome-slice-2-B-E7Ogma.wav                   19.89 kB
@@ -82,9 +86,9 @@ dist/assets/Impact-Watermelon-m7ch0iYp.wav              31.92 kB
 dist/assets/blade-cherry-blossom-1-3-Bvmws8lv.wav       32.17 kB
 dist/assets/achievement-BWkKMqE5.wav                    32.56 kB
 dist/assets/Visceral-impact-2-DPtXLKfM.wav              33.45 kB
+dist/assets/Bonus-Explosion-1-eeoxkH3T.wav              33.58 kB
 dist/assets/Bonus-Explosion-3-Byl6dnLg.wav              33.58 kB
 dist/assets/Bonus-Explosion-5-C35brAhO.wav              33.58 kB
-dist/assets/Bonus-Explosion-1-eeoxkH3T.wav              33.58 kB
 dist/assets/Critical-DBDBHRPQ.wav                       34.09 kB
 dist/assets/blade-ink-3-D2fdezJY.wav                    34.22 kB
 dist/assets/blade-cherry-blossom-1-4-CSC_YqMe.wav       34.48 kB
@@ -194,7 +198,7 @@ dist/assets/powerup-strawberry-C33xcCxs.wav            103.34 kB
 dist/assets/Combo-Blitz-Backing-End-CFYyR5Jr.wav       107.05 kB
 dist/assets/Bonus-drum-roll-CmsUEPwJ.wav               107.57 kB
 dist/assets/Game-start-CSkXg8cB.wav                    132.40 kB
-dist/index.html                                        138.64 kB │ gzip:  25.50 kB
+dist/index.html                                        138.64 kB │ gzip:  25.49 kB
 dist/assets/equip-unlock-DS_dPYn6.wav                  152.88 kB
 dist/assets/fruit-atlas-B6ottPw0.jpg                   156.22 kB
 dist/assets/extra-life-CE0anI7z.wav                    178.73 kB
@@ -211,27 +215,32 @@ dist/assets/Bomb-Fuse-BYuJ9Xr2.wav                     547.63 kB
 dist/assets/orchard-siege-menu-CBACTAuQ.webp         1,714.83 kB
 dist/assets/social-BZAiuPgx.css                         14.18 kB │ gzip:   3.39 kB
 dist/assets/desktop-refresh-ShNg4aEj.css                28.77 kB │ gzip:   5.37 kB
-dist/assets/index-rp1eEeG9.css                         523.17 kB │ gzip: 101.43 kB
-dist/assets/campaignStoryOverlay-ppUKu6my.js             0.85 kB │ gzip:   0.48 kB
-dist/assets/news-CCpQKpUK.js                             1.66 kB │ gzip:   0.69 kB
-dist/assets/progress-CT1TuJDl.js                         1.72 kB │ gzip:   0.66 kB
-dist/assets/settings-BdsD06GF.js                         2.43 kB │ gzip:   0.98 kB
+dist/assets/index-C1qpCI9g.css                         533.05 kB │ gzip: 102.38 kB
+dist/assets/campaignStoryOverlay-D5SFOwUk.js             0.85 kB │ gzip:   0.48 kB
+dist/assets/news-D1aSu6Up.js                             1.66 kB │ gzip:   0.69 kB
+dist/assets/progress-D2bV9v3g.js                         1.72 kB │ gzip:   0.66 kB
+dist/assets/settings-C5qFSm2m.js                         2.43 kB │ gzip:   0.98 kB
 dist/assets/bladePreview-T9n73ARU.js                     2.60 kB │ gzip:   1.18 kB
-dist/assets/campaign-CkLrj52Q.js                         3.71 kB │ gzip:   1.60 kB
-dist/assets/leaderboards-DqrZ5T05.js                     6.22 kB │ gzip:   2.57 kB
-dist/assets/combatPreview-Dp8oeZEf.js                    7.87 kB │ gzip:   3.07 kB
-dist/assets/onlineCoop-DWnsOze-.js                      13.87 kB │ gzip:   5.73 kB
-dist/assets/social-CqzLPYI3.js                          14.92 kB │ gzip:   4.69 kB
-dist/assets/designMode-BR2qc9ri.js                      31.10 kB │ gzip:  10.32 kB
+dist/assets/campaign-C0NkD_gR.js                         3.71 kB │ gzip:   1.60 kB
+dist/assets/leaderboards-DymJ0uet.js                     6.22 kB │ gzip:   2.57 kB
+dist/assets/combatPreview-CFcX1eUu.js                    7.87 kB │ gzip:   3.07 kB
+dist/assets/onlineCoop-DrLM0PjP.js                      14.55 kB │ gzip:   5.91 kB
+dist/assets/social-DtIXgQfi.js                          14.92 kB │ gzip:   4.69 kB
+dist/assets/designMode-Cht_a-Db.js                      31.10 kB │ gzip:  10.32 kB
 dist/assets/vendor-icons-BHoiLH6K.js                    31.65 kB │ gzip:   5.77 kB
-dist/assets/pvpBattlefield-Dq1p6v21.js                  32.38 kB │ gzip:  11.02 kB
-dist/assets/admin-DRSUcH6A.js                          146.79 kB │ gzip:  43.39 kB
+dist/assets/pvpBattlefield-B_hXQDYE.js                  32.38 kB │ gzip:  11.02 kB
+dist/assets/admin-Duk0wTL6.js                          146.79 kB │ gzip:  43.39 kB
 dist/assets/ably-BlTJ36Fh.js                           213.06 kB │ gzip:  58.61 kB
 dist/assets/vendor-three-C_SPJp8A.js                   514.51 kB │ gzip: 130.65 kB
-dist/assets/index-GuQgoAeV.js                          587.60 kB │ gzip: 191.43 kB
+dist/assets/index-CA32dswb.js                          588.05 kB │ gzip: 191.56 kB
 
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 32.00s
+✓ built in 11.65s
+
+  api\[...path].js  372.9kb
+
+Done in 95ms
+Bundled Vercel API → api/[...path].js

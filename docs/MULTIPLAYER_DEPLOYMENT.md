@@ -10,7 +10,8 @@ Deploy this repository's Dockerfile, or run `npm ci --include=dev` followed by
 `npm run server` on a Node 22 host. Run one service instance: it manages the
 matchmaking queue and the simulation loops. Set these environment variables:
 
-- `MONGODB_URI` and `MONGODB_DB`: the same database as the Vercel account APIs.
+- `MONGODB_URI`: the same MongoDB cluster used by the Vercel account APIs. The
+  application currently selects the `FruitTD` database in `server/db.ts`.
 - `SESSION_SECRET`: exactly the same value as Vercel, so existing accounts work.
 - `ABLY_API_KEY`: the Root key, kept on the server.
 - `ADMIN_STEAM_ID`: the same admin account as Vercel.

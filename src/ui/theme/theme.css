@@ -41,9 +41,9 @@
   --ftd-weight-button: 700;
   --ftd-weight-number: 800;
 
-  --ftd-radius-panel: 0.35rem;
-  --ftd-radius-button: 0.28rem;
-  --ftd-radius-card: 0.3rem;
+  --ftd-radius-panel: 0px;
+  --ftd-radius-button: 0px;
+  --ftd-radius-card: 0px;
   --ftd-border-width: 1px;
 
   --ftd-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);

@@ -409,14 +409,19 @@ export class WallBase {
     slot.level = 1;
     slot.kind = kind;
     slot.turret = new TurretRig(kind);
-    const y = pad.floor ? 0.12 : 1.05;
-    slot.turret.group.position.set(slot.x, y, slot.z);
+    this.setTurretDisplayPosition(slot);
     this.group.add(slot.turret.group);
     this.selected = index;
     this.rangeRequested = true;
     this.refreshPads();
     this.refreshRange();
     return true;
+  }
+
+  /** Wall-mounted turrets sit above the wall cap and on its camera-facing side. */
+  private setTurretDisplayPosition(slot: Slot): void {
+    if (!slot.turret) return;
+    slot.turret.group.position.set(slot.x, slot.floor ? 0.12 : 1.38, slot.z - (slot.floor ? 0 : 0.5));
   }
 
   toggleSelected(): boolean {
@@ -462,7 +467,7 @@ export class WallBase {
     dest.level = src.level;
     dest.kind = src.kind;
     dest.turret = src.turret;
-    dest.turret.group.position.set(dest.x, pad.floor ? 0.12 : 1.05, dest.z);
+    this.setTurretDisplayPosition(dest);
     dest.turret.group.scale.setScalar(1 + (dest.level - 1) * 0.08);
     src.filled = false;
     src.level = 0;
@@ -585,7 +590,7 @@ export class WallBase {
           juice,
           bank,
           onHit,
-          shoot: (tx, tz, hex) => {const tuning=turretLevelTuning(slot.kind!,slot.level);this.combatEffects.shot(slot.kind as TurretKind,new Vector3(slot.x,1.15,slot.z),_aim.set(tx,1.1,tz),slot.level,tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):hex,tuning.effectScale,turretRange(slot.kind as TurretKind,slot.level));},
+          shoot: (tx, tz, hex) => {const tuning=turretLevelTuning(slot.kind!,slot.level),origin=slot.turret!.group.localToWorld(new Vector3(0,.72,0));this.combatEffects.shot(slot.kind as TurretKind,origin,_aim.set(tx,1.1,tz),slot.level,tuning.effectColor?Number(tuning.effectColor.replace('#','0x')):hex,tuning.effectScale,turretRange(slot.kind as TurretKind,slot.level));},
         });
         if (fired) shot = true;
         continue;

@@ -43,9 +43,9 @@ export const DEFAULT_THEME: Theme = {
     weights: { body: 500, heading: 800, button: 700, number: 800 },
   },
   shapes: {
-    panelRadius: '0.35rem',
-    buttonRadius: '0.28rem',
-    cardRadius: '0.3rem',
+    panelRadius: '0px',
+    buttonRadius: '0px',
+    cardRadius: '0px',
     borderWidth: '1px',
   },
   effects: {

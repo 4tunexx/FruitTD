@@ -792,7 +792,7 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 #screen-hub .ftd-mode-card__icon,
 #screen-hub.ftd-hub.is-home .ftd-mode-card__icon { width: 44px; height: 44px; flex-basis: 44px; }
 #screen-hub .ftd-hub__footer .ftd-hub-tab__icon,
-#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon { width: 40px; height: 40px; flex-basis: 40px; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon { width: 26px; height: 26px; flex-basis: 26px; }
 #screen-hub .ftd-btn__icon { width: 26px; height: 26px; flex-basis: 26px; }
 #screen-hub .ftd-outpost-shortcuts .ftd-btn__icon { width: 30px; height: 30px; flex-basis: 30px; }
 
@@ -835,23 +835,46 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 .ftd-surface .ftd-btn__icon > .ftd-extracted-icon { width: 100% !important; height: 100% !important; }
 #screen-hub .ftd-hub__header .ftd-hub-social__icon { width: 22px !important; height: 22px !important; }
 
-/* Raised icon artwork lives above the frame; captions stay on their baseline. */
-#screen-hub :is(.ftd-hub-tab, .ftd-mode-card),
+/* Mode and utility artwork can extend outside its frame. Footer tabs remain contained. */
+#screen-hub .ftd-mode-card,
 #screen-hub .ftd-btn:is(.ftd-btn--outline, .ftd-btn--ghost),
 .admin-icon-library__item {
   overflow: visible !important;
   clip-path: none !important;
   isolation: isolate;
 }
-#screen-hub .ftd-hub__footer { overflow: visible; padding-top: 12px; }
-#screen-hub .ftd-hub__footer .ftd-hub-tab { min-height: 74px; padding: 8px 4px 6px; gap: 8px; }
+#screen-hub .ftd-hub__footer { overflow: visible; padding-top: 5px; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab {
+  min-height: 68px;
+  padding: 6px 4px;
+  gap: 5px;
+  overflow: hidden !important;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)) !important;
+}
 #screen-hub .ftd-mode-select__grid { padding-top: 10px; padding-bottom: 3px; }
 #screen-hub :is(.ftd-hub-tab__icon, .ftd-mode-card__icon, .ftd-btn__icon) {
   position: relative; z-index: 2; overflow: visible;
   transition: transform 180ms cubic-bezier(.2,.8,.2,1), filter 180ms ease;
 }
+#screen-hub .ftd-hub__footer .ftd-hub-tab__icon,
+#screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon {
+  width: 26px !important;
+  height: 26px !important;
+  flex: 0 0 26px !important;
+  max-width: 26px;
+  max-height: 26px;
+  transform: none !important;
+  filter: none !important;
+}
+#screen-hub .ftd-hub__footer .ftd-hub-tab__icon .ftd-asset-glyph { transform: none !important; }
+#screen-hub .ftd-hub__footer .ftd-hub-tab__icon > :is(svg, .ftd-extracted-icon, .ftd-game-glyph) {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+}
 #screen-hub :is(.ftd-hub-tab__label, .ftd-mode-card__copy, .ftd-btn__label) { position: relative; z-index: 1; }
-#screen-hub :is(.ftd-hub-tab.is-active, .ftd-hub-tab:active, .ftd-hub-tab:focus-visible) .ftd-hub-tab__icon,
 #screen-hub :is(.ftd-mode-card.is-active, .ftd-mode-card:active, .ftd-mode-card:focus-visible) .ftd-mode-card__icon {
   transform: translateY(-10px) scale(1.08) !important;
   filter: drop-shadow(0 4px 2px #0005) !important;
@@ -859,10 +882,14 @@ body[data-ftd-screen='PLAY'] .hero-ability-slot.is-ready { border-color:#ffe17b;
 /* The old sweeping layer escaped the frame once overflow was opened. */
 #screen-hub .ftd-hub-tab.is-active::after { content: none !important; }
 @media (hover: hover) and (pointer: fine) {
-  #screen-hub .ftd-hub-tab:hover .ftd-hub-tab__icon,
   #screen-hub .ftd-mode-card:hover .ftd-mode-card__icon { transform: translateY(-10px) scale(1.08) !important; }
 }
 @media (max-width: 640px) {
+  #screen-hub .ftd-hub__footer { padding-top: 3px; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab { min-height: 60px; padding: 4px 2px; gap: 3px; }
+  #screen-hub .ftd-hub__footer .ftd-hub-tab__icon,
+  #screen-hub .ftd-hub__footer .ftd-hub-tab.is-active .ftd-hub-tab__icon { width: 22px !important; height: 22px !important; flex-basis: 22px !important; }
+  #screen-hub.ftd-hub.is-home.has-selected-mode .ftd-playcard__cta { display: none !important; }
   #screen-hub.ftd-hub.is-home .ftd-mode-card { min-height: 78px; padding: 8px 4px 6px; gap: 8px; }
   #screen-hub.ftd-hub.is-home .ftd-mode-card__copy strong { line-height: 1.2; }
 }

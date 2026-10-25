@@ -39,7 +39,12 @@ export function requestSessionToken(req: Request): string | null {
     ?.split(';')
     .map((part) => part.trim())
     .find((part) => part.startsWith('fruit_td_session='));
-  return cookie ? decodeURIComponent(cookie.slice('fruit_td_session='.length)) : null;
+  if (!cookie) return null;
+  try {
+    return decodeURIComponent(cookie.slice('fruit_td_session='.length));
+  } catch {
+    return null;
+  }
 }
 
 export interface SessionDoc {

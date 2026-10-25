@@ -161,62 +161,68 @@ var uri = process.env.MONGODB_URI;
 if (!uri) {
   console.warn("MONGODB_URI is missing; cloud account and progression requests will fail until it is configured.");
 }
+var DATABASE_INDEXES = [
+  { collection: "leaderboards", keys: { mode: 1, score: -1 } },
+  { collection: "leaderboards", keys: { userId: 1, mode: 1 } },
+  { collection: "users", keys: { userId: 1 }, options: { unique: true } },
+  { collection: "users", keys: { email: 1 }, options: { unique: true, sparse: true } },
+  { collection: "users", keys: { username: 1 }, options: { unique: true, sparse: true } },
+  { collection: "users", keys: { steamId: 1 }, options: { unique: true, sparse: true } },
+  { collection: "sessions", keys: { tokenHash: 1 }, options: { unique: true } },
+  { collection: "sessions", keys: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } },
+  { collection: "achievements", keys: { userId: 1, achievementId: 1 }, options: { unique: true } },
+  { collection: "missions", keys: { userId: 1, missionId: 1, dayKey: 1 }, options: { unique: true } },
+  { collection: "daily_bonus", keys: { userId: 1 }, options: { unique: true } },
+  { collection: "cloud_saves", keys: { userId: 1 }, options: { unique: true } },
+  { collection: "run_tokens", keys: { tokenHash: 1 }, options: { unique: true } },
+  { collection: "run_tokens", keys: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } },
+  { collection: "admin_config", keys: { configKey: 1 }, options: { unique: true } },
+  { collection: "battle_maps", keys: { id: 1 }, options: { unique: true } },
+  { collection: "battle_maps", keys: { mode: 1, published: 1 } },
+  { collection: "coop_matches", keys: { activePlayers: 1 }, options: { unique: true, sparse: true } },
+  { collection: "coop_matches", keys: { id: 1 }, options: { unique: true } },
+  { collection: "badges", keys: { userId: 1, badgeId: 1 }, options: { unique: true } },
+  { collection: "friends", keys: { userId: 1, friendId: 1 }, options: { unique: true } },
+  { collection: "friends", keys: { userId: 1, state: 1, updatedAt: -1 } },
+  { collection: "friends", keys: { friendId: 1, state: 1, updatedAt: -1 } },
+  { collection: "notifications", keys: { userId: 1, createdAt: -1 } },
+  { collection: "notifications", keys: { notificationId: 1 }, options: { unique: true } },
+  { collection: "notifications", keys: { userId: 1, eventKey: 1 }, options: { unique: true, partialFilterExpression: { eventKey: { $exists: true } } } },
+  { collection: "messages", keys: { conversationId: 1, createdAt: 1 } },
+  { collection: "messages", keys: { messageId: 1 }, options: { unique: true } },
+  { collection: "forum_posts", keys: { postId: 1 }, options: { unique: true } },
+  { collection: "forum_posts", keys: { createdAt: -1 } },
+  { collection: "coop_lobbies", keys: { lobbyId: 1 }, options: { unique: true } },
+  { collection: "coop_lobbies", keys: { code: 1 }, options: { unique: true } },
+  { collection: "coop_lobbies", keys: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } },
+  { collection: "coop_lobbies", keys: { visibility: 1, status: 1, createdAt: 1 } },
+  { collection: "coop_lobbies", keys: { "members.userId": 1, status: 1 } },
+  { collection: "pvp_arena_records", keys: { userId: 1 }, options: { unique: true } },
+  { collection: "pvp_ratings", keys: { userId: 1 }, options: { unique: true } },
+  { collection: "pvp_matches", keys: { id: 1 }, options: { unique: true } },
+  { collection: "pvp_matches", keys: { activePlayers: 1 }, options: { unique: true, sparse: true } },
+  { collection: "pvp_matches", keys: { status: 1, updatedAt: 1 } },
+  { collection: "pvp_queue", keys: { userId: 1 }, options: { unique: true } },
+  { collection: "pvp_queue", keys: { queue: 1, expiresAt: 1 } },
+  { collection: "pvp_challenges", keys: { challengeId: 1 }, options: { unique: true } },
+  { collection: "pvp_challenges", keys: { toId: 1, expiresAt: 1 } }
+];
+async function ensureDatabaseIndexes(db) {
+  for (const index of DATABASE_INDEXES) {
+    try {
+      await db.collection(index.collection).createIndex(index.keys, index.options);
+    } catch (error2) {
+      console.warn(`Index creation notice (${index.collection}):`, error2);
+    }
+  }
+}
 var connection = new SharedMongoConnection(
   () => {
     if (!uri) throw new Error("MongoDB URI not defined");
     return new MongoClient(uri, mongoClientOptions(process.env.VERCEL === "1"));
   },
   "FruitTD",
-  async (db) => {
-    try {
-      await db.collection("leaderboards").createIndex({ mode: 1, score: -1 });
-      await db.collection("leaderboards").createIndex({ userId: 1, mode: 1 });
-      await db.collection("users").createIndex({ userId: 1 }, { unique: true });
-      await db.collection("users").createIndex({ email: 1 }, { unique: true, sparse: true });
-      await db.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true });
-      await db.collection("users").createIndex({ steamId: 1 }, { unique: true, sparse: true });
-      await db.collection("sessions").createIndex({ tokenHash: 1 }, { unique: true });
-      await db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-      await db.collection("achievements").createIndex({ userId: 1, achievementId: 1 }, { unique: true });
-      await db.collection("missions").createIndex({ userId: 1, missionId: 1, dayKey: 1 }, { unique: true });
-      await db.collection("daily_bonus").createIndex({ userId: 1 }, { unique: true });
-      await db.collection("cloud_saves").createIndex({ userId: 1 }, { unique: true });
-      await db.collection("run_tokens").createIndex({ tokenHash: 1 }, { unique: true });
-      await db.collection("run_tokens").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-      await db.collection("admin_config").createIndex({ configKey: 1 }, { unique: true });
-      await db.collection("battle_maps").createIndex({ id: 1 }, { unique: true });
-      await db.collection("battle_maps").createIndex({ mode: 1, published: 1 });
-      await db.collection("coop_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
-      await db.collection("coop_matches").createIndex({ id: 1 }, { unique: true });
-      await db.collection("badges").createIndex({ userId: 1, badgeId: 1 }, { unique: true });
-      await db.collection("friends").createIndex({ userId: 1, friendId: 1 }, { unique: true });
-      await db.collection("friends").createIndex({ userId: 1, state: 1, updatedAt: -1 });
-      await db.collection("friends").createIndex({ friendId: 1, state: 1, updatedAt: -1 });
-      await db.collection("notifications").createIndex({ userId: 1, createdAt: -1 });
-      await db.collection("notifications").createIndex({ notificationId: 1 }, { unique: true });
-      await db.collection("notifications").createIndex({ userId: 1, eventKey: 1 }, { unique: true, partialFilterExpression: { eventKey: { $exists: true } } });
-      await db.collection("messages").createIndex({ conversationId: 1, createdAt: 1 });
-      await db.collection("messages").createIndex({ messageId: 1 }, { unique: true });
-      await db.collection("forum_posts").createIndex({ postId: 1 }, { unique: true });
-      await db.collection("forum_posts").createIndex({ createdAt: -1 });
-      await db.collection("coop_lobbies").createIndex({ lobbyId: 1 }, { unique: true });
-      await db.collection("coop_lobbies").createIndex({ code: 1 }, { unique: true });
-      await db.collection("coop_lobbies").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-      await db.collection("coop_lobbies").createIndex({ visibility: 1, status: 1, createdAt: 1 });
-      await db.collection("coop_lobbies").createIndex({ "members.userId": 1, status: 1 });
-      await db.collection("pvp_arena_records").createIndex({ userId: 1 }, { unique: true });
-      await db.collection("pvp_ratings").createIndex({ userId: 1 }, { unique: true });
-      await db.collection("pvp_matches").createIndex({ id: 1 }, { unique: true });
-      await db.collection("pvp_matches").createIndex({ activePlayers: 1 }, { unique: true, sparse: true });
-      await db.collection("pvp_matches").createIndex({ status: 1, updatedAt: 1 });
-      await db.collection("pvp_queue").createIndex({ userId: 1 }, { unique: true });
-      await db.collection("pvp_queue").createIndex({ queue: 1, expiresAt: 1 });
-      await db.collection("pvp_challenges").createIndex({ challengeId: 1 }, { unique: true });
-      await db.collection("pvp_challenges").createIndex({ toId: 1, expiresAt: 1 });
-    } catch (err) {
-      console.warn("Index creation notice:", err);
-    }
-  }
+  ensureDatabaseIndexes
 );
 function getDb() {
   return connection.get();
@@ -313,7 +319,12 @@ function requestSessionToken(req2) {
   const authorization = req2.headers.authorization;
   if (authorization?.startsWith("Bearer ")) return authorization.slice(7);
   const cookie = req2.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("fruit_td_session="));
-  return cookie ? decodeURIComponent(cookie.slice("fruit_td_session=".length)) : null;
+  if (!cookie) return null;
+  try {
+    return decodeURIComponent(cookie.slice("fruit_td_session=".length));
+  } catch {
+    return null;
+  }
 }
 async function createSession(userId) {
   const token = makeSessionToken();
@@ -4201,15 +4212,6 @@ function validateUsername(raw) {
 import { Router as Router7 } from "express";
 import crypto3 from "crypto";
 var authRouter = Router7();
-function bearer(req2) {
-  const h = req2.headers.authorization;
-  if (h?.startsWith("Bearer ")) return h.slice(7);
-  const q = req2.query.token;
-  if (typeof q === "string" && q) return q;
-  const body = req2.body?.token;
-  if (typeof body === "string" && body) return body;
-  return null;
-}
 async function unlockSteamAchievement(userId) {
   try {
     const achCol = await getCollection("achievements");
@@ -4231,7 +4233,7 @@ async function unlockSteamAchievement(userId) {
 }
 authRouter.get("/me", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user) return res.status(401).json({ success: false, error: "Not signed in" });
     res.json({ success: true, user: publicUser(user) });
   } catch (err) {
@@ -4240,7 +4242,7 @@ authRouter.get("/me", async (req2, res) => {
 });
 authRouter.post("/logout", async (req2, res) => {
   try {
-    await destroySession(bearer(req2));
+    await destroySession(requestSessionToken(req2));
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -4324,7 +4326,7 @@ authRouter.post("/login", async (req2, res) => {
 });
 authRouter.post("/verify-email", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user) return res.status(401).json({ success: false, error: "Not signed in" });
     const code = String(req2.body?.code || "").replace(/\D/g, "");
     if (!/^\d{6}$/.test(code)) {
@@ -4359,7 +4361,7 @@ authRouter.post("/verify-email", async (req2, res) => {
 });
 authRouter.post("/resend-verify", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user) return res.status(401).json({ success: false, error: "Not signed in" });
     if (user.emailVerified) return res.json({ success: true, alreadyVerified: true });
     let email = user.email;
@@ -4399,7 +4401,7 @@ authRouter.post("/resend-verify", async (req2, res) => {
 });
 authRouter.post("/set-email", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user) return res.status(401).json({ success: false, error: "Not signed in" });
     const email = String(req2.body?.email || "").trim().toLowerCase();
     if (!isValidEmail(email)) {
@@ -4432,7 +4434,7 @@ authRouter.post("/set-email", async (req2, res) => {
 });
 authRouter.post("/complete-profile", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user) return res.status(401).json({ success: false, error: "Not signed in" });
     if (!user.emailVerified) {
       return res.status(403).json({ success: false, error: "Confirm your email first." });
@@ -4649,7 +4651,7 @@ steamRouter.get("/callback", async (req2, res) => {
 });
 steamRouter.post("/link", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user) return res.status(401).json({ success: false, error: "Sign in first to link Steam." });
     return res.status(400).json({
       success: false,
@@ -4662,7 +4664,7 @@ steamRouter.post("/link", async (req2, res) => {
 });
 steamRouter.get("/status", async (req2, res) => {
   try {
-    const user = await resolveSession(bearer(req2));
+    const user = await resolveSession(requestSessionToken(req2));
     if (!user || !user.steamId) {
       return res.json({ success: true, linked: false });
     }

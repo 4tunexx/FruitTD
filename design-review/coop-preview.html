@@ -23,6 +23,11 @@ initThemeSystem();
 const player=(userId,name,hero)=>({userId,name,hero,sequence:0,lastSeenAt:Date.now(),lastSlashAt:0,kills:0,abilityLoadout:[hero+'-1']});
 let room=newCoopMatch('0123456789',player('local','You','jiju'),balance);
 joinCoopMatch(room,player('partner','Local teammate','ki'),Date.now());
+if(new URLSearchParams(location.search).has('boss')){
+ room.status='playing';room.remainingSpawns=1;room.spawnAt=Date.now()+600000;room.fruts=500;
+ room.players[0].abilityLoadout=['jiju-1','jiju-2','jiju-3'];
+ room.fruits=[{id:'review-boss',type:'armored',x:5,y:5,hp:6000,maxHp:6000,boss:true}];
+}
 const request=async(path,payload)=>{
  if(path.endsWith('/command'))applyCoopCommand(room,'local',payload.sequence,payload.command,Date.now(),balance,coop);
  if(path.endsWith('/ack'))room=null;

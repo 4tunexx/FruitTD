@@ -10,22 +10,13 @@ import {
   isValidEmail,
   makeVerifyCode,
   publicUser,
+  requestSessionToken,
   resolveSession,
   verifyPassword,
 } from '../auth';
 import { sanitizeSteamUsername, validateUsername } from '../username';
 
 export const authRouter = Router();
-
-function bearer(req: Request): string | null {
-  const h = req.headers.authorization;
-  if (h?.startsWith('Bearer ')) return h.slice(7);
-  const q = req.query.token;
-  if (typeof q === 'string' && q) return q;
-  const body = req.body?.token;
-  if (typeof body === 'string' && body) return body;
-  return null;
-}
 
 async function unlockSteamAchievement(userId: string): Promise<void> {
   try {
@@ -50,7 +41,7 @@ async function unlockSteamAchievement(userId: string): Promise<void> {
 
 authRouter.get('/me', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user) return res.status(401).json({ success: false, error: 'Not signed in' });
     res.json({ success: true, user: publicUser(user) });
   } catch (err: any) {
@@ -60,7 +51,7 @@ authRouter.get('/me', async (req: Request, res: Response) => {
 
 authRouter.post('/logout', async (req: Request, res: Response) => {
   try {
-    await destroySession(bearer(req));
+    await destroySession(requestSessionToken(req));
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -158,7 +149,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 authRouter.post('/verify-email', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user) return res.status(401).json({ success: false, error: 'Not signed in' });
 
     const code = String(req.body?.code || '').replace(/\D/g, '');
@@ -196,7 +187,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
 
 authRouter.post('/resend-verify', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user) return res.status(401).json({ success: false, error: 'Not signed in' });
     if (user.emailVerified) return res.json({ success: true, alreadyVerified: true });
 
@@ -242,7 +233,7 @@ authRouter.post('/resend-verify', async (req: Request, res: Response) => {
 /** Steam users set/confirm email after OpenID login. */
 authRouter.post('/set-email', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user) return res.status(401).json({ success: false, error: 'Not signed in' });
 
     const email = String(req.body?.email || '')
@@ -281,7 +272,7 @@ authRouter.post('/set-email', async (req: Request, res: Response) => {
 
 authRouter.post('/complete-profile', async (req: Request, res: Response) => {
   try {
-    const user = await resolveSession(bearer(req));
+    const user = await resolveSession(requestSessionToken(req));
     if (!user) return res.status(401).json({ success: false, error: 'Not signed in' });
     if (!user.emailVerified) {
       return res.status(403).json({ success: false, error: 'Confirm your email first.' });
@@ -329,4 +320,4 @@ authRouter.post('/complete-profile', async (req: Request, res: Response) => {
   }
 });
 
-export { unlockSteamAchievement, bearer };
+export { unlockSteamAchievement };

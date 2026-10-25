@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { deliverVerifyCode } from './auth';
+import type { Request } from 'express';
+import { deliverVerifyCode, requestSessionToken } from './auth';
+
+test('session tokens only come from the authorization header or session cookie', () => {
+  const request = (headers: Record<string, string>, query: Record<string, unknown> = {}, body: unknown = {}) =>
+    ({ headers, query, body } as unknown as Request);
+
+  assert.equal(requestSessionToken(request({ authorization: 'Bearer header-token' })), 'header-token');
+  assert.equal(requestSessionToken(request({ cookie: 'other=1; fruit_td_session=cookie%2Dtoken' })), 'cookie-token');
+  assert.equal(requestSessionToken(request({}, { token: 'query-token' })), null);
+  assert.equal(requestSessionToken(request({}, {}, { token: 'body-token' })), null);
+  assert.equal(requestSessionToken(request({ cookie: 'fruit_td_session=%E0%A4%A' })), null);
+});
 
 test('verification previews are available in development and withheld in production', async () => {
   const previousNodeEnv = process.env.NODE_ENV;

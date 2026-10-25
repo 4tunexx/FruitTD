@@ -39,7 +39,7 @@ export const BUILTIN_PRESETS: Theme[] = [
       text: '#e2e8f0',
       textMuted: '#94a3b8',
     },
-    shapes: { panelRadius: '0.25rem', buttonRadius: '0.25rem', cardRadius: '0.25rem' },
+    shapes: { panelRadius: '0px', buttonRadius: '0px', cardRadius: '0px' },
     effects: { glow: 'none', blur: '4px', shadow: '0 8px 20px rgba(0, 0, 0, 0.35)' },
     surfaces: { panelStyle: 'solid', buttonStyle: 'outline' },
   }),

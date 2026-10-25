@@ -26,8 +26,16 @@ test('every solo/local mode uses the authored pad geometry and preserves the mai
   assert.equal(wall.slots[MAIN_INDEX]!.main,true);
   assert.equal(wall.slots.filter(s=>!s.main&&s.enabled).length,8);
   assert.equal(wall.placeSlicer(0,'laser'),true);assert.equal(slot.pad.visible,false,'occupied plot hides its +');
-  assert.equal(slot.turret!.group.position.x,expected.x);assert.equal(slot.turret!.group.position.z,expected.z);
-  wall.sellSelected();assert.equal(slot.pad.visible,true,'selling restores its +');wall.dispose();
+  assert.equal(slot.turret!.group.position.x,expected.x);
+  assert.equal(slot.turret!.group.position.z,expected.z-(slot.floor?0:.5));
+  assert.equal(slot.turret!.group.position.y,slot.floor?.12:1.38);
+  assert.equal(slot.z,expected.z,'turret combat range remains anchored to the authored plot');
+  wall.sellSelected();assert.equal(slot.pad.visible,true,'selling restores its +');
+  const wallSlot=wall.slots.find(s=>!s.main&&!s.floor)!;
+  assert.equal(wall.placeSlicer(wallSlot.index,'laser'),true);
+  assert.equal(wallSlot.turret!.group.position.y,1.38,'wall turret clears the tower skin');
+  assert.equal(wallSlot.turret!.group.position.z,wallSlot.z-.5,'wall turret sits on the camera-facing cap');
+  wall.dispose();
  }
 });
 

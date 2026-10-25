@@ -2,15 +2,15 @@
 
 > **A co-op tower defence game where slicing is the weapon.**
 
-Fruit TD is a browser-based Three.js game combining fast slicing combat with tower defence, hero progression, upgrades, cosmetics, missions and future co-op/ranked play.
+Fruit TD is a browser-based Three.js game combining fast slicing combat with tower defence, hero progression, upgrades, cosmetics, missions, online co-op and arena matchmaking.
 
 **This is not a Fruit Ninja clone.** Slicing is the combat input. The real objective is to defend the Main Tower, survive waves, build combos, level heroes, unlock content and improve your build.
 
 ## Current status
 
-`main` contains a playable vertical slice deployed through Vercel. Core match,
-progression, content tools and menu surfaces are implemented; production hardening
-and larger online features remain explicitly tracked below.
+`main` contains a playable game deployed through Vercel. Core combat, progression,
+content tools, menus, server-hosted online co-op and arena matchmaking are present.
+Production hardening, content depth and cross-device verification remain active work.
 
 ### Implemented foundations
 
@@ -29,7 +29,7 @@ The current earning and spending rules, opening budgets and remaining balance ri
 
 ### Remaining work
 
-- Real-time co-op networking and ranked matchmaking
+- Deployed two-account co-op and arena device-matrix verification
 - Server-authoritative combat and trusted economy ownership
 - Persisted Creator packs beyond local browser storage
 - Bosses with phase patterns, weak points and unique mechanics
@@ -229,7 +229,7 @@ Fruit TD is intended to become a **co-op tower defence game with competitive pro
 - Performance tracking
 - Competitive rewards
 
-**Current limitation:** full real-time multiplayer networking and production ranked matchmaking are not complete in this branch.
+**Current limitation:** co-op and arena services are implemented, but production matchmaking still needs deployed two-account and reconnect verification. Combat simulation and some run rewards also remain client-trusted in solo modes.
 
 ## Admin Control Center
 
