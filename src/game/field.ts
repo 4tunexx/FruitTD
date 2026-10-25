@@ -1,4 +1,5 @@
 import { battlefieldArtSource, BATTLEFIELD_ART_URL } from './characterPortraits';
+import { blendBattlefieldEdges } from './battlefieldBlend';
 import { battleScenery } from './battleArt';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, TextureLoader, SRGBColorSpace } from 'three';
 import type { AdminConfig } from '../services/admin';
@@ -14,7 +15,7 @@ function color(value: unknown, fallback: string): string { return typeof value==
 export class Field {
  readonly group=new Group();
  private readonly legacyGroup=new Group();
- private readonly mapMaterial=new MeshBasicMaterial({ color:0xffffff, toneMapped:false });
+ private readonly mapMaterial=blendBattlefieldEdges(new MeshBasicMaterial({ color:0xffffff, toneMapped:false }));
  private readonly mapSurface=new Mesh(new PlaneGeometry(ARENA_W,SOLO_ARENA_D),this.mapMaterial);
  private readonly mapEntities=new Group();
  private mapRequest=0;

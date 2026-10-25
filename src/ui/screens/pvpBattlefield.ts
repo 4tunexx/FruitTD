@@ -10,6 +10,7 @@ import { createBuildPad } from '../../game/buildPads';
 import { TurretEffects } from '../../game/turretEffects';
 import { DefenderMotion } from '../../game/defenderMotion';
 import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
+import { blendBattlefieldEdges } from '../../game/battlefieldBlend';
 import { faceCombatPortraits } from '../../game/portraitFacing';
 import { combatTokenFrame } from '../../game/combatTokens';
 import { battleScenery } from '../../game/battleArt';
@@ -300,14 +301,15 @@ export class PvpBattlefield {
     this.health.clear(); this.buildPads.length = 0; this.mainTowerMaterials.length = 0; this.wallMaterials.length = 0; this.heroArt.length = 0; this.keepMotion.clear();
     const fullLength = (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2);
     const fullWidth = map.width * TILE_X + 5;
-    const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), new MeshBasicMaterial({ color:0xffffff, map:battlefieldTexture(), side:DoubleSide }));
+    const edgeMode = this.snapshot.shared ? 'all-edges' : 'outer-edges';
+    const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), blendBattlefieldEdges(new MeshBasicMaterial({ color:0xffffff, map:battlefieldTexture(), side:DoubleSide }), edgeMode));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -.05;
     if (this.snapshot.shared) floor.position.z = (map.height + 2) * TILE / 2;
     if (!this.snapshot.shared) {
       // Repeat the Casual scene once per half instead of stretching one image.
       floor.geometry.dispose(); floor.geometry = new PlaneGeometry(fullWidth, fullLength / 2);
       floor.position.z = fullLength / 4;
-      const rivalFloor = new Mesh(floor.geometry.clone(), (floor.material as MeshBasicMaterial).clone());
+      const rivalFloor = new Mesh(floor.geometry.clone(), blendBattlefieldEdges((floor.material as MeshBasicMaterial).clone(), edgeMode));
       rivalFloor.rotation.set(-Math.PI / 2, 0, Math.PI); rivalFloor.position.set(0, -.05, -fullLength / 4);
       this.terrain.add(rivalFloor);
       const outskirts = new Mesh(new PlaneGeometry(fullWidth * 8, fullLength * 3), new MeshBasicMaterial({color:0x141b22, side:DoubleSide}));
