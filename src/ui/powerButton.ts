@@ -41,6 +41,8 @@ export function powerButton(id: string, onUse: () => void): HTMLButtonElement {
     el('span', { class:'hero-ability-slot__name', text:ability.name }),
     el('span', { class:'hero-ability-slot__cooldown' }),
   ]);
+  const palette:Record<string,[string,string]>={shock:['#ffd05e','#ffd05e66'],frost:['#8ce9ff','#8ce9ff66'],burst:['#ff8a68','#ff8a6866'],pierce:['#cda5ff','#cda5ff66'],bloom:['#ec8bca','#ec8bca66'],guard:['#94e8a5','#94e8a566']};
+  button.style.setProperty('--power-color',palette[ability.effect][0]);button.style.setProperty('--power-glow',palette[ability.effect][1]);
   button.addEventListener('click', () => {
     if (button.disabled) return;
     button.classList.add('is-casting');

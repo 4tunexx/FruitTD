@@ -549,3 +549,59 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn { height:80px; grid-template-rows:27px 21px 10px 8px; }
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name { font-size:8px; }
 }
+
+/* Combat powers are quick, colour-coded controls; the icon is the surface. */
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo,
+  .ftd-pvp.is-battle .ftd-duel-powers,
+  .ftd-coop-battle .hero-ability-bar--coop {
+    counter-reset:combat-power; padding:0!important; border:0!important; background:transparent!important;
+    box-shadow:none!important; backdrop-filter:none!important;
+  }
+  body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot,
+  .ftd-pvp.is-battle .ftd-duel-powers .hero-ability-slot,
+  .ftd-coop-battle .hero-ability-bar--coop .hero-ability-slot {
+    position:relative; width:62px; min-width:62px; min-height:65px; grid-template-rows:43px auto;
+    padding:0; border:0; border-radius:50%; clip-path:none!important;
+    background:transparent!important; box-shadow:none!important;
+  }
+  :is(.hero-ability-bar--solo,.ftd-duel-powers,.hero-ability-bar--coop) .hero-ability-slot__portrait {
+    width:43px!important; height:43px!important; border-radius:50%!important; clip-path:circle(50%)!important; overflow:hidden;
+    border:2px solid var(--power-color,#ffe394)!important;
+    box-shadow:0 0 0 2px #131820,0 0 13px var(--power-glow,#ffe39466)!important;
+    background:#171c25;
+  }
+  :is(.hero-ability-bar--solo,.ftd-duel-powers,.hero-ability-bar--coop) .hero-ability-slot__icon {
+    width:39px!important; height:39px!important; border-radius:50%!important;
+  }
+  :is(.hero-ability-bar--solo,.ftd-duel-powers,.hero-ability-bar--coop) .hero-ability-slot__name { display:none!important; }
+  :is(.hero-ability-bar--solo,.ftd-duel-powers,.hero-ability-bar--coop) .hero-ability-slot__cooldown {
+    padding:0!important; background:transparent!important; color:#fff1c7;
+    font-size:9px!important; text-shadow:0 2px 3px #000;
+  }
+  :is(.hero-ability-bar--solo,.ftd-duel-powers,.hero-ability-bar--coop) .hero-ability-slot::after {
+    counter-increment:combat-power; content:counter(combat-power);
+    position:absolute; z-index:4; top:-2px; right:2px; width:17px; height:17px;
+    display:grid; place-items:center; border:1px solid var(--power-color,#ffe394);
+    border-radius:50%; background:#181d26; color:#fff2d0; font-size:10px; font-weight:900;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
+    border:2px solid #e7bf69; border-radius:50%; clip-path:none;
+    background:radial-gradient(circle at 35% 25%,#485055e9,#171d22ef 75%);
+    box-shadow:0 5px 14px #000b,0 0 0 2px #10171dbb;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) {
+    border:0; background:transparent; box-shadow:none; backdrop-filter:none;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns {
+    display:flex; flex-wrap:wrap; justify-content:center; gap:8px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn:not(.hidden) {
+    flex:0 0 78px; width:78px; height:78px; min-height:78px; padding:7px;
+    display:grid; place-items:center; align-content:center; border:2px solid #d5b76e;
+    border-radius:50%; background:radial-gradient(circle at 35% 25%,#3c4548e9,#171d22ef 75%);
+    color:#ffebba; font-size:10px; line-height:1.15; box-shadow:0 5px 14px #000b;
+    animation:turret-orbit-in .2s ease-out both;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn:disabled { opacity:.5; }
+}

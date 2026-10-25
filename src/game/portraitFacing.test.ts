@@ -42,7 +42,7 @@ test('retired sample scenery upgrades while custom admin maps retain their exact
 test('hero powers use distinct authored power artwork',()=>{
   assert.equal(new Set(HERO_ABILITIES.map(ability=>ability.iconUrl)).size,30);
   for(const ability of HERO_ABILITIES){
-    assert.equal(ability.iconUrl,`/assets/powers/${ability.id}.svg`);
+    assert.equal(ability.iconUrl,`/assets/powers/combat-${ability.id}.svg`);
     const source=readFileSync(`public${ability.iconUrl}`,'utf8');
     assert.ok(source.includes('<svg'));
   }
