@@ -33,13 +33,15 @@ test('combat status and quick action surfaces use the glass command treatment', 
   assert.match(css, /hero-ability-bar--solo \{[\s\S]*?right:calc\(100vw - var\(--combat-field-right/);
   assert.match(css, /#hud-shop \.turret-btn__name \{[\s\S]*?grid-column:1/);
   assert.match(css, /#hud-shop \.turret-btn__status \{[\s\S]*?grid-row:4/);
-  assert.match(css, /#hud-shop \{\s*display:grid; grid-auto-flow:column; grid-auto-columns:calc\(\(100% - 18px\) \/ 4\)/);
+  assert.match(css, /#command-popup\.is-build-selection #hud-shop \{[\s\S]*?position:relative; height:115px/);
+  assert.match(css, /#hud-shop \.turret-btn\[hidden\] \{ display:none!important; \}/);
+  assert.match(css, /\.turret-btn\[data-orbit-slot="3"\]/);
   assert.match(css, /#action-btns \{\s*display:grid; grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(css, /#action-btns\.is-main-upgrade #btn-upgrade \{ grid-column:1\/-1/);
   assert.match(hud, /turret-btn__name/);
   assert.match(hud, /turret-btn__cost/);
-  assert.match(hud, /this\.shop\.scrollBy\(\{ left: Math\.max\(1, this\.shop\.clientWidth\)/);
-  assert.match(hud, /turretPageLabel\.textContent = `\$\{page\} \/ \$\{pageCount\}`/);
+  assert.match(hud, /button\.dataset\.orbitSlot = String\(position\)/);
+  assert.match(hud, /turretPageLabel\.textContent = `\$\{this\.turretPage \+ 1\} \/ \$\{pageCount\}`/);
   assert.match(html, /id="turret-page-label"/);
   assert.match(pvp, /battlefield\.element\.appendChild\(powerRail\)/);
   assert.match(layout, /--combat-field-\$\{name\}/);

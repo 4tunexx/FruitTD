@@ -51,9 +51,9 @@ export class GameRenderer {
       canvas,
       antialias: !isMobile && !isLowMemory,
       powerPreference: isMobile || isLowMemory ? 'low-power' : 'high-performance',
-      alpha: false,
+      alpha: true,
     });
-    this.renderer.setClearColor(CLEAR, 1);
+    this.renderer.setClearColor(CLEAR, 0);
     this.renderer.outputColorSpace = 'srgb';
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
@@ -61,7 +61,7 @@ export class GameRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile || isLowMemory ? 1 : 1.5));
 
     this.scene = new Scene();
-    this.scene.background = CLEAR.clone();
+    this.scene.background = null;
     this.scene.fog = new Fog(0x3a4d32, 55, 110);
 
     const aspect = window.innerWidth / window.innerHeight;
@@ -82,9 +82,7 @@ export class GameRenderer {
       const config = (event as CustomEvent<Partial<{ skyColor: string; ambientLight: number; sunLight: number }>>).detail;
       if (!config) return;
       if (typeof config.skyColor === 'string' && /^#[0-9a-f]{6}$/i.test(config.skyColor)) {
-        this.scene.background = new Color(config.skyColor === '#4a5f3e' ? '#202529' : config.skyColor);
-        (this.scene.fog as Fog).color.copy(this.scene.background as Color);
-        this.renderer.setClearColor(this.scene.background as Color, 1);
+        (this.scene.fog as Fog).color.set(config.skyColor === '#4a5f3e' ? '#202529' : config.skyColor);
       }
       if (Number.isFinite(config.ambientLight)) this.ambientLight.intensity = Math.max(.1, Math.min(1.5, Number(config.ambientLight)));
       if (Number.isFinite(config.sunLight)) this.keyLight.intensity = Math.max(.1, Math.min(1.5, Number(config.sunLight)));

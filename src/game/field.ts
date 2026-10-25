@@ -25,7 +25,7 @@ export class Field {
  private readonly inner=new MeshLambertMaterial({color:DEFAULT.groundColor,emissive:DEFAULT.groundGlowColor,emissiveIntensity:.12});
  private readonly road=new MeshLambertMaterial({color:0x554b40,emissive:0x211c18,emissiveIntensity:.12});
  constructor(){
-  this.mapSurface.rotation.x=-Math.PI/2;this.mapSurface.position.y=.018;this.mapSurface.visible=false;this.group.add(this.mapSurface,this.mapEntities);
+  this.mapSurface.rotation.x=-Math.PI/2;this.mapSurface.position.y=.018;this.mapSurface.renderOrder=-100;this.mapSurface.visible=false;this.group.add(this.mapSurface,this.mapEntities);
   // A quiet apocalyptic fallback while an authored 2D map texture loads (or
   // if an upload is missing). Never show the retired 3D orchard/trees here.
   const ground=new Mesh(new PlaneGeometry(ARENA_W+8,SOLO_ARENA_D+8),this.outer);ground.rotation.x=-Math.PI/2;this.legacyGroup.add(ground);

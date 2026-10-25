@@ -480,3 +480,72 @@ body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__cooldow
 @media(prefers-reduced-motion:reduce) {
   body[data-ftd-screen="PLAY"] #sidebar { transition:none; }
 }
+
+/* The battlefield itself dissolves into the shell; the canvas has no opaque mat. */
+body[data-ftd-screen="PLAY"] #game-canvas { background:transparent!important; box-shadow:none!important; }
+.ftd-pvp.is-battle .ftd-pvp-scene,.ftd-pvp.is-battle .ftd-pvp-scene__canvas { background:transparent!important; }
+
+/* Pad commands float in front of the units. The four build choices form an arc
+   around the selected pad instead of occupying a detached shop window. */
+body[data-ftd-screen="PLAY"] #command-popup {
+  z-index:90; pointer-events:auto!important; width:min(344px,calc(var(--combat-field-width,100vw) - 16px));
+  max-height:min(52dvh,calc(var(--combat-field-height,100dvh) - 16px));
+  padding:10px; gap:6px; overflow:visible;
+  background:linear-gradient(150deg,#30383cdb,#15191edb 78%);
+  border:1px solid #d3b56dba; box-shadow:0 18px 42px #050608a8,inset 0 1px #ffedb54a;
+  backdrop-filter:blur(20px) saturate(135%);
+}
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection {
+  padding:0; border:0; background:none; box-shadow:none; clip-path:none;
+  backdrop-filter:none; gap:3px;
+}
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header {
+  align-self:center; min-height:34px; width:max-content; max-width:100%; padding:4px 5px 4px 10px;
+  border:1px solid #d3b56dbb; background:#20272bdc; box-shadow:0 8px 22px #000a;
+  backdrop-filter:blur(16px); clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header > div:first-child { gap:1px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header span { font-size:7px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header strong { font-size:10px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #btn-command-close { width:29px; min-width:29px; height:29px; min-height:29px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-pick {
+  align-self:center; max-width:75%; padding:4px 9px; border:1px solid #b89b5d7a;
+  background:#171d21dc; color:#fff0cb; font-size:9px; text-align:center; line-height:1.2;
+  backdrop-filter:blur(12px);
+}
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+  display:block; position:relative; height:115px; max-height:none; padding:0; overflow:visible;
+  touch-action:pan-y; scrollbar-width:none;
+}
+body[data-ftd-screen="PLAY"] #hud-shop .turret-btn[hidden] { display:none!important; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
+  position:absolute; width:23%; min-width:0; height:86px; min-height:0; padding:5px 3px;
+  grid-template-rows:30px 23px 10px 9px; gap:2px;
+  border:1px solid #e0bc6dc9; color:#fff2ce;
+  background:linear-gradient(155deg,#3d464acb,#141a1ee8);
+  box-shadow:0 10px 22px #000b,inset 0 1px #fff5d84a;
+  backdrop-filter:blur(16px) saturate(140%);
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+  animation:turret-orbit-in .19s ease-out both;
+}
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="0"] { left:0; top:28px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="1"] { left:25.7%; top:4px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="2"] { left:51.4%; top:4px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="3"] { left:77%; top:28px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:not(:disabled):hover,
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:not(:disabled):focus-visible {
+  background:linear-gradient(150deg,#74602fef,#252b2bdd); border-color:#ffe189; transform:translateY(-5px); outline:2px solid #ffda71;
+}
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__glyph { width:27px; height:27px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name { font-size:9px; line-height:1.1; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__cost { font-size:9px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__status { font-size:6px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-carousel__nav button { width:24px; min-width:24px; height:24px; min-height:24px; }
+body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-carousel__nav { margin-left:6px; }
+body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns #btn-upgrade { grid-column:auto; }
+@keyframes turret-orbit-in { from { opacity:0; scale:.75; } to { opacity:1; scale:1; } }
+@media(prefers-reduced-motion:reduce) { body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn { animation:none; } }
+@media(max-width:420px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn { height:80px; grid-template-rows:27px 21px 10px 8px; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name { font-size:8px; }
+}

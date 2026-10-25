@@ -100,6 +100,8 @@ export class Hud {
   private readonly turretPrev = document.getElementById('btn-turret-prev') as HTMLButtonElement;
   private readonly turretNext = document.getElementById('btn-turret-next') as HTMLButtonElement;
   private readonly turretPageLabel = document.getElementById('turret-page-label')!;
+  private turretPage = 0;
+  private turretPadFloor: boolean | null = null;
   private readonly hero = document.getElementById('hud-hero')!;
   private readonly hpValue = document.getElementById('hud-hp-value');
   private readonly hpPanel = document.getElementById('hp-row');
@@ -191,19 +193,25 @@ export class Hud {
       this.shop.appendChild(btn);
       changed=true;
     }
-    if(changed)requestAnimationFrame(() => this.updateTurretCarousel());
+    if(changed){this.turretPage=0;requestAnimationFrame(() => this.updateTurretCarousel());}
   }
 
   private updateTurretCarousel(): void {
-    const width = Math.max(1, this.shop.clientWidth);
-    const maxScroll = Math.max(0, this.shop.scrollWidth - width);
-    const pageCount = Math.max(1, Math.ceil(this.shop.scrollWidth / width));
-    const atEnd = this.shop.scrollLeft >= maxScroll - 3;
-    const page = atEnd ? pageCount : Math.min(pageCount, Math.floor(this.shop.scrollLeft / width) + 1);
-    this.turretNav.hidden = maxScroll <= 3;
-    this.turretPrev.disabled = this.shop.scrollLeft <= 3;
-    this.turretNext.disabled = atEnd;
-    this.turretPageLabel.textContent = `${page} / ${pageCount}`;
+    const allButtons = [...this.shop.querySelectorAll<HTMLButtonElement>('button[data-turret]')];
+    const buttons = allButtons.filter(button => button.dataset.padCompatible !== 'false');
+    allButtons.forEach(button => { if (!buttons.includes(button)) button.hidden = true; });
+    const pageCount = Math.max(1, Math.ceil(buttons.length / 4));
+    this.turretPage = Math.max(0, Math.min(this.turretPage, pageCount - 1));
+    buttons.forEach((button, index) => {
+      const position = index - this.turretPage * 4;
+      button.hidden = position < 0 || position >= 4;
+      if (!button.hidden) button.dataset.orbitSlot = String(position);
+      else delete button.dataset.orbitSlot;
+    });
+    this.turretNav.hidden = pageCount === 1;
+    this.turretPrev.disabled = this.turretPage === 0;
+    this.turretNext.disabled = this.turretPage >= pageCount - 1;
+    this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
   }
 
   constructor(private readonly sfx?: Sfx) {
@@ -253,18 +261,12 @@ export class Hud {
   }
 
   setCommandAnchor(screenX: number, screenY: number, field: DOMRect): void {
-    const gap = 14;
-    const inset = 12;
-    const width = this.commandPopup.offsetWidth || Math.min(360, field.width - inset * 2);
-    const height = this.commandPopup.offsetHeight || Math.min(360, field.height - inset * 2);
-    const rightLimit = field.right - inset - 82;
-    const rightSpace = rightLimit - screenX - gap;
-    const leftSpace = screenX - field.left - gap - inset;
-    const left = rightSpace >= width || rightSpace >= leftSpace
-      ? screenX + gap
-      : screenX - width - gap;
-    const top = screenY - height / 2;
-    this.commandPopup.style.left = `${Math.max(field.left + inset, Math.min(left, rightLimit - width))}px`;
+    const inset = 8;
+    const width = this.commandPopup.offsetWidth || Math.min(344, field.width - inset * 2);
+    const height = this.commandPopup.offsetHeight || 174;
+    const left = screenX - width / 2;
+    const top = screenY - height - 24;
+    this.commandPopup.style.left = `${Math.max(field.left + inset, Math.min(left, field.right - width - inset))}px`;
     this.commandPopup.style.top = `${Math.max(field.top + inset, Math.min(top, field.bottom - height - inset))}px`;
     this.commandPopup.style.bottom = 'auto';
   }
@@ -298,14 +300,16 @@ export class Hud {
     });
     document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
     document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
-    this.turretPrev.addEventListener('click', () => {
-      this.shop.scrollBy({ left: -Math.max(1, this.shop.clientWidth), behavior: 'smooth' });
+    this.turretPrev.addEventListener('click', () => { this.turretPage--; this.updateTurretCarousel(); });
+    this.turretNext.addEventListener('click', () => { this.turretPage++; this.updateTurretCarousel(); });
+    let swipeStart = 0;
+    this.shop.addEventListener('pointerdown', event => { swipeStart = event.clientX; });
+    this.shop.addEventListener('pointerup', event => {
+      const delta = event.clientX - swipeStart;
+      if (Math.abs(delta) < 45) return;
+      this.turretPage += delta < 0 ? 1 : -1;
+      this.updateTurretCarousel();
     });
-    this.turretNext.addEventListener('click', () => {
-      this.shop.scrollBy({ left: Math.max(1, this.shop.clientWidth), behavior: 'smooth' });
-    });
-    this.shop.addEventListener('scroll', () => this.updateTurretCarousel(), { passive: true });
-    new ResizeObserver(() => this.updateTurretCarousel()).observe(this.shop);
     this.updateTurretCarousel();
   }
 
@@ -1257,6 +1261,8 @@ export class Hud {
       this.setUpgrade(state.currency, slot.level, def.name);
     } else {
       this.pick.textContent = pad.floor ? 'Ground defence pad' : 'Wall pad — turret';
+      const padChanged = this.turretPadFloor !== pad.floor;
+      if (padChanged) { this.turretPadFloor = pad.floor; this.turretPage = 0; }
       const shopWasHidden=this.shop.classList.contains('hidden');
       this.shop.classList.remove('hidden');
       this.upgrade.classList.add('hidden');
@@ -1270,6 +1276,7 @@ export class Hud {
         const def = turretDef(kind);
         const affordable = state.currency >= def.cost;
         const fits = canPlaceTurret(kind, pad);
+        btn.dataset.padCompatible = String(fits);
         btn.disabled = !fits || !affordable;
         const cost = btn.querySelector<HTMLElement>('.turret-btn__cost');
         if (cost) cost.textContent = `${def.cost} F`;
@@ -1280,6 +1287,7 @@ export class Hud {
         }
         btn.setAttribute('aria-label',`${def.name} · ${def.cost} Fruts · ${!fits?'floor pad required':!affordable?`need ${def.cost-state.currency} more Fruts`:'ready to build'} · ${def.blurb}`);
       }
+      if (padChanged) this.updateTurretCarousel();
     }
     if (state.toast && state.toast !== '__restart__' && state.toast !== this.lastToast) {
       this.lastToast = state.toast;
