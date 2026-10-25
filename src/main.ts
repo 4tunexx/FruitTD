@@ -180,7 +180,8 @@ const juice = new JuiceSystem();
 const bank = new JuiceBank();
 const wall = new WallBase();
 window.addEventListener('fruit-td-creator-update',()=>{wall.applySkins();});
-for(const id of ['btn-sidebar-close','btn-sidebar-hide'])document.getElementById(id)?.addEventListener('click',()=>wall.deselect());
+document.getElementById('btn-sidebar-close')?.addEventListener('click',()=>wall.deselect());
+document.getElementById('btn-command-close')?.addEventListener('click',()=>{wall.deselect();hud.setSidebarOpen(false);});
 const blade = new BladeInput(canvas, renderer.camera, renderer);
 const trail = new BladeTrail();
 const guestTrail = new BladeTrail();
@@ -1085,6 +1086,7 @@ function tryPlace(kind: TurretKind): void {
   }
   if (wall.placeSlicer(slot.index, kind)) {
     state.currency -= def.cost;
+    wall.deselect();
     hud.setSidebarOpen(false);
     sfx.place();
     toast(state, `${def.name} built`);
@@ -1796,7 +1798,6 @@ function simulate(dt: number): void {
       }
     } else if (idx >= 0) {
       wall.select(idx);
-      hud.setSidebarOpen(true);
       sfx.select();
     } else {
       wall.deselect();hud.setSidebarOpen(false);

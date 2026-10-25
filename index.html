@@ -154,9 +154,12 @@
         <div id="combo-layer" data-testid="combat-overlay"></div>
 
         <button type="button" id="btn-sidebar-close" class="sidebar-backdrop hidden" aria-label="Close build menu"></button>
+        <button type="button" id="btn-sidebar-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Open match status" title="Match status">
+          <span data-lucide="PanelLeftOpen" aria-hidden="true"></span><span class="combat-sidebar-toggle__label">STATUS</span>
+        </button>
 
-        <!-- ════ Right sidebar ════ -->
-        <aside id="sidebar">
+        <!-- Match information stays tucked away until STATUS is opened. -->
+        <aside id="sidebar" aria-hidden="true">
           <button type="button" id="btn-sidebar-hide" class="sidebar-hide-btn" aria-label="Hide build menu"><span data-lucide="X" aria-hidden="true"></span></button>
           <!-- Header -->
           <div id="sidebar-header">
@@ -226,13 +229,21 @@
             <p id="hud-points"></p>
           </div>
 
-          <!-- Selected pad label -->
-          <p id="hud-pick">Main tower · Lv 1</p>
+          <!-- Hotkey hints -->
+          <p id="hotkey-hint">Esc pause · M move · X sell · Space super · U upgrade · F2 Admin</p>
+          <p id="hud-fps">60 FPS</p>
+        </aside>
 
-          <!-- Turret shop (shown when empty pad selected) -->
-          <div id="hud-shop"></div>
-
-          <!-- Turret action buttons -->
+        <!-- A pad or tower selection opens only its relevant quick actions. -->
+        <section id="command-popup" class="hidden" aria-label="Selected tower quick actions">
+          <header class="command-popup__header">
+            <div><span>FIELD COMMAND</span><strong>QUICK ACTIONS</strong></div>
+            <button id="btn-command-close" type="button" aria-label="Close quick actions" title="Close">
+              <span data-lucide="X" aria-hidden="true"></span>
+            </button>
+          </header>
+          <p id="hud-pick" aria-live="polite">Main tower · Lv 1</p>
+          <div id="hud-shop" aria-label="Turrets available to build"></div>
           <div id="action-btns">
             <button id="btn-place" class="hidden action-btn"><span data-lucide="Plus" aria-hidden="true"></span> Place</button>
             <button id="btn-upgrade" class="action-btn action-btn--primary"><span data-lucide="ArrowUpCircle" aria-hidden="true"></span> Level up</button>
@@ -240,11 +251,7 @@
             <button id="btn-move" class="hidden action-btn action-btn--info">Move  M</button>
             <button id="btn-toggle" class="hidden action-btn">Toggle blender  B</button>
           </div>
-
-          <!-- Hotkey hints -->
-          <p id="hotkey-hint">Esc pause · M move · X sell · Space super · U upgrade · F2 Admin</p>
-          <p id="hud-fps">60 FPS</p>
-        </aside>
+        </section>
 
         <!-- ════ Toast Container ════ -->
         <div id="hud-toast" data-testid="combat-toast"></div>

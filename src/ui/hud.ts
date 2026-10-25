@@ -94,6 +94,7 @@ export class Hud {
     green: document.getElementById('hud-juice-green')!,
   };
   private readonly shop = document.getElementById('hud-shop')!;
+  private readonly commandPopup = document.getElementById('command-popup')!;
   private readonly hero = document.getElementById('hud-hero')!;
   private readonly hpValue = document.getElementById('hud-hp-value');
   private readonly hpPanel = document.getElementById('hp-row');
@@ -183,6 +184,7 @@ export class Hud {
   constructor(private readonly sfx?: Sfx) {
     this.place.classList.add('hidden');
     this.shop.classList.add('hidden');
+    this.commandPopup.classList.add('hidden');
 
     this.refreshTurretShop();
 
@@ -221,6 +223,7 @@ export class Hud {
     const backdrop = document.getElementById('btn-sidebar-close');
     app?.classList.toggle('sidebar-open', open);
     toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.getElementById('sidebar')?.setAttribute('aria-hidden', open ? 'false' : 'true');
     backdrop?.classList.toggle('hidden', !open);
   }
 
@@ -248,13 +251,11 @@ export class Hud {
   }
 
   private initSidebarMobile(): void {
-    document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => this.setSidebarOpen(true));
+    document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
+      this.setSidebarOpen(!document.getElementById('app')?.classList.contains('sidebar-open'));
+    });
     document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
     document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
-    // Auto-close after placing / upgrading on phones so slicing stays free
-    this.shop.addEventListener('click', () => {
-      if (window.matchMedia('(max-width: 860px)').matches) this.setSidebarOpen(false);
-    });
   }
 
   showMenu(open: boolean): void {
@@ -1171,6 +1172,7 @@ export class Hud {
 
     const slot = wall.selectedSlot();
     const pad = slot;
+    this.commandPopup.classList.toggle('hidden', !playActive || !state.running || !wall.hasSelection);
     if (wall.moving) {
       this.pick.textContent = 'Click a gold pad to move · click again to cancel';
       this.shop.classList.add('hidden');
