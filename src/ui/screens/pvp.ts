@@ -381,11 +381,11 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const select = (cell: number) => {
         const current = status.match; const player = current?.players.find(item => item.side === current.yourSide);
         if (!current || !player) return;
-        if(cell===-1){pendingBuildCell=null;selectedCell=-1;dockTab='build';dockExpanded=true;render();return;}
+        if(cell===-1){toolsExpanded=false;pendingBuildCell=null;selectedCell=-1;dockTab='build';dockExpanded=true;render();return;}
         const tower = player.towers.find(item => item.cell === cell);
-        if (tower) { pendingBuildCell = null; selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
+        if (tower) { toolsExpanded=false; pendingBuildCell = null; selectedCell = cell; dockTab = 'build'; dockExpanded = true; render(); }
         else {
-          selectedCell = cell; pendingBuildCell = cell; dockTab = 'build'; dockExpanded = true; render();
+          toolsExpanded=false; selectedCell = cell; pendingBuildCell = cell; dockTab = 'build'; dockExpanded = true; render();
         }
       };
       if (options.createBattlefield) {
@@ -442,7 +442,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       el('small', { class:'ftd-duel-statusline', text: !opponent.connected ? 'Opponent reconnecting…' : !own.towers.length ? `Tap a gold + to build · +${status.config?.incomePerSecond ?? 6} F/s` : `${own.attackers.length} incoming · ${opponent.attackers.length} attacking · +${status.config?.incomePerSecond ?? 6} F/s` }),
     ]);
     const actionRail = el('div', { class:'ftd-duel-rail', 'aria-label':'Battle actions' });
-    const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(dockExpanded&&tab==='attack');render(); };
+    const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;toolsExpanded=false;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(dockExpanded&&tab==='attack');render(); };
     const railButton = (iconName:string, labelText:string, action:()=>void, disabled=false, testId?:string, selected=false) => {
       const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':'CAPTURE','arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??'MORE'})]);
       button.addEventListener('click',action);return button;
@@ -450,7 +450,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     actionRail.append(
       railButton('Cherry','Send fruit attack',()=>openDock('attack'),false,'arena-tab-attack',dockExpanded&&dockTab==='attack'),
     );
-    const more=railButton(toolsExpanded?'ChevronDown':'SlidersHorizontal','Battle controls',()=>{toolsExpanded=!toolsExpanded;render();},false,'arena-controls-toggle');
+    const more=railButton(toolsExpanded?'ChevronDown':'SlidersHorizontal','Battle controls',()=>{toolsExpanded=!toolsExpanded;dockExpanded=false;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(false);render();},false,'arena-controls-toggle');
     more.setAttribute('aria-expanded',String(toolsExpanded));actionRail.append(more);
     const tools=el('div',{class:'ftd-duel-tools',hidden:!toolsExpanded});
     tools.append(

@@ -1,6 +1,6 @@
 import { Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 
-/** Shared ground rail: dark inset, delayed damage, single health fill, team-colored frame. */
+/** Shared ground rail: dark inset, delayed damage, one continuous fill, team-colored frame. */
 export function towerHealthRail(width:number,stroke=0xffe394) {
   const group=new Group();group.name='tower-health-rail';
   const plane=(w:number,h:number,color:number,order:number)=>{
@@ -9,7 +9,6 @@ export function towerHealthRail(width:number,stroke=0xffe394) {
   };
   plane(width+.2,.54,stroke,90);plane(width,.35,0x17231e,91);
   const damage=plane(width,.35,0xfcd581,92),fill=plane(width,.35,0x9be458,93);
-  for(let i=1;i<10;i++){const mark=plane(.035,.35,0x18201c,94);mark.position.x=width*(i/10-.5);}
   let value=1,trail=1,delay=0;
   const scale=(mesh:Mesh,ratio:number)=>{mesh.scale.x=Math.max(.001,ratio);mesh.position.x=-width/2*(1-ratio);};
   return {group,fill,set(ratio:number){

@@ -31,10 +31,13 @@ test('tower range is shown only after selection and tower HP updates the ground 
   assert.equal((hp.material as import('three').MeshBasicMaterial).depthTest, false, 'tower health must not disappear inside battlefield geometry');
   assert.ok(hp.renderOrder > (hpTrack as import('three').Mesh).renderOrder, 'health fill should render over its track');
   assert.equal(hp.geometry.type, 'PlaneGeometry', 'one flat health rail should not draw stacked 3D edges');
+  assert.equal(wall.healthRail.children.length, 4, 'health rail should use one uninterrupted fill without divider ticks');
 });
 
 test('combat HUD retains health text without duplicating the arena health rail', () => {
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   assert.match(html, /id="hud-hp-value"/);
   assert.doesNotMatch(html, /id="hp-track"|id="hud-hp-fill"/);
+  assert.match(html, /id="hud-combo"[^>]*aria-live="polite"/);
+  assert.doesNotMatch(html, /id="juice-toggle"|id="wave-toggle"/);
 });

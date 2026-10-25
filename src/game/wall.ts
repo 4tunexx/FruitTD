@@ -116,7 +116,7 @@ export class WallBase {
     this.group.add(this.combatEffects.group);
     this.group.add(this.keepMesh);
     this.heroMotion=new DefenderMotion(this.keepMesh,'hero',0xffc45c);
-    // A framed segmented bar sits just below the wall and remains attached to
+    // A framed continuous bar sits just below the wall and remains attached to
     // the tower as the camera moves.
     const hpZ = WALL_Z - 1.45;
     this.hpRail=towerHealthRail(ARENA_W-1.95);

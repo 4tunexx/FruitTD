@@ -46,7 +46,7 @@ body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { bottom:24px; left:10px; min-w
 .ftd-pvp.is-battle .ftd-duel-hp i { background:var(--side); border-radius:var(--ftd-radius-button); }
 .ftd-pvp.is-battle .ftd-duel-clock > strong { font:800 23px/1 var(--ftd-font-body); color:var(--ftd-color-text); }
 .ftd-pvp.is-battle .ftd-pvp-scene { width:100%; flex:1 1 0; min-height:0; margin:0; border:0; background:var(--ftd-color-background); overflow:hidden; }
-.ftd-pvp.is-battle .ftd-duel-dock { flex:none; position:relative; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px 18px; min-height:106px; padding:8px 16px max(8px,env(safe-area-inset-bottom)); border:0; border-top:1px solid var(--ftd-color-border); background:var(--ftd-color-panel); }
+.ftd-pvp.is-battle .ftd-duel-dock { flex:none; position:relative; inset:auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px 18px; width:100%; height:auto; max-height:none; min-height:106px; padding:8px 16px max(8px,env(safe-area-inset-bottom)); overflow:visible; box-sizing:border-box; border:0; border-top:1px solid var(--ftd-color-border); background:var(--ftd-color-panel); }
 .ftd-pvp.is-battle .ftd-duel-powers { position:static; display:flex; flex-direction:row; gap:6px; pointer-events:auto; margin:auto; }
 .ftd-pvp.is-battle .ftd-duel-resource { display:block; min-width:130px; margin:0; }
 .ftd-pvp.is-battle .ftd-duel-wallet { font:800 22px/1.4 var(--ftd-font-body); color:var(--ftd-color-primary); }
@@ -110,6 +110,69 @@ body[data-ftd-screen="PLAY"] #sidebar #hp-row { background:var(--ftd-color-panel
 body[data-ftd-screen="PLAY"] #sidebar .hp-heading { background:var(--ftd-color-panel-secondary)!important; border:1px solid var(--ftd-command-line)!important; color:var(--ftd-color-text)!important; }
 body[data-ftd-screen="PLAY"] #sidebar :is(.stat,#tower-progress-chip) { background:var(--ftd-color-panel)!important; border-color:var(--ftd-color-border)!important; }
 body[data-ftd-screen="PLAY"] #sidebar #btn-upgrade:not(:disabled) { background:linear-gradient(115deg,var(--ftd-command-hot),var(--ftd-command-amber))!important; color:var(--ftd-command-ink)!important; border-color:var(--ftd-command-hot)!important; }
+
+/* Keep combat telemetry in normal flow so combo callouts cannot collide with
+   wall XP or wave progress when the hit animation runs. */
+body[data-ftd-screen="PLAY"] #sidebar #hp-row {
+  display:flex; flex-direction:column; gap:7px; padding:9px 10px;
+  border:1px solid var(--ftd-command-line)!important;
+  background:linear-gradient(145deg,var(--ftd-color-panel-secondary),var(--ftd-color-panel))!important;
+}
+body[data-ftd-screen="PLAY"] #sidebar #hp-row.is-hit { animation:combat-hp-impact 420ms ease-out!important; }
+body[data-ftd-screen="PLAY"] #sidebar #hp-row.is-hit::after { content:none!important; }
+@keyframes combat-hp-impact {
+  0%,100% { box-shadow:inset 0 0 0 1px transparent; }
+  24% { box-shadow:inset 0 0 0 1px #f16a73,0 0 12px #f16a7366; }
+}
+body[data-ftd-screen="PLAY"] #sidebar #hp-row .hp-heading {
+  padding:0; border:0!important; background:none!important; line-height:1.25;
+}
+body[data-ftd-screen="PLAY"] #sidebar #tower-xp-row { margin:0; }
+body[data-ftd-screen="PLAY"] #sidebar #hud-combo {
+  min-height:0; margin:0; padding:5px 8px;
+  border-left:2px solid var(--ftd-color-primary);
+  background:color-mix(in srgb,var(--ftd-color-primary) 10%,var(--ftd-color-panel));
+  color:var(--ftd-color-primary); font-size:11px; line-height:1.25;
+  letter-spacing:.08em; font-variant-numeric:tabular-nums;
+}
+body[data-ftd-screen="PLAY"] #sidebar #hud-combo:empty { display:none!important; }
+body[data-ftd-screen="PLAY"] #sidebar #wave-panel { max-height:none; opacity:1; overflow:visible; }
+body[data-ftd-screen="PLAY"] #sidebar #hud-wave-prog { gap:5px; margin:0; }
+body[data-ftd-screen="PLAY"] #sidebar #hud-wave-prog .stat-label { margin:0; line-height:1.2; }
+body[data-ftd-screen="PLAY"] #sidebar #resource-row { gap:5px; }
+body[data-ftd-screen="PLAY"] #sidebar #juice-panel { max-height:none; opacity:1; overflow:visible; }
+body[data-ftd-screen="PLAY"] #sidebar #hud-juice {
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0;
+  overflow:hidden; border:1px solid var(--ftd-command-line);
+  background:var(--ftd-color-panel); color:var(--ftd-color-text);
+}
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip {
+  min-width:0; min-height:44px; display:flex; flex-direction:column;
+  justify-content:center; align-items:center; gap:3px; padding:4px 2px;
+  border:0; border-right:1px solid #8e815455; background:transparent;
+}
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip:last-child { border-right:0; }
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip span { font-size:8px; line-height:1.1; letter-spacing:.03em; }
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip strong { font-size:13px; line-height:1.1; }
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip--yellow { box-shadow:inset 0 2px #f6cf3d; }
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip--pink { box-shadow:inset 0 2px #ef79b7; }
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip--orange { box-shadow:inset 0 2px #f48120; }
+body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip--green { box-shadow:inset 0 2px #69c77a; }
+
+/* PvP secondary commands are a single anchored popup, never a second dock row. */
+.ftd-pvp.is-battle .ftd-duel-dock { justify-content:space-between; min-height:82px; gap:10px 16px; }
+.ftd-pvp.is-battle .ftd-duel-tools:not([hidden]) {
+  position:absolute; z-index:24; right:12px; bottom:calc(100% + 8px);
+  display:grid; grid-template-columns:repeat(3,minmax(76px,1fr)); gap:7px;
+  width:min(330px,calc(100vw - 24px)); padding:9px;
+  border:1px solid var(--ftd-command-line); background:var(--ftd-color-panel);
+  box-shadow:0 8px 24px #0009; box-sizing:border-box;
+}
+.ftd-pvp.is-battle .ftd-duel-tools[hidden] { display:none!important; }
+.ftd-pvp.is-battle .ftd-duel-tools .ftd-duel-icon-button { width:100%; min-width:0; }
+@media(max-width:600px) {
+  .ftd-pvp.is-battle .ftd-duel-tools:not([hidden]) { right:8px; width:min(330px,calc(100vw - 16px)); }
+}
 
 /* Keep combat information in one place: the top strip owns wave and currency. */
 @media(min-width:1100px) and (min-height:600px) {

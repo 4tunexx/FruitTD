@@ -1140,7 +1140,7 @@ export class Hud {
         ? 'Lv 10 MAX'
         : `Lv ${towerXp.level} · ${towerXp.xp}/${towerXp.nextLevelXp} XP`;
     }
-    if (state.combo >= 1) {
+    if (state.combo >= 2) {
       this.combo.textContent = `× ${state.combo} COMBO`;
       this.combo.style.display = '';
     } else {

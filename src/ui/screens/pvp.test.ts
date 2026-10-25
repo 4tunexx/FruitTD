@@ -191,9 +191,12 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-send-normal"]')!.click(); await flush();
     assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize);
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-controls-toggle"]')!.click();
+    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), true, 'opening battle controls closes the loadout sheet');
+    assert.equal(document.body.querySelector('.ftd-duel-tools')!.hasAttribute('hidden'), false, 'secondary actions appear in one popup');
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-upgrade-main"]')!.click(); await flush(); assert.equal(game.players[0].mainLevel, 2); assert.equal(game.players[0].wallMaxHealth, 125);
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-rally"]')!.click(); await flush(); assert.ok(game.players[0].rallyUntil! > Date.now());
     select!(cell);await flush();
+    assert.equal(document.body.querySelector('.ftd-duel-tools')!.hasAttribute('hidden'), true, 'selecting a build pad closes battle controls');
     assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), false, 'core loadout is easy to scan');
     assert.equal(document.body.querySelector('[data-testid="arena-build-catcher"]'), null);
     button('+ More towers').click();
