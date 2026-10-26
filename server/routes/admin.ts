@@ -402,6 +402,28 @@ router.post('/config', async (req: Request, res: Response) => {
 }
 adminRouter.use(createAdminConfigRouter());
 
+// Private message moderation. Clearing a thread hides it for one player; only
+// this authenticated admin endpoint permanently removes the stored record.
+adminRouter.get('/messages', async (req: Request, res: Response) => {
+  if (!(await isAuthorized(req))) return res.status(403).json({ success: false, error: 'Admin privileges required.' });
+  try {
+    const messages = await (await getCollection<any>('messages')).find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ success: true, messages: messages.map(({ messageId, senderId, recipientId, body, createdAt, hiddenFor }) => ({ messageId, senderId, recipientId, body, createdAt, hiddenFor: hiddenFor || [] })) });
+  } catch (err) { console.error('Admin message load failed:', err); res.status(500).json({ success: false, error: 'Could not load messages.' }); }
+});
+
+adminRouter.delete('/messages/:messageId', async (req: Request, res: Response) => {
+  if (!(await isAuthorized(req))) return res.status(403).json({ success: false, error: 'Admin privileges required.' });
+  const messageId = String(req.params.messageId || '');
+  if (!/^[\da-f-]{36}$/i.test(messageId)) return res.status(400).json({ success: false, error: 'Invalid message ID.' });
+  try {
+    const result = await (await getCollection<any>('messages')).deleteOne({ messageId });
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch (err) { console.error('Admin message delete failed:', err); res.status(500).json({ success: false, error: 'Could not delete message.' }); }
+});
+
 function normalizePvpConfig(input: unknown): PvpConfig {
   const row = input && typeof input === 'object' ? input as Partial<PvpConfig> : {};
   const bounded = (value: unknown, fallback: number, min: number, max: number) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;

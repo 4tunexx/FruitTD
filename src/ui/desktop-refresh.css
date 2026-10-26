@@ -632,3 +632,7 @@
   .ftd-hub-social-popover__item,
   .ftd-hub-social-popover__all { border-radius: 0 !important; }
 }
+#modal-admin .admin-message-detail { min-width:0;flex:1;overflow-wrap:anywhere; }
+#modal-admin .admin-message-detail small { color:#b9b09d;font-size:.75rem; }
+#modal-admin .admin-message-detail p { color:#f4eee0;white-space:pre-wrap;margin:.4rem 0; }
+#modal-admin #admin-tab-messages .admin-lb-row { display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:.75rem;border-bottom:1px solid #ffffff24; }

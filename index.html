@@ -995,6 +995,7 @@
               <button class="admin-tab-btn" data-tab="pvp">Arena & Ranked PvP</button>
               <button class="admin-tab-btn" data-tab="content">Content (Fruits/Enemies/Waves)</button>
               <button class="admin-tab-btn" data-tab="leaderboard">Leaderboards</button>
+              <button class="admin-tab-btn" data-tab="messages">Messages</button>
               <button class="admin-tab-btn" data-tab="design">Design</button>
             </div>
 
@@ -1840,6 +1841,12 @@
                 <button id="btn-admin-wipe-mode" type="button" class="admin-del-btn">Wipe Mode Scores</button>
               </div>
               <div id="admin-lb-table" class="admin-lb-list"></div>
+            </div>
+
+            <div id="admin-tab-messages" class="admin-panel-tab hidden">
+              <h3>Message moderation</h3>
+              <p>Recent messages are stored for up to 30 days, even if a player clears their own conversation. Deleting here permanently removes a message for both players.</p>
+              <div id="admin-message-list" class="admin-lb-list" aria-live="polite"></div>
             </div>
 
             <!-- Footer Save Bar -->

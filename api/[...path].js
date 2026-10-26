@@ -186,9 +186,11 @@ var DATABASE_INDEXES = [
   { collection: "friends", keys: { userId: 1, state: 1, updatedAt: -1 } },
   { collection: "friends", keys: { friendId: 1, state: 1, updatedAt: -1 } },
   { collection: "notifications", keys: { userId: 1, createdAt: -1 } },
+  { collection: "notifications", keys: { createdAt: 1 }, options: { expireAfterSeconds: 30 * 24 * 60 * 60 } },
   { collection: "notifications", keys: { notificationId: 1 }, options: { unique: true } },
   { collection: "notifications", keys: { userId: 1, eventKey: 1 }, options: { unique: true, partialFilterExpression: { eventKey: { $exists: true } } } },
   { collection: "messages", keys: { conversationId: 1, createdAt: 1 } },
+  { collection: "messages", keys: { createdAt: 1 }, options: { expireAfterSeconds: 30 * 24 * 60 * 60 } },
   { collection: "messages", keys: { messageId: 1 }, options: { unique: true } },
   { collection: "forum_posts", keys: { postId: 1 }, options: { unique: true } },
   { collection: "forum_posts", keys: { createdAt: -1 } },
@@ -3842,6 +3844,30 @@ function createAdminConfigRouter(dependencies = {}) {
   return router;
 }
 adminRouter.use(createAdminConfigRouter());
+adminRouter.get("/messages", async (req2, res) => {
+  if (!await isAuthorized(req2)) return res.status(403).json({ success: false, error: "Admin privileges required." });
+  try {
+    const messages = await (await getCollection("messages")).find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json({ success: true, messages: messages.map(({ messageId, senderId, recipientId, body, createdAt, hiddenFor }) => ({ messageId, senderId, recipientId, body, createdAt, hiddenFor: hiddenFor || [] })) });
+  } catch (err) {
+    console.error("Admin message load failed:", err);
+    res.status(500).json({ success: false, error: "Could not load messages." });
+  }
+});
+adminRouter.delete("/messages/:messageId", async (req2, res) => {
+  if (!await isAuthorized(req2)) return res.status(403).json({ success: false, error: "Admin privileges required." });
+  const messageId = String(req2.params.messageId || "");
+  if (!/^[\da-f-]{36}$/i.test(messageId)) return res.status(400).json({ success: false, error: "Invalid message ID." });
+  try {
+    const result = await (await getCollection("messages")).deleteOne({ messageId });
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch (err) {
+    console.error("Admin message delete failed:", err);
+    res.status(500).json({ success: false, error: "Could not delete message." });
+  }
+});
 function normalizePvpConfig(input) {
   const row = input && typeof input === "object" ? input : {};
   const bounded = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;

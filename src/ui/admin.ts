@@ -13,6 +13,8 @@ import {
   adminFetchLeaderboards,
   adminDeleteScore,
   adminWipeLeaderboardMode,
+  adminFetchMessages,
+  adminDeleteMessage,
   isUserAdmin,
   DEFAULT_ADMIN_CONFIG,
   type AdminConfig,
@@ -44,8 +46,8 @@ import { campaignBoss, campaignWaves, defaultCampaignBoss } from '../game/campai
 import { installBattleMapEditor } from './admin/battleMapEditor';
 import { renderIconLibrary } from './admin/iconLibrary';
 
-type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'maps' | 'sprites' | 'icons' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard';
-const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'maps', 'sprites', 'icons', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'design'];
+type AdminTab = 'landscape' | 'design' | 'daily' | 'vip' | 'missions' | 'achievements' | 'badges' | 'ranks' | 'slicers' | 'maps' | 'sprites' | 'icons' | 'branding' | 'economy' | 'pvp' | 'content' | 'leaderboard' | 'messages';
+const ADMIN_TABS: readonly AdminTab[] = ['daily', 'vip', 'missions', 'achievements', 'badges', 'ranks', 'slicers', 'maps', 'sprites', 'icons', 'branding', 'landscape', 'economy', 'pvp', 'content', 'leaderboard', 'messages', 'design'];
 
 function syncRangeOutput(input: HTMLInputElement | null): void {
   if (!input?.dataset.valueOutput) return;
@@ -387,6 +389,8 @@ export class AdminController {
       this.renderContentEditor();
     } else if (this.activeTab === 'leaderboard') {
       this.renderLeaderboardManager();
+    } else if (this.activeTab === 'messages') {
+      void this.renderMessageManager();
     }
     this.enhanceNumericControls();
   }
@@ -822,6 +826,35 @@ export class AdminController {
       const fields = document.createElement('div'); team.append(heading, fields); pvpEditor.append(team);
       renderConfigForm(fields, this.config.coopConfig);
     }
+  }
+
+  private async renderMessageManager(): Promise<void> {
+    const host = document.getElementById('admin-message-list');
+    if (!host) return;
+    host.textContent = 'Loading recent messages…';
+    try {
+      const messages = await adminFetchMessages();
+      if (this.activeTab !== 'messages') return;
+      host.replaceChildren();
+      if (!messages.length) { host.textContent = 'No stored messages.'; return; }
+      for (const message of messages) {
+        const row = document.createElement('div'); row.className = 'admin-lb-row';
+        const detail = document.createElement('div'); detail.className = 'admin-message-detail';
+        const meta = document.createElement('small');
+        meta.textContent = `${message.senderId} → ${message.recipientId} · ${new Date(message.createdAt).toLocaleString()}${message.hiddenFor.length ? ` · hidden by ${message.hiddenFor.length}` : ''}`;
+        const body = document.createElement('p'); body.textContent = message.body;
+        detail.append(meta, body);
+        const remove = document.createElement('button'); remove.className = 'admin-del-btn'; remove.type = 'button'; remove.textContent = 'Delete permanently';
+        remove.addEventListener('click', async () => {
+          const ok = await confirmModal({ title: 'Permanently delete message?', message: 'This removes it for both players and cannot be undone.', confirmLabel: 'Delete message', tone: 'danger' });
+          if (!ok) return;
+          remove.disabled = true;
+          try { await adminDeleteMessage(message.messageId); row.remove(); if (!host.childElementCount) host.textContent = 'No stored messages.'; }
+          catch { remove.disabled = false; GameToast('Could not delete the message. Try again.', 'danger'); }
+        });
+        row.append(detail, remove); host.append(row);
+      }
+    } catch { if (this.activeTab === 'messages') host.textContent = 'Could not load messages. Reopen this tab to retry.'; }
   }
 
   private async renderLeaderboardManager(): Promise<void> {

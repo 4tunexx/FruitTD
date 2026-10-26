@@ -313,6 +313,19 @@ export async function adminFetchLeaderboards(): Promise<any[]> {
   return data.entries;
 }
 
+export interface AdminMessage { messageId: string; senderId: string; recipientId: string; body: string; createdAt: string; hiddenFor: string[] }
+export async function adminFetchMessages(): Promise<AdminMessage[]> {
+  const res = await fetch('/api/admin/messages', { headers: getAdminHeaders(), cache: 'no-store' });
+  if (!res.ok) throw new Error(`Message request failed (${res.status})`);
+  const data = await res.json();
+  if (!Array.isArray(data?.messages)) throw new Error('Message response was invalid');
+  return data.messages;
+}
+export async function adminDeleteMessage(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/messages/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAdminHeaders() });
+  if (!res.ok || !(await res.json()).success) throw new Error('Could not delete this message');
+}
+
 export async function adminDeleteScore(id: string): Promise<boolean> {
   try {
     const res = await fetch('/api/admin/leaderboard/delete', {

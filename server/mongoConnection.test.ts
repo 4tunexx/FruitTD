@@ -75,6 +75,7 @@ test('production getDb/getCollection wiring initializes the original indexes onc
   firstIndex.resolve();for(const db of await Promise.all(requests))assert.equal(db,database);
   const count=indexes.length;assert.ok(count>30);assert.equal((await getCollection('users') as any).name,'users');assert.equal(indexes.length,count);
   assert.ok(indexes.some(index=>index.collection==='sessions'&&(index.options as any)?.expireAfterSeconds===0));
+  for(const collection of ['messages','notifications'])assert.ok(indexes.some(index=>index.collection===collection&&(index.options as any)?.expireAfterSeconds===30*24*60*60&&'createdAt' in index.keys));
   assert.ok(indexes.some(index=>index.collection==='coop_matches'&&(index.options as any)?.unique===true));
   assert.ok(indexes.some(index=>index.collection==='cloud_saves'&&(index.options as any)?.unique===true));
   await closeDb();assert.equal(closes,1);

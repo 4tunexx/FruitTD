@@ -23,7 +23,7 @@ test('a failed index does not prevent later database indexes from being created'
     console.warn = previousWarn;
   }
 
-  assert.equal(attempts.length, 44);
+  assert.equal(attempts.length, 46);
   assert.deepEqual(attempts[1], { collection: 'leaderboards', keys: { userId: 1, mode: 1 } });
   assert.deepEqual(attempts.at(-1), { collection: 'pvp_challenges', keys: { toId: 1, expiresAt: 1 } });
 });
