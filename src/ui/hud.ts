@@ -265,8 +265,8 @@ export class Hud {
     const width = this.commandPopup.offsetWidth || Math.min(344, field.width - inset * 2);
     const height = this.commandPopup.offsetHeight || 174;
     const left = screenX - width / 2;
-    const compactBuild = window.innerWidth <= 860 && this.commandPopup.classList.contains('is-build-selection');
-    const top = screenY - height - (compactBuild ? 8 : 24);
+    const compactCommand = window.innerWidth <= 860;
+    const top = screenY - height - (compactCommand ? 8 : 24);
     this.commandPopup.style.left = `${Math.max(field.left + inset, Math.min(left, field.right - width - inset))}px`;
     this.commandPopup.style.top = `${Math.max(field.top + inset, Math.min(top, field.bottom - height - inset))}px`;
     this.commandPopup.style.bottom = 'auto';

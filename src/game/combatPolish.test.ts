@@ -34,13 +34,13 @@ describe('combat polish regressions', () => {
     assert.equal(fruit.hpBack.visible, false, 'undamaged enemies stay uncluttered');
     const initialWidth = fruit.hpBar.scale.x;
     field.hurt(fruit, fruit.hp / 2);
-    assert.equal(fruit.hpBack.visible, true);
+    assert.equal(fruit.hpBack.visible, false, 'the screen-space rail replaces the old tiny mesh');
     assert.ok(fruit.hpBar.scale.x < initialWidth);
     const boss = field.spawn('watermelon', true)!;
     assert.equal(boss.hpBack.visible, false);
     assert.equal(boss.hpBar.visible, false);
     field.hurt(boss, 1);
-    assert.equal(boss.hpBar.visible, true, 'damaged bosses reveal HP above their sprite');
+    assert.equal(boss.hpBar.visible, false, 'bosses also use one screen-space rail');
     assert.equal(boss.outline.visible, true);
     assert.equal(fruit.outline.visible, false);
   });

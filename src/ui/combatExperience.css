@@ -680,6 +680,79 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
     max-width:min(230px,calc(100vw - 100px));
   }
 }
+
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #btn-sidebar-toggle {
+    width:48px; height:48px; padding:3px; border-radius:50%!important;
+    background:#242d32b8!important; backdrop-filter:blur(12px);
+    box-shadow:0 0 0 2px #111820b8,0 5px 12px #0008;
+  }
+  body[data-ftd-screen="PLAY"] #btn-sidebar-toggle .combat-sidebar-toggle__label { display:none; }
+  body[data-ftd-screen="PLAY"] #sidebar {
+    border-radius:16px!important; clip-path:none!important;
+    width:min(340px,calc(100vw - 20px));
+  }
+  body[data-ftd-screen="PLAY"] #command-popup {
+    width:min(244px,calc(var(--combat-field-width,100vw) - 16px))!important;
+    max-height:none; padding:0; gap:2px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup .command-popup__header {
+    min-height:22px; height:22px; align-self:center; padding:0;
+    border:0; background:transparent; box-shadow:none; backdrop-filter:none;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup .command-popup__header > div:first-child,
+  body[data-ftd-screen="PLAY"] #btn-command-close,
+  body[data-ftd-screen="PLAY"] #btn-turret-prev,
+  body[data-ftd-screen="PLAY"] #turret-page-label { display:none!important; }
+  body[data-ftd-screen="PLAY"] #command-popup .command-carousel__nav:not([hidden]) { display:flex; }
+  body[data-ftd-screen="PLAY"] #command-popup .command-carousel__nav button {
+    border-radius:50%; background:#263039aa; backdrop-filter:blur(9px);
+  }
+  body[data-ftd-screen="PLAY"] #btn-turret-next:not(:disabled) { animation:turret-next-nudge 1.6s ease-in-out infinite; }
+  body[data-ftd-screen="PLAY"] #command-popup #hud-pick {
+    align-self:center; width:max-content; max-width:100%; padding:2px 8px;
+    border:0; border-radius:12px; background:#20272bb8; backdrop-filter:blur(8px);
+    font-size:9px; line-height:13px; text-align:center; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-pick { display:none; }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns {
+    display:flex; flex-wrap:nowrap; justify-content:center; gap:9px;
+    padding:3px 0 6px; background:transparent;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn:not(.hidden) {
+    flex:0 0 48px; width:48px; height:48px; min-height:48px;
+    padding:3px; border-radius:50%; border:1px solid #d9bc78b8;
+    background:#2b3439bd; backdrop-filter:blur(8px);
+    box-shadow:0 3px 9px #0008; font-size:8px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn svg { width:18px; height:18px; }
+  body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn__label {
+    max-width:44px; font-size:7px; line-height:9px; white-space:normal;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop::before {
+    content:''; position:absolute; left:11%; right:11%; top:26px; height:1px;
+    background:linear-gradient(90deg,transparent,#d5ae69bb 15%,#d5ae69bb 85%,transparent);
+    pointer-events:none;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn::before {
+    background:radial-gradient(circle at 35% 25%,#536064bd,#1b242acb 75%);
+    backdrop-filter:blur(8px);
+  }
+  .combat-feedback { top:calc(var(--combat-field-top,112px) + 54px); bottom:auto; }
+}
+@keyframes turret-next-nudge { 50% { transform:translateX(4px); } }
+@media(prefers-reduced-motion:reduce) { body[data-ftd-screen="PLAY"] #btn-turret-next:not(:disabled) { animation:none; } }
+
+#enemy-health-layer { position:fixed; inset:0; z-index:12; pointer-events:none; overflow:hidden; }
+.enemy-health-rail {
+  position:absolute; width:42px; height:7px; padding:1px;
+  transform:translate(-50%,-50%); border:1px solid #edcf80;
+  border-radius:5px; background:#111820e8; box-shadow:0 1px 3px #000d;
+}
+.enemy-health-rail i { display:block; height:100%; border-radius:3px; background:#91dc63; }
+.enemy-health-rail.is-boss { width:82px; height:9px; border-color:#ffabb5; }
+.enemy-health-rail.is-boss i { background:#ef6d83; }
 @media(max-width:860px) {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     width:100%!important; max-width:none!important; height:120px;

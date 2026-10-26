@@ -59,7 +59,8 @@ function layoutHp(fruit: Fruit, t: number): void {
   const barW = fruit.boss ? 3.0 / s : 1.85 / s;
   const barH = fruit.boss ? 0.25 / s : 0.20 / s;
   // Every damaged enemy reveals its own health, including bosses on the lane.
-  fruit.hpBack.visible = fruit.hpBar.visible = fruit.hp > 0 && fruit.hp < fruit.maxHp;
+  // Screen-space bars are used for damaged enemies; never draw a second rail.
+  fruit.hpBack.visible = fruit.hpBar.visible = false;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, 1);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);

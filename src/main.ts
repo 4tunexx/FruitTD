@@ -62,6 +62,7 @@ import { ComboFx, setComboFocusHandler } from './ui/combos';
 import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
 import { CombatImpact } from './ui/combatImpact';
+import { EnemyHealthOverlay } from './ui/enemyHealth';
 import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, adoptAuthoritativeSave, type CatalogueAction } from './services/api';
 import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
@@ -132,6 +133,7 @@ const BOSS_INTRO_DURATION = 5.5;
 const save: SaveData = loadSave();
 const renderer = new GameRenderer(canvas);
 const combatImpact = new CombatImpact(document.getElementById('combat-impact'));
+const enemyHealth = new EnemyHealthOverlay();
 const profileChip = document.getElementById('player-chip');
 const profileToggle = document.getElementById('btn-profile-toggle') as HTMLButtonElement | null;
 installCombatHudLayout();
@@ -1392,8 +1394,7 @@ function resolveSlash(slash: Slash): void {
     const kind = bit.kind;
     const gen = debris.reslice(bit, swipe, new Vector3(-swipe.z, 0, swipe.x));
     if (!gen) continue;
-    hits += 1;
-    lastHitPosition = new Vector3(px, py, pz);
+    // Debris reslices award their own juice/score, never extend the living-enemy combo.
     const isSecondCut = gen >= 2;
     const juiceGain = isSecondCut ? 3 : 1;
     bank.add(juiceHueFromKind(kind), juiceGain);
@@ -1434,7 +1435,6 @@ function resolveSlash(slash: Slash): void {
     }
     // The final enemy in a stroke gets a tiny punctuation shake.
     if (killedByBlade) renderer.impulseShake(0.12);
-    renderer.impulseShake(hero.shake * 0.35);
     emit({ type: 'combo', combo: state.combo });
   }
 }
@@ -1812,7 +1812,8 @@ function simulate(dt: number): void {
         toast(state, 'Need an empty pad that fits');
       }
     } else if (idx >= 0) {
-      wall.select(idx);
+      if (wall.hasSelection && wall.selected === idx) wall.deselect();
+      else wall.select(idx);
       sfx.select();
     } else {
       wall.deselect();hud.setSidebarOpen(false);
@@ -2019,6 +2020,7 @@ function simulate(dt: number): void {
 function draw(): void {
   juice.commit();
   renderer.render();
+  enemyHealth.update(fruits.fruits, renderer.camera, canvas, navigation.isInGame() && state.running);
 }
 
 const loop = new GameLoop(simulate, draw, () => {
