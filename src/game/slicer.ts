@@ -6,8 +6,10 @@ import {
   MeshLambertMaterial,
   PlaneGeometry,
   Vector3,
+  type Texture,
 } from 'three';
 import { fruitAtlas } from './atlas';
+import { enemyPortrait } from './characterPortraits';
 import { FRUIT_DEFS, type Fruit, type FruitKind } from './fruits';
 import { ARENA_W, ARENA_D } from './world';
 
@@ -25,6 +27,7 @@ export interface Half {
   gen: number;
   radius: number;
   spawnSerial?: number;
+  portrait?: Texture | null;
 }
 
 const TEMPLATE = new PlaneGeometry(2, 2, 8, 8);
@@ -61,6 +64,7 @@ function makeHalf(): Half {
 }
 
 const _n = new Vector3();
+const _cut = new Vector3();
 const _tmp = new Vector3();
 
 function deformHalf(mesh: Mesh, radius: number, normal: Vector3, side: number): void {
@@ -103,7 +107,8 @@ export class SliceDebris {
   }
 
   spawnPair(fruit: Fruit, swipe: Vector3, planeN: Vector3): void {
-    this.spawnBits(fruit.kind, fruit.group.position, fruit.radius, fruit.vel, swipe, planeN, 0);
+    this.spawnBits(fruit.kind, fruit.group.position, fruit.radius, fruit.vel, swipe, planeN, 0,
+      (fruit.body.material as MeshLambertMaterial).map);
   }
 
   reslice(half: Half, swipe: Vector3, planeN: Vector3): number {
@@ -115,7 +120,7 @@ export class SliceDebris {
     const kind = half.kind;
     half.alive = false;
     half.group.visible = false;
-    this.spawnBits(kind, pos, radius, vel, swipe, planeN, next);
+    this.spawnBits(kind, pos, radius, vel, swipe, planeN, next, half.portrait);
     return next;
   }
 
@@ -127,10 +132,12 @@ export class SliceDebris {
     swipe: Vector3,
     planeN: Vector3,
     gen: number,
+    portrait?: Texture | null,
   ): void {
     const def = FRUIT_DEFS[kind];
     _n.copy(planeN).normalize();
     if (_n.lengthSq() < 0.01) _n.set(1, 0, 0);
+    _cut.set(_n.x,_n.z,0).normalize();
     const life = gen === 0 ? 3.4 : gen === 1 ? 2.8 : 1.5;
     for (const side of [-1, 1] as const) {
       const half = this.halves.find((h) => !h.alive);
@@ -138,6 +145,7 @@ export class SliceDebris {
       half.alive = true;
       half.spawnSerial = ++this.serial;
       half.kind = kind;
+      half.portrait = portrait || enemyPortrait(kind);
       half.gen = gen;
       half.radius = radius;
       half.life = life;
@@ -145,13 +153,16 @@ export class SliceDebris {
       half.group.scale.setScalar(1);
       half.group.position.copy(origin);
       half.group.rotation.set(0, 0, 0);
-      deformHalf(half.shell, radius, _n, side);
+      deformHalf(half.shell, radius, _cut, side);
       half.cap.scale.setScalar(radius);
       half.cap.position.set(0, 0, 0);
       half.cap.lookAt(_tmp.copy(_n).multiplyScalar(side));
       const shellMat = half.shell.material as MeshLambertMaterial;
       const capMat = half.cap.material as MeshLambertMaterial;
-      shellMat.map = fruitAtlas.tile(def.skin[0], def.skin[1]);
+      // The JPG atlas tile has opaque square corners. Keep the transparent
+      // portrait of the enemy we actually sliced, including custom uploads.
+      shellMat.map = half.portrait || fruitAtlas.tile(def.skin[0], def.skin[1]);
+      shellMat.alphaTest = .08;
       capMat.map = fruitAtlas.tile(def.flesh[0], def.flesh[1]);
       shellMat.color.setHex(0xffffff);
       capMat.color.setHex(def.juice);
