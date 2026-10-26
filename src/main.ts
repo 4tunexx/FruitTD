@@ -213,7 +213,6 @@ const wall = new WallBase();
 document.getElementById('btn-sidebar-toggle')?.addEventListener('click', (event) => {
   event.preventDefault(); event.stopPropagation();
   const opening=!document.getElementById('app')?.classList.contains('sidebar-open');
-  if(opening)wall.select(MAIN_INDEX);else wall.deselect();
   hud.setSidebarOpen(opening);
 });
 window.addEventListener('fruit-td-creator-update',()=>{wall.applySkins();});

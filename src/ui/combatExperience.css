@@ -745,6 +745,11 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 @media(prefers-reduced-motion:reduce) { body[data-ftd-screen="PLAY"] #btn-turret-next:not(:disabled) { animation:none; } }
 
 #enemy-health-layer { position:fixed; inset:0; z-index:12; pointer-events:none; overflow:hidden; }
+#combat-tower-hp { position:fixed; z-index:44; transform:translate(-50%,-50%); pointer-events:none; padding:3px 9px; border:1px solid #d7be79a8; border-radius:18px; background:#151c20c9; color:#fff1bd; font-size:11px; font-weight:900; text-shadow:0 1px 3px #000; box-shadow:0 3px 12px #0009; white-space:nowrap; }
+#combat-tower-hp.hidden { display:none!important; }
+.ftd-tower-damage--solo { position:fixed!important; z-index:86!important; transform:translate(-50%,-50%); font-size:22px!important; }
+#hud-main-tower-stats { color:#f6d17a; font-size:11px; font-weight:800; margin:5px 0; }
+body[data-ftd-screen="PLAY"] #btn-sidebar-toggle { z-index:94!important; pointer-events:auto!important; }
 body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); }
 .enemy-health-rail {
   position:absolute; width:42px; height:7px; padding:1px;

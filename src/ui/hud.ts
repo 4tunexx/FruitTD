@@ -17,7 +17,8 @@ import { powerButton, updatePowerButton } from './powerButton';
 import type { GameState } from '../game/state';
 import { TURRETS, refreshCreatorTurrets, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
-import { MAX_TOWER_LEVEL, upgradeCost } from '../game/world';
+import { MAIN_INDEX, MAX_TOWER_LEVEL, upgradeCost, towerStats } from '../game/world';
+import { turretLevelTuning } from '../game/studioRuntime';
 import {
   fetchLeaderboard,
   fetchMissions,
@@ -1197,13 +1198,25 @@ export class Hud {
     const hpPct = Math.max(0, (state.lives / Math.max(1, state.maxLives)) * 100);
     if (this.hpValue) this.hpValue.textContent = `${Math.max(0, state.lives)} / ${Math.max(1, state.maxLives)}`;
     wall.setTowerHealth(hpPct / 100);
+    const arena=document.getElementById('game-canvas')?.getBoundingClientRect();
+    let towerBadge=document.getElementById('combat-tower-hp');
+    if(!towerBadge){towerBadge=document.createElement('span');towerBadge.id='combat-tower-hp';document.body.append(towerBadge);}
+    towerBadge.textContent=`${Math.max(0,Math.round(state.lives))} / ${Math.round(state.maxLives)} HP`;
+    towerBadge.classList.toggle('hidden',!playActive);
+    if(arena){towerBadge.style.left=`${arena.left+arena.width*.5}px`;towerBadge.style.top=`${arena.bottom-48}px`;}
+    const level=wall.slots[MAIN_INDEX]?.level??1;
+    const stats=towerStats(level,true);
+    const mainDamage=Math.round(stats.damage*turretLevelTuning('main',level).damageMultiplier*(1+(this.currentSave?.skills.steel??0)*.12)+Math.floor(getTowerXpState().level/2));
+    const mainInfo=document.getElementById('hud-main-tower-stats');
+    if(mainInfo)mainInfo.textContent=`Main Tower · Lv ${level} · ${mainDamage} DMG · ${stats.range.toFixed(1)} range`;
     if (this.lastLives !== null && state.lives < this.lastLives) {
       const damage = this.lastLives - state.lives;
       this.hpPanel?.setAttribute('data-hit-damage', String(damage));
       wall.damageFeedback();
-      let damageLabel=document.getElementById('combat-tower-damage');
-      if(!damageLabel){damageLabel=document.createElement('span');damageLabel.id='combat-tower-damage';damageLabel.className='ftd-tower-damage';document.getElementById('hud')?.append(damageLabel);}
-      damageLabel.textContent=`−${Math.round(damage)}`;damageLabel.classList.remove('is-visible');void damageLabel.offsetWidth;damageLabel.classList.add('is-visible');
+      const damageLabel=document.createElement('span');damageLabel.className='ftd-tower-damage ftd-tower-damage--solo';
+      damageLabel.textContent=`−${Math.round(damage)} HP`;
+      if(arena){damageLabel.style.left=`${arena.left+arena.width*.5}px`;damageLabel.style.top=`${arena.bottom-95}px`;}
+      document.body.append(damageLabel);setTimeout(()=>damageLabel.remove(),1100);
       this.hpPanel?.classList.remove('is-hit');
       void this.hpPanel?.offsetWidth;
       this.hpPanel?.classList.add('is-hit');
