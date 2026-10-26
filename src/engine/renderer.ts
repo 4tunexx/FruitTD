@@ -42,12 +42,19 @@ export class GameRenderer {
   private hitFocusX = 0;
   private hitFocusZ = 0;
   private hitSide = 1;
+  private hitTarget: number | null = null;
+  private hitStreak = 0;
+  private hitHold = 0;
+  private hitZoomGoal = 0;
+  private hitRollGoal = 0;
+  private readonly canvas: HTMLCanvasElement | null = null;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private lookZ = 0;
   private readonly ambientLight = new AmbientLight(0xe8f4dc, 0.92);
   private readonly keyLight = new DirectionalLight(0xfff4d8, 0.85);
 
   constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
     this.installCameraControls(canvas);
     const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
     const isMobile = window.matchMedia('(max-width: 860px), (pointer: coarse)').matches;
@@ -246,14 +253,27 @@ export class GameRenderer {
   }
 
   /** A small, alternating lens lean toward the struck enemy. One impulse per stroke. */
-  impulseHit(x: number, z: number, combo: number): void {
+  impulseHit(x: number, z: number, combo: number, target?: number): void {
     if (this.reducedMotion.matches) return;
-    const strength = Math.min(1, 0.45 + combo * 0.055);
+    // Keep the chain's momentum when the blade moves to another fruit.
+    // A new target shifts focus without snapping the lens back to normal.
+    if (target !== undefined && target !== this.hitTarget) this.hitStreak = Math.min(this.hitStreak,Math.max(0,combo-2));
+    this.hitTarget = target ?? null;
+    this.hitStreak = Math.min(9, this.hitStreak + 1);
+    this.hitHold = .85;
+    const strength = Math.min(9, this.hitStreak);
     this.hitSide *= -1;
-    this.hitZoom = Math.min(0.085, Math.max(this.hitZoom, 0.014) + 0.015 + strength * 0.004);
-    this.hitRoll = this.hitSide * (0.003 + strength * 0.005);
+    this.hitZoomGoal = Math.min(.17, .023 + strength * .016 + Math.min(combo,12)*.001);
+    this.hitRollGoal = this.hitSide * Math.min(.024,.004 + strength * .002);
     this.hitFocusX = Math.max(-0.5, Math.min(0.5, x * 0.09));
     this.hitFocusZ = Math.max(-0.5, Math.min(0.5, (z - this.lookZ) * 0.03));
+    this.canvas?.classList.add('is-combo-focused');
+  }
+
+  releaseHitFocus(): void {
+    this.hitHold = 0;
+    this.hitTarget = null;
+    this.hitStreak = 0;
   }
 
   resetHitFeedback(): void {
@@ -261,6 +281,9 @@ export class GameRenderer {
     this.hitRoll = 0;
     this.hitFocusX = 0;
     this.hitFocusZ = 0;
+    this.hitZoomGoal = 0; this.hitRollGoal = 0;
+    this.releaseHitFocus();
+    this.canvas?.classList.remove('is-combo-focused');
     this.camera.zoom = 1 / (1 + this.blastKick);
     this.camera.updateProjectionMatrix();
   }
@@ -268,10 +291,11 @@ export class GameRenderer {
   update(dt: number): void {
     this.blastKick *= Math.exp(-dt * 8);
     if (this.blastKick < 0.0001) this.blastKick = 0;
-    this.hitZoom *= Math.exp(-dt * 9);
-    this.hitRoll *= Math.exp(-dt * 11);
-    this.hitFocusX *= Math.exp(-dt * 10);
-    this.hitFocusZ *= Math.exp(-dt * 10);
+    this.hitHold = Math.max(0,this.hitHold-dt);
+    if (!this.hitHold) {this.hitZoomGoal=0;this.hitRollGoal=0;this.canvas?.classList.remove('is-combo-focused');}
+    this.hitZoom += (this.hitZoomGoal-this.hitZoom)*(1-Math.exp(-dt*(this.hitHold?7:3.5)));
+    this.hitRoll += (this.hitRollGoal-this.hitRoll)*(1-Math.exp(-dt*9));
+    if (!this.hitHold) {this.hitFocusX *= Math.exp(-dt*3.5);this.hitFocusZ *= Math.exp(-dt*3.5);}
     if (this.hitZoom < 0.0001) this.hitZoom = 0;
     const nextZoom = (1 + this.hitZoom) / (1 + this.blastKick);
     if (Math.abs(this.camera.zoom - nextZoom) > 0.00001) {

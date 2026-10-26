@@ -334,7 +334,7 @@ function resetCombo(_reason: ComboResetReason): void {
   state.combo = 0;
   state.comboTimer = 0;
   combos.reset();
-  renderer.resetHitFeedback();
+  renderer.releaseHitFocus();
   combatImpact.clearSlice();
 }
 
@@ -1338,6 +1338,8 @@ function resolveSlash(slash: Slash): void {
   const brittleBonus = slicerFx?.brittleBonus ?? 0;
   let hits = 0;
   let lastHitPosition: Vector3 | null = null;
+  let lastHitFruitSerial: number | undefined;
+  let hitFocusX = 0, hitFocusZ = 0, hitFocusCount = 0;
   let killedByBlade = false;
   const swipe = new Vector3().subVectors(slash.to, slash.from);
   if (swipe.lengthSq() < 0.0001) swipe.set(1, 0, 0);
@@ -1403,6 +1405,10 @@ function resolveSlash(slash: Slash): void {
       }
       hits += 1;
       lastHitPosition = fruit.group.position;
+      lastHitFruitSerial = fruit.spawnSerial;
+      hitFocusX += fruit.group.position.x;
+      hitFocusZ += fruit.group.position.z;
+      hitFocusCount++;
       if (fruit.enemyKind === 'armored') {
         sfx.armorHit();
       }
@@ -1486,7 +1492,8 @@ function resolveSlash(slash: Slash): void {
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
     if (lastHitPosition) {
-      renderer.impulseHit(lastHitPosition.x, lastHitPosition.z, state.combo);
+      renderer.impulseHit(hitFocusX/Math.max(1,hitFocusCount),hitFocusZ/Math.max(1,hitFocusCount),state.combo,hitFocusCount>1?0:lastHitFruitSerial);
+      if (killedByBlade) renderer.releaseHitFocus();
       combatImpact.trigger('slice');
     }
     // The final enemy in a stroke gets a tiny punctuation shake.
