@@ -13,7 +13,13 @@ test('solo camera stays angled and anchors wall HP near the lower safe edge on e
   const pitch=Math.abs(field.camera.getWorldDirection(new Vector3()).y);
   assert.ok(pitch>.8&&pitch<.9,'stable 2.5D pitch');
   const hp=new Vector3(0,.15,-10.6).project(field.camera);
-  if(width/height<.82)assert.ok(Math.abs((1-hp.y)/2-.93)<.002,`portrait defence line at ${width}x${height}: ${(1-hp.y)/2}`);
+  if(width/height<.82){
+   const viewport=combatViewport(width,height);
+   const hpScreenY=viewport.top+(1-hp.y)/2*viewport.height;
+   assert.ok(Math.abs((1-hp.y)/2-.972)<.002,`portrait defence line at ${width}x${height}: ${(1-hp.y)/2}`);
+   assert.ok(height-hpScreenY<28,`no dead strip below the wall at ${width}x${height}`);
+   assert.equal(viewport.top+viewport.height,height,'the phone canvas reaches the screen edge');
+  }
   else assert.ok(hp.y>-1&&hp.y<0,'health rail remains inside the lower half of the safe viewport');
   if(width/height<.82){
    const spawn=new Vector3(0,.7,SOLO_ARENA_D/2-SOLO_ARENA_D*.025).project(field.camera);
@@ -37,7 +43,7 @@ test('PC combat stage leaves real side-panel space and keeps the approach visibl
   const north=new Vector3(0,.7,SOLO_ARENA_D/2-SOLO_ARENA_D*.025).project(field.camera);
   assert.ok(north.y<1,'north spawn is reachable with bounded vertical movement');assert.equal(field.panX,0);assert.ok(Number.isFinite(spawn.y));
  }
- assert.deepEqual(combatViewport(390,844),{left:0,top:112,width:390,height:636});
+ assert.deepEqual(combatViewport(390,844),{left:0,top:112,width:390,height:732});
 });
 
 test('blade hit camera leans alternately, eases home, and resets with the combo',()=>{

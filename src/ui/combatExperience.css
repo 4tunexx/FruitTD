@@ -675,3 +675,48 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__cost { grid-row:3; }
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__status { grid-row:4; }
 }
+
+/* The tapped + is the pivot. A narrow four-token fan leaves the tower and
+   its health rail unobscured and keeps touch targets clear of the power bar. */
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection {
+    width:min(244px,calc(var(--combat-field-width,100vw) - 16px));
+    max-height:none; gap:0;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header {
+    min-height:25px; height:25px; padding:0 2px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-carousel__nav { gap:3px; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-carousel__nav button,
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #btn-command-close {
+    width:24px; min-width:24px; height:24px; min-height:24px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-pick { display:none; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+    width:100%!important; height:88px; max-height:88px; touch-action:manipulation;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
+    width:25%!important; min-width:0!important; max-width:25%!important;
+    height:79px!important; min-height:79px!important;
+    padding:0; grid-template-rows:44px 22px 11px; gap:0;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn::before {
+    width:44px; height:44px; border-width:2px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__glyph {
+    top:8px; width:27px; height:27px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name {
+    grid-row:2; margin:0; max-width:52px; font-size:8px; line-height:10px;
+    white-space:normal; display:-webkit-box; -webkit-box-orient:vertical;
+    -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__cost {
+    grid-row:3; font-size:8px; line-height:11px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__status { display:none; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="0"] { left:0; top:10px; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="1"] { left:25%; top:0; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="2"] { left:50%; top:0; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="3"] { left:75%; top:10px; }
+}

@@ -12,7 +12,7 @@ export function frameCombatCamera(camera:OrthographicCamera,w:number,h:number,_v
  const frame=laneFrame(w,h,ARENA_W+.8,-12,23,initial.low+panZ,true);
  const baseY=60,baseZ=-35.6,lookZ=frame.centerZ-panZ;
  const portrait=w<860&&w/Math.max(1,h)<1.15;
- let zoom=portrait?1.04:1;
+ let zoom=portrait?1.11:1;
  for(let attempt=0;attempt<3;attempt++){
   camera.left=-frame.viewWidth/(2*zoom);camera.right=frame.viewWidth/(2*zoom);
   camera.top=frame.viewHeight/(2*zoom);camera.bottom=-frame.viewHeight/(2*zoom);
@@ -21,7 +21,7 @@ export function frameCombatCamera(camera:OrthographicCamera,w:number,h:number,_v
   camera.position.set(0,baseY,baseZ+initial.centerZ);camera.lookAt(0,.2,initial.centerZ);
   camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
   if(!portrait)break;
-  const targetY=1-2*.93;
+  const targetY=1-2*.972;
   const wall=new Vector3(0,.15,-10.6).project(camera);
   const shift=(wall.y-targetY)*(camera.top-camera.bottom)/2;
   camera.top+=shift;camera.bottom+=shift;camera.updateProjectionMatrix();
