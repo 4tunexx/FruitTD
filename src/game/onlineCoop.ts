@@ -8,7 +8,7 @@ import { towerLevelFromXp } from './towerProgression';
 export interface CoopPlayer { turretLoadout?:string[]; userId: string; name: string; hero: HeroId; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; sequence: number; lastSeenAt: number; lastSlashAt: number; kills: number; lastStroke?: { from: Point; to: Point; at: number } }
 export interface Point { x: number; y: number }
 export interface CoopFruit extends CombatStatus { id: string; type: string; x: number; y: number; hp: number; maxHp?:number; sliceOnly?:boolean; slowUntil?:number; slowMultiplier?:number; boss: boolean }
-export interface CoopMatch { wallMaxHealth?:number; towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
+export interface CoopMatch { proposal?: { id:string; command:{type:'build';tower:string;cell:number}|{type:'upgrade'|'sell';towerId:string}; proposerId:string; approvals:string[]; rejections:string[]; expiresAt:number }; lastSpend?:{userId:string;label:string;cost:number;at:number}; wallMaxHealth?:number; towerXp?: number; powerCasts?: PowerCast[]; id: string; revision: number; status: 'waiting'|'countdown'|'playing'|'boss-intro'|'complete'; phaseUntil: number; players: CoopPlayer[]; wave: number; wallHealth: number; fruts: number; score: number; kills: number; fruits: CoopFruit[]; remainingSpawns: number; spawnAt: number; serial: number; towers: Array<{ id: string; type: string; cell: number; lastFiredAt: number; level?:number }>; mainLastFiredAt: number; completedWaves: number; reason?: string }
 export interface CoopConfig { bossEveryWaves: number; baseWaveSize: number; extraPerWave: number; spawnGapMs: number; intermissionMs: number; bossIntroMs: number; coinsPerKill: number; coinsPerWave: number; gemsEveryWaves: number; xpPerKill: number; towerXpPerWave: number; rewardCoinCap: number; bladeDamage: number; bladeRadius: number; bladeCooldownMs: number; bossHealthMultiplier: number; bossSpeedMultiplier: number; fruitSpeedMultiplier: number }
 export const DEFAULT_COOP_CONFIG: CoopConfig = { bossEveryWaves: 6, baseWaveSize: 10, extraPerWave: 2, spawnGapMs: 700, intermissionMs: 2200, bossIntroMs: 5500, coinsPerKill: 1, coinsPerWave: 10, gemsEveryWaves: 5, xpPerKill: 2, towerXpPerWave: 25, rewardCoinCap: 3000, bladeDamage: 35, bladeRadius: .65, bladeCooldownMs: 100, bossHealthMultiplier: 12, bossSpeedMultiplier: .35, fruitSpeedMultiplier: .65 };
 export function normalizeCoopConfig(raw: unknown): CoopConfig {
@@ -22,7 +22,7 @@ export function normalizeCoopConfig(raw: unknown): CoopConfig {
     return [key, Number.isFinite(value) ? Math.max(min, Math.min(max, fractional ? value : Math.floor(value))) : fallback];
   })) as unknown as CoopConfig;
 }
-export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { towerXp: 0, id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, wallMaxHealth:balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
+export function newCoopMatch(id: string, player: CoopPlayer, balance: PvpConfig): CoopMatch { return { towerXp: 0, id, revision: 0, status: 'waiting', phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, wallMaxHealth:balance.wallHealth, fruts: 100, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 }; }
 export const COOP_MAX_PLAYERS=4;
 export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number): void {
   if(match.status!=='waiting'||match.players.length>=COOP_MAX_PLAYERS||match.players.some(p=>p.userId===player.userId)) throw new Error('Room is unavailable.');
@@ -30,7 +30,27 @@ export function joinCoopMatch(match: CoopMatch, player: CoopPlayer, now: number)
   if(match.players.length===COOP_MAX_PLAYERS){match.status='countdown';match.phaseUntil=now+3000;}
   match.revision++;
 }
-export type CoopCommand = {type:'start'} | { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' } | {type:'upgrade'|'sell';towerId:string};
+export type CoopCommand = {type:'start'} | { type:'slash'; from:Point; to:Point } | { type:'build'; tower:string; cell:number } | { type:'ability'; abilityId:string } | { type:'leave' } | {type:'upgrade'|'sell';towerId:string} | {type:'vote';proposalId:string;approve:boolean};
+type SpendingCommand=Extract<CoopCommand,{type:'build'|'upgrade'|'sell'}>;
+function spend(match:CoopMatch,player:CoopPlayer,command:SpendingCommand,now:number,balance:PvpConfig):void {
+  if(command.type==='build'){
+    if(!turretAllowed(command.tower,player.turretLoadout))throw new Error('Equip this turret in Inventory before the match.');
+    const stats=balance.towers[command.tower];if(!stats||!Number.isInteger(command.cell)||command.cell<121||command.cell>128||match.towers.some(t=>t.cell===command.cell))throw new Error('Choose an empty wall pad.');
+    if(match.fruts<stats.cost)throw new Error('Not enough shared Fruts.');
+    match.fruts-=stats.cost;match.towers.push({id:`${match.id}:${command.cell}`,type:command.tower,cell:command.cell,lastFiredAt:now,level:1});match.lastSpend={userId:player.userId,label:`Built ${command.tower}`,cost:stats.cost,at:now};
+  }else{
+    const tower=match.towers.find(t=>t.id===command.towerId);const base=tower&&balance.towers[tower.type];if(!tower||!base)throw new Error('Choose a shared tower.');
+    const level=pvpTowerLevel(tower.level);
+    if(command.type==='upgrade'){if(level>=PVP_MAX_TOWER_LEVEL)throw new Error('Tower is fully upgraded.');const cost=pvpUpgradeCost(base.cost,level);if(match.fruts<cost)throw new Error('Not enough shared Fruts.');match.fruts-=cost;tower.level=level+1;match.lastSpend={userId:player.userId,label:`Upgraded ${tower.type}`,cost,at:now};}
+    else{const refund=pvpSellRefund(base.cost,level);match.fruts+=refund;match.towers=match.towers.filter(t=>t!==tower);match.lastSpend={userId:player.userId,label:`Sold ${tower.type}`,cost:-refund,at:now};}
+  }
+}
+function voteRequired(match:CoopMatch,command:SpendingCommand,balance:PvpConfig):boolean {
+  if(match.players.length<2)return false;
+  if(command.type==='sell')return true;
+  if(command.type==='build')return (balance.towers[command.tower]?.cost??0)>=150;
+  const tower=match.towers.find(t=>t.id===command.towerId);return tower? pvpUpgradeCost(balance.towers[tower.type]?.cost??0,tower.level)>=150:false;
+}
 const distance = (p:Point, a:Point, b:Point) => { const dx=b.x-a.x,dy=b.y-a.y; const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1))); return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy); };
 export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,command:CoopCommand,now:number,balance:PvpConfig,config:CoopConfig=DEFAULT_COOP_CONFIG):void {
   const player=match.players.find(p=>p.userId===userId); if(!player) throw new Error('Not a room member.');
@@ -41,25 +61,32 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
   }
   else if(command.type==='leave') {
     if(match.status==='waiting'&&match.players[0]?.userId!==userId)match.players=match.players.filter(member=>member.userId!==userId);
-    else {match.status='complete';match.reason='left';}
+    else if(match.status==='waiting'||match.players.length===1){match.status='complete';match.reason='left';}
+    else {match.players=match.players.filter(member=>member.userId!==userId);match.proposal=undefined;}
   }
   else {
     if(match.status!=='playing'&&match.status!=='boss-intro'&&!(match.status==='countdown'&&['build','upgrade','sell'].includes(command.type))) throw new Error('Wait for the match to start.');
-    if(command.type==='build') {
-      if(!turretAllowed(command.tower,player.turretLoadout))throw new Error('Equip this turret in Inventory before the match.');
-      const stats=balance.towers[command.tower]; if(!stats||!Number.isInteger(command.cell)||command.cell<121||command.cell>128||match.towers.some(t=>t.cell===command.cell)) throw new Error('Choose an empty wall pad.');
-      if(match.fruts<stats.cost) throw new Error('Not enough shared Fruts.');
-      match.fruts-=stats.cost; match.towers.push({id:`${match.id}:${command.cell}`,type:command.tower,cell:command.cell,lastFiredAt:now,level:1});
-    } else if(command.type==='upgrade'||command.type==='sell') {
-      const tower=match.towers.find(t=>t.id===command.towerId);
-      const base=tower&&balance.towers[tower.type];
-      if(!tower||!base)throw new Error('Choose a shared tower.');
-      const level=pvpTowerLevel(tower.level);
-      if(command.type==='upgrade'){
-        if(level>=PVP_MAX_TOWER_LEVEL)throw new Error('Tower is fully upgraded.');
-        const cost=pvpUpgradeCost(base.cost,level);if(match.fruts<cost)throw new Error('Not enough shared Fruts.');
-        match.fruts-=cost;tower.level=level+1;
-      }else{match.fruts+=pvpSellRefund(base.cost,level);match.towers=match.towers.filter(t=>t!==tower);}
+    if(command.type==='build'||command.type==='upgrade'||command.type==='sell') {
+      if(command.type==='build'){
+        if(!balance.towers[command.tower])throw new Error('Choose a tower.');
+        if(!turretAllowed(command.tower,player.turretLoadout))throw new Error('Equip this turret in Inventory before the match.');
+        if(!Number.isInteger(command.cell)||command.cell<121||command.cell>128||match.towers.some(t=>t.cell===command.cell))throw new Error('Choose an empty wall pad.');
+      }else{
+        const tower=match.towers.find(t=>t.id===command.towerId);
+        if(!tower||!balance.towers[tower.type])throw new Error('Choose a shared tower.');
+        if(command.type==='upgrade'&&pvpTowerLevel(tower.level)>=PVP_MAX_TOWER_LEVEL)throw new Error('Tower is fully upgraded.');
+      }
+      if(voteRequired(match,command,balance)){
+        if(match.proposal&&match.proposal.expiresAt>now)throw new Error('A team vote is already open.');
+        match.proposal={id:`${userId}:${sequence}`,command,proposerId:userId,approvals:[userId],rejections:[],expiresAt:now+6000};
+      }else spend(match,player,command,now,balance);
+    } else if(command.type==='vote') {
+      const proposal=match.proposal;if(!proposal||proposal.id!==command.proposalId||proposal.expiresAt<=now)throw new Error('That vote has expired.');
+      if(proposal.approvals.includes(userId)||proposal.rejections.includes(userId))throw new Error('You already voted.');
+      (command.approve?proposal.approvals:proposal.rejections).push(userId);
+      const majority=Math.floor(match.players.length/2)+1;
+      if(proposal.approvals.length>=majority){match.proposal=undefined;const proposer=match.players.find(p=>p.userId===proposal.proposerId);if(!proposer)throw new Error('Proposer left the room.');spend(match,proposer,proposal.command,now,balance);}
+      else if(proposal.rejections.length>=majority)match.proposal=undefined;
     } else if(command.type==='ability') {
       const {ability,stats}=equippedPower(command.abilityId,player.hero,player.abilityLoadout,player.abilityRanks);
       if(now<(player.abilityReadyAt?.[ability.id]??0))throw new Error('That power is cooling down.');
@@ -97,7 +124,9 @@ export function coopMainStats(match:Pick<CoopMatch,'towerXp'>,balance:PvpConfig)
 }
 export function advanceCoopMatch(match:CoopMatch,dt:number,now:number,balance:PvpConfig,config:CoopConfig):void {
   if(match.status==='waiting'||match.status==='complete') return;
-  if(match.players.some(p=>now-p.lastSeenAt>balance.reconnectGraceSeconds*1000)) {match.status='complete';match.reason='disconnect';match.revision++;return;}
+  if(match.proposal&&now>=match.proposal.expiresAt)match.proposal=undefined;
+  match.players=match.players.filter(p=>now-p.lastSeenAt<=balance.reconnectGraceSeconds*1000);
+  if(!match.players.length){match.status='complete';match.reason='disconnect';match.revision++;return;}
   const delta=Math.max(0,Math.min(dt,.25));
   match.fruts+=balance.incomePerSecond*delta;
   if(match.status==='countdown'||match.status==='boss-intro') {

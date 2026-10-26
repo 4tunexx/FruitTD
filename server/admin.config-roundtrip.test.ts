@@ -30,7 +30,7 @@ test('authorized Admin save/reload preserves gameplay, Creator, icons and econom
  config.creatorMedia.entities['tower-custom-orchard']={sheetDataUrl:null,cols:1,rows:1,frameW:0,frameH:0,clips:{},label:'Orchard Defender',turret:{damageMultiplier:1,rangeMultiplier:1,cooldownMultiplier:1,effectScale:1,effectColor:'#ffb060',chassis:'railgun',baseDamage:35,damageGrowth:6,baseRange:7,rangeGrowth:.2,baseCooldown:1.5,cost:100,deathEffect:'pulse',deathScale:1.5}};
  config.menuConfig.panelBackgrounds={HEROES:media,horde:media};
  const saved=await post(config);assert.equal(saved.status,200);assert.equal((await saved.json()).success,true);
- const publicResult=await get(),runtime=mergeAdminConfig(publicResult.config);
+ const publicResult=await get();let runtime=mergeAdminConfig(publicResult.config);
  setFruitBalance(runtime.fruits);setEnemyBalance(runtime.enemies);
  assert.equal(FRUIT_DEFS.apple.hp,123);assert.equal(ENEMY_RULES.swift.hpMultiplier,3);setFruitBalance([]);setEnemyBalance([]);
  assert.equal(publicResult.offline,undefined);assert.equal(runtime.pvpConfig.towers.railgun!.damage,177);assert.equal(runtime.pvpConfig.towers.railgun!.range,7);
@@ -42,6 +42,16 @@ test('authorized Admin save/reload preserves gameplay, Creator, icons and econom
  assert.equal(resolveEntityArtwork('tower-railgun-level-3',runtime.creatorMedia!.entities)!.source,media);
  assert.equal(runtime.iconOverrides!.ModeCasual,'rune-01-03');assert.equal(runtime.menuConfig.panelBackgrounds!.HEROES,media);
  assert.equal(runtime.campaignBosses![24]!.name,'Roundtrip boss');assert.equal(runtime.campaignStories!.length,20);
+ const tuned=structuredClone(runtime.pvpConfig);
+ tuned.attacks.normal!.cost=23;tuned.bossCosts!['rot-king']=250;tuned.arenaRules!.captureSeconds=18;
+ tuned.maps[0]!.solidCells!.push(65);tuned.maps[0]!.hazards!.push({cell:84,kind:'slow'});
+ assert.equal((await post({pvpConfig:tuned})).status,200);
+ runtime=mergeAdminConfig((await get()).config);
+ assert.equal(runtime.pvpConfig.attacks.normal!.cost,23);
+ assert.equal(runtime.pvpConfig.bossCosts!['rot-king'],250);
+ assert.equal(runtime.pvpConfig.arenaRules!.captureSeconds,18);
+ assert.ok(runtime.pvpConfig.maps[0]!.solidCells!.includes(65));
+ assert.ok(runtime.pvpConfig.maps[0]!.hazards!.some(item=>item.cell===84&&item.kind==='slow'));
  // A partial save must retain previously published Creator and match settings.
  assert.equal((await post({menuConfig:{title:'Roundtrip title'}})).status,200);
  const partial=mergeAdminConfig((await get()).config);assert.equal(partial.menuConfig.title,'Roundtrip title');assert.deepEqual(partial.creatorMedia,runtime.creatorMedia);assert.deepEqual(partial.pvpConfig,runtime.pvpConfig);assert.deepEqual(partial.fruits,runtime.fruits);assert.deepEqual(partial.enemies,runtime.enemies);

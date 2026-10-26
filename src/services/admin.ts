@@ -17,6 +17,7 @@ import { DEFAULT_SLICERS, type CatalogSlicer } from '../game/slicers';
 import { DEFAULT_CAMPAIGN_STORIES, type CampaignChapter } from '../game/campaignStory';
 import { getAuthToken, getCachedAuthUser } from './auth';
 import { DEFAULT_PVP_CONFIG, normalizePvpMaps, type PvpConfig } from '../game/pvp';
+import { rebuiltPvpConfig, ARENA_BOSSES, arenaLayoutValid, arenaMap } from '../game/pvpRebuild';
 import { normalizeIconAssignments as normalizeIconOverrides } from '../ui/extractedIcons';
 
 export type RewardIconType = 'coin' | 'gem' | 'chest' | 'blade';
@@ -198,26 +199,30 @@ function mergePvpConfig(raw: unknown): PvpConfig {
     for(const [id,damage] of Object.entries(old))if(value.attacks?.[id]?.wallDamage===damage)value.attacks[id]!.wallDamage=DEFAULT_PVP_CONFIG.attacks[id]!.wallDamage;
   }
   const bounded = (n: unknown, fallback: number, min: number, max: number) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
-  const maps = normalizePvpMaps(value.maps);
-  const towers = { ...DEFAULT_PVP_CONFIG.towers };
+  const upgraded = value.version === 2 ? value : rebuiltPvpConfig({ ...DEFAULT_PVP_CONFIG, ...value, maps: normalizePvpMaps(value.maps), map: DEFAULT_PVP_CONFIG.map });
+  const defaults = rebuiltPvpConfig(DEFAULT_PVP_CONFIG);
+  const maps = normalizePvpMaps(upgraded.maps).map((map,index)=>arenaLayoutValid(map)?map:arenaMap(DEFAULT_PVP_CONFIG.maps[index]!));
+  const towers = { ...defaults.towers };
   for (const [id, fallback] of Object.entries(towers)) {
-    const row = migrateLegacyWeaponBalance(id,value.towers?.[id]);
+    const row = migrateLegacyWeaponBalance(id,upgraded.towers?.[id]);
     if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), damage: bounded(row.damage, fallback.damage, 1, 10000), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 60000) };
   }
-  const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
+  const attacks = { ...defaults.attacks };
   for (const [id, fallback] of Object.entries(attacks)) {
-    const row = value.attacks?.[id];
+    const row = upgraded.attacks?.[id];
     if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 10000), health: bounded(row.health, fallback.health, 1, 10000), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 10000), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 10000), packSize: Math.floor(bounded(row.packSize, fallback.packSize || 1, 1, 8)) };
   }
   const tiers = Array.isArray(value.rating?.tiers) ? value.rating!.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
-    version: 1,
+    version: 2,
     maps,
     map: maps[0]!,
-    durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
+    durationSeconds: bounded(upgraded.durationSeconds, 180, 60, 600),
     wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 100000),
-    startingFruts: 0,
-    incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1000),
+    startingFruts: bounded(upgraded.startingFruts, 100, 0, 10000),
+    incomePerSecond: bounded(upgraded.incomePerSecond, 6, 0, 1000),
+    arenaRules: { captureSeconds: bounded(upgraded.arenaRules?.captureSeconds, 20, 5, 60), overtimeSeconds: bounded(upgraded.arenaRules?.overtimeSeconds, 30, 5, 120), doubleIncomeSeconds: bounded(upgraded.arenaRules?.doubleIncomeSeconds, 30, 0, 120) },
+    bossCosts: Object.fromEntries(Object.entries(ARENA_BOSSES).map(([id,boss]) => [id,bounded(upgraded.bossCosts?.[id],boss.cost,1,10000)])),
     reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
     mainTower: {
       damage: bounded(value.mainTower?.damage, DEFAULT_PVP_CONFIG.mainTower.damage, 0, 10000),

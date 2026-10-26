@@ -1,0 +1,28 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FruitTD PvP rebuild review</title></head><body><main id="review"></main>
+<script type="module">
+import '/src/style.css';
+import '/src/ui/screens/screens.css';
+import '/src/ui/screens/hub.css';
+import '/src/ui/apocalypse.css';
+import '/src/ui/screens/gameSkin.css';
+import '/src/ui/battleLayout.css';
+import '/src/ui/pcPolish.css';
+import '/src/ui/combatRefinement.css';
+import '/src/ui/combatExperience.css';
+import {renderPvpHub} from '/src/ui/screens/pvp.ts';
+import {DEFAULT_PVP_CONFIG,createPvpPlayer,newPvpMatch,applyPvpCommand,advancePvpMatch} from '/src/game/pvp.ts';
+import {rebuiltPvpConfig,beginArena,arenaCatchables} from '/src/game/pvpRebuild.ts';
+import {fruitAtlas} from '/src/game/atlas.ts';
+import {initThemeSystem} from '/src/ui/theme/index.ts';
+if(!import.meta.env.DEV)throw new Error('Development review only');
+initThemeSystem();await fruitAtlas.load();
+const config=rebuiltPvpConfig(DEFAULT_PVP_CONFIG),now=Date.now();
+const players=[createPvpPlayer('review','You','blue',config,now),createPvpPlayer('rival','Rival','red',config,now)];
+for(const player of players){player.hero='jiju';player.turretLoadout=Object.keys(config.towers);player.abilityLoadout=['jiju-1','jiju-2','jiju-3'];player.abilityRanks={'jiju-1':1,'jiju-2':1,'jiju-3':1};}
+const game=newPvpMatch('rebuild-review','arena',players,now,config);game.rulesVersion=2;game.status='active';game.map=config.maps[Number(new URLSearchParams(location.search).get('map')||0)]||config.maps[0];beginArena(game,now,config);
+if(new URLSearchParams(location.search).has('siege')){game.phase='siege';game.phaseEndsAt=now;game.endsAt=now+160000;players.forEach(p=>p.fruts=600);}
+const snapshot=()=>({...game,catchables:game.phase==='capture'?arenaCatchables(game,Date.now(),'review'):[],players:structuredClone(players),yourSide:'blue',yourSequence:players[0].sequence,yourCombo:0,remainingMs:Math.max(0,game.endsAt-Date.now()),testMatch:true,mapPool:[],yourVetoTurn:false,vetoesRemaining:0});
+const request=async(path,payload)=>{if(path.endsWith('/command'))applyPvpCommand(game,'review',payload.command,payload.sequence,Date.now(),config);return {success:true,match:snapshot(),config};};
+renderPvpHub(document.querySelector('#review'),'arena',{request,isAuthenticated:()=>true,realtime:false});
+let previous=performance.now();setInterval(()=>{const time=performance.now();players.forEach(p=>p.lastSeenAt=Date.now());advancePvpMatch(game,(time-previous)/1000,Date.now(),config);previous=time;},100);
+</script></body></html>

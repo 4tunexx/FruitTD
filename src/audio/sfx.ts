@@ -2,11 +2,11 @@ import { subscribeStudioRuntimeInvalidation } from '../game/studioRuntimeSignals
 import type { FruitKind } from '../game/fruits';
 import { loadSoundBank, SOUND_BANK_SLOTS } from '../game/studioSoundBank';
 
-const wavUrls = import.meta.glob('../../Sound/*.wav', {
+const wavUrls = (typeof import.meta.glob === 'function' ? import.meta.glob('../../Sound/*.wav', {
   eager: true,
   query: '?url',
   import: 'default',
-}) as Record<string, string>;
+}) : {}) as Record<string, string>;
 
 function fileKey(path: string): string {
   const slash = path.replace(/\\/g, '/');
@@ -597,3 +597,5 @@ export class Sfx {
     return this.muted;
   }
 }
+/** One sound mix and mute state shared by Casual, PvP, and Co-op screens. */
+export const sharedSfx = new Sfx();

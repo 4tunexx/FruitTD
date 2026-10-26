@@ -16,7 +16,7 @@ import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
 import { JuiceStains } from './game/juiceStains';
 import './style.css';
-import { Sfx } from './audio/sfx';
+import { sharedSfx } from './audio/sfx';
 import { GameLoop } from './engine/loop';
 import { startMatchWithOptionalMedia } from './game/matchStartup';
 import { GameRenderer } from './engine/renderer';
@@ -165,7 +165,7 @@ state.hero = save.hero;
 state.heroXp = save.xp[save.hero] ?? 0;
 state.heroLevel = heroXpToLevel(state.heroXp);
 const heroAbilityReadyAt: Record<string, number> = {};
-const sfx = new Sfx();
+const sfx = sharedSfx;
 const hud = new Hud(sfx);
 const graphicsRecovery=new GraphicsRecovery(canvas,{
   lost:()=>{setPaused(true);resumeBtn.disabled=true;restartBtn.disabled=true;

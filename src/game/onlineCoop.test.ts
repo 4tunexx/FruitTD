@@ -4,8 +4,8 @@ import { DEFAULT_PVP_CONFIG } from './pvp';
 import { DEFAULT_COOP_CONFIG, newCoopMatch, joinCoopMatch, applyCoopCommand, advanceCoopMatch, coopRewards, type CoopPlayer } from './onlineCoop';
 const player=(id:string):CoopPlayer=>({userId:id,name:id,hero:'jiju',sequence:0,lastSeenAt:1000,lastSlashAt:0,kills:0});
 const match=()=>{const room=newCoopMatch('test',player('one'),DEFAULT_PVP_CONFIG);joinCoopMatch(room,player('two'),1000);room.status='countdown';room.phaseUntil=4000;return room;};
-test('a fresh Co-op room starts with zero Fruts and tower XP; cleared waves progress only that room',()=>{
-  const room=match();assert.equal(room.fruts,0);assert.equal(room.towerXp,0);
+test('a fresh Co-op room starts with 100 shared Fruts and zero tower XP; cleared waves progress only that room',()=>{
+  const room=match();assert.equal(room.fruts,100);assert.equal(room.towerXp,0);
   room.status='playing';room.remainingSpawns=0;room.fruits=[];
   advanceCoopMatch(room,0,2000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
   assert.equal(room.towerXp,DEFAULT_COOP_CONFIG.towerXpPerWave);
@@ -60,8 +60,10 @@ test('shared turret upgrades spend once, change damage, cap at three and sell at
  advanceCoopMatch(room,0,3000,DEFAULT_PVP_CONFIG,DEFAULT_COOP_CONFIG);
  assert.equal(room.fruits[0]!.hp,936,'upgraded turret applies rank-three damage');
  applyCoopCommand(room,'one',3,{type:'sell',towerId:id},3100,DEFAULT_PVP_CONFIG);
+ assert.equal(room.towers.length,1,'sale waits for a teammate');
+ applyCoopCommand(room,'two',2,{type:'vote',proposalId:room.proposal!.id,approve:true},3101,DEFAULT_PVP_CONFIG);
  assert.equal(room.towers.length,0);assert.equal(room.fruts,900,'buy/upgrade/sell cannot print Fruts');
- assert.throws(()=>applyCoopCommand(room,'two',2,{type:'sell',towerId:id},3200,DEFAULT_PVP_CONFIG),/Choose/);
+ assert.throws(()=>applyCoopCommand(room,'two',3,{type:'sell',towerId:id},3200,DEFAULT_PVP_CONFIG),/Choose/);
 });
 
 test('Co-op bombs resist slashes and powers while empty offensive casts preserve the match',()=>{

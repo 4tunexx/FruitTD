@@ -2,10 +2,11 @@ import { applyPowerStatus, applyWeaponStatus, tickBurn, type CombatStatus } from
 import { turretAllowed } from './turretLoadout';
 import { turretVictims } from './turretTargets';
 import { mapPowerEnvelope, equippedPower, powerTargets, powerDamageMultiplier, appendPowerCast, type PowerCast } from './powerCombat';
+import { advanceArena, applyArenaCommand, beginArena, type ArenaMatch } from './pvpRebuild';
 /** Shared Arena/Ranked PvP contracts and deterministic server rules. */
 export type PvpQueue = 'arena' | 'ranked';
 export type PvpTier = 'Amateur' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Emerald' | 'Sapphire';
-export interface PvpMap { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[] }
+export interface PvpMap { version?: 2; id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[]; solidCells?: number[]; hazards?: Array<{ cell: number; kind: 'slow' | 'damage' }> }
 
 /** Ten authored plots, shared by the preview and authoritative build rules. */
 export function siegeBuildCells(width: number, height: number): number[] {
@@ -26,13 +27,15 @@ function makeMap(id: string, name: string): PvpMap {
 }
 
 export interface PvpConfig {
-  version: 1;
+  version: 1 | 2;
   map: PvpMap;
   maps: PvpMap[];
   durationSeconds: number;
   wallHealth: number;
   startingFruts: number;
   incomePerSecond: number;
+  arenaRules?: { captureSeconds: number; overtimeSeconds: number; doubleIncomeSeconds: number };
+  bossCosts?: Record<string, number>;
   reconnectGraceSeconds: number;
   mainTower: { damage: number; range: number; cooldownMs: number };
   towers: Record<string, { cost: number; damage: number; range: number; cooldownMs: number; chassis?:string }>;
@@ -92,6 +95,17 @@ export function normalizePvpMaps(input: unknown): PvpMap[] {
     const fallback = DEFAULT_PVP_CONFIG.maps[index]!;
     if (!raw || typeof raw !== 'object') return structuredClone(fallback);
     const row = raw as Partial<PvpMap>;
+    if (row.version === 2 && fallback.id === row.id) {
+      const width = 10, height = 24, limit = width * height;
+      const legalCell = (cell: unknown): cell is number => Number.isInteger(cell) && Number(cell) >= 0 && Number(cell) < limit;
+      const solids = [...new Set((Array.isArray(row.solidCells) ? row.solidCells : []).filter(legalCell))];
+      const blocked = new Set(solids);
+      const hazards = (Array.isArray(row.hazards) ? row.hazards : []).filter(h => h && legalCell(h.cell) && (h.kind === 'slow' || h.kind === 'damage') && !blocked.has(h.cell));
+      const hazardCells = new Set(hazards.map(h => h.cell));
+      const legalBuild = (cell: unknown): cell is number => legalCell(cell) && Math.floor(cell / width) >= 12 && Math.floor(cell / width) < 22 && !blocked.has(cell) && !hazardCells.has(cell);
+      const buildCells = [...new Set((Array.isArray(row.buildCells) ? row.buildCells : []).filter(legalBuild))];
+      return { ...structuredClone(fallback), version: 2, name: String(row.name || fallback.name).slice(0, 64), solidCells: solids, hazards, buildCells };
+    }
     const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
     const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
     const rawPath = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
@@ -150,9 +164,9 @@ export const PVP_RALLY = { durationMs: 8_000, cooldownMs: 35_000, openingMs: 15_
 export const PVP_CAPTURE_CAPACITY = 3;
 export function pvpMainUpgradeCost(level = 1): number { return pvpTowerLevel(level) === 1 ? 220 : 340; }
 export function pvpReleaseCost(attackCost: number, packSize = 1): number { return Math.max(1, Math.ceil(attackCost / Math.max(1, Math.floor(packSize || 1)) * .5)); }
-export interface PvpPlayer { turretLoadout?:string[]; powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number }>; attackers: Array<CombatStatus & { id: string; type: string; hp: number; maxHp?: number; progress: number; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
-export interface PvpMatch { nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
-export type PvpCommand = { type: 'ability'; abilityId: string } | { type: 'upgrade-main' } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
+export interface PvpPlayer { turretLoadout?:string[]; powerCasts?: PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string, number>; abilityReadyAt?: Record<string, number>; mainLevel?: number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string; fruitKind?: string }>; hero?: string; wallSkin?: string; rallyUntil?: number; rallyReadyAt?: number; userId: string; name: string; side: 'blue' | 'red'; connected: boolean; disconnectedAt: number | null; lastSeenAt: number; avatar?: string; fruts: number; wallHealth: number; score: number; maxCombo: number; currentCombo: number; lastSlashAt: number | null; lastStroke?: { from: { x: number; y: number }; to: { x: number; y: number }; at: number } | null; mainLastFiredAt?: number; comboMilestones: number[]; maxSingleSlashKills: number; ratingDelta?: number; sequence: number; towers: Array<{ id: string; type: string; cell: number; placedAt: number; level?: number; spent?: number; lastFiredAt?: number; jammedUntil?:number }>; attackers: Array<CombatStatus & { id: string; type: string; hp: number; maxHp?: number; progress: number; x?: number; y?: number; ownerId?: string; fruitKind?: string; boss?: boolean; enraged?:boolean; attackingTower?:boolean; lastTowerHitAt?:number; fighting?:boolean; fightTargetId?:string; lastClashAt?:number; slowUntil?: number; slowMultiplier?: number; released?: boolean }> }
+export interface PvpMatch { rulesVersion?: 1 | 2; phase?: 'capture' | 'siege' | 'overtime'; phaseEndsAt?: number; captureStartAt?: number; captureSeed?: number; catchables?: Array<{ id: string; type: string; fruitKind: string; x: number; y: number; bornAt: number; expiresAt: number; claimedBy: string[] }>; nextWaveAt?: number; neutralWave?: number; id: string; queue: PvpQueue; status: 'draft' | 'active' | 'complete'; createdAt: number; endsAt: number; players: [PvpPlayer, PvpPlayer]; winnerId: string | null; resultReason: 'wall' | 'timeout' | 'disconnect' | 'test-ended' | 'surrender' | 'draft-cancelled' | null; revision: number; mapPool: PvpMap[]; vetoTurn: string; map: PvpMap | null; vetoHistory: Array<{ userId: string; mapId: string }>; }
+export type PvpCommand = { type: 'ability'; abilityId: string } | { type: 'upgrade-main' } | { type: 'catch'; catchableId: string; from: { x: number; y: number }; to: { x: number; y: number } } | { type: 'release'; capturedId: string } | { type: 'rally' } | { type: 'upgrade'; towerId: string } | { type: 'sell'; towerId: string } | { type: 'surrender' } | { type: 'build'; tower: string; cell: number } | { type: 'send'; enemy: string } | { type: 'slash'; from: { x: number; y: number }; to: { x: number; y: number } };
 
 export const PVP_MAX_TOWER_LEVEL = 3;
 export function pvpTowerLevel(level?: number): number { return Math.max(1, Math.min(PVP_MAX_TOWER_LEVEL, Math.floor(level || 1))); }
@@ -217,12 +231,14 @@ export function vetoPvpMap(match: PvpMatch, userId: string, mapId: string, seque
   if (match.mapPool.length === 2) {
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]!);
     match.status = 'active'; match.endsAt = now + config.durationSeconds * 1000;
-    match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = 0; item.rallyReadyAt = now + PVP_RALLY.openingMs; });
+    if (match.rulesVersion === 2) beginArena(match as ArenaMatch, now, config);
+    else match.players.forEach((item) => { item.wallHealth = config.wallHealth; item.fruts = 0; item.rallyReadyAt = now + PVP_RALLY.openingMs; });
   } else match.vetoTurn = match.players.find((item) => item.userId !== userId)!.userId;
   return match;
 }
 
 export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCommand, sequence: number, now = Date.now(), config: PvpConfig = DEFAULT_PVP_CONFIG): PvpMatch {
+  if (match.rulesVersion === 2) return applyArenaCommand(match as ArenaMatch, userId, command, sequence, now, config);
   if (match.status !== 'active') throw new Error('Match is not active');
   if (now >= match.endsAt) throw new Error('Match timer has expired');
   const player = match.players.find((item) => item.userId === userId);
@@ -309,6 +325,7 @@ export function applyPvpCommand(match: PvpMatch, userId: string, command: PvpCom
 }
 
 export function advancePvpMatch(match: PvpMatch, elapsedSeconds: number, now = Date.now(), config: PvpConfig = DEFAULT_PVP_CONFIG): PvpMatch {
+  if (match.rulesVersion === 2) return advanceArena(match as ArenaMatch, elapsedSeconds, now, config);
   if (match.status !== 'active') return match;
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map = match.map ?? config.map;

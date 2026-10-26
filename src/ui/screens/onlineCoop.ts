@@ -81,7 +81,7 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
  const pointerUp=(event:PointerEvent)=>{pressed.delete(event.pointerId);clearTimeout(inputTimer);inputTimer=setTimeout(()=>{if(pendingRender&&!disposed)render();},0);};
  body.addEventListener('pointerdown',pointerDown);document.addEventListener('pointerup',pointerUp);document.addEventListener('pointercancel',pointerUp);
  const releaseInput=()=>{clearTimeout(inputTimer);document.removeEventListener('pointerup',pointerUp);document.removeEventListener('pointercancel',pointerUp);pressed.clear();};
- const leave=async()=>{if(leavePrompt||disposed||!room)return;leavePrompt=true;const id=room.id;try{if(await confirmModal({title:'Leave team run?',message:'Your team run will end for everyone. Leave this match?',confirmLabel:'Leave match',tone:'danger'})){if(!disposed&&room?.id===id)command({type:'leave'});}}finally{leavePrompt=false;}};
+ const leave=async()=>{if(leavePrompt||disposed||!room)return;leavePrompt=true;const id=room.id;try{if(await confirmModal({title:'Leave team run?',message:room.players.length>1?'Your teammates can continue the run. Leave this match?':'Your solo run will end. Leave this match?',confirmLabel:'Leave match',tone:'danger'})){if(!disposed&&room?.id===id)command({type:'leave'});}}finally{leavePrompt=false;}};
  const render=()=>{
   if(disposed)return;
   if(scene?.interacting||pressed.size){pendingRender=true;const current=snapshot();if(scene&&current)scene.update(current,balance);return;}
@@ -151,6 +151,16 @@ export function renderOnlineCoop(host:HTMLElement,startLocal:()=>void,options:On
     el('div',{class:'ftd-coop-wallet'},[el('strong',{text:`${Math.floor(room.fruts)} F`}),el('small',{text:'SHARED FRUTS'})]),leaveButton,
     el('div',{class:'ftd-coop-health',role:'progressbar','aria-label':'Team wall health','aria-valuemin':0,'aria-valuemax':room.wallMaxHealth??balance.wallHealth,'aria-valuenow':room.wallHealth},[el('i',{style:`width:${Math.max(0,Math.min(100,room.wallHealth/(room.wallMaxHealth??balance.wallHealth)*100))}%`})]),
   ]));
+  if(room.lastSpend&&Date.now()-room.lastSpend.at<6000){const spender=room.players.find(player=>player.userId===room!.lastSpend!.userId)?.name??'Teammate';body.append(el('div',{class:'ftd-coop-spend-note',role:'status',text:`${spender} · ${room.lastSpend.label} · ${room.lastSpend.cost<0?'+':''}${-room.lastSpend.cost} F`}));}
+  if(room.proposal&&room.proposal.expiresAt>Date.now()){
+    const proposal=room.proposal,already=[...proposal.approvals,...proposal.rejections].includes(yourId);
+    const title=proposal.command.type==='build'?`Build ${proposal.command.tower}`:proposal.command.type==='sell'?'Sell team tower':'Upgrade team tower';
+    body.append(el('div',{class:'ftd-coop-vote',role:'group','aria-label':'Team purchase vote'},[
+      el('strong',{text:`TEAM VOTE · ${title}`}),el('span',{text:`${proposal.approvals.length}/${Math.floor(room.players.length/2)+1} approvals · ${Math.max(0,Math.ceil((proposal.expiresAt-Date.now())/1000))}s`}),
+      GameButton({label:'Approve',disabled:already,onClick:()=>command({type:'vote',proposalId:proposal.id,approve:true})}),
+      GameButton({label:'Reject',variant:'outline',disabled:already,onClick:()=>command({type:'vote',proposalId:proposal.id,approve:false})}),
+    ]));
+  }
   const activeBoss=room.fruits.find(fruit=>fruit.boss&&fruit.hp>0);
   if(activeBoss){
     const maximum=activeBoss.maxHp??activeBoss.hp;

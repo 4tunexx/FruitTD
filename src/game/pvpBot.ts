@@ -1,21 +1,26 @@
 import {turretAllowed} from './turretLoadout';
 import { applyPvpCommand, pvpBuildCellAllowed, pvpUpgradeCost, pvpTowerLevel, pvpReleaseCost, pvpMainUpgradeCost, type PvpCommand, type PvpConfig, type PvpMatch } from './pvp';
+import { arenaBuildAllowed, arenaCatchables, type ArenaMatch } from './pvpRebuild';
 
 /** Runs the test opponent through the same validated commands as a human player. */
 export function choosePvpBotCommand(match: PvpMatch, botUserId: string, config: PvpConfig, now = match.createdAt): PvpCommand | null {
   if (match.status !== 'active' || !match.map) return null;
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
+  if (match.rulesVersion === 2 && (match as ArenaMatch).phase === 'capture') {
+    const item = arenaCatchables(match as ArenaMatch, now, botUserId)[0];
+    return item ? { type: 'catch', catchableId: item.id, from: { x: item.x, y: item.y }, to: { x: 9, y: 22 } } : null;
+  }
   const map = match.map;
   const opponent=match.players.find(player=>player.userId!==botUserId)!;
   if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15000)) return { type: 'rally' };
-  const captured = bot.captured?.find(item => opponent.attackers.length<128 && bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost, config.attacks[item.type]!.packSize));
+  const captured = bot.captured?.find(item => opponent.attackers.length<128 && (match.rulesVersion === 2 || bot.fruts >= pvpReleaseCost(config.attacks[item.type]!.cost, config.attacks[item.type]!.packSize)));
   if (captured) return { type: 'release', capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < .75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: 'upgrade-main' };
   const availableTowers = Object.entries(config.towers).filter(([id, stats]) => turretAllowed(id,bot.turretLoadout)&&bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)]!;
-    const cells = map.buildCells.filter((cell) => pvpBuildCellAllowed(map,cell)&&!bot.towers.some((tower) => tower.cell === cell));
+    const cells = map.buildCells.filter((cell) => pvpBuildCellAllowed(map,cell)&&!bot.towers.some((tower) => tower.cell === cell) && (match.rulesVersion !== 2 || arenaBuildAllowed(match as ArenaMatch,bot.side,cell)));
     const middle = map.pathCells.slice(Math.floor(map.pathCells.length * 0.25), Math.ceil(map.pathCells.length * 0.8));
     cells.sort((a, b) => {
       const distance = (cell: number) => Math.min(...middle.map((pathCell) => Math.abs(cell % map.width - pathCell % map.width) + Math.abs(Math.floor(cell / map.width) - Math.floor(pathCell / map.width))));

@@ -14,6 +14,7 @@ import { WALL_SKINS } from '../../src/game/save';
 import { playPvpBotTurn } from '../../src/game/pvpBot';
 import { saveNotification, type NotificationRecord } from '../notifications';
 import { pvpAccountIdentity } from '../../src/game/pvpIdentity';
+import { arenaCatchables, beginArena, rebuiltPvpConfig, type ArenaMatch } from '../../src/game/pvpRebuild';
 
 export const pvpRouter = Router();
 type QueueEntry = { userId: string; name: string; queue: PvpQueue; points: number; season: string; createdAt: Date; expiresAt: Date };
@@ -31,7 +32,7 @@ let ablySubscriber: Rest | null = null;
 
 async function currentPvpConfig(): Promise<PvpConfig> {
   const doc = await (await getCollection<any>('admin_config')).findOne({ configKey: 'game_config' });
-  return withCreatorTurrets(doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig } as any).pvpConfig : DEFAULT_PVP_CONFIG,doc?.creatorMedia);
+  return rebuiltPvpConfig(withCreatorTurrets(doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig } as any).pvpConfig : DEFAULT_PVP_CONFIG,doc?.creatorMedia));
 }
 async function ratingFor(userId: string, config: PvpConfig): Promise<RatingDoc> {
   const col = await getCollection<RatingDoc>('pvp_ratings');
@@ -87,14 +88,14 @@ async function publishMatch(match: StoredMatch): Promise<void> {
   if (!key) return;
   try {
     ablyPublisher ??= new Rest({ key });
-    await ablyPublisher.channels.get(`fruittd-pvp-${match.id}`).publish('match.snapshot', { id: match.id, revision: match.revision, status: match.status, endsAt: match.endsAt, map: match.map, mapPool: match.mapPool, vetoTurn: match.vetoTurn, players: match.players, winnerId: match.winnerId, resultReason: match.resultReason });
+    await ablyPublisher.channels.get(`fruittd-pvp-${match.id}`).publish('match.snapshot', { id: match.id, revision: match.revision, status: match.status, endsAt: match.endsAt, phase: match.phase, phaseEndsAt: match.phaseEndsAt, catchables: match.catchables, map: match.map, mapPool: match.mapPool, vetoTurn: match.vetoTurn, players: match.players, winnerId: match.winnerId, resultReason: match.resultReason });
   } catch (error) { console.error('Ably match event publish failed:', error); }
 }
 export function publicMatch(match: StoredMatch, userId: string) {
   if (!match.players.some((player) => player.userId === userId)) return null;
-  return { id: match.id, queue: match.queue, status: match.status, testMatch: Boolean(match.testMatch), remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision,
-    map: match.map, mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })), vetoTurnId: match.vetoTurn, yourVetoTurn: match.vetoTurn === userId, vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...(id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}), ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
+  return { id: match.id, queue: match.queue, status: match.status, testMatch: Boolean(match.testMatch), remainingMs: Math.max(0, match.endsAt - Date.now()), revision: match.revision, rulesVersion: match.rulesVersion, phase: match.phase, phaseEndsAt: match.phaseEndsAt, catchables: match.rulesVersion === 2 && match.phase === 'capture' ? arenaCatchables(match as ArenaMatch, Date.now(), userId) : [],
+    map: match.map, mapPool: match.mapPool.map(({ id, name, width, height, pathCells, solidCells, hazards }) => ({ id, name, width, height, pathCells, solidCells, hazards })), vetoTurnId: match.vetoTurn, yourVetoTurn: match.vetoTurn === userId, vetoesRemaining: Math.max(0, match.mapPool.length - 2),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...(id === userId ? { abilityLoadout, abilityRanks: match.rulesVersion === 2 && match.queue === 'ranked' ? Object.fromEntries((abilityLoadout ?? []).map(power => [power, 1])) : abilityRanks, abilityReadyAt } : {}), ...(match.status === 'complete' && match.queue === 'ranked' && !match.testMatch ? { ratingDelta } : {}) })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side, winnerId: match.winnerId, resultReason: match.resultReason };
@@ -110,6 +111,7 @@ async function equippedAppearance(userId: string) {
 }
 async function makeMatch(queue: PvpQueue, left: { userId: string; name: string }, right: { userId: string; name: string }, config: PvpConfig): Promise<StoredMatch> {
   const match = newPvpMatch(randomUUID(), queue, [createPvpPlayer(left.userId, left.name, 'blue', config), createPvpPlayer(right.userId, right.name, 'red', config)], Date.now(), config) as StoredMatch;
+  match.rulesVersion = 2;
   match.updatedAt = new Date(); match.balance = structuredClone(config); match.activePlayers = [left.userId, right.userId];
   const [accounts, ratings] = await Promise.all([
     (await getCollection<any>('users')).find({ userId: { $in: match.players.map(player => player.userId) } }).toArray(),
@@ -233,7 +235,7 @@ pvpRouter.get('/status', async (req: Request, res: Response) => {
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection<Challenge>('pvp_challenges')).findOne({ toId: user.userId, expiresAt: { $gt: new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection<QueueEntry>('pvp_queue')).findOne({ userId: user.userId, expiresAt: { $gt: new Date() } });
-    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower:(match?.balance??config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
+    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower:(match?.balance??config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, startingFruts: (match?.balance ?? config).startingFruts, arenaRules: (match?.balance ?? config).arenaRules, bossCosts: (match?.balance ?? config).bossCosts, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
   } catch (error) { console.error(error); routerError(res, 503, 'PvP storage is unavailable.'); }
 });
 
@@ -251,7 +253,9 @@ pvpRouter.post('/admin/bot', async (req: Request, res: Response) => {
     if (active) return routerError(res, 409, 'Finish your current match before starting a test.');
     const now = Date.now(); const id = randomUUID(); const botUserId = `bot:${id}`;
     const match = newPvpMatch(id, queue, [createPvpPlayer(user.userId, user.username || user.nickname || 'Slicer', 'blue', config, now), createPvpPlayer(botUserId, 'Orchard Siege Bot', 'red', config, now)], now, config) as StoredMatch;
+    match.rulesVersion = 2;
     match.status = 'active'; match.map = structuredClone(selectedMap); match.endsAt = now + config.durationSeconds * 1000;
+    beginArena(match as ArenaMatch, now, config);
     match.balance = structuredClone(config); match.activePlayers = [user.userId]; match.nextWaveAt = now + 15_000; match.neutralWave = 0;
     const account = await (await getCollection<any>('users')).findOne({userId:user.userId});
     Object.assign(match.players[0], pvpAccountIdentity(account, match.players[0].name));

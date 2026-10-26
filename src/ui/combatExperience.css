@@ -946,3 +946,30 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 .enemy-death-fx.is-smoke { background:radial-gradient(circle,#6f7970bb,#3a453d66 48%,transparent 74%); filter:blur(5px); }
 @keyframes death-pop { from { opacity:.9; scale:.3; } 65% { opacity:.7; scale:1.4; } to { opacity:0; scale:1.8; translate:0 -16px; } }
 @media(prefers-reduced-motion:reduce) { .enemy-death-fx { animation:enemy-heal-fade .8s linear forwards; } }
+
+/* Arena uses the same soft combat controls on mouse and touch. */
+.ftd-pvp.is-battle :is(.ftd-duel-panel,.ftd-duel-card,.ftd-duel-icon-button,.ftd-duel-focus,.ftd-duel-team,.ftd-duel-panel-close,.ftd-duel-hud-toggle,.ftd-duel-camera summary,.ftd-duel-hud,.ftd-duel-dock),
+.ftd-pvp.is-battle button { border-radius:16px!important; clip-path:none!important; }
+.ftd-pvp.is-battle .ftd-duel-panel { background:linear-gradient(145deg,#30423adc,#101b19e8)!important;backdrop-filter:blur(17px) saturate(130%);box-shadow:0 16px 42px #0009,inset 0 1px #fff5c52b!important; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card { background:linear-gradient(140deg,#35463bdc,#17241fe8);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card:hover,.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card:focus-visible { transform:translateY(-2px);box-shadow:0 7px 20px #0008; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card.is-boss { border-color:#e7ae51; background:linear-gradient(140deg,#634831d9,#241d1beb); }
+@media (min-width:861px) {
+  .ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { right:116px; width:min(520px,calc(100vw - 160px)); max-width:none; max-height:min(55dvh,440px); overflow-y:auto; }
+  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+.ftd-arena-minimap { position:absolute;z-index:18;left:10px;top:60px;width:72px;height:144px;border:1px solid #e5d49d;border-radius:12px;box-shadow:0 8px 22px #0009;opacity:.92;cursor:pointer;touch-action:none;background:#0c1a18; }
+.ftd-arena-minimap[hidden],.ftd-arena-catch-box[hidden] { display:none!important; }
+.ftd-arena-catch-box { position:absolute;z-index:19;right:12px;bottom:100px;width:118px;height:92px;display:grid;place-items:center;box-sizing:border-box;padding:8px;text-align:center;font-weight:900;font-size:11px;letter-spacing:.08em;line-height:1.2;color:#fff0b8;border:2px dashed #ffe078;border-radius:22px;background:#213d2dbb;box-shadow:0 0 22px #efc45a77,inset 0 0 18px #f6d67433;pointer-events:none; }
+.ftd-arena-catch-box.is-target { border-style:solid;background:#416b3cdd;box-shadow:0 0 28px #ffe67fa8; }
+.ftd-arena-capture-status { position:absolute;z-index:21;top:86px;left:50%;transform:translateX(-50%);display:grid;gap:3px;min-width:195px;max-width:min(85vw,340px);padding:9px 15px;text-align:center;color:#fff1c2;border:1px solid #f4d66e;border-radius:16px;background:#182820dc;box-shadow:0 10px 25px #0009;pointer-events:none; }
+.ftd-arena-capture-status strong { font-size:14px;letter-spacing:.1em; }
+.ftd-arena-capture-status span { font-size:10px; }
+.ftd-pvp__map-thumb i.is-solid { background:#777c66!important; }
+.ftd-pvp__map-thumb i.is-slow { background:#5bb3cf!important; }
+.ftd-pvp__map-thumb i.is-damage { background:#eb8a42!important; }
+@media(max-width:860px){.ftd-arena-minimap{left:7px;top:56px;width:55px;height:110px}.ftd-arena-catch-box{right:8px;bottom:82px;width:92px;height:75px;font-size:9px}.ftd-arena-capture-status{top:72px}}
+.ftd-coop-vote { position:fixed;z-index:92;top:90px;left:50%;transform:translateX(-50%);display:grid;grid-template-columns:1fr 1fr;gap:7px;width:min(340px,calc(100vw - 24px));box-sizing:border-box;padding:12px;color:#fff1cc;border:1px solid #e9c76d;border-radius:18px;background:#152720ed;box-shadow:0 12px 30px #000a; }
+.ftd-coop-vote strong,.ftd-coop-vote span { grid-column:1/-1; }
+.ftd-coop-vote span { font-size:11px; }
+.ftd-coop-spend-note { position:fixed;z-index:90;top:76px;left:50%;transform:translateX(-50%);max-width:75vw;padding:5px 10px;color:#ffeec4;border:1px solid #bca667;border-radius:12px;background:#17251edc;font-size:11px;pointer-events:none; }
