@@ -29,7 +29,8 @@ describe('combat polish regressions', () => {
     assert.equal(fruit.hpBack.geometry.type, 'PlaneGeometry');
     assert.equal(fruit.hpBar.geometry.type, 'PlaneGeometry');
     assert.ok(fruit.hpBar.renderOrder > fruit.hpBack.renderOrder);
-    assert.equal(fruit.hpBack.scale.x * fruit.radius, 1.05);
+    assert.ok(Math.abs(fruit.hpBack.scale.x * fruit.radius - 1.85) < 0.001);
+    assert.ok(fruit.hpBack.scale.y * fruit.radius >= 0.2, 'damaged health rail remains visible on a phone');
     assert.equal(fruit.hpBack.visible, false, 'undamaged enemies stay uncluttered');
     const initialWidth = fruit.hpBar.scale.x;
     field.hurt(fruit, fruit.hp / 2);

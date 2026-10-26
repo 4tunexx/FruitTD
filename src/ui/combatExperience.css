@@ -657,6 +657,29 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="2"] { left:51.4%; top:0; }
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="3"] { left:77%; top:22px; }
 }
+
+/* Boss telemetry belongs beside STATUS, clear of the lane and the juice rail. */
+@media(max-width:860px) and (min-height:521px) {
+  body[data-ftd-screen="PLAY"] #boss-health {
+    top:calc(var(--combat-field-top,112px) + 8px)!important;
+    left:calc(var(--combat-field-left,0px) + 72px)!important;
+    right:auto!important; transform:none!important;
+    width:calc(var(--combat-field-width,100vw) - 86px)!important;
+    max-width:350px; min-height:40px; padding:5px 8px;
+    background:#281422de; box-shadow:0 3px 10px #0007;
+  }
+  body[data-ftd-screen="PLAY"] #boss-health .boss-health__heading {
+    gap:5px; font-size:10px; line-height:13px;
+  }
+  body[data-ftd-screen="PLAY"] #boss-health-name { min-width:0; }
+  body[data-ftd-screen="PLAY"] #boss-health-value { flex:none; font-size:9px; }
+  body[data-ftd-screen="PLAY"] #boss-health .boss-health__track { height:5px; margin-top:4px; }
+  body[data-ftd-screen="PLAY"] #hud-toast {
+    top:calc(var(--combat-field-top,112px) + 55px)!important;
+    left:auto!important; right:12px!important; transform:none!important;
+    max-width:min(230px,calc(100vw - 100px));
+  }
+}
 @media(max-width:860px) {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     width:100%!important; max-width:none!important; height:120px;

@@ -54,15 +54,16 @@ const ARMOR_GEO = new RingGeometry(1.04, 1.1, 48);
 
 function layoutHp(fruit: Fruit, t: number): void {
   const s = Math.max(0.2, fruit.radius);
-  const barY = fruit.boss ? 1.7 / s : 1.1 / s;
-  const barW = fruit.boss ? 2.3 / s : 1.05 / s;
-  const barH = fruit.boss ? 0.17 / s : 0.11 / s;
+  const barY = fruit.boss ? 1.85 / s : 1.25 / s;
+  // World-sized rails were previously ~17 × 2 phone pixels, effectively invisible.
+  const barW = fruit.boss ? 3.0 / s : 1.85 / s;
+  const barH = fruit.boss ? 0.25 / s : 0.20 / s;
   // Every damaged enemy reveals its own health, including bosses on the lane.
   fruit.hpBack.visible = fruit.hpBar.visible = fruit.hp > 0 && fruit.hp < fruit.maxHp;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, 1);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);
-  fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.7, 1);
+  fruit.hpBar.scale.set(barW * 0.94 * t, barH * 0.72, 1);
   const ok = fruit.boss
     ? (t <= 0.5 ? 0xef4444 : 0xf4d35e)
     : fruit.enemyKind === 'explosive'
