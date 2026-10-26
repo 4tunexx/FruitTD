@@ -1,6 +1,6 @@
 import { tickBurn, type CombatStatus } from './combatStatus';
 import { StatusVfx } from './statusVfx';
-import { enemyPortrait } from './characterPortraits';
+import { enemyPortrait, specialEnemyPortrait } from './characterPortraits';
 import { combatTokenFrame, setCombatTokenKind } from './combatTokens';
 import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RingGeometry, Vector3 } from 'three';
 import { fruitAtlas } from './atlas';
@@ -119,8 +119,11 @@ function makeFruit(): Fruit {
 }
 
 function paintStatic(fruit: Fruit, def: FruitDef): void {
-  const mat = fruit.body.material as MeshLambertMaterial;
-  mat.transparent=fruit.enemyKind==='ghost';mat.opacity=fruit.enemyKind==='ghost'?.62:1;
+  const mat = fruit.body.material as MeshBasicMaterial;
+  // Portraits and sprite sheets have transparent corners. Disabling blending
+  // turns every fruit into an opaque black disc on mobile GPUs.
+  mat.transparent = true;
+  mat.opacity = fruit.enemyKind === 'ghost' ? .72 : 1;
 
   let adminTexture = null;
   if (fruit.enemyKind === 'explosive') {
@@ -134,7 +137,7 @@ function paintStatic(fruit: Fruit, def: FruitDef): void {
   if (adminTexture) {
     mat.map = adminTexture;
   } else {
-    mat.map = enemyPortrait(fruit.kind,fruit.boss) || fruitAtlas.tile(def.skin[0], def.skin[1]);
+    mat.map = (!fruit.boss && specialEnemyPortrait(fruit.enemyKind)) || enemyPortrait(fruit.kind,fruit.boss) || fruitAtlas.tile(def.skin[0], def.skin[1]);
   }
 
   // If no admin texture, apply themed tinting so special enemies are instantly identifiable
@@ -147,7 +150,8 @@ function paintStatic(fruit: Fruit, def: FruitDef): void {
   } else if (!adminTexture && fruit.enemyKind === 'chainburst') {
     mat.color.setHex(0xb4ff3a);
   } else if (!adminTexture && ['healer','spitter','ghost'].includes(fruit.enemyKind)) {
-    mat.color.setHex(ENEMY_RULES[fruit.enemyKind].colour);
+    // These portraits carry their own palette; tinting destroys their faces.
+    mat.color.setHex(0xffffff);
   } else {
     mat.color.setHex(mat.map ? 0xffffff : def.color);
   }

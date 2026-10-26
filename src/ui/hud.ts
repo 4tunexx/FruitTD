@@ -208,6 +208,7 @@ export class Hud {
       this.turretNav.hidden = buttons.length <= 3;
       this.turretNext.disabled = false;
       this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
+      requestAnimationFrame(() => this.layoutTurretArc());
       return;
     }
     this.turretPage = Math.max(0, Math.min(this.turretPage, pageCount - 1));
@@ -221,6 +222,21 @@ export class Hud {
     this.turretPrev.disabled = this.turretPage === 0;
     this.turretNext.disabled = this.turretPage >= pageCount - 1;
     this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
+  }
+
+  private layoutTurretArc(): void {
+    if (window.innerWidth > 860 || this.shop.classList.contains('hidden')) return;
+    const frame=this.shop.getBoundingClientRect();
+    if (!frame.width) return;
+    const mid=frame.width/2;
+    for(const button of this.shop.querySelectorAll<HTMLButtonElement>('button[data-turret]')) {
+      // Use layout coordinates, not the transformed bounding box, so scrolling
+      // rotates the tokens along the same arc without position feedback.
+      const x=(button.offsetLeft-this.shop.scrollLeft+button.offsetWidth/2-mid)/Math.max(1,frame.width/2);
+      const edge=Math.min(1.3,Math.abs(x));
+      const y=Math.round(43*Math.pow(edge,1.65));
+      button.style.transform=`translate3d(0,${y}px,0)`;
+    }
   }
 
   constructor(private readonly sfx?: Sfx) {
@@ -312,6 +328,8 @@ export class Hud {
       if (window.innerWidth <= 860) this.shop.scrollBy({ left: 130, behavior: 'smooth' });
       else { this.turretPage++; this.updateTurretCarousel(); }
     });
+    this.shop.addEventListener('scroll', () => this.layoutTurretArc(), {passive:true});
+    window.addEventListener('resize', () => requestAnimationFrame(() => this.layoutTurretArc()), {passive:true});
     this.updateTurretCarousel();
   }
 

@@ -57,6 +57,19 @@ export function enemyPortrait(kind:string,boss=false):Texture|null {
   return characterPortrait(boss?(kind==='watermelon'?'boss-melon':'boss-orange'):kind);
 }
 
+/** Temporary, distinct enemy faces until the creator uploads custom sheets. */
+export function specialEnemyPortrait(kind:string):Texture|null {
+  if (kind!=='healer' && kind!=='spitter' && kind!=='ghost') return null;
+  const key=`special-${kind}`;
+  const cached=cache.get(key);if(cached)return cached;
+  if(typeof document==='undefined')return null;
+  const texture=new TextureLoader().load(`/assets/battle/enemy-${kind}.svg`);
+  texture.colorSpace=SRGBColorSpace;
+  texture.minFilter=LinearFilter;texture.magFilter=LinearFilter;
+  cache.set(key,texture);
+  return texture;
+}
+
 /** Retired sample maps are upgraded; custom uploaded maps keep their artwork. */
 export function battlefieldArtSource(source:string):string {
   return source.startsWith('/assets/maps/samples/')?BATTLEFIELD_ART_URL:source;

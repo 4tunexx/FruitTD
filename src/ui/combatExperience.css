@@ -892,11 +892,42 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 
 #enemy-screen-fx { position:fixed; inset:0; z-index:85; pointer-events:none; overflow:hidden; }
 .enemy-heal-link { position:absolute; height:3px; transform-origin:0 50%; border-radius:9px; background:linear-gradient(90deg,#85fbb4,#d9ffac); box-shadow:0 0 10px #94ffab; animation:enemy-heal-fade .55s ease-out forwards; }
-.acid-spit { position:absolute; width:90px; height:72px; border-radius:53% 47% 58% 42%; transform:translate(-50%,-50%) rotate(-16deg); background:radial-gradient(circle at 40% 35%,#f1ee7999,#b9ce3890 55%,#c7d53500 75%); filter:blur(2px); animation:acid-drip 2s ease-in forwards; }
-.acid-spit::after { content:''; position:absolute; top:65%; left:43%; width:13px; height:43px; border-radius:0 0 50% 50%; background:linear-gradient(#c9dc6188,#a9c93600); }
+.acid-projectile { position:absolute; width:16px; height:16px; margin:-8px; border-radius:50%; background:#e2ef6b; box-shadow:0 0 8px 5px #b5db3680; animation:acid-flight .32s ease-in forwards; }
+.acid-spit {
+  position:absolute; width:clamp(210px,64vw,580px); height:clamp(190px,54vw,480px);
+  transform:translate(-50%,-45%) rotate(-13deg); opacity:.78;
+  background:
+    radial-gradient(ellipse 32% 25% at 32% 28%,#d7df328f 67%,transparent 73%),
+    radial-gradient(ellipse 39% 31% at 58% 37%,#c6d439a3 65%,transparent 72%),
+    radial-gradient(ellipse 29% 36% at 30% 63%,#c2d1379c 61%,transparent 70%),
+    radial-gradient(ellipse 26% 24% at 76% 62%,#d6df4690 60%,transparent 72%),
+    radial-gradient(ellipse 8% 8% at 88% 18%,#d9e94e9c 60%,transparent 75%);
+  filter:blur(2px); pointer-events:none; animation:acid-drip 2s ease-in forwards;
+}
+.acid-spit::before,.acid-spit::after { content:''; position:absolute; top:63%; border-radius:40% 45% 65% 55%; background:linear-gradient(#d1db3ca3,#c1d43466 55%,#c1d43400); }
+.acid-spit::before { left:28%; width:12%; height:84%; transform:rotate(5deg); }
+.acid-spit::after { left:67%; width:8%; height:66%; transform:rotate(-6deg); }
 @keyframes enemy-heal-fade { to { opacity:0; filter:blur(5px); } }
-@keyframes acid-drip { 70% {opacity:.65} to { opacity:0; translate:0 95px; } }
+@keyframes acid-flight { 0% { transform:scale(.6); opacity:.35; } 80% { opacity:1; } 100% { transform:translate(var(--acid-flight-x),var(--acid-flight-y)) scale(2); opacity:0; } }
+@keyframes acid-drip { 0% { opacity:0; scale:.78; } 12% {opacity:.82;scale:1;} 70% {opacity:.74;} to { opacity:0; translate:0 90px; } }
 @media(prefers-reduced-motion:reduce) { .acid-spit { animation:enemy-heal-fade 2s linear forwards; } }
+
+/* The swipe rail is a curved orbit: each token follows its live scroll
+   position, instead of a static four-column row or a page switch. */
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+    height:132px!important; max-height:132px!important; align-items:flex-start!important;
+    scroll-snap-type:none!important; scroll-behavior:auto!important;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn,
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:nth-child(n) {
+    height:86px!important; min-height:86px!important; margin-top:0!important;
+    animation:none!important; transition:transform .09s linear,opacity .16s ease!important;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn::before {
+    border-radius:50%!important;
+  }
+}
 
 .enemy-death-fx { position:absolute; width:38px; height:38px; margin:-19px; border-radius:50%; pointer-events:none; animation:death-pop .8s ease-out forwards; }
 .enemy-death-fx.is-slice { background:linear-gradient(135deg,transparent 43%,#caff85 46% 53%,transparent 56%); filter:drop-shadow(0 0 7px #96ff80); }

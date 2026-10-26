@@ -182,13 +182,20 @@ const stains=new JuiceStains();renderer.scene.add(stains.group);
 let lastPointer={x:window.innerWidth*.5,y:window.innerHeight*.6};
 window.addEventListener('pointermove',event=>{lastPointer={x:event.clientX,y:event.clientY};},{passive:true});
 const enemyScreenFx=document.createElement('div');enemyScreenFx.id='enemy-screen-fx';enemyScreenFx.setAttribute('aria-hidden','true');document.body.append(enemyScreenFx);
-fruits.onSpit=()=>{
+fruits.onSpit=(spitter)=>{
   if(!state.running)return;
+  const origin=worldPct(spitter.group.position.x,spitter.group.position.y+.5,spitter.group.position.z);
+  const sx=origin.nx*innerWidth/100, sy=origin.ny*innerHeight/100;
+  const tx=lastPointer.x,ty=lastPointer.y;
+  const shot=document.createElement('span');shot.className='acid-projectile';
+  shot.style.left=`${sx}px`;shot.style.top=`${sy}px`;
+  shot.style.setProperty('--acid-flight-x',`${tx-sx}px`);
+  shot.style.setProperty('--acid-flight-y',`${ty-sy}px`);
+  enemyScreenFx.append(shot);setTimeout(()=>shot.remove(),420);
   const blob=document.createElement('span');blob.className='acid-spit';
-  const power=Math.min(1.8,1+state.wave*.025);
-  blob.style.width=`${Math.round(90*power)}px`;blob.style.height=`${Math.round(72*power)}px`;
-  blob.style.left=`${lastPointer.x}px`;blob.style.top=`${lastPointer.y}px`;
-  enemyScreenFx.append(blob);setTimeout(()=>blob.remove(),2000);
+  blob.style.left=`${tx}px`;blob.style.top=`${ty}px`;
+  setTimeout(()=>{if(state.running)enemyScreenFx.append(blob);},280);
+  setTimeout(()=>blob.remove(),2300);
 };
 fruits.onHeal=(healer,targets)=>{
   const start=worldPct(healer.group.position.x,healer.group.position.y,healer.group.position.z);
