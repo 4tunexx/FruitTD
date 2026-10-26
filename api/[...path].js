@@ -5146,6 +5146,17 @@ function createSocialRouter(deps = defaults) {
       fail(res, 500, "Could not update notifications");
     }
   });
+  router.delete("/notifications", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to clear notifications");
+      const result = await (await deps.collection("notifications")).deleteMany({ userId: user.userId });
+      res.json({ success: true, deleted: result.deletedCount });
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
+      fail(res, 500, "Could not clear notifications");
+    }
+  });
   router.get("/messages/:username", async (req2, res) => {
     try {
       const user = await deps.resolveUser(req2);
@@ -5155,12 +5166,28 @@ function createSocialRouter(deps = defaults) {
       const relation = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: peer.userId, state: "accepted" });
       if (!relation) return fail(res, 403, "You can message friends only");
       const conversationId = pairKey(user.userId, peer.userId);
-      const messages = await (await deps.collection("messages")).find({ conversationId }).sort({ createdAt: 1 }).limit(100).toArray();
+      const messages = await (await deps.collection("messages")).find({ conversationId, hiddenFor: { $ne: user.userId } }).sort({ createdAt: -1 }).limit(100).toArray();
+      messages.reverse();
       res.setHeader("Cache-Control", "private, no-store");
       res.json({ success: true, friend: { username: safeName(peer), nickname: peer.nickname, avatar: peer.avatar }, messages });
     } catch (err) {
       console.error("Error loading messages:", err);
       fail(res, 500, "Could not load messages");
+    }
+  });
+  router.delete("/messages/:username", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return fail(res, 401, "Sign in to clear messages");
+      const peer = await byUsername(await deps.collection("users"), String(req2.params.username || ""));
+      if (!peer) return fail(res, 404, "Player not found");
+      const relation = await (await deps.collection("friends")).findOne({ userId: user.userId, friendId: peer.userId, state: "accepted" });
+      if (!relation) return fail(res, 403, "You can clear friend conversations only");
+      await (await deps.collection("messages")).updateMany({ conversationId: pairKey(user.userId, peer.userId) }, { $addToSet: { hiddenFor: user.userId } });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error clearing messages:", err);
+      fail(res, 500, "Could not clear messages");
     }
   });
   router.post("/messages/:username", async (req2, res) => {
