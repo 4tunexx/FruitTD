@@ -605,3 +605,73 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   }
   body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn:disabled { opacity:.5; }
 }
+
+/* Phone build choices are small icon tokens orbiting the tapped pad. Keep
+   names and prices beneath the circle so the action stays understandable. */
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection {
+    width:min(326px,calc(var(--combat-field-width,100vw) - 18px));
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header {
+    min-height:32px; padding:2px 5px; border:0; background:transparent;
+    box-shadow:none; backdrop-filter:none; clip-path:none;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header > div:first-child { display:none; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+    height:96px; overflow:visible;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
+    width:23%; height:86px; min-height:86px; padding:4px 0 0;
+    display:grid; justify-items:center; align-content:start;
+    grid-template-columns:1fr; grid-template-rows:39px 18px 14px 12px; gap:0;
+    position:absolute; border:0!important; border-radius:0!important;
+    background:transparent!important; box-shadow:none!important;
+    backdrop-filter:none; clip-path:none!important; color:#fff2cf;
+    text-align:center;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn::before {
+    content:''; position:absolute; z-index:-1; top:0; left:50%; transform:translateX(-50%);
+    width:61px; height:61px; border:2px solid #e7c36f; border-radius:50%;
+    background:radial-gradient(circle at 30% 20%,#424b4ff2,#171d24f5 72%);
+    box-shadow:0 3px 0 #080d12,0 0 0 2px #0c1118;
+    pointer-events:none;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__glyph {
+    width:33px; height:33px; margin:8px 0 0; filter:drop-shadow(0 1px 2px #000b);
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name {
+    margin-top:20px; max-width:80px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; font-size:8px; line-height:14px; text-shadow:0 2px 3px #000;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__cost {
+    font-size:8px; line-height:12px; color:#ffdc7f; text-shadow:0 2px 3px #000;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__status { font-size:7px; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:disabled { opacity:.5; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:focus-visible::before,
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:not(:disabled):active::before {
+    border-color:#fff4bc; box-shadow:0 0 14px #ffd56b88;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="0"] { left:0; top:22px; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="1"] { left:25.7%; top:0; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="2"] { left:51.4%; top:0; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="3"] { left:77%; top:22px; }
+}
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+    width:100%!important; max-width:none!important; height:120px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
+    width:72px!important; min-width:72px!important; max-width:72px!important;
+    height:100px!important; min-height:100px!important;
+    grid-template-rows:61px 14px 12px 11px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__glyph {
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); margin:0;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name {
+    grid-row:2; margin:0; max-width:72px; line-height:14px;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__cost { grid-row:3; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__status { grid-row:4; }
+}

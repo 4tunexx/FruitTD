@@ -5,7 +5,7 @@ import { GameRenderer, combatViewport } from './renderer';
 import { SOLO_ARENA_D } from '../game/world';
 
 test('solo camera stays angled and anchors wall HP near the lower safe edge on every screen',()=>{
- for(const [width,height] of [[390,760],[844,390],[1440,900]]){
+ for(const [width,height] of [[320,568],[390,760],[430,932],[844,390],[1440,900]]){
   (globalThis as any).window={innerWidth:width,innerHeight:height};
   const field:any=Object.create(GameRenderer.prototype);
   Object.assign(field,{renderer:{setSize(){}},composer:{setSize(){}},camera:new OrthographicCamera(-10,10,10,-10,.1,120),cameraBase:new Vector3(0,26,-32),panX:0,panZ:0,viewH:28});
@@ -13,10 +13,11 @@ test('solo camera stays angled and anchors wall HP near the lower safe edge on e
   const pitch=Math.abs(field.camera.getWorldDirection(new Vector3()).y);
   assert.ok(pitch>.8&&pitch<.9,'stable 2.5D pitch');
   const hp=new Vector3(0,.15,-10.6).project(field.camera);
-  assert.ok(hp.y>-1&&hp.y<0,'health rail remains inside the lower half of the safe viewport');
+  if(width/height<.82)assert.ok(Math.abs((1-hp.y)/2-.93)<.002,`portrait defence line at ${width}x${height}: ${(1-hp.y)/2}`);
+  else assert.ok(hp.y>-1&&hp.y<0,'health rail remains inside the lower half of the safe viewport');
   if(width/height<.82){
    const spawn=new Vector3(0,.7,SOLO_ARENA_D/2-SOLO_ARENA_D*.025).project(field.camera);
-   assert.ok(spawn.y<1,'north spawn edge remains in the portrait play view');
+   assert.ok(spawn.y<1,`north spawn at ${width}x${height}: ${spawn.y}`);
   }
   for(const x of [-6.8,6.8])assert.ok(Math.abs(new Vector3(x,0,-9.2).project(field.camera).x)<1,'all artillery pads fit');
  }
