@@ -1,7 +1,7 @@
 import {turretOffers,equippedTurrets} from '../game/turretLoadout';
 import {getPublishedCreatorMedia} from '../game/creatorMedia';
 import { TitleStory } from './titleStory';
-import { TURRET_WEAPONS } from '../game/turretWeapons';
+import { TURRET_WEAPONS, weaponStats } from '../game/turretWeapons';
 import type { JuiceBank } from '../game/juice';
 import { HEROES, MAX_HERO_LEVEL, heroDef, type HeroId } from '../game/heroes';
 import { getTowerXpState } from '../game/towerProgression';
@@ -15,7 +15,7 @@ import { SKILLS, type SkillId } from '../game/skills';
 import { heroAbility } from '../game/heroAbilities';
 import { powerButton, updatePowerButton } from './powerButton';
 import type { GameState } from '../game/state';
-import { TURRETS, refreshCreatorTurrets, canPlaceTurret, sellRefund, turretDef, turretRange, type TurretKind } from '../game/turrets';
+import { TURRETS, refreshCreatorTurrets, canPlaceTurret, sellRefund, turretDef, type TurretKind } from '../game/turrets';
 import type { WallBase } from '../game/wall';
 import { MAX_TOWER_LEVEL, upgradeCost } from '../game/world';
 import {
@@ -201,6 +201,12 @@ export class Hud {
     const buttons = allButtons.filter(button => button.dataset.padCompatible !== 'false');
     allButtons.forEach(button => { if (!buttons.includes(button)) button.hidden = true; });
     const pageCount = Math.max(1, Math.ceil(buttons.length / 4));
+    if (window.innerWidth <= 860) {
+      buttons.forEach((button, index) => { button.hidden = false; button.dataset.orbitSlot = String(index % 4); });
+      this.turretNav.hidden = buttons.length <= 4;
+      this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
+      return;
+    }
     this.turretPage = Math.max(0, Math.min(this.turretPage, pageCount - 1));
     buttons.forEach((button, index) => {
       const position = index - this.turretPage * 4;
@@ -302,7 +308,10 @@ export class Hud {
     document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
     document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
     this.turretPrev.addEventListener('click', () => { this.turretPage--; this.updateTurretCarousel(); });
-    this.turretNext.addEventListener('click', () => { this.turretPage++; this.updateTurretCarousel(); });
+    this.turretNext.addEventListener('click', () => {
+      if (window.innerWidth <= 860) this.shop.scrollBy({ left: 130, behavior: 'smooth' });
+      else { this.turretPage++; this.updateTurretCarousel(); }
+    });
     let swipeStart = 0;
     this.shop.addEventListener('pointerdown', event => { swipeStart = event.clientX; });
     this.shop.addEventListener('pointerup', event => {
@@ -1249,7 +1258,7 @@ export class Hud {
       this.setUpgrade(state.currency, slot.level, 'main');
     } else if (slot.filled && slot.kind && slot.kind !== 'main') {
       const def = turretDef(slot.kind);
-      this.pick.textContent = `${def.name}  ·  Lv ${slot.level}/${MAX_TOWER_LEVEL}\n${def.blurb}\nRadius ${turretRange(slot.kind,slot.level).toFixed(1)} · ${def.fuel==='none'?'No fuel needed':`${def.fuel} juice: ${bank[def.fuel]}`}`;
+      this.pick.textContent = `${def.name} · Lv ${slot.level} · ${Math.round(weaponStats(slot.kind,slot.level).damage)} DMG`;
       this.shop.classList.add('hidden');
       this.upgrade.classList.remove('hidden');
       this.sell.classList.remove('hidden');

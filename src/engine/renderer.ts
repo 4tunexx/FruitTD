@@ -250,10 +250,10 @@ export class GameRenderer {
     if (this.reducedMotion.matches) return;
     const strength = Math.min(1, 0.45 + combo * 0.055);
     this.hitSide *= -1;
-    this.hitZoom = Math.min(0.038, Math.max(this.hitZoom, 0.018 + strength * 0.02));
+    this.hitZoom = Math.min(0.085, Math.max(this.hitZoom, 0.014) + 0.015 + strength * 0.004);
     this.hitRoll = this.hitSide * (0.003 + strength * 0.005);
-    this.hitFocusX = Math.max(-0.26, Math.min(0.26, x * 0.045));
-    this.hitFocusZ = Math.max(-0.28, Math.min(0.28, (z - this.lookZ) * 0.018));
+    this.hitFocusX = Math.max(-0.5, Math.min(0.5, x * 0.09));
+    this.hitFocusZ = Math.max(-0.5, Math.min(0.5, (z - this.lookZ) * 0.03));
   }
 
   resetHitFeedback(): void {

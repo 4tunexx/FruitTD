@@ -8,7 +8,7 @@ import { rankFromScore } from '../../src/game/requirements';
 type RequestUser = Awaited<ReturnType<typeof resolveRequestUser>>;
 type FriendDoc = { userId: string; friendId: string; state: 'pending' | 'accepted' | 'blocked'; createdAt: Date; updatedAt: Date };
 type NotificationDoc = { notificationId: string; userId: string; actorId: string; actorName: string; type: string; title: string; body: string; readAt?: Date; createdAt: Date };
-type MessageDoc = { messageId: string; conversationId: string; senderId: string; recipientId: string; body: string; readAt?: Date; createdAt: Date };
+type MessageDoc = { messageId: string; conversationId: string; senderId: string; recipientId: string; body: string; readAt?: Date; hiddenFor?: string[]; createdAt: Date };
 type ForumPost = { postId: string; userId: string; author: string; title: string; body: string; createdAt: Date; replies: { replyId: string; userId: string; author: string; body: string; createdAt: Date }[] };
 
 export interface SocialRouteDeps {
@@ -212,6 +212,15 @@ export function createSocialRouter(deps: SocialRouteDeps = defaults): Router {
     }
   });
 
+  router.delete('/notifications', async (req, res) => {
+    try {
+      const user = await deps.resolveUser(req);
+      if (!user) return fail(res, 401, 'Sign in to clear notifications');
+      const result = await (await deps.collection<NotificationDoc>('notifications')).deleteMany({ userId: user.userId });
+      res.json({ success: true, deleted: result.deletedCount });
+    } catch (err) { console.error('Error clearing notifications:', err); fail(res, 500, 'Could not clear notifications'); }
+  });
+
   router.get('/messages/:username', async (req, res) => {
     try {
       const user = await deps.resolveUser(req);
@@ -221,13 +230,27 @@ export function createSocialRouter(deps: SocialRouteDeps = defaults): Router {
       const relation = await (await deps.collection<FriendDoc>('friends')).findOne({ userId: user.userId, friendId: peer.userId, state: 'accepted' });
       if (!relation) return fail(res, 403, 'You can message friends only');
       const conversationId = pairKey(user.userId, peer.userId);
-      const messages = await (await deps.collection<MessageDoc>('messages')).find({ conversationId }).sort({ createdAt: 1 }).limit(100).toArray();
+      const messages = await (await deps.collection<MessageDoc>('messages')).find({ conversationId, hiddenFor: { $ne: user.userId } }).sort({ createdAt: -1 }).limit(100).toArray();
+      messages.reverse();
       res.setHeader('Cache-Control', 'private, no-store');
       res.json({ success: true, friend: { username: safeName(peer), nickname: peer.nickname, avatar: peer.avatar }, messages });
     } catch (err: any) {
       console.error('Error loading messages:', err);
       fail(res, 500, 'Could not load messages');
     }
+  });
+
+  router.delete('/messages/:username', async (req, res) => {
+    try {
+      const user = await deps.resolveUser(req);
+      if (!user) return fail(res, 401, 'Sign in to clear messages');
+      const peer = await byUsername(await deps.collection<UserDoc>('users'), String(req.params.username || ''));
+      if (!peer) return fail(res, 404, 'Player not found');
+      const relation = await (await deps.collection<FriendDoc>('friends')).findOne({ userId: user.userId, friendId: peer.userId, state: 'accepted' });
+      if (!relation) return fail(res, 403, 'You can clear friend conversations only');
+      await (await deps.collection<MessageDoc>('messages')).updateMany({ conversationId: pairKey(user.userId, peer.userId) }, { $addToSet: { hiddenFor: user.userId } });
+      res.json({ success: true });
+    } catch (err) { console.error('Error clearing messages:', err); fail(res, 500, 'Could not clear messages'); }
   });
 
   router.post('/messages/:username', async (req, res) => {

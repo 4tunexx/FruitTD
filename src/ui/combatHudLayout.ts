@@ -17,6 +17,7 @@ export function installCombatHudLayout():void {
   hud.appendChild(toggle);
   toggle.addEventListener('click',()=>{
     const collapsed=status.classList.toggle('is-collapsed');
+    document.getElementById('super-wrap')?.classList.toggle('is-status-hidden', collapsed);
     toggle.textContent=collapsed?'Show info':'Hide info';
     toggle.setAttribute('aria-expanded',String(!collapsed));
   });

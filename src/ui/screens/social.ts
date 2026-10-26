@@ -212,6 +212,11 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
     const panel = el('section', { class: 'ftd-social__panel ftd-social__notifications ftd-social__activity', 'data-testid': 'social-activity' }, [
       el('div', { class: 'ftd-social__panel-title' }, [icon(Bell), el('h2', { text: 'Recent activity & invitations' })]),
     ]);
+    if (items.length) {
+      const clearInbox = el('button', { class: 'ftd-social__mini-button', type: 'button', text: 'Clear inbox', 'data-testid': 'social-clear-inbox' });
+      clearInbox.addEventListener('click', async () => { clearInbox.setAttribute('disabled', ''); try { await socialApi.clearNotifications(); await loadNotifications(); } catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not clear inbox.', true); clearInbox.removeAttribute('disabled'); } });
+      panel.appendChild(clearInbox);
+    }
     const unread = items.filter((item) => !item.readAt);
     if (!items.length) panel.appendChild(el('p', { class: 'ftd-social__empty', text: 'No new activity. Friend requests, messages, mission rewards and invitations will appear here.' }));
     for (const item of items) {
@@ -292,6 +297,9 @@ export function renderSocial(root: HTMLElement, initialView: SocialView = 'commu
     clear(inboxPanel);
     inboxPanel.appendChild(el('div', { class: 'ftd-social__panel-title' }, [icon(MessageCircle), el('h2', { text: selectedFriend ? `Messages · @${selectedFriend}` : 'Messages' })]));
     if (!selectedFriend) { inboxPanel.appendChild(el('p', { class: 'ftd-social__empty', text: 'Choose an accepted friend to open a private conversation.' })); return; }
+    const clearThread = el('button', { class: 'ftd-social__mini-button', type: 'button', text: 'Clear conversation', 'data-testid': 'social-clear-messages' });
+    clearThread.addEventListener('click', async () => { clearThread.setAttribute('disabled', ''); try { await socialApi.clearMessages(selectedFriend); await loadMessages(); } catch (error) { message(noticeHost, error instanceof Error ? error.message : 'Could not clear conversation.', true); clearThread.removeAttribute('disabled'); } });
+    inboxPanel.appendChild(clearThread);
     const thread = el('div', { class: 'ftd-social__thread', 'aria-live': 'polite' }); inboxPanel.appendChild(thread);
     const compose = el('form', { class: 'ftd-social__compose' });
     const text = el('textarea', { rows: '2', maxlength: '1000', placeholder: 'Send a message…', 'aria-label': 'Message', 'data-testid': 'social-message-input' }) as HTMLTextAreaElement;

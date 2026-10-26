@@ -753,6 +753,34 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 .enemy-health-rail i { display:block; height:100%; border-radius:3px; background:#91dc63; }
 .enemy-health-rail.is-boss { width:82px; height:9px; border-color:#ffabb5; }
 .enemy-health-rail.is-boss i { background:#ef6d83; }
+
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+    display:flex; align-items:flex-start; gap:4px; overflow-x:auto!important; overflow-y:hidden!important;
+    scroll-snap-type:x proximity; scroll-behavior:smooth; touch-action:pan-x;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop::before { display:none; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
+    position:relative!important; left:auto!important; top:auto!important;
+    flex:0 0 62px; width:62px!important; min-width:62px!important; max-width:62px!important;
+    scroll-snap-align:center;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:nth-child(4n+1),
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:nth-child(4n+4) { margin-top:9px; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-carousel__nav:not([hidden]) { display:flex; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #btn-turret-next { display:grid!important; }
+  body[data-ftd-screen="PLAY"] #battle-status.is-collapsed { display:none!important; }
+  body[data-ftd-screen="PLAY"] #super-wrap.is-status-hidden { top:calc(var(--combat-field-top,112px) - 15px)!important; }
+  body[data-ftd-screen="PLAY"] #combat-status-toggle {
+    display:grid!important; position:fixed; z-index:55; right:10px;
+    top:calc(var(--combat-field-top,112px) - 5px); width:28px; height:28px;
+    min-height:28px; padding:0; place-items:center; font-size:0;
+    border:1px solid #d5b66e; border-radius:50%; background:#273038cc; color:#fce19f;
+  }
+  body[data-ftd-screen="PLAY"] #combat-status-toggle::after { content:'⌃'; font-size:16px; }
+  body[data-ftd-screen="PLAY"] #combat-status-toggle[aria-expanded="false"]::after { content:'⌄'; }
+}
 @media(max-width:860px) {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     width:100%!important; max-width:none!important; height:120px;

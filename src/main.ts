@@ -181,6 +181,9 @@ const debris = new SliceDebris((g) => renderer.scene.add(g));
 const juice = new JuiceSystem();
 const bank = new JuiceBank();
 const wall = new WallBase();
+document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
+  if (!document.getElementById('app')?.classList.contains('sidebar-open')) wall.select(MAIN_INDEX);
+});
 window.addEventListener('fruit-td-creator-update',()=>{wall.applySkins();});
 document.getElementById('btn-sidebar-close')?.addEventListener('click',()=>wall.deselect());
 document.getElementById('btn-command-close')?.addEventListener('click',()=>{wall.deselect();hud.setSidebarOpen(false);});
