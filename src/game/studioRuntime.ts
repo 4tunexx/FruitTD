@@ -89,6 +89,9 @@ export function enemyKindToStudioKey(kind: EnemyKind): string {
       return 'enemy-splitter';
     case 'swift':
       return 'enemy-swift';
+    case 'healer': return 'enemy-healer';
+    case 'spitter': return 'enemy-spitter';
+    case 'ghost': return 'enemy-ghost';
     default:
       return 'enemy-normal';
   }

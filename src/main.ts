@@ -14,6 +14,7 @@ import { powerStats, powerTargets, powerDamageMultiplier, superKillCharge, super
 import { finishCampaignAttempt } from './game/campaignAttempt';
 import { recordRun } from './game/runStats';
 import { Vector3 } from 'three';
+import { JuiceStains } from './game/juiceStains';
 import './style.css';
 import { Sfx } from './audio/sfx';
 import { GameLoop } from './engine/loop';
@@ -177,6 +178,27 @@ const graphicsRecovery=new GraphicsRecovery(canvas,{
 const field = new Field();
 const powerVfx = new PowerVfx(renderer.scene);
 const fruits = new FruitField((g) => renderer.scene.add(g));
+const stains=new JuiceStains();renderer.scene.add(stains.group);
+let lastPointer={x:window.innerWidth*.5,y:window.innerHeight*.6};
+window.addEventListener('pointermove',event=>{lastPointer={x:event.clientX,y:event.clientY};},{passive:true});
+const enemyScreenFx=document.createElement('div');enemyScreenFx.id='enemy-screen-fx';enemyScreenFx.setAttribute('aria-hidden','true');document.body.append(enemyScreenFx);
+fruits.onSpit=()=>{
+  if(!state.running)return;
+  const blob=document.createElement('span');blob.className='acid-spit';
+  const power=Math.min(1.8,1+state.wave*.025);
+  blob.style.width=`${Math.round(90*power)}px`;blob.style.height=`${Math.round(72*power)}px`;
+  blob.style.left=`${lastPointer.x}px`;blob.style.top=`${lastPointer.y}px`;
+  enemyScreenFx.append(blob);setTimeout(()=>blob.remove(),2000);
+};
+fruits.onHeal=(healer,targets)=>{
+  const start=worldPct(healer.group.position.x,healer.group.position.y,healer.group.position.z);
+  for(const target of targets){const end=worldPct(target.group.position.x,target.group.position.y,target.group.position.z);
+    const link=document.createElement('span');link.className='enemy-heal-link';
+    const ax=start.nx*innerWidth/100,ay=start.ny*innerHeight/100,bx=end.nx*innerWidth/100,by=end.ny*innerHeight/100;
+    link.style.left=`${ax}px`;link.style.top=`${ay}px`;link.style.width=`${Math.hypot(bx-ax,by-ay)}px`;
+    link.style.transform=`rotate(${Math.atan2(by-ay,bx-ax)}rad)`;enemyScreenFx.append(link);setTimeout(()=>link.remove(),550);
+  }
+};
 const debris = new SliceDebris((g) => renderer.scene.add(g));
 const juice = new JuiceSystem();
 const bank = new JuiceBank();
@@ -816,6 +838,8 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
 function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, source: 'blade' | 'turret' | 'super' = 'blade'): void {
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
+  stains.splash(fruit.group.position.x,fruit.group.position.z,fruit.enemyKind==='spitter'?0xd8eb56:0x71d865,fruit.boss?1.9:1);
+  if(!fruit.boss&&fruit.spawnSerial&&fruit.spawnSerial%4===0)slashFx.spawn(fruit.group.position.x,fruit.group.position.z,0x9cec5c,swipe.x,swipe.z,1.3);
   if (source === 'blade') debris.spawnPair(fruit, swipe, cutNormal);
   wall.combatEffects.burst(fruit.group.position,FRUIT_DEFS[fruit.kind].splash);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
@@ -1452,7 +1476,7 @@ function tryHeroAbility(id: string): void {
   if ((heroAbilityReadyAt[id] ?? 0) > Date.now()) { sfx.denied(); return; }
   if (state.superJuice < ability.juiceCost) { toast(state, 'Need more juice', 1.4); sfx.denied(); return; }
   const swipe = new Vector3(0, 0.4, 1);
-  const living = fruits.fruits.filter((fruit) => fruit.alive && fruit.enemyKind!=='explosive' && fruit.enemyKind!=='bladebound');
+  const living = fruits.fruits.filter((fruit) => fruit.alive && fruit.enemyKind!=='explosive' && fruit.enemyKind!=='bladebound' && fruit.enemyKind!=='ghost');
   const rank = save.heroAbilityRanks?.[id] ?? (id === 'jiju-1' ? 1 : 0);
   const stats=powerStats(ability,rank);const envelope=wall.abilityEnvelope;
   const targets=powerTargets(living,ability,fruit=>({x:fruit.group.position.x,y:-fruit.group.position.z}),envelope);
@@ -1479,7 +1503,7 @@ function tryHeroAbility(id: string): void {
 function trySuper(): void {
   if (!navigation.canInteract() || !state.running || state.superJuice < 100) return;
   const envelope=wall.powerEnvelope;
-  const targets=fruits.fruits.filter(fruit=>fruit.alive&&fruit.enemyKind!=='explosive'&&fruit.enemyKind!=='bladebound'&&powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope)>0);
+  const targets=fruits.fruits.filter(fruit=>fruit.alive&&fruit.enemyKind!=='explosive'&&fruit.enemyKind!=='bladebound'&&fruit.enemyKind!=='ghost'&&powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope)>0);
   if(!targets.length){toast(state,'No targets within tower range',1.4);return;}
   state.superJuice = 0;
   const swipe = new Vector3(0, 0.4, 1);
@@ -1749,7 +1773,7 @@ function kiPulse(x: number, z: number): void {
   for (const fruit of fruits.fruits) {
     if (!fruit.alive) continue;
     if (Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z) > r) continue;
-    if (fruit.enemyKind === 'explosive'||fruit.enemyKind==='bladebound'||!powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope)) continue;
+    if (fruit.enemyKind === 'explosive'||fruit.enemyKind==='bladebound'||fruit.enemyKind==='ghost'||!powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope)) continue;
     if (fruit.kind === 'bomb') {
       recordWaveKill(state, fruit.splitChild);
       fruits.kill(fruit);
@@ -1987,7 +2011,7 @@ function simulate(dt: number): void {
   tickGuest(dt);
 
   wall.update(dt, fruits.fruits, juice, bank, (hit) => {
-    if (hit.fruit.enemyKind === 'bladebound') return;
+    if (hit.fruit.enemyKind === 'bladebound'||hit.fruit.enemyKind==='ghost') return;
     if (hit.impulseX) hit.fruit.impulseX += hit.impulseX;
     if (hit.impulseZ) hit.fruit.impulseZ += hit.impulseZ;
     if (hit.brittle) hit.fruit.brittle = Math.max(hit.fruit.brittle, 2.4);
@@ -2016,6 +2040,7 @@ function simulate(dt: number): void {
   combos.update(dt, state.combo, state.comboTimer);
   floatingScore.update(dt);
   renderer.update(dt);
+  stains.update(dt);
   blade.fadeTrail();
   trail.sync(blade.trail);
   trail.update(dt);

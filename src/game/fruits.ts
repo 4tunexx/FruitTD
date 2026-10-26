@@ -44,6 +44,7 @@ export interface Fruit extends CombatStatus {
   routeDetours?: Set<string>;
   environmentCooldown?: number;
   environmentSlow?: number;
+  specialCooldown?: number; ghostHits?: number;
 }
 
 // Flat billboard placeholders can be replaced by uploaded enemy and boss sheets.
@@ -119,6 +120,7 @@ function makeFruit(): Fruit {
 
 function paintStatic(fruit: Fruit, def: FruitDef): void {
   const mat = fruit.body.material as MeshLambertMaterial;
+  mat.transparent=fruit.enemyKind==='ghost';mat.opacity=fruit.enemyKind==='ghost'?.62:1;
 
   let adminTexture = null;
   if (fruit.enemyKind === 'explosive') {
@@ -144,6 +146,8 @@ function paintStatic(fruit: Fruit, def: FruitDef): void {
     mat.color.setHex(0x55d8ff);
   } else if (!adminTexture && fruit.enemyKind === 'chainburst') {
     mat.color.setHex(0xb4ff3a);
+  } else if (!adminTexture && ['healer','spitter','ghost'].includes(fruit.enemyKind)) {
+    mat.color.setHex(ENEMY_RULES[fruit.enemyKind].colour);
   } else {
     mat.color.setHex(mat.map ? 0xffffff : def.color);
   }
@@ -204,6 +208,8 @@ export class FruitField {
   onBossPhase: ((fruit: Fruit) => void) | null = null;
   onEnvironmentKill: ((fruit: Fruit) => void) | null = null;
   onBurnKill: ((fruit: Fruit) => void) | null = null;
+  onHeal: ((healer: Fruit, targets: Fruit[]) => void) | null = null;
+  onSpit: ((spitter: Fruit) => void) | null = null;
 
   constructor(private readonly sceneAdd: (group: Group) => void) {
     this.sceneAdd(this.statusVfx.group);
@@ -276,6 +282,7 @@ export class FruitField {
     idle.statusKind=undefined;idle.statusUntil=0;idle.burnUntil=0;idle.burnDps=0;idle.burnTickAt=0;
     idle.maxHp = idle.hp; idle.dodgeX = 0; idle.dodgeZ = 0; idle.powerSlowLeft = 0; idle.powerSlowMultiplier = 1; idle.brittle = 0; idle.impulseX = 0; idle.impulseZ = 0;
     idle.volatileTriggered = false; idle.bossEnraged = false;
+    idle.specialCooldown=enemyKind==='spitter'?2.4:0;idle.ghostHits=0;
     idle.splitChild = false;
     idle.routePoints = routePoints; idle.routeIndex = routePoints ? 1 : undefined;
     idle.routeDetours = new Set(); idle.environmentCooldown = 0; idle.environmentSlow = 0;
@@ -298,7 +305,7 @@ export class FruitField {
 
   hurt(fruit: Fruit, amount: number, source: 'turret' | 'blade' | 'super' = 'turret'): boolean {
     if (!fruit.alive || !Number.isFinite(amount) || amount < 0) return false;
-    if (fruit.enemyKind === 'bladebound' && source !== 'blade') return false;
+    if ((fruit.enemyKind === 'bladebound'||fruit.enemyKind==='ghost') && source !== 'blade') return false;
     // Chem-Bursts are a placement challenge: blade contact hurts the wall,
     // but neither blades nor the hero super can damage or remove them.
     if (fruit.enemyKind === 'explosive' && source !== 'turret') {
@@ -317,6 +324,11 @@ export class FruitField {
     }
     if (amount <= 0) return false;
     fruit.hp -= amount; fruit.squash = 0.2; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
+    if(fruit.enemyKind==='ghost'&&source==='blade'&&++fruit.ghostHits<3){
+      fruit.hp=Math.max(1,fruit.hp);fruit.group.position.z=Math.max(LEAK_Z+1,fruit.group.position.z-1.8);
+      fruit.group.position.x=Math.max(-ARENA_W/2+1,Math.min(ARENA_W/2-1,fruit.group.position.x+(fruit.ghostHits%2?1.1:-1.1)));
+      fruit.group.scale.setScalar(.72);triggerStudioHit(fruit.studio,{x:fruit.group.position.x,y:fruit.group.position.y,z:fruit.group.position.z});return false;
+    }
     if (fruit.boss && !fruit.bossEnraged && fruit.hp > 0 && fruit.hp <= fruit.maxHp / 2) {
       fruit.bossEnraged = true;
       // Brood bosses release two smaller runners midway through the fight.
@@ -402,8 +414,26 @@ export class FruitField {
     const hw = ARENA_W / 2 - 0.45; const top = ARENA_D / 2 - 0.2; const rules = modeRules(state.mode);
     for (const fruit of this.fruits) {
       if (!fruit.alive) continue;
+      if(fruit.enemyKind==='healer'||fruit.enemyKind==='spitter'){
+        fruit.specialCooldown=(fruit.specialCooldown??0)-dt;
+        if(fruit.specialCooldown<=0){
+          fruit.specialCooldown=fruit.enemyKind==='healer'?1.2:3.8;
+          if(fruit.enemyKind==='spitter'){
+            if(this.activeState){
+              const damage=damageTower(this.activeState,Math.max(1,Math.round((1+this.activeState.wave*.22)*modeRules(this.activeState.mode).leakMul)));
+              if(damage>0)toast(this.activeState,`Acid spit · Wall −${damage} HP`,.9);
+            }
+            this.onSpit?.(fruit);
+          }
+          else {
+            const near=this.fruits.filter(other=>other!==fruit&&other.alive&&other.hp<other.maxHp&&Math.hypot(other.group.position.x-fruit.group.position.x,other.group.position.z-fruit.group.position.z)<4.5).slice(0,5);
+            for(const target of near){target.hp=Math.min(target.maxHp,target.hp+Math.max(1,target.maxHp*.08));layoutHp(target,target.hp/target.maxHp);}
+            if(near.length)this.onHeal?.(fruit,near);
+          }
+        }
+      }
       const burn=tickBurn(fruit,this.combatTime);
-      if(burn>0&&fruit.enemyKind!=='bladebound'&&this.hurt(fruit,burn,'turret')){this.onBurnKill?.(fruit);continue;}
+      if(burn>0&&fruit.enemyKind!=='bladebound'&&fruit.enemyKind!=='ghost'&&this.hurt(fruit,burn,'turret')){this.onBurnKill?.(fruit);continue;}
       this.statusVfx.sync(String(fruit.spawnSerial),fruit.group,fruit,this.combatTime);
       fruit.bob += dt * (fruit.boss ? (fruit.enemyKind === 'swift' ? 4.8 : fruit.enemyKind === 'armored' ? 2.15 : 2.8) : 3);
       const route = fruit.routePoints;

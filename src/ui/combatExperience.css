@@ -889,3 +889,11 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   }
   body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btns .action-btn:nth-child(2) { transform:translateY(-12px); }
 }
+
+#enemy-screen-fx { position:fixed; inset:0; z-index:85; pointer-events:none; overflow:hidden; }
+.enemy-heal-link { position:absolute; height:3px; transform-origin:0 50%; border-radius:9px; background:linear-gradient(90deg,#85fbb4,#d9ffac); box-shadow:0 0 10px #94ffab; animation:enemy-heal-fade .55s ease-out forwards; }
+.acid-spit { position:absolute; width:90px; height:72px; border-radius:53% 47% 58% 42%; transform:translate(-50%,-50%) rotate(-16deg); background:radial-gradient(circle at 40% 35%,#f1ee7999,#b9ce3890 55%,#c7d53500 75%); filter:blur(2px); animation:acid-drip 2s ease-in forwards; }
+.acid-spit::after { content:''; position:absolute; top:65%; left:43%; width:13px; height:43px; border-radius:0 0 50% 50%; background:linear-gradient(#c9dc6188,#a9c93600); }
+@keyframes enemy-heal-fade { to { opacity:0; filter:blur(5px); } }
+@keyframes acid-drip { 70% {opacity:.65} to { opacity:0; translate:0 95px; } }
+@media(prefers-reduced-motion:reduce) { .acid-spit { animation:enemy-heal-fade 2s linear forwards; } }

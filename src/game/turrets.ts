@@ -276,7 +276,7 @@ function nearest(fruits: Fruit[], x: number, z: number, range: number): Fruit | 
   let best: Fruit | null = null;
   let bestD = range;
   for (const fruit of fruits) {
-    if (!fruit.alive || fruit.enemyKind === 'bladebound') continue;
+    if (!fruit.alive || fruit.enemyKind === 'bladebound' || fruit.enemyKind === 'ghost') continue;
     const d = Math.hypot(fruit.group.position.x - x, fruit.group.position.z - z);
     if (d < bestD) {
       bestD = d;

@@ -2,7 +2,7 @@ import { applyBalanceRows } from './contentBalance';
 import type { FruitKind } from './fruits';
 
 /** Special enemy behaviour layered on top of normal fruit targets. */
-export type EnemyKind = 'normal' | 'explosive' | 'chainburst' | 'armored' | 'splitter' | 'swift' | 'bladebound';
+export type EnemyKind = 'normal' | 'explosive' | 'chainburst' | 'armored' | 'splitter' | 'swift' | 'bladebound' | 'healer' | 'spitter' | 'ghost';
 
 export interface EnemyRule {
   kind: EnemyKind;
@@ -21,6 +21,9 @@ export interface EnemyRule {
 }
 
 export const ENEMY_RULES: Record<EnemyKind, EnemyRule> = {
+  healer: { kind:'healer',label:'Mender',description:'Slow walker that restores up to five nearby fruit.',flavor:'Mender is healing the pack.',warning:'MENDER — STOP THE HEAL',towerDamageOnLeak:1,towerDamageOnHit:0,hpMultiplier:1.4,speedMultiplier:.58,scoreMultiplier:1.8,xpMultiplier:1.8,colour:0x71e69b },
+  spitter: { kind:'spitter',label:'Acid-Spitter',description:'Spits a brief yellow acid blot over your pointer. The blot drips away.',flavor:'Acid-Spitter incoming.',warning:'ACID-SPITTER',towerDamageOnLeak:1,towerDamageOnHit:0,hpMultiplier:1.1,speedMultiplier:.8,scoreMultiplier:1.6,xpMultiplier:1.6,colour:0xdbed64 },
+  ghost: { kind:'ghost',label:'Wisp',description:'Turrets cannot hurt it. Several blade hits make it blink toward the wall before it falls.',flavor:'Wisp — slice it again!',warning:'WISP — SLICES ONLY',towerDamageOnLeak:2,towerDamageOnHit:0,hpMultiplier:3,speedMultiplier:.85,scoreMultiplier:2,xpMultiplier:2,colour:0xbcc2ff },
   bladebound: {
     kind:'bladebound', label:'Bladebound', description:'Deflects turret fire and powers. Only direct blade slices can hurt it.',
     flavor:'Bladebound — slice the pink shield!', warning:'BLADEBOUND — SLICES ONLY',
@@ -91,6 +94,9 @@ export function specialEnemyForWave(wave: number, roll: number): EnemyKind {
   if (wave < 3) return 'normal';
   const r = Math.max(0, Math.min(0.999999, roll));
   if (wave >= 7 && r > 0.9) return 'bladebound';
+  if (wave >= 10 && r > 0.86) return 'ghost';
+  if (wave >= 9 && r > 0.81) return 'healer';
+  if (wave >= 6 && r > 0.76) return 'spitter';
   if (wave >= 12 && r < 0.05) return 'splitter';
   if (wave >= 8 && r < 0.12) return 'armored';
   if (wave >= 5 && r < 0.22) return 'swift';
