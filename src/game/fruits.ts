@@ -324,9 +324,10 @@ export class FruitField {
     }
     if (amount <= 0) return false;
     fruit.hp -= amount; fruit.squash = 0.2; layoutHp(fruit, Math.max(0, fruit.hp / fruit.maxHp));
-    if(fruit.enemyKind==='ghost'&&source==='blade'&&++fruit.ghostHits<3){
-      fruit.hp=Math.max(1,fruit.hp);fruit.group.position.z=Math.max(LEAK_Z+1,fruit.group.position.z-1.8);
-      fruit.group.position.x=Math.max(-ARENA_W/2+1,Math.min(ARENA_W/2-1,fruit.group.position.x+(fruit.ghostHits%2?1.1:-1.1)));
+    if(fruit.enemyKind==='ghost'&&source==='blade')fruit.ghostHits=(fruit.ghostHits??0)+1;
+    if(fruit.enemyKind==='ghost'&&source==='blade'&&(fruit.ghostHits??0)<3){
+      fruit.hp=Math.max(1,fruit.hp);layoutHp(fruit,fruit.hp/fruit.maxHp);fruit.group.position.z=Math.max(LEAK_Z+1,fruit.group.position.z-1.8);
+      fruit.group.position.x=Math.max(-ARENA_W/2+1,Math.min(ARENA_W/2-1,fruit.group.position.x+((fruit.ghostHits??0)%2?1.1:-1.1)));
       fruit.group.scale.setScalar(.72);triggerStudioHit(fruit.studio,{x:fruit.group.position.x,y:fruit.group.position.y,z:fruit.group.position.z});return false;
     }
     if (fruit.boss && !fruit.bossEnraged && fruit.hp > 0 && fruit.hp <= fruit.maxHp / 2) {
