@@ -868,7 +868,6 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, s
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
   const finish=deathFinish(fruit,source,weapon);showDeathFinish(fruit,finish);
   stains.splash(fruit.group.position.x,fruit.group.position.z,fruit.enemyKind==='spitter'?0xd8eb56:0x71d865,fruit.boss?1.9:1);
-  if(!fruit.boss&&fruit.spawnSerial&&fruit.spawnSerial%4===0)slashFx.spawn(fruit.group.position.x,fruit.group.position.z,0x9cec5c,swipe.x,swipe.z,1.3);
   if (source === 'blade') debris.spawnPair(fruit, swipe, cutNormal);
   wall.combatEffects.burst(fruit.group.position,FRUIT_DEFS[fruit.kind].splash);
   const mul = burstMul * (fruit.brittle > 0 ? 2 : 1);
@@ -905,10 +904,6 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, s
     floatingScore.spawn(`+${scoreReward}`, scr.nx, scr.ny, 'boss');
     const position = fruit.group.position;
     juice.burst(position.x, position.y, position.z, fruit.kind, swipe, 4);
-    for (let burst = 0; burst < 8; burst++) {
-      const angle = burst * Math.PI / 4;
-      slashFx.spawn(position.x + Math.cos(angle), position.z + Math.sin(angle), FRUIT_DEFS[fruit.kind].splash, Math.cos(angle), Math.sin(angle), 1.5);
-    }
     renderer.impulseShake(1.4);
     combatImpact.trigger('boss');
   } else if (fruit.enemyKind !== 'normal') {
