@@ -4,7 +4,7 @@ export function laneFrame(width:number,height:number,fieldWidth:number,minZ:numb
   const tilt=.86;
   const fieldDepth=maxZ-minZ;
   // In a wide window show one territory at a useful scale, never both lanes as a sliver.
-  const viewWidth=Math.max(fieldWidth, shared ? Math.min(fieldDepth*tilt*aspect,fieldWidth*1.12) : Math.min(fieldDepth*.48*tilt*aspect,fieldWidth*1.35));
+  const viewWidth=Math.max(fieldWidth, shared ? Math.min(fieldDepth*tilt*aspect,fieldWidth*1.12) : Math.min(fieldDepth*.48*tilt*aspect,fieldWidth*1.06));
   const viewHeight=viewWidth/aspect;
   const visibleDepth=viewHeight/tilt;
   const low=minZ+Math.min(fieldDepth/2,visibleDepth/2);

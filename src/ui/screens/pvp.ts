@@ -480,13 +480,13 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const visibleTowers = expandedArsenal ? allTowers : allTowers.filter(([id]) => coreTowers.includes(id));
     if (dockTab === 'build' && !selected && selectedCell !== -1) for (const [id, info] of visibleTowers.length ? visibleTowers : allTowers) {
       const button = el('button', { type: 'button', class: `ftd-duel-card ${id === selectedTower ? 'is-selected' : ''}`, 'aria-pressed': id === selectedTower, 'data-testid': `arena-build-${id}` }, [
-        lucideIcon(towerIcons[id] || 'TowerControl', 'ftd-duel-card__art', 30), el('strong', { text: towerName(id) }), el('small', { text: `${info.cost} F · ${pvpTowerRole(id)}` }),
+        lucideIcon(towerIcons[id] || 'TowerControl', 'ftd-duel-card__art', 30), el('strong', { text: towerName(id) }), el('small', { text: own.fruts < info.cost ? `Need ${Math.ceil(info.cost-own.fruts)} F` : `${info.cost} F` }),
       ]);
       button.classList.toggle('is-unaffordable', own.fruts < info.cost);
       button.addEventListener('click', () => {
         selectedTower = id;
         if (pendingBuildCell !== null) {
-          if (own.fruts < info.cost) { actionError = 'More Fruts needed for this tower.'; render(); return; }
+          if (own.fruts < info.cost) { actionError = `Need ${Math.ceil(info.cost-own.fruts)} more Fruts.`; render(); return; }
           const cell = pendingBuildCell; pendingBuildCell = null;
           issue({type:'build', tower:id, cell});
         } else selectedCell = null;
