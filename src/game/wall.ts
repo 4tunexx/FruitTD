@@ -80,9 +80,7 @@ export class WallBase {
   private wallSkinPath = '';
   private readonly fitHealthRail = () => {
     if(typeof window==='undefined')return;
-    // The phone HUD already reports WALL health. The wide world-space rail
-    // became a distracting green rectangle under the defender on phones.
-    this.healthRail.visible=window.innerWidth>860;
+    this.healthRail.visible=true;
     this.healthRail.scale.x=window.innerWidth/window.innerHeight<.82?.82:1;
   };
   private readonly towerHome = new Vector3(0, 3.7, WALL_Z);

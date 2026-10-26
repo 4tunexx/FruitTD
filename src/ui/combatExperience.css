@@ -930,7 +930,7 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 }
 
 .enemy-death-fx { position:absolute; width:38px; height:38px; margin:-19px; border-radius:50%; pointer-events:none; animation:death-pop .8s ease-out forwards; }
-.enemy-death-fx.is-slice { background:linear-gradient(135deg,transparent 43%,#caff85 46% 53%,transparent 56%); filter:drop-shadow(0 0 7px #96ff80); }
+.enemy-death-fx.is-slice { background:radial-gradient(circle at 37% 34%,#caff8599 0 8%,transparent 14%),radial-gradient(circle at 63% 60%,#a8eb7180 0 12%,transparent 20%); filter:drop-shadow(0 0 4px #96ff80); }
 .enemy-death-fx.is-burn { background:radial-gradient(circle at 50% 90%,#222b2599 10%,#f9a337bd 35%,#765c3d00 72%); filter:blur(4px); }
 .enemy-death-fx.is-laser { background:radial-gradient(ellipse at center,#f5ffb0b0 8%,#baffb250 33%,transparent 70%); filter:drop-shadow(0 0 6px #baffb2); }
 .enemy-death-fx.is-blast,.enemy-death-fx.is-burst { background:radial-gradient(circle,#fff4a5 8%,#a8e75c99 36%,#b6e73b00 70%); box-shadow:0 0 15px #dbff7b; }

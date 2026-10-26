@@ -1361,10 +1361,8 @@ function resolveSlash(slash: Slash): void {
         y: fruit.group.position.y,
         z: fruit.group.position.z,
       };
-      const segment = res.hitSegment ?? line;
-      const hitDx = segment.to.x - segment.from.x;
-      const hitDz = segment.to.z - segment.from.z;
-      slashFx.spawn(hitPos.x, hitPos.z, bladeColor, hitDx, hitDz, fruit.radius * 1.6);
+      // BladeTrail already draws the cut. SlashFx was a bright, flat green
+      // strip drawn across the target on every hit (especially obvious on a kill).
       try {
         fireCreatorSlicerVfx(slicerFx?.id, 'onSlash', hitPos);
         if (isCrit) fireCreatorSlicerVfx(slicerFx?.id, 'onCrit', hitPos);
