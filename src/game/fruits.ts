@@ -57,8 +57,8 @@ function layoutHp(fruit: Fruit, t: number): void {
   const barY = fruit.boss ? 1.7 / s : 1.1 / s;
   const barW = fruit.boss ? 2.3 / s : 1.05 / s;
   const barH = fruit.boss ? 0.17 / s : 0.11 / s;
-  // Reveal ordinary health after actual damage; bosses use the single HUD meter.
-  fruit.hpBack.visible = fruit.hpBar.visible = !fruit.boss && fruit.hp < fruit.maxHp;
+  // Every damaged enemy reveals its own health, including bosses on the lane.
+  fruit.hpBack.visible = fruit.hpBar.visible = fruit.hp > 0 && fruit.hp < fruit.maxHp;
   fruit.hpBack.position.set(0, barY, 0);
   fruit.hpBack.scale.set(barW, barH, 1);
   fruit.hpBar.position.set(-barW * 0.47 * (1 - t), barY, -0.025 / s);

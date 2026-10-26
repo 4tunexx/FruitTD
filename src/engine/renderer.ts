@@ -37,6 +37,11 @@ export class GameRenderer {
   private shakeVel = 0;
   private shakeAmp = 0;
   private blastKick = 0;
+  private hitZoom = 0;
+  private hitRoll = 0;
+  private hitFocusX = 0;
+  private hitFocusZ = 0;
+  private hitSide = 1;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private lookZ = 0;
   private readonly ambientLight = new AmbientLight(0xe8f4dc, 0.92);
@@ -215,6 +220,7 @@ export class GameRenderer {
     this.panZ = 0;
     this.viewH = 28;
     this.blastKick = 0;
+    this.resetHitFeedback();
     this.camera.zoom = 1;
     this.resize();
   }
@@ -239,12 +245,37 @@ export class GameRenderer {
     this.impulseShake(amount);
   }
 
+  /** A small, alternating lens lean toward the struck enemy. One impulse per stroke. */
+  impulseHit(x: number, z: number, combo: number): void {
+    if (this.reducedMotion.matches) return;
+    const strength = Math.min(1, 0.45 + combo * 0.055);
+    this.hitSide *= -1;
+    this.hitZoom = Math.min(0.038, Math.max(this.hitZoom, 0.018 + strength * 0.02));
+    this.hitRoll = this.hitSide * (0.003 + strength * 0.005);
+    this.hitFocusX = Math.max(-0.26, Math.min(0.26, x * 0.045));
+    this.hitFocusZ = Math.max(-0.28, Math.min(0.28, (z - this.lookZ) * 0.018));
+  }
+
+  resetHitFeedback(): void {
+    this.hitZoom = 0;
+    this.hitRoll = 0;
+    this.hitFocusX = 0;
+    this.hitFocusZ = 0;
+    this.camera.zoom = 1 / (1 + this.blastKick);
+    this.camera.updateProjectionMatrix();
+  }
+
   update(dt: number): void {
-    const previousKick = this.blastKick;
     this.blastKick *= Math.exp(-dt * 8);
     if (this.blastKick < 0.0001) this.blastKick = 0;
-    if (this.blastKick !== previousKick) {
-      this.camera.zoom = 1 / (1 + this.blastKick);
+    this.hitZoom *= Math.exp(-dt * 9);
+    this.hitRoll *= Math.exp(-dt * 11);
+    this.hitFocusX *= Math.exp(-dt * 10);
+    this.hitFocusZ *= Math.exp(-dt * 10);
+    if (this.hitZoom < 0.0001) this.hitZoom = 0;
+    const nextZoom = (1 + this.hitZoom) / (1 + this.blastKick);
+    if (Math.abs(this.camera.zoom - nextZoom) > 0.00001) {
+      this.camera.zoom = nextZoom;
       this.camera.updateProjectionMatrix();
     }
     this.shakeVel += -this.shakeAmp * 70 * dt;
@@ -257,7 +288,8 @@ export class GameRenderer {
       this.cameraBase.y,
       this.cameraBase.z + this.lookZ + this.panZ + this.shake.z,
     );
-    this.camera.lookAt(this.panX + this.shake.x * 0.1, 0.2, this.lookZ + this.panZ);
+    this.camera.lookAt(this.panX + this.shake.x * 0.1 + this.hitFocusX, 0.2, this.lookZ + this.panZ + this.hitFocusZ);
+    if (Math.abs(this.hitRoll) > 0.00001) this.camera.rotateZ(this.hitRoll);
   }
 
   render(): void {

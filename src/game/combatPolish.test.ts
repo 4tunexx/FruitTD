@@ -39,7 +39,7 @@ describe('combat polish regressions', () => {
     assert.equal(boss.hpBack.visible, false);
     assert.equal(boss.hpBar.visible, false);
     field.hurt(boss, 1);
-    assert.equal(boss.hpBar.visible, false, 'damaging a boss must not add a second HP bar');
+    assert.equal(boss.hpBar.visible, true, 'damaged bosses reveal HP above their sprite');
     assert.equal(boss.outline.visible, true);
     assert.equal(fruit.outline.visible, false);
   });

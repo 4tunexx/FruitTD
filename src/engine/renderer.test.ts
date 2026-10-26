@@ -39,3 +39,24 @@ test('PC combat stage leaves real side-panel space and keeps the approach visibl
  }
  assert.deepEqual(combatViewport(390,844),{left:0,top:112,width:390,height:636});
 });
+
+test('blade hit camera leans alternately, eases home, and resets with the combo',()=>{
+ const field:any=Object.create(GameRenderer.prototype);
+ Object.assign(field,{camera:new OrthographicCamera(-10,10,10,-10,.1,220),cameraBase:new Vector3(0,26,-32),panX:0,panZ:0,lookZ:0,blastKick:0,hitZoom:0,hitRoll:0,hitFocusX:0,hitFocusZ:0,hitSide:1,shake:new Vector3(),shakeVel:0,shakeAmp:0,reducedMotion:{matches:false}});
+ field.impulseHit(3,10,8);
+ const firstRoll=field.hitRoll;
+ field.update(1/60);
+ assert.ok(field.camera.zoom>1 && field.camera.zoom<1.04);
+ assert.ok(Math.abs(field.hitFocusX)>0);
+ field.impulseHit(-2,10,9);
+ assert.ok(field.hitRoll*firstRoll<0,'successive impacts lean in opposite directions');
+ for(let frame=0;frame<120;frame++)field.update(1/60);
+ assert.ok(Math.abs(field.camera.zoom-1)<.0001,'lens settles after the streak stops');
+ field.impulseHit(0,0,12);
+ field.resetHitFeedback();
+ assert.equal(field.camera.zoom,1);
+ assert.equal(field.hitRoll,0);
+ field.reducedMotion.matches=true;
+ field.impulseHit(1,1,20);
+ assert.equal(field.hitZoom,0,'reduced motion prevents a new camera impulse');
+});

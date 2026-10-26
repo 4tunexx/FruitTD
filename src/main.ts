@@ -297,6 +297,8 @@ function resetCombo(_reason: ComboResetReason): void {
   state.combo = 0;
   state.comboTimer = 0;
   combos.reset();
+  renderer.resetHitFeedback();
+  combatImpact.clearSlice();
 }
 
 /**
@@ -1275,6 +1277,8 @@ function resolveSlash(slash: Slash): void {
     lastStandMul;
   const brittleBonus = slicerFx?.brittleBonus ?? 0;
   let hits = 0;
+  let lastHitPosition: Vector3 | null = null;
+  let killedByBlade = false;
   const swipe = new Vector3().subVectors(slash.to, slash.from);
   if (swipe.lengthSq() < 0.0001) swipe.set(1, 0, 0);
   else swipe.normalize();
@@ -1340,6 +1344,7 @@ function resolveSlash(slash: Slash): void {
         continue;
       }
       hits += 1;
+      lastHitPosition = fruit.group.position;
       if (fruit.enemyKind === 'armored') {
         sfx.armorHit();
       }
@@ -1364,7 +1369,10 @@ function resolveSlash(slash: Slash): void {
       }
       const towerBonus = towerDamageBonus();
       const killed = fruits.hurt(fruit, dmg + wall.slots[MAIN_INDEX].level + towerBonus, 'blade');
-      if (killed) killFruit(fruit, swipe);
+      if (killed) {
+        killedByBlade = true;
+        killFruit(fruit, swipe);
+      }
 
     }
     for (const bit of debris.halves) {
@@ -1385,6 +1393,7 @@ function resolveSlash(slash: Slash): void {
     const gen = debris.reslice(bit, swipe, new Vector3(-swipe.z, 0, swipe.x));
     if (!gen) continue;
     hits += 1;
+    lastHitPosition = new Vector3(px, py, pz);
     const isSecondCut = gen >= 2;
     const juiceGain = isSecondCut ? 3 : 1;
     bank.add(juiceHueFromKind(kind), juiceGain);
@@ -1419,6 +1428,12 @@ function resolveSlash(slash: Slash): void {
     state.comboTimer = (state.hero === 'jiju' ? 1.65 : 1.35) * comboEngineMul;
     sessionMaxCombo = Math.max(sessionMaxCombo, state.combo);
     combos.onHits(hits, state.combo);
+    if (lastHitPosition) {
+      renderer.impulseHit(lastHitPosition.x, lastHitPosition.z, state.combo);
+      combatImpact.trigger('slice');
+    }
+    // The final enemy in a stroke gets a tiny punctuation shake.
+    if (killedByBlade) renderer.impulseShake(0.12);
     renderer.impulseShake(hero.shake * 0.35);
     emit({ type: 'combo', combo: state.combo });
   }

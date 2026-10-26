@@ -1,4 +1,4 @@
-export type CombatImpactKind = 'leak' | 'blast' | 'stomp' | 'boss';
+export type CombatImpactKind = 'leak' | 'blast' | 'stomp' | 'boss' | 'slice';
 
 /** Screen-space combat accents stay outside the input layer and expire independently. */
 export class CombatImpact {
@@ -18,12 +18,19 @@ export class CombatImpact {
     this.timers.set(kind, setTimeout(() => {
       this.element?.classList.remove(name);
       this.timers.delete(kind);
-    }, kind === 'blast' ? 370 : 460));
+    }, kind === 'slice' ? 230 : kind === 'blast' ? 370 : 460));
+  }
+
+  clearSlice(): void {
+    const pending = this.timers.get('slice');
+    if (pending) clearTimeout(pending);
+    this.timers.delete('slice');
+    this.element?.classList.remove('impact-slice');
   }
 
   clear(): void {
     for (const timeout of this.timers.values()) clearTimeout(timeout);
     this.timers.clear();
-    this.element?.classList.remove('impact-leak', 'impact-blast', 'impact-stomp', 'impact-boss');
+    this.element?.classList.remove('impact-leak', 'impact-blast', 'impact-stomp', 'impact-boss', 'impact-slice');
   }
 }
