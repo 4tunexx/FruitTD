@@ -182,7 +182,9 @@ const juice = new JuiceSystem();
 const bank = new JuiceBank();
 const wall = new WallBase();
 document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
-  if (!document.getElementById('app')?.classList.contains('sidebar-open')) wall.select(MAIN_INDEX);
+  const opening=!document.getElementById('app')?.classList.contains('sidebar-open');
+  if(opening)wall.select(MAIN_INDEX);else wall.deselect();
+  hud.setSidebarOpen(opening);
 });
 window.addEventListener('fruit-td-creator-update',()=>{wall.applySkins();});
 document.getElementById('btn-sidebar-close')?.addEventListener('click',()=>wall.deselect());

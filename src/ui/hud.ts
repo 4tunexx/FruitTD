@@ -171,7 +171,9 @@ export class Hud {
 
   private refreshTurretShop():void {
     refreshCreatorTurrets();
-    const available=equippedTurrets(this.currentSave||loadSave(),turretOffers(getPublishedCreatorMedia()));
+    const save=this.currentSave||loadSave(), offers=turretOffers(getPublishedCreatorMedia());
+    const equipped=equippedTurrets(save,offers);
+    const available=offers.filter(offer=>offer.price===0||save.ownedTurrets?.includes(offer.kind)).map(offer=>offer.kind);
     let changed=false;
     for(const button of this.shop.querySelectorAll('button[data-turret]')){
       if(!available.includes((button as HTMLElement).dataset.turret||'')){button.remove();changed=true;}
@@ -193,17 +195,18 @@ export class Hud {
       this.shop.appendChild(btn);
       changed=true;
     }
+    for(const button of this.shop.querySelectorAll<HTMLButtonElement>('button[data-turret]'))button.dataset.equipped=String(equipped.includes(button.dataset.turret||''));
     if(changed){this.turretPage=0;requestAnimationFrame(() => this.updateTurretCarousel());}
   }
 
   private updateTurretCarousel(): void {
     const allButtons = [...this.shop.querySelectorAll<HTMLButtonElement>('button[data-turret]')];
-    const buttons = allButtons.filter(button => button.dataset.padCompatible !== 'false');
-    allButtons.forEach(button => { if (!buttons.includes(button)) button.hidden = true; });
+    const buttons = allButtons;
     const pageCount = Math.max(1, Math.ceil(buttons.length / 4));
     if (window.innerWidth <= 860) {
       buttons.forEach((button, index) => { button.hidden = false; button.dataset.orbitSlot = String(index % 4); });
-      this.turretNav.hidden = buttons.length <= 4;
+      this.turretNav.hidden = buttons.length <= 3;
+      this.turretNext.disabled = false;
       this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
       return;
     }
@@ -302,23 +305,12 @@ export class Hud {
   }
 
   private initSidebarMobile(): void {
-    document.getElementById('btn-sidebar-toggle')?.addEventListener('click', () => {
-      this.setSidebarOpen(!document.getElementById('app')?.classList.contains('sidebar-open'));
-    });
     document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
     document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
     this.turretPrev.addEventListener('click', () => { this.turretPage--; this.updateTurretCarousel(); });
     this.turretNext.addEventListener('click', () => {
       if (window.innerWidth <= 860) this.shop.scrollBy({ left: 130, behavior: 'smooth' });
       else { this.turretPage++; this.updateTurretCarousel(); }
-    });
-    let swipeStart = 0;
-    this.shop.addEventListener('pointerdown', event => { swipeStart = event.clientX; });
-    this.shop.addEventListener('pointerup', event => {
-      const delta = event.clientX - swipeStart;
-      if (Math.abs(delta) < 45) return;
-      this.turretPage += delta < 0 ? 1 : -1;
-      this.updateTurretCarousel();
     });
     this.updateTurretCarousel();
   }
@@ -1287,15 +1279,16 @@ export class Hud {
         const affordable = state.currency >= def.cost;
         const fits = canPlaceTurret(kind, pad);
         btn.dataset.padCompatible = String(fits);
-        btn.disabled = !fits || !affordable;
+        const equipped=btn.dataset.equipped==='true';
+        btn.disabled = !equipped || !fits || !affordable;
         const cost = btn.querySelector<HTMLElement>('.turret-btn__cost');
         if (cost) cost.textContent = `${def.cost} F`;
         const badge = btn.querySelector<HTMLElement>('.turret-btn__status');
         if (badge) {
-          badge.textContent = !fits ? 'FLOOR PAD' : !affordable ? `NEED ${def.cost - state.currency} F` : 'READY TO BUILD';
-          badge.classList.toggle('is-warning', !fits || !affordable);
+          badge.textContent = !equipped ? 'EQUIP' : !fits ? 'FLOOR PAD' : !affordable ? `NEED ${def.cost - state.currency} F` : 'READY TO BUILD';
+          badge.classList.toggle('is-warning', !equipped || !fits || !affordable);
         }
-        btn.setAttribute('aria-label',`${def.name} · ${def.cost} Fruts · ${!fits?'floor pad required':!affordable?`need ${def.cost-state.currency} more Fruts`:'ready to build'} · ${def.blurb}`);
+        btn.setAttribute('aria-label',`${def.name} · ${def.cost} Fruts · ${!equipped?'equip in Inventory first':!fits?'floor pad required':!affordable?`need ${def.cost-state.currency} more Fruts`:'ready to build'}`);
       }
       if (padChanged) this.updateTurretCarousel();
     }

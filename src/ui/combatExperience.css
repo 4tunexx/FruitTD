@@ -844,3 +844,28 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="2"] { left:50%; top:0; }
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot="3"] { left:75%; top:10px; }
 }
+
+/* Compact scrollable build choices, with no absolute orbit positions. */
+@media(max-width:860px) {
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection { width:min(272px,calc(100vw - 30px))!important; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
+    display:flex!important; flex-flow:row nowrap!important; align-items:flex-start!important;
+    width:100%!important; height:94px!important; max-height:94px!important;
+    gap:8px!important; overflow-x:auto!important; overflow-y:hidden!important;
+    touch-action:pan-x!important; scroll-snap-type:x proximity;
+    padding:0 3px!important; box-sizing:border-box; scrollbar-width:none;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn,
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-orbit-slot] {
+    position:relative!important; left:auto!important; top:auto!important;
+    display:grid!important; flex:0 0 58px!important;
+    width:58px!important; min-width:58px!important; max-width:58px!important;
+    height:86px!important; min-height:86px!important; margin:0!important;
+    grid-template-rows:45px 22px 12px!important; scroll-snap-align:center;
+  }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn::before { width:43px!important; height:43px!important; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__glyph { top:8px!important; width:25px!important; height:25px!important; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name { margin:0!important; max-width:58px!important; font-size:8px!important; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-equipped="false"] .turret-btn__cost { display:none; }
+  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-equipped="false"] .turret-btn__status { display:block!important; grid-row:3; font-size:7px; line-height:11px; }
+}
