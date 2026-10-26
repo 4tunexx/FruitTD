@@ -835,9 +835,31 @@ function announceProgression(result: ProgressionResult, reason: RewardEvent['typ
   }
 }
 
-function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, source: 'blade' | 'turret' | 'super' = 'blade'): void {
+type DeathFinish='slice'|'burn'|'laser'|'blast'|'freeze'|'shock'|'pulp'|'smoke'|'burst';
+function deathFinish(fruit:Fruit,source:'blade'|'turret'|'super',weapon?:string):DeathFinish {
+  const chassis=weapon ? (TURRET_WEAPONS[weapon as keyof typeof TURRET_WEAPONS]?.chassis||weapon) : '';
+  if(chassis==='vortex'||weapon==='burn')return 'burn';
+  if(chassis==='laser'||weapon==='laser'||weapon==='pierce')return 'laser';
+  if(chassis==='railgun'||chassis==='blender'||weapon==='burst')return 'blast';
+  if(chassis==='sprinkler'||weapon==='frost')return 'freeze';
+  if(weapon==='shock')return 'shock';
+  if(weapon==='bloom')return 'pulp';
+  if(weapon==='guard')return 'smoke';
+  if(chassis==='guillotine'||source==='blade')return 'slice';
+  return (['pulp','smoke','burst','slice','blast'] as const)[(fruit.spawnSerial??0)%5]!;
+}
+function showDeathFinish(fruit:Fruit,finish:DeathFinish):void {
+  const point=worldPct(fruit.group.position.x,fruit.group.position.y,fruit.group.position.z);
+  const fx=document.createElement('span');fx.className=`enemy-death-fx is-${finish}`;
+  fx.style.left=`${point.nx}%`;fx.style.top=`${point.ny}%`;
+  enemyScreenFx.append(fx);setTimeout(()=>fx.remove(),850);
+  if(finish==='burn'||finish==='smoke')stains.splash(fruit.group.position.x,fruit.group.position.z,0x333d2b,.8);
+  if(finish==='blast')sfx.bombExplode();
+}
+function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, source: 'blade' | 'turret' | 'super' = 'blade', weapon?:string): void {
   if (state.mode === 'campaign' && campaignRunSettled) return;
   const cutNormal = new Vector3(-swipe.z, 0, swipe.x).normalize();
+  const finish=deathFinish(fruit,source,weapon);showDeathFinish(fruit,finish);
   stains.splash(fruit.group.position.x,fruit.group.position.z,fruit.enemyKind==='spitter'?0xd8eb56:0x71d865,fruit.boss?1.9:1);
   if(!fruit.boss&&fruit.spawnSerial&&fruit.spawnSerial%4===0)slashFx.spawn(fruit.group.position.x,fruit.group.position.z,0x9cec5c,swipe.x,swipe.z,1.3);
   if (source === 'blade') debris.spawnPair(fruit, swipe, cutNormal);
@@ -890,8 +912,12 @@ function killFruit(fruit: Fruit, swipe: Vector3, burstMul = 1, chainDepth = 0, s
 
   const rules = modeRules(state.mode);
   if (source !== 'super') chargeSuper(state, superKillCharge(save.skills.flow) * rules.superMul);
-  sfx.slice(fruit.kind, Math.max(2, state.combo), false);
-  if (state.combo >= 2) sfx.combo(state.combo);
+  if(source==='blade'){
+    sfx.slice(fruit.kind,Math.max(2,state.combo),false);
+    if(state.combo>=2)sfx.combo(state.combo);
+  }else if(finish==='freeze')sfx.freeze();
+  else if(finish==='burn')sfx.fire();
+  else if(finish==='laser'||finish==='shock')sfx.fire();
   combos.onKills(1);
   recordWaveKill(state, fruit.splitChild);
   totalFruitsSliced += 1;
@@ -1495,7 +1521,7 @@ function tryHeroAbility(id: string): void {
     if (stats.slowMs) { fruit.powerSlowLeft = Math.max(fruit.powerSlowLeft ?? 0, stats.slowMs/1000); fruit.powerSlowMultiplier = stats.slowMultiplier; }
     applyPowerStatus(fruit,ability,fruits.combatTime,stats.slowMs,stats.damage);
     const damage=stats.damage*powerDamageMultiplier({x:fruit.group.position.x,y:-fruit.group.position.z},envelope);
-    if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2, 0, 'super');
+    if (fruits.hurt(fruit, damage, 'super')) killFruit(fruit, swipe, ability.effect === 'burst' ? 1.6 : 1.2, 0, 'super',ability.effect);
   }
   hud.refreshAbilityBar(save);
 }
@@ -2027,7 +2053,7 @@ function simulate(dt: number): void {
     const hitScreen = worldPct(hit.fruit.group.position.x, hit.fruit.group.position.y + .55, hit.fruit.group.position.z);
     floatingScore.spawn(String(Math.max(1, Math.round(Math.min(hit.fruit.hp, dmg)))), hitScreen.nx, hitScreen.ny, 'damage');
     if (fruits.hurt(hit.fruit, dmg)) {
-      killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1, 0, 'turret');
+      killFruit(hit.fruit, swipe, hit.split || hit.puddle ? 1.8 : 1, 0, 'turret',hit.kind);
       if(hit.kind){const tuning=turretLevelTuning(hit.kind,hit.level||1);
         if(tuning.deathEffect)wall.combatEffects.burst(hit.fruit.group.position,tuning.effectColor?parseInt(tuning.effectColor.slice(1),16):FRUIT_DEFS[hit.fruit.kind].splash,tuning.deathEffect,tuning.deathScale||1);}
     }

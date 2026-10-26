@@ -897,3 +897,15 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 @keyframes enemy-heal-fade { to { opacity:0; filter:blur(5px); } }
 @keyframes acid-drip { 70% {opacity:.65} to { opacity:0; translate:0 95px; } }
 @media(prefers-reduced-motion:reduce) { .acid-spit { animation:enemy-heal-fade 2s linear forwards; } }
+
+.enemy-death-fx { position:absolute; width:38px; height:38px; margin:-19px; border-radius:50%; pointer-events:none; animation:death-pop .8s ease-out forwards; }
+.enemy-death-fx.is-slice { background:linear-gradient(135deg,transparent 43%,#caff85 46% 53%,transparent 56%); filter:drop-shadow(0 0 7px #96ff80); }
+.enemy-death-fx.is-burn { background:radial-gradient(circle at 50% 90%,#222b2599 10%,#f9a337bd 35%,#765c3d00 72%); filter:blur(4px); }
+.enemy-death-fx.is-laser { border-radius:0; background:linear-gradient(90deg,transparent 40%,#f5ffb0 48% 52%,transparent 60%); box-shadow:0 0 14px #baffb2; transform:rotate(24deg); }
+.enemy-death-fx.is-blast,.enemy-death-fx.is-burst { background:radial-gradient(circle,#fff4a5 8%,#a8e75c99 36%,#b6e73b00 70%); box-shadow:0 0 15px #dbff7b; }
+.enemy-death-fx.is-freeze { background:radial-gradient(circle,#bcecffaa,#8acff855 48%,transparent 70%); border:1px solid #b8efff; }
+.enemy-death-fx.is-shock { background:conic-gradient(from 15deg,transparent 0 12%,#a8eaff 15%,transparent 19% 45%,#a8eaff 50%,transparent 54%); filter:drop-shadow(0 0 6px #99d9ff); }
+.enemy-death-fx.is-pulp { background:radial-gradient(circle at 20% 30%,#baff6988 0 9%,transparent 12%),radial-gradient(circle at 75% 65%,#9fea6188 0 15%,transparent 18%),radial-gradient(circle,#a6e65b99,transparent 66%); }
+.enemy-death-fx.is-smoke { background:radial-gradient(circle,#6f7970bb,#3a453d66 48%,transparent 74%); filter:blur(5px); }
+@keyframes death-pop { from { opacity:.9; scale:.3; } 65% { opacity:.7; scale:1.4; } to { opacity:0; scale:1.8; translate:0 -16px; } }
+@media(prefers-reduced-motion:reduce) { .enemy-death-fx { animation:enemy-heal-fade .8s linear forwards; } }
