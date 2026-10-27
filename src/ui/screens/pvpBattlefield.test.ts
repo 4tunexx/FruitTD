@@ -72,3 +72,25 @@ test('both straight roads meet on one centre line without a diagonal seam',()=>{
   assert.ok(Math.abs(point.x)<1e-9, `${map.id}: road stays straight on both halves`);
  }
 });
+
+test('modern placement hexes remain pickable with a barely visible build-only grid',async()=>{
+  const {rebuiltPvpConfig}=await import('../../game/pvpRebuild');
+  const balance=rebuiltPvpConfig(config);
+  for(const side of ['blue','red'])for(const [width,height] of [[390,844],[1440,900]]){
+    const map=balance.map,players=[createPvpPlayer('a','A','blue',balance),createPvpPlayer('b','B','red',balance)];
+    const canvas=document.createElement('div');(canvas as any).getBoundingClientRect=()=>({width,height,left:0,top:0});
+    const field:any=Object.create(PvpBattlefield.prototype),scene=new Scene(),terrain=new Group();scene.add(terrain);
+    Object.assign(field,{element:canvas,canvas,snapshot:{id:'v2',rulesVersion:2,map,yourSide:side,players},config:balance,terrain,health:new Map(),buildPads:[],mainTowerMaterials:[],wallMaterials:[],heroArt:[],keepMotion:new Map(),renderer:{setSize:()=>{}},camera:new OrthographicCamera(-20,20,30,-30,.1,200),zoom:1,focusOwn:true,ray:new Raycaster(),sideColors:{blue:0x38bdf8,red:0xef5350},cameraZ:0});
+    field.buildTerrain(map);scene.updateMatrixWorld(true);
+    assert.equal(field.buildPads.length,map.buildCells.length);
+    for(const pad of field.buildPads){
+      assert.ok(pad.material.opacity<=.07);
+      const point=field.cellPoint(pad.userData.cell,true);field.cameraZ=point.z;field.resize();point.y=.16;point.project(field.camera);
+      assert.equal(field.buildCell({clientX:(point.x+1)*width/2,clientY:(1-point.y)*height/2}),pad.userData.cell);
+    }
+    const grid=terrain.children.find((child:any)=>child.isLineSegments) as any;
+    assert.ok(grid);assert.ok(grid.material.opacity<=.035);
+    assert.equal(grid.geometry.attributes.position.count,map.buildCells.length*players.length*12,'grid only marks build cells');
+    while(terrain.children.length)field.release(terrain.children[0]);
+  }
+});

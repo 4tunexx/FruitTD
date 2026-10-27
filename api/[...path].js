@@ -559,6 +559,9 @@ function heroAbilityRank(id, ranks) {
 
 // src/game/enemies.ts
 var ENEMY_RULES = {
+  healer: { kind: "healer", label: "Mender", description: "Slow walker that restores up to five nearby fruit.", flavor: "Mender is healing the pack.", warning: "MENDER \u2014 STOP THE HEAL", towerDamageOnLeak: 1, towerDamageOnHit: 0, hpMultiplier: 1.4, speedMultiplier: 0.58, scoreMultiplier: 1.8, xpMultiplier: 1.8, colour: 7464603 },
+  spitter: { kind: "spitter", label: "Acid-Spitter", description: "Spits a brief yellow acid blot over your pointer. The blot drips away.", flavor: "Acid-Spitter incoming.", warning: "ACID-SPITTER", towerDamageOnLeak: 1, towerDamageOnHit: 0, hpMultiplier: 1.1, speedMultiplier: 0.8, scoreMultiplier: 1.6, xpMultiplier: 1.6, colour: 14413156 },
+  ghost: { kind: "ghost", label: "Wisp", description: "Turrets cannot hurt it. Several blade hits make it blink toward the wall before it falls.", flavor: "Wisp \u2014 slice it again!", warning: "WISP \u2014 SLICES ONLY", towerDamageOnLeak: 2, towerDamageOnHit: 0, hpMultiplier: 3, speedMultiplier: 0.85, scoreMultiplier: 2, xpMultiplier: 2, colour: 12370687 },
   bladebound: {
     kind: "bladebound",
     label: "Bladebound",
@@ -962,6 +965,448 @@ function mapPowerEnvelope(origin, bounds) {
   return { ...origin, radius: Math.max(...[bounds.minX, bounds.maxX].flatMap((x) => [bounds.minY, bounds.maxY].map((y) => Math.hypot(x - origin.x, y - origin.y)))) };
 }
 
+// src/game/arenaMotion.ts
+function arenaNavigation(width, obstacles, direction) {
+  const columns = width * 2, rows = 96, clearance = 0.72;
+  const point = (cell) => ({ x: (cell % columns + 0.5) / 2, y: (Math.floor(cell / columns) + 0.5) / 2 - 24 });
+  const index = (p) => Math.max(0, Math.min(rows - 1, Math.floor((p.y + 24) * 2))) * columns + Math.max(0, Math.min(columns - 1, Math.floor(p.x * 2)));
+  const open = (p) => p.x >= 0.25 && p.x <= width - 0.25 && !obstacles.some((o) => Math.hypot(p.x - o.x, p.y - o.y) < clearance);
+  const blocked = Array.from({ length: columns * rows }, (_, cell) => !open(point(cell)));
+  const distance2 = new Float64Array(columns * rows).fill(Infinity), queue = [];
+  const goalRow = direction === -1 ? 0 : rows - 1;
+  for (let x = 0; x < columns; x++) {
+    const cell = goalRow * columns + x;
+    if (!blocked[cell]) {
+      distance2[cell] = 0;
+      queue.push(cell);
+    }
+  }
+  const neighbors = (cell) => {
+    const x = cell % columns, y = Math.floor(cell / columns), result = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy || x + dx < 0 || x + dx >= columns || y + dy < 0 || y + dy >= rows) continue;
+      const next = cell + dy * columns + dx;
+      if (!blocked[next] && !(dx && dy && (blocked[cell + dx] || blocked[cell + dy * columns]))) result.push(next);
+    }
+    return result;
+  };
+  for (let i = 0; i < queue.length; i++) for (const next of neighbors(queue[i])) if (distance2[next] === Infinity) {
+    distance2[next] = distance2[queue[i]] + 1;
+    queue.push(next);
+  }
+  const clear = (from, to) => {
+    const dx = to.x - from.x, dy = to.y - from.y, length2 = dx * dx + dy * dy;
+    return !obstacles.some((o) => {
+      const t = length2 ? Math.max(0, Math.min(1, ((o.x - from.x) * dx + (o.y - from.y) * dy) / length2)) : 0;
+      return Math.hypot(from.x + t * dx - o.x, from.y + t * dy - o.y) < clearance;
+    });
+  };
+  return {
+    reachable: (from) => Number.isFinite(distance2[index(from)]),
+    clear,
+    goal(from) {
+      const destination = { x: from.x, y: direction * 23.5 };
+      if (clear(from, destination)) return destination;
+      let cell = index(from), goal = from;
+      for (let i = 0; i < rows * 2; i++) {
+        const next = neighbors(cell).filter((n) => distance2[n] < distance2[cell]).sort((a, b) => distance2[a] - distance2[b] || Math.abs(point(a).x - from.x) - Math.abs(point(b).x - from.x))[0];
+        if (next === void 0) break;
+        const candidate = point(next);
+        if (!clear(from, candidate)) break;
+        goal = candidate;
+        cell = next;
+      }
+      return goal;
+    }
+  };
+}
+
+// src/game/pvpRebuild.ts
+var TYPES = ["normal", "swift", "chainburst", "spitter", "explosive", "healer", "armored", "splitter"];
+var FRUIT_KINDS = ["orange", "strawberry", "kiwi", "lemon", "bomb", "pineapple", "watermelon", "apple"];
+var ARENA_BOSSES = {
+  "rot-king": { type: "normal", fruitKind: "watermelon", cost: 240 },
+  "runner-overlord": { type: "swift", fruitKind: "strawberry", cost: 260 },
+  "rind-titan": { type: "armored", fruitKind: "pineapple", cost: 340 },
+  "brood-overlord": { type: "splitter", fruitKind: "apple", cost: 380 }
+};
+var presets = {
+  "orchard-crossing": { solids: [63, 66, 143, 146] },
+  windfall: { solids: [42, 43, 66, 67, 142, 143], slows: [84, 85, 154, 155] },
+  "old-grove": { solids: [41, 44, 47, 81, 84, 87, 121, 124, 127, 161, 164, 167] },
+  riverbend: { solids: [52, 62, 72, 83, 93, 103, 114, 124], slows: [54, 55, 64, 65, 74, 75] },
+  "twin-rows": { solids: [51, 52, 53, 56, 57, 58, 111, 112, 115, 116, 117, 118] },
+  "stone-arch": { solids: [83, 84, 85, 86, 93, 96], damage: [73, 76, 103, 106] },
+  "long-harvest": { solids: [31, 38, 51, 58, 71, 78, 91, 98, 111, 118, 131, 138], damage: [153, 156] }
+};
+function arenaMap(map2) {
+  if (map2.version === 2 && map2.solidCells && map2.hazards) return map2;
+  const layout = presets[map2.id] ?? presets["orchard-crossing"];
+  const blocked = new Set(layout.solids);
+  const hazards = [...(layout.slows ?? []).map((cell) => ({ cell, kind: "slow" })), ...(layout.damage ?? []).map((cell) => ({ cell, kind: "damage" }))];
+  const buildCells = Array.from({ length: map2.width * map2.height }, (_, cell) => cell).filter((cell) => Math.floor(cell / map2.width) >= Math.ceil(map2.height / 2) && !blocked.has(cell) && !hazards.some((h) => h.cell === cell) && Math.floor(cell / map2.width) < map2.height - 2);
+  return { ...map2, version: 2, solidCells: layout.solids.filter((cell) => cell < map2.width * map2.height), hazards: hazards.filter((h) => h.cell < map2.width * map2.height), buildCells };
+}
+function rebuiltPvpConfig(config) {
+  const defaults3 = {
+    normal: { cost: 20, health: 100, speed: 2, wallDamage: 6, rewardFruts: 4 },
+    swift: { cost: 32, health: 70, speed: 3, wallDamage: 4, rewardFruts: 6 },
+    chainburst: { cost: 42, health: 85, speed: 2.15, wallDamage: 5, rewardFruts: 8 },
+    spitter: { cost: 50, health: 110, speed: 1.6, wallDamage: 5, rewardFruts: 10 },
+    explosive: { cost: 55, health: 150, speed: 1.3, wallDamage: 18, rewardFruts: 11 },
+    healer: { cost: 70, health: 145, speed: 1.2, wallDamage: 5, rewardFruts: 14 },
+    armored: { cost: 85, health: 260, speed: 0.85, wallDamage: 16, rewardFruts: 17 },
+    splitter: { cost: 95, health: 170, speed: 1.4, wallDamage: 10, rewardFruts: 19 }
+  };
+  const attacks = config.version === 2 ? { ...defaults3, ...config.attacks } : defaults3;
+  const towers = { ...config.towers };
+  delete towers.catcher;
+  const maps = config.maps.map(arenaMap);
+  return { ...config, version: 2, map: maps.find((map2) => map2.id === config.map.id) ?? maps[0], maps, attacks, towers, durationSeconds: config.version === 2 ? config.durationSeconds : 180, startingFruts: config.version === 2 ? config.startingFruts : 100, incomePerSecond: config.version === 2 ? config.incomePerSecond : 6, arenaRules: config.version === 2 && config.arenaRules ? config.arenaRules : { captureSeconds: 20, overtimeSeconds: 30, doubleIncomeSeconds: 30 }, bossCosts: config.version === 2 && config.bossCosts ? config.bossCosts : Object.fromEntries(Object.entries(ARENA_BOSSES).map(([id, boss]) => [id, boss.cost])) };
+}
+var gridY = (y) => Math.max(0, Math.min(47, Math.floor(y + 24)));
+var gridColumn = (x, row, width) => Math.max(0, Math.min(width - 1, Math.floor(x - (row % 2 ? 0.5 : 0))));
+var localCell = (x, y, map2) => {
+  const row = gridY(y);
+  return Math.floor(Math.abs(y)) * map2.width + gridColumn(x, row, map2.width);
+};
+var blockedCells = (match, extra) => {
+  const map2 = match.map;
+  const blocked = /* @__PURE__ */ new Set();
+  for (const cell of map2.solidCells ?? []) {
+    blocked.add((24 + Math.floor(cell / map2.width)) * map2.width + cell % map2.width);
+    blocked.add((23 - Math.floor(cell / map2.width)) * map2.width + cell % map2.width);
+  }
+  for (const player of match.players) for (const tower2 of player.towers) blocked.add((player.side === "blue" ? 24 + Math.floor(tower2.cell / map2.width) : 23 - Math.floor(tower2.cell / map2.width)) * map2.width + tower2.cell % map2.width);
+  if (extra) blocked.add((extra.side === "blue" ? 24 + Math.floor(extra.cell / map2.width) : 23 - Math.floor(extra.cell / map2.width)) * map2.width + extra.cell % map2.width);
+  return blocked;
+};
+var navigationCache = /* @__PURE__ */ new WeakMap();
+function navigation(match, direction, extra) {
+  const map2 = match.map;
+  const obstacles = [...blockedCells(match, extra)].map((cell) => {
+    const row = Math.floor(cell / map2.width);
+    return { x: cell % map2.width + 0.5 + (row % 2 ? 0.5 : 0), y: row + 0.5 - 24 };
+  });
+  return arenaNavigation(map2.width, obstacles, direction);
+}
+function arenaLayoutValid(map2) {
+  if (map2.width !== 10 || map2.height !== 24) return false;
+  const fake = { map: map2, players: [{ side: "blue", towers: [] }, { side: "red", towers: [] }] };
+  return navigation(fake, -1).reachable({ x: 5, y: 22.5 }) && navigation(fake, 1).reachable({ x: 5, y: -22.5 });
+}
+function arenaBuildAllowed(match, side, cell) {
+  const map2 = match.map;
+  if (!Number.isInteger(cell) || !(map2.buildCells ?? []).includes(cell) || match.players.some((p) => p.side === side && p.towers.some((t) => t.cell === cell))) return false;
+  const row = side === "blue" ? 24 + Math.floor(cell / map2.width) : 23 - Math.floor(cell / map2.width);
+  const point = { x: cell % map2.width + 0.5 + (row % 2 ? 0.5 : 0), y: row + 0.5 - 24 };
+  if (match.players.some((p) => p.attackers.some((u) => u.hp > 0 && u.x !== void 0 && u.y !== void 0 && Math.hypot(u.x - point.x, u.y - point.y) < 0.9))) return false;
+  return navigation(match, -1, { side, cell }).reachable({ x: 5, y: 22.5 }) && navigation(match, 1, { side, cell }).reachable({ x: 5, y: -22.5 });
+}
+function newUnit(match, sender, type, id, config, boss = false, fruitKind) {
+  const stats = config.attacks[type];
+  if (!stats) throw new Error("Invalid fruit-zombie");
+  const offset = (sender.sequence * 17 % 7 - 3) * 0.42;
+  return { id, type, hp: stats.health * (boss ? 3.6 : 1), maxHp: stats.health * (boss ? 3.6 : 1), progress: -24, x: Math.max(0.5, Math.min(match.map.width - 0.5, match.map.width / 2 + offset)), y: sender.side === "blue" ? 22.5 : -22.5, boss, fruitKind: fruitKind ?? (FRUIT_KINDS[TYPES.indexOf(type)] ?? "orange"), ownerId: sender.userId };
+}
+function beginArena(match, now, config) {
+  const captureMs = (config.arenaRules?.captureSeconds ?? 20) * 1e3;
+  match.phase = "capture";
+  match.captureStartAt = now;
+  match.phaseEndsAt = now + captureMs;
+  match.endsAt = now + config.durationSeconds * 1e3;
+  match.captureSeed = Array.from(match.id).reduce((sum, c) => sum * 31 + c.charCodeAt(0) >>> 0, 7);
+  match.catchables = Array.from({ length: 11 }, (_, index) => {
+    const type = TYPES[[0, 1, 0, 2, 3, 0, 4, 5, 1, 6, 7][index]];
+    return { id: `catch:${index}`, type, fruitKind: FRUIT_KINDS[TYPES.indexOf(type)], x: 1.2 + (match.captureSeed + index * 37) % 65 / 10, y: 14 + index % 4 * 1.4, bornAt: now + index * 1600, expiresAt: now + Math.min(captureMs, index * 1600 + 5100), claimedBy: [] };
+  });
+  for (const player of match.players) {
+    player.fruts = 0;
+    player.captured = [];
+    player.wallHealth = config.wallHealth;
+    player.rallyReadyAt = now + captureMs + PVP_RALLY.openingMs;
+  }
+}
+function catchPosition(item, now) {
+  const t = Math.max(0, (now - item.bornAt) / 1e3);
+  return { x: item.x + Math.sin(t * 2.3 + item.y) * 0.55, y: item.y + Math.sin(t * 1.7 + item.x) * 0.4 };
+}
+function arenaCatchables(match, now, userId) {
+  return match.catchables.filter((item) => item.bornAt <= now && item.expiresAt > now && !item.claimedBy.includes(userId)).map((item) => ({ ...item, ...catchPosition(item, now) }));
+}
+function applyArenaCommand(match, userId, command, sequence, now, config) {
+  if (match.status !== "active") throw new Error("Match is not active");
+  const player = match.players.find((p) => p.userId === userId);
+  if (!player || !player.connected) throw new Error("Player is unavailable");
+  if (sequence !== player.sequence + 1) throw new Error("Invalid or replayed command sequence");
+  if (command.type === "surrender") {
+    match.status = "complete";
+    match.resultReason = "surrender";
+    match.winnerId = match.players.find((p) => p !== player).userId;
+  } else if (match.phase === "capture") {
+    if (now >= match.phaseEndsAt) throw new Error("Capture phase has ended");
+    if (command.type !== "catch") throw new Error("Catch fruit until siege begins");
+    const item = match.catchables.find((c) => c.id === command.catchableId);
+    if (!item || item.bornAt > now || item.expiresAt < now || item.claimedBy.includes(userId)) throw new Error("That fruit has escaped");
+    const at = catchPosition(item, now);
+    if (Math.hypot(command.from.x - at.x, command.from.y - at.y) > 1.25 || command.to.x < 8.1 || command.to.y < 20.5) throw new Error("Drag the fruit into the collection box");
+    item.claimedBy.push(userId);
+    player.captured ??= [];
+    player.captured.push({ id: `${item.id}:${userId}`, type: item.type, fruitKind: item.fruitKind });
+  } else {
+    if (now >= match.endsAt) throw new Error("Match timer has expired");
+    if (command.type === "send" || command.type === "release") {
+      const captured = command.type === "release" ? player.captured?.find((c) => c.id === command.capturedId) : void 0;
+      const boss = command.type === "send" ? ARENA_BOSSES[command.enemy] : void 0;
+      const type = captured?.type ?? boss?.type ?? (command.type === "send" ? command.enemy : "");
+      const stats = config.attacks[type];
+      if (!stats) throw new Error("Invalid fruit-zombie type");
+      const cost = captured ? 0 : boss ? config.bossCosts?.[command.type === "send" ? command.enemy : ""] ?? boss.cost : stats.cost;
+      if (player.fruts < cost) throw new Error("Not enough match Fruts");
+      if (boss && match.players.some((p) => p.attackers.some((a) => a.ownerId === userId && a.boss))) throw new Error("Only one active boss");
+      const target2 = match.players.find((p) => p !== player);
+      if (target2.attackers.length >= 128) throw new Error("The battlefield is full");
+      player.fruts -= cost;
+      if (captured) player.captured = player.captured.filter((c) => c !== captured);
+      target2.attackers.push(newUnit(match, player, type, `${userId}:${sequence}`, config, Boolean(boss), captured?.fruitKind ?? boss?.fruitKind));
+    } else if (command.type === "build") {
+      const tower2 = config.towers[command.tower];
+      if (!tower2 || !turretAllowed(command.tower, player.turretLoadout) || !arenaBuildAllowed(match, player.side, command.cell)) throw new Error("Choose a clear hex in your build zone");
+      if (player.towers.length >= 24 || player.fruts < tower2.cost) throw new Error("Not enough room or Fruts");
+      player.fruts -= tower2.cost;
+      player.towers.push({ id: `${userId}:${sequence}`, type: command.tower, cell: command.cell, level: 1, placedAt: now });
+    } else if (command.type === "upgrade" || command.type === "sell") {
+      const tower2 = player.towers.find((t) => t.id === command.towerId);
+      const base = tower2 && config.towers[tower2.type];
+      if (!tower2 || !base) throw new Error("Choose one of your towers");
+      if (command.type === "upgrade") {
+        const level = pvpTowerLevel(tower2.level);
+        if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded");
+        const cost = pvpUpgradeCost(base.cost, level);
+        if (player.fruts < cost) throw new Error("Not enough Fruts");
+        player.fruts -= cost;
+        tower2.level = level + 1;
+      } else {
+        player.fruts += pvpSellRefund(base.cost, tower2.level);
+        player.towers = player.towers.filter((t) => t !== tower2);
+      }
+    } else if (command.type === "upgrade-main") {
+      const level = pvpTowerLevel(player.mainLevel);
+      if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Main tower is fully upgraded");
+      const cost = pvpMainUpgradeCost(level);
+      if (player.fruts < cost) throw new Error("Not enough Fruts");
+      player.fruts -= cost;
+      player.mainLevel = level + 1;
+      const health = config.wallHealth * 0.25;
+      player.wallMaxHealth = (player.wallMaxHealth ?? config.wallHealth) + health;
+      player.wallHealth = Math.min(player.wallMaxHealth, player.wallHealth + health);
+    } else if (command.type === "rally") {
+      if (now < (player.rallyReadyAt ?? 0)) throw new Error("Rally is cooling down");
+      player.rallyUntil = now + PVP_RALLY.durationMs;
+      player.rallyReadyAt = now + PVP_RALLY.cooldownMs;
+    } else if (command.type === "ability") {
+      const ranks = match.queue === "ranked" ? Object.fromEntries((player.abilityLoadout ?? []).map((id) => [id, 1])) : player.abilityRanks;
+      const { ability, stats } = equippedPower(command.abilityId, player.hero ?? "", player.abilityLoadout, ranks);
+      if (now < (player.abilityReadyAt?.[ability.id] ?? 0) || player.fruts < stats.cost) throw new Error("Power unavailable");
+      const targets = powerTargets(player.attackers.filter((u) => u.hp > 0 && u.type !== "explosive" && u.x !== void 0 && u.y !== void 0), ability, (u) => ({ x: u.x, y: u.y }), mapPowerEnvelope({ x: 5, y: player.side === "blue" ? 23 : -23 }, { minX: 0, maxX: match.map.width, minY: -24, maxY: 24 }));
+      if (!targets.length && (!stats.healFraction || player.wallHealth >= (player.wallMaxHealth ?? config.wallHealth))) throw new Error("No vulnerable targets");
+      player.fruts -= stats.cost;
+      player.abilityReadyAt ??= {};
+      player.abilityReadyAt[ability.id] = now + stats.cooldownMs;
+      player.wallHealth = Math.min(player.wallMaxHealth ?? config.wallHealth, player.wallHealth + (player.wallMaxHealth ?? config.wallHealth) * stats.healFraction);
+      player.powerCasts = appendPowerCast(player.powerCasts, { id: `${userId}:${sequence}`, abilityId: ability.id, at: now, rank: stats.rank, targets: targets.map((u) => ({ x: u.x, y: u.y })) });
+      for (const unit2 of targets) {
+        applyPowerStatus(unit2, ability, now, stats.slowMs, stats.damage);
+        unit2.hp -= stats.damage;
+        if (stats.slowMs) {
+          unit2.slowUntil = now + stats.slowMs;
+          unit2.slowMultiplier = stats.slowMultiplier;
+        }
+      }
+    } else throw new Error("Action unavailable");
+  }
+  player.sequence = sequence;
+  player.lastSeenAt = now;
+  match.revision++;
+  return match;
+}
+function advanceArena(match, elapsed, now, config) {
+  if (match.status !== "active") return match;
+  const disconnected = match.players.find((player) => !player.connected && player.disconnectedAt !== null && now - player.disconnectedAt >= config.reconnectGraceSeconds * 1e3);
+  if (disconnected) {
+    match.status = "complete";
+    match.resultReason = "disconnect";
+    match.winnerId = match.players.find((player) => player !== disconnected)?.userId ?? null;
+    match.revision++;
+    return match;
+  }
+  if (match.phase === "capture") {
+    if (now >= match.phaseEndsAt) {
+      match.phase = "siege";
+      match.endsAt = match.phaseEndsAt + config.durationSeconds * 1e3;
+      for (const player of match.players) player.fruts = config.startingFruts;
+    }
+    match.revision++;
+    return match;
+  }
+  const dt = Math.max(0, Math.min(1, elapsed));
+  const map2 = match.map;
+  if (match.phase === "overtime" && now >= (match.overtimeWaveAt ?? Infinity)) {
+    for (const player of match.players) {
+      const rival = match.players.find((p) => p !== player);
+      rival.attackers.push(newUnit(match, player, "normal", `overtime:${player.userId}:${now}`, config));
+    }
+    match.overtimeWaveAt = now + 5e3;
+  }
+  const layoutKey = JSON.stringify([map2.width, map2.solidCells, match.players.map((p) => [p.side, p.towers.map((t) => t.cell)])]);
+  let routes = navigationCache.get(match);
+  if (!routes || routes.key !== layoutKey) {
+    routes = { key: layoutKey, blue: navigation(match, -1), red: navigation(match, 1) };
+    navigationCache.set(match, routes);
+  }
+  const blueNavigation = routes.blue, redNavigation = routes.red;
+  for (const player of match.players) player.fruts += config.incomePerSecond * (match.phase === "overtime" || match.endsAt - now <= (config.arenaRules?.doubleIncomeSeconds ?? 30) * 1e3 ? 2 : 1) * dt;
+  const all = match.players.flatMap((p) => p.attackers);
+  for (const unit2 of all) {
+    unit2.hp -= tickBurn(unit2, now);
+    if (unit2.hp <= 0) continue;
+    if (unit2.boss && !unit2.enraged && unit2.hp <= (unit2.maxHp ?? unit2.hp) * 0.5) {
+      unit2.enraged = true;
+      if (unit2.type === "splitter") {
+        const sender = match.players.find((p) => p.userId === unit2.ownerId);
+        const defender = match.players.find((p) => p !== sender);
+        if (sender && defender) for (let i = 0; i < 2; i++) defender.attackers.push({ ...newUnit(match, sender, "swift", `${unit2.id}:brood:${i}`, config), x: unit2.x, y: unit2.y, hp: 45, maxHp: 45 });
+      }
+    }
+  }
+  const steps = Math.max(1, Math.ceil(dt / 0.05)), stepDt = dt / steps;
+  for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
+    const live = all.filter((u) => u.hp > 0);
+    const positions = new Map(live.map((u) => [u.id, { x: u.x, y: u.y }]));
+    const damage = /* @__PURE__ */ new Map();
+    for (const unit2 of live) {
+      unit2.fighting = false;
+      unit2.attackingTower = false;
+      delete unit2.fightTargetId;
+      const sender = match.players.find((p) => p.userId === unit2.ownerId);
+      if (!sender) continue;
+      const nav = sender.side === "blue" ? blueNavigation : redNavigation;
+      const from = positions.get(unit2.id);
+      const opponents = live.filter((other) => other.ownerId !== unit2.ownerId && Math.hypot(positions.get(other.id).x - from.x, positions.get(other.id).y - from.y) < 3.5 && nav.clear(from, positions.get(other.id)));
+      const opponent = opponents.sort((a, b) => Math.hypot(positions.get(a.id).x - from.x, positions.get(a.id).y - from.y) - Math.hypot(positions.get(b.id).x - from.x, positions.get(b.id).y - from.y) || a.id.localeCompare(b.id))[0];
+      const target2 = opponent && positions.get(opponent.id);
+      const reach = unit2.boss || opponent?.boss ? 1.45 : 0.9;
+      if (target2 && Math.hypot(target2.x - from.x, target2.y - from.y) <= reach + 1e-6) {
+        unit2.fighting = true;
+        unit2.fightTargetId = opponent.id;
+        unit2.lastClashAt = Math.floor(now / 300) * 300;
+        damage.set(opponent.id, (damage.get(opponent.id) ?? 0) + config.attacks[unit2.type].wallDamage * 1.8 * stepDt);
+        continue;
+      }
+      const goal = target2 && Math.hypot(target2.x - from.x, target2.y - from.y) < 3.5 ? target2 : nav.goal(from);
+      const dx = goal.x - from.x, dy = goal.y - from.y, length = Math.hypot(dx, dy) || 1;
+      const stats = config.attacks[unit2.type];
+      const hazard = (map2.hazards ?? []).find((h) => h.cell === localCell(from.x, from.y, map2));
+      const speed = stats.speed * (unit2.boss ? unit2.enraged ? 0.8 : 0.58 : 1) * (now < (unit2.slowUntil ?? 0) ? unit2.slowMultiplier ?? 0.55 : 1) * (hazard?.kind === "slow" ? 0.7 : 1);
+      const step = Math.min(length, speed * stepDt, target2 && goal === target2 ? Math.max(0, length - reach) : Infinity);
+      const next = { x: Math.max(0.35, Math.min(map2.width - 0.35, from.x + dx / length * step)), y: Math.max(-23.5, Math.min(23.5, from.y + dy / length * step)) };
+      if (nav.clear(from, next)) {
+        unit2.x = next.x;
+        unit2.y = next.y;
+      }
+      if (hazard?.kind === "damage" && now - (unit2.hazardAt ?? 0) >= 1e3) {
+        damage.set(unit2.id, (damage.get(unit2.id) ?? 0) + 2);
+        unit2.hazardAt = now;
+      }
+      unit2.progress = sender.side === "blue" ? 22.5 - unit2.y : unit2.y + 22.5;
+    }
+    for (const unit2 of live) unit2.hp -= damage.get(unit2.id) ?? 0;
+  }
+  for (const unit2 of all.filter((u) => u.hp > 0 && u.type === "healer" && now - (u.specialAt ?? 0) >= 1200)) {
+    unit2.specialAt = now;
+    for (const ally of all.filter((other) => other.ownerId === unit2.ownerId && other.hp > 0 && Math.hypot(other.x - unit2.x, other.y - unit2.y) < 3).slice(0, 5)) ally.hp = Math.min(ally.maxHp ?? ally.hp, ally.hp + 12);
+  }
+  for (const unit2 of all.filter((u) => u.hp > 0 && u.type === "spitter" && now - (u.specialAt ?? 0) >= 3800)) {
+    const rival = match.players.find((p) => p.userId !== unit2.ownerId);
+    if (!rival) continue;
+    const target2 = rival.towers.find((t) => {
+      const row = rival.side === "blue" ? 24 + Math.floor(t.cell / map2.width) : 23 - Math.floor(t.cell / map2.width);
+      return Math.hypot(t.cell % map2.width + 0.5 + (row % 2 ? 0.5 : 0) - unit2.x, (rival.side === "blue" ? 1 : -1) * (Math.floor(t.cell / map2.width) + 0.5) - unit2.y) < 3.5;
+    });
+    if (target2) {
+      target2.jammedUntil = now + 1800;
+      unit2.specialAt = now;
+    }
+  }
+  for (const player of match.players) {
+    const enemy = player.attackers;
+    const fire = (x, y, stats, last, type, level) => {
+      if (now - last < stats.cooldownMs) return false;
+      const target2 = enemy.filter((u) => u.hp > 0 && Math.hypot(u.x - x, u.y - y) <= stats.range).sort((a, b) => b.progress - a.progress)[0];
+      if (!target2) return false;
+      const victims = turretVictims(type, { x, y }, target2, enemy.filter((u) => u.hp > 0), (u) => ({ x: u.x, y: u.y }), stats.range, level);
+      for (const victim of victims) {
+        applyWeaponStatus(victim, type, now, stats.damage);
+        victim.hp -= Math.round(stats.damage * (victim.type === "armored" && type !== "laser" && type !== "railgun" ? 0.55 : 1) * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1));
+        if (type === "sprinkler") {
+          victim.slowUntil = now + 1200;
+          victim.slowMultiplier = 0.55;
+        }
+      }
+      return true;
+    };
+    for (const tower2 of player.towers) {
+      const base = config.towers[tower2.type];
+      if (!base || now < (tower2.jammedUntil ?? 0)) continue;
+      const localRow = Math.floor(tower2.cell / map2.width), globalRow = player.side === "blue" ? 24 + localRow : 23 - localRow;
+      const y = (player.side === "blue" ? 1 : -1) * (localRow + 0.5);
+      const stats = pvpTowerStats(base, tower2.level);
+      if (fire(tower2.cell % map2.width + 0.5 + (globalRow % 2 ? 0.5 : 0), y, stats, tower2.lastFiredAt ?? tower2.placedAt, base.chassis ?? tower2.type, pvpTowerLevel(tower2.level))) tower2.lastFiredAt = now;
+    }
+    if (fire(map2.width / 2, player.side === "blue" ? 23 : -23, pvpTowerStats({ ...config.mainTower, cost: 0 }, player.mainLevel), player.mainLastFiredAt ?? 0, "main", pvpTowerLevel(player.mainLevel))) player.mainLastFiredAt = now;
+    for (const unit2 of [...enemy]) {
+      if (unit2.hp <= 0) {
+        enemy.splice(enemy.indexOf(unit2), 1);
+        player.score += unit2.boss ? 300 : 10;
+        player.fruts += unit2.boss ? Math.ceil((Object.values(ARENA_BOSSES).find((b) => b.type === unit2.type)?.cost ?? 240) * 0.2) : config.attacks[unit2.type].rewardFruts;
+        if (unit2.type === "chainburst") for (const other of all.filter((u) => u.ownerId !== unit2.ownerId && Math.hypot(u.x - unit2.x, u.y - unit2.y) < 2)) other.hp -= 30;
+        if (unit2.type === "splitter" && !unit2.boss) {
+          const sender = match.players.find((p) => p.userId === unit2.ownerId);
+          const defender = match.players.find((p) => p !== sender);
+          if (defender.attackers.length < 127) defender.attackers.push({ ...newUnit(match, sender, "normal", `${unit2.id}:child`, config), x: unit2.x, y: unit2.y, hp: 35, maxHp: 35 });
+        }
+      } else if (Math.abs(unit2.y) >= 23.4 && (player.side === "blue" ? unit2.y > 0 : unit2.y < 0)) {
+        unit2.attackingTower = true;
+        if (now - (unit2.lastTowerHitAt ?? 0) >= 1e3) {
+          player.wallHealth = Math.max(0, player.wallHealth - config.attacks[unit2.type].wallDamage * (unit2.boss ? 2 : 1));
+          unit2.lastTowerHitAt = now;
+        }
+      }
+    }
+  }
+  const dead = match.players.filter((p) => p.wallHealth <= 0);
+  if (dead.length) {
+    match.status = "complete";
+    match.winnerId = dead.length === 2 ? null : match.players.find((p) => p !== dead[0]).userId;
+    match.resultReason = "wall";
+  } else if (now >= match.endsAt) {
+    const [a, b] = match.players;
+    const left = a.wallHealth / (a.wallMaxHealth ?? config.wallHealth), right = b.wallHealth / (b.wallMaxHealth ?? config.wallHealth);
+    if (Math.abs(left - right) < 1e-6 && match.phase !== "overtime") {
+      match.phase = "overtime";
+      match.phaseEndsAt = now + (config.arenaRules?.overtimeSeconds ?? 30) * 1e3;
+      match.endsAt = match.phaseEndsAt;
+      match.overtimeWaveAt = now + 5e3;
+    } else {
+      match.status = "complete";
+      match.resultReason = "timeout";
+      match.winnerId = Math.abs(left - right) < 1e-6 ? null : left > right ? a.userId : b.userId;
+    }
+  }
+  match.revision++;
+  return match;
+}
+
 // src/game/pvp.ts
 function siegeBuildCells(width, height) {
   const middle = Math.floor(width / 2) - 1;
@@ -1039,6 +1484,17 @@ function normalizePvpMaps(input) {
     const fallback = DEFAULT_PVP_CONFIG.maps[index];
     if (!raw || typeof raw !== "object") return structuredClone(fallback);
     const row = raw;
+    if (row.version === 2 && fallback.id === row.id) {
+      const width2 = 10, height2 = 24, limit = width2 * height2;
+      const legalCell = (cell) => Number.isInteger(cell) && Number(cell) >= 0 && Number(cell) < limit;
+      const solids = [...new Set((Array.isArray(row.solidCells) ? row.solidCells : []).filter(legalCell))];
+      const blocked = new Set(solids);
+      const hazards = (Array.isArray(row.hazards) ? row.hazards : []).filter((h) => h && legalCell(h.cell) && (h.kind === "slow" || h.kind === "damage") && !blocked.has(h.cell));
+      const hazardCells = new Set(hazards.map((h) => h.cell));
+      const legalBuild = (cell) => legalCell(cell) && Math.floor(cell / width2) >= 12 && Math.floor(cell / width2) < 22 && !blocked.has(cell) && !hazardCells.has(cell);
+      const buildCells = [...new Set((Array.isArray(row.buildCells) ? row.buildCells : []).filter(legalBuild))];
+      return { ...structuredClone(fallback), version: 2, name: String(row.name || fallback.name).slice(0, 64), solidCells: solids, hazards, buildCells };
+    }
     const width = Math.max(3, Math.min(12, Math.floor(Number(row.width) || fallback.width)));
     const height = Math.max(3, Math.min(24, Math.floor(Number(row.height) || fallback.height)));
     const rawPath = Array.isArray(row.pathCells) ? row.pathCells.map(Number) : fallback.pathCells;
@@ -1149,7 +1605,8 @@ function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = D
     match.map = structuredClone(match.mapPool[Math.floor(Math.random() * match.mapPool.length)]);
     match.status = "active";
     match.endsAt = now + config.durationSeconds * 1e3;
-    match.players.forEach((item) => {
+    if (match.rulesVersion === 2) beginArena(match, now, config);
+    else match.players.forEach((item) => {
       item.wallHealth = config.wallHealth;
       item.fruts = 0;
       item.rallyReadyAt = now + PVP_RALLY.openingMs;
@@ -1158,6 +1615,7 @@ function vetoPvpMap(match, userId, mapId, sequence, now = Date.now(), config = D
   return match;
 }
 function applyPvpCommand(match, userId, command, sequence, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.rulesVersion === 2) return applyArenaCommand(match, userId, command, sequence, now, config);
   if (match.status !== "active") throw new Error("Match is not active");
   if (now >= match.endsAt) throw new Error("Match timer has expired");
   const player = match.players.find((item) => item.userId === userId);
@@ -1261,6 +1719,7 @@ function applyPvpCommand(match, userId, command, sequence, now = Date.now(), con
   return match;
 }
 function advancePvpMatch(match, elapsedSeconds, now = Date.now(), config = DEFAULT_PVP_CONFIG) {
+  if (match.rulesVersion === 2) return advanceArena(match, elapsedSeconds, now, config);
   if (match.status !== "active") return match;
   const dt = Math.max(0, Math.min(1, elapsedSeconds));
   const map2 = match.map ?? config.map;
@@ -1402,7 +1861,7 @@ function normalizeCoopConfig(raw) {
   }));
 }
 function newCoopMatch(id, player, balance) {
-  return { towerXp: 0, id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, wallMaxHealth: balance.wallHealth, fruts: 0, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
+  return { towerXp: 0, id, revision: 0, status: "waiting", phaseUntil: 0, players: [player], wave: 1, wallHealth: balance.wallHealth, wallMaxHealth: balance.wallHealth, fruts: 100, score: 0, kills: 0, fruits: [], remainingSpawns: 0, spawnAt: 0, serial: 0, towers: [], mainLastFiredAt: 0, completedWaves: 0 };
 }
 var COOP_MAX_PLAYERS = 4;
 function joinCoopMatch(match, player, now) {
@@ -1413,6 +1872,42 @@ function joinCoopMatch(match, player, now) {
     match.phaseUntil = now + 3e3;
   }
   match.revision++;
+}
+function spend(match, player, command, now, balance) {
+  if (command.type === "build") {
+    if (!turretAllowed(command.tower, player.turretLoadout)) throw new Error("Equip this turret in Inventory before the match.");
+    const stats = balance.towers[command.tower];
+    if (!stats || !Number.isInteger(command.cell) || command.cell < 121 || command.cell > 128 || match.towers.some((t) => t.cell === command.cell)) throw new Error("Choose an empty wall pad.");
+    if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
+    match.fruts -= stats.cost;
+    match.towers.push({ id: `${match.id}:${command.cell}`, type: command.tower, cell: command.cell, lastFiredAt: now, level: 1 });
+    match.lastSpend = { userId: player.userId, label: `Built ${command.tower}`, cost: stats.cost, at: now };
+  } else {
+    const tower2 = match.towers.find((t) => t.id === command.towerId);
+    const base = tower2 && balance.towers[tower2.type];
+    if (!tower2 || !base) throw new Error("Choose a shared tower.");
+    const level = pvpTowerLevel(tower2.level);
+    if (command.type === "upgrade") {
+      if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded.");
+      const cost = pvpUpgradeCost(base.cost, level);
+      if (match.fruts < cost) throw new Error("Not enough shared Fruts.");
+      match.fruts -= cost;
+      tower2.level = level + 1;
+      match.lastSpend = { userId: player.userId, label: `Upgraded ${tower2.type}`, cost, at: now };
+    } else {
+      const refund = pvpSellRefund(base.cost, level);
+      match.fruts += refund;
+      match.towers = match.towers.filter((t) => t !== tower2);
+      match.lastSpend = { userId: player.userId, label: `Sold ${tower2.type}`, cost: -refund, at: now };
+    }
+  }
+}
+function voteRequired(match, command, balance) {
+  if (match.players.length < 2) return false;
+  if (command.type === "sell") return true;
+  if (command.type === "build") return (balance.towers[command.tower]?.cost ?? 0) >= 150;
+  const tower2 = match.towers.find((t) => t.id === command.towerId);
+  return tower2 ? pvpUpgradeCost(balance.towers[tower2.type]?.cost ?? 0, tower2.level) >= 150 : false;
 }
 var distance = (p, a, b) => {
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -1429,34 +1924,41 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
     match.phaseUntil = now + 3e3;
   } else if (command.type === "leave") {
     if (match.status === "waiting" && match.players[0]?.userId !== userId) match.players = match.players.filter((member) => member.userId !== userId);
-    else {
+    else if (match.status === "waiting" || match.players.length === 1) {
       match.status = "complete";
       match.reason = "left";
+    } else {
+      match.players = match.players.filter((member) => member.userId !== userId);
+      match.proposal = void 0;
     }
   } else {
     if (match.status !== "playing" && match.status !== "boss-intro" && !(match.status === "countdown" && ["build", "upgrade", "sell"].includes(command.type))) throw new Error("Wait for the match to start.");
-    if (command.type === "build") {
-      if (!turretAllowed(command.tower, player.turretLoadout)) throw new Error("Equip this turret in Inventory before the match.");
-      const stats = balance.towers[command.tower];
-      if (!stats || !Number.isInteger(command.cell) || command.cell < 121 || command.cell > 128 || match.towers.some((t) => t.cell === command.cell)) throw new Error("Choose an empty wall pad.");
-      if (match.fruts < stats.cost) throw new Error("Not enough shared Fruts.");
-      match.fruts -= stats.cost;
-      match.towers.push({ id: `${match.id}:${command.cell}`, type: command.tower, cell: command.cell, lastFiredAt: now, level: 1 });
-    } else if (command.type === "upgrade" || command.type === "sell") {
-      const tower2 = match.towers.find((t) => t.id === command.towerId);
-      const base = tower2 && balance.towers[tower2.type];
-      if (!tower2 || !base) throw new Error("Choose a shared tower.");
-      const level = pvpTowerLevel(tower2.level);
-      if (command.type === "upgrade") {
-        if (level >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded.");
-        const cost = pvpUpgradeCost(base.cost, level);
-        if (match.fruts < cost) throw new Error("Not enough shared Fruts.");
-        match.fruts -= cost;
-        tower2.level = level + 1;
+    if (command.type === "build" || command.type === "upgrade" || command.type === "sell") {
+      if (command.type === "build") {
+        if (!balance.towers[command.tower]) throw new Error("Choose a tower.");
+        if (!turretAllowed(command.tower, player.turretLoadout)) throw new Error("Equip this turret in Inventory before the match.");
+        if (!Number.isInteger(command.cell) || command.cell < 121 || command.cell > 128 || match.towers.some((t) => t.cell === command.cell)) throw new Error("Choose an empty wall pad.");
       } else {
-        match.fruts += pvpSellRefund(base.cost, level);
-        match.towers = match.towers.filter((t) => t !== tower2);
+        const tower2 = match.towers.find((t) => t.id === command.towerId);
+        if (!tower2 || !balance.towers[tower2.type]) throw new Error("Choose a shared tower.");
+        if (command.type === "upgrade" && pvpTowerLevel(tower2.level) >= PVP_MAX_TOWER_LEVEL) throw new Error("Tower is fully upgraded.");
       }
+      if (voteRequired(match, command, balance)) {
+        if (match.proposal && match.proposal.expiresAt > now) throw new Error("A team vote is already open.");
+        match.proposal = { id: `${userId}:${sequence}`, command, proposerId: userId, approvals: [userId], rejections: [], expiresAt: now + 6e3 };
+      } else spend(match, player, command, now, balance);
+    } else if (command.type === "vote") {
+      const proposal = match.proposal;
+      if (!proposal || proposal.id !== command.proposalId || proposal.expiresAt <= now) throw new Error("That vote has expired.");
+      if (proposal.approvals.includes(userId) || proposal.rejections.includes(userId)) throw new Error("You already voted.");
+      (command.approve ? proposal.approvals : proposal.rejections).push(userId);
+      const majority = Math.floor(match.players.length / 2) + 1;
+      if (proposal.approvals.length >= majority) {
+        match.proposal = void 0;
+        const proposer = match.players.find((p) => p.userId === proposal.proposerId);
+        if (!proposer) throw new Error("Proposer left the room.");
+        spend(match, proposer, proposal.command, now, balance);
+      } else if (proposal.rejections.length >= majority) match.proposal = void 0;
     } else if (command.type === "ability") {
       const { ability, stats } = equippedPower(command.abilityId, player.hero, player.abilityLoadout, player.abilityRanks);
       if (now < (player.abilityReadyAt?.[ability.id] ?? 0)) throw new Error("That power is cooling down.");
@@ -1519,7 +2021,9 @@ function coopMainStats(match, balance) {
 }
 function advanceCoopMatch(match, dt, now, balance, config) {
   if (match.status === "waiting" || match.status === "complete") return;
-  if (match.players.some((p) => now - p.lastSeenAt > balance.reconnectGraceSeconds * 1e3)) {
+  if (match.proposal && now >= match.proposal.expiresAt) match.proposal = void 0;
+  match.players = match.players.filter((p) => now - p.lastSeenAt <= balance.reconnectGraceSeconds * 1e3);
+  if (!match.players.length) {
     match.status = "complete";
     match.reason = "disconnect";
     match.revision++;
@@ -2352,26 +2856,30 @@ function mergePvpConfig(raw) {
     for (const [id, damage] of Object.entries(old)) if (value.attacks?.[id]?.wallDamage === damage) value.attacks[id].wallDamage = DEFAULT_PVP_CONFIG.attacks[id].wallDamage;
   }
   const bounded = (n, fallback, min, max) => Number.isFinite(Number(n)) ? Math.max(min, Math.min(max, Number(n))) : fallback;
-  const maps = normalizePvpMaps(value.maps);
-  const towers = { ...DEFAULT_PVP_CONFIG.towers };
+  const upgraded = value.version === 2 ? value : rebuiltPvpConfig({ ...DEFAULT_PVP_CONFIG, ...value, maps: normalizePvpMaps(value.maps), map: DEFAULT_PVP_CONFIG.map });
+  const defaults3 = rebuiltPvpConfig(DEFAULT_PVP_CONFIG);
+  const maps = normalizePvpMaps(upgraded.maps).map((map2, index) => arenaLayoutValid(map2) ? map2 : arenaMap(DEFAULT_PVP_CONFIG.maps[index]));
+  const towers = { ...defaults3.towers };
   for (const [id, fallback] of Object.entries(towers)) {
-    const row = migrateLegacyWeaponBalance(id, value.towers?.[id]);
+    const row = migrateLegacyWeaponBalance(id, upgraded.towers?.[id]);
     if (row) towers[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), damage: bounded(row.damage, fallback.damage, 1, 1e4), range: bounded(row.range, fallback.range, 1, 24), cooldownMs: bounded(row.cooldownMs, fallback.cooldownMs, 100, 6e4) };
   }
-  const attacks = { ...DEFAULT_PVP_CONFIG.attacks };
+  const attacks = { ...defaults3.attacks };
   for (const [id, fallback] of Object.entries(attacks)) {
-    const row = value.attacks?.[id];
+    const row = upgraded.attacks?.[id];
     if (row) attacks[id] = { cost: bounded(row.cost, fallback.cost, 1, 1e4), health: bounded(row.health, fallback.health, 1, 1e4), speed: bounded(row.speed, fallback.speed, 0.1, 10), wallDamage: bounded(row.wallDamage, fallback.wallDamage, 1, 1e4), rewardFruts: bounded(row.rewardFruts, fallback.rewardFruts, 0, 1e4), packSize: Math.floor(bounded(row.packSize, fallback.packSize || 1, 1, 8)) };
   }
   const tiers = Array.isArray(value.rating?.tiers) ? value.rating.tiers.slice(0, 7) : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
-    version: 1,
+    version: 2,
     maps,
     map: maps[0],
-    durationSeconds: bounded(value.durationSeconds, DEFAULT_PVP_CONFIG.durationSeconds, 60, 600),
+    durationSeconds: bounded(upgraded.durationSeconds, 180, 60, 600),
     wallHealth: bounded(value.wallHealth, DEFAULT_PVP_CONFIG.wallHealth, 100, 1e5),
-    startingFruts: 0,
-    incomePerSecond: bounded(value.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
+    startingFruts: bounded(upgraded.startingFruts, 100, 0, 1e4),
+    incomePerSecond: bounded(upgraded.incomePerSecond, 6, 0, 1e3),
+    arenaRules: { captureSeconds: bounded(upgraded.arenaRules?.captureSeconds, 20, 5, 60), overtimeSeconds: bounded(upgraded.arenaRules?.overtimeSeconds, 30, 5, 120), doubleIncomeSeconds: bounded(upgraded.arenaRules?.doubleIncomeSeconds, 30, 0, 120) },
+    bossCosts: Object.fromEntries(Object.entries(ARENA_BOSSES).map(([id, boss]) => [id, bounded(upgraded.bossCosts?.[id], boss.cost, 1, 1e4)])),
     reconnectGraceSeconds: bounded(value.reconnectGraceSeconds, DEFAULT_PVP_CONFIG.reconnectGraceSeconds, 10, 300),
     mainTower: {
       damage: bounded(value.mainTower?.damage, DEFAULT_PVP_CONFIG.mainTower.damage, 0, 1e4),
@@ -3869,10 +4377,12 @@ adminRouter.delete("/messages/:messageId", async (req2, res) => {
   }
 });
 function normalizePvpConfig(input) {
-  const row = input && typeof input === "object" ? input : {};
+  const raw = input && typeof input === "object" ? input : {};
+  const row = raw.version === 2 ? raw : rebuiltPvpConfig({ ...DEFAULT_PVP_CONFIG, ...raw, maps: normalizePvpMaps(raw.maps), map: DEFAULT_PVP_CONFIG.map });
+  const defaults3 = rebuiltPvpConfig(DEFAULT_PVP_CONFIG);
   const bounded = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
-  const maps = normalizePvpMaps(row.maps);
-  const towers = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.towers).map(([id, base]) => {
+  const maps = normalizePvpMaps(row.maps).map((map2, index) => arenaLayoutValid(map2) ? map2 : arenaMap(DEFAULT_PVP_CONFIG.maps[index]));
+  const towers = Object.fromEntries(Object.entries(defaults3.towers).map(([id, base]) => {
     const item = migrateLegacyWeaponBalance(id, row.towers?.[id]);
     return [id, {
       cost: bounded(item?.cost, base.cost, 1, 1e4),
@@ -3881,22 +4391,24 @@ function normalizePvpConfig(input) {
       cooldownMs: bounded(item?.cooldownMs, base.cooldownMs, 100, 6e4)
     }];
   }));
-  const attacks = Object.fromEntries(Object.entries(DEFAULT_PVP_CONFIG.attacks).map(([id, base]) => {
+  const attacks = Object.fromEntries(Object.entries(defaults3.attacks).map(([id, base]) => {
     const item = row.attacks?.[id];
     return [id, { cost: bounded(item?.cost, base.cost, 1, 1e4), health: bounded(item?.health, base.health, 1, 1e4), speed: bounded(item?.speed, base.speed, 0.1, 10), wallDamage: bounded(item?.wallDamage, base.wallDamage, 1, 1e4), rewardFruts: bounded(item?.rewardFruts, base.rewardFruts, 0, 1e4), packSize: Math.floor(bounded(item?.packSize, base.packSize || 1, 1, 8)) }];
   }));
   const tiers = Array.isArray(row.rating?.tiers) ? row.rating.tiers : DEFAULT_PVP_CONFIG.rating.tiers;
   return {
-    version: 1,
+    version: 2,
     maps,
     map: maps[0],
     durationSeconds: bounded(row.durationSeconds, 180, 60, 600),
     wallHealth: bounded(row.wallHealth, 100, 100, 1e5),
-    startingFruts: 0,
-    incomePerSecond: bounded(row.incomePerSecond, DEFAULT_PVP_CONFIG.incomePerSecond, 0, 1e3),
+    startingFruts: bounded(row.startingFruts, 100, 0, 1e4),
+    incomePerSecond: bounded(row.incomePerSecond, 6, 0, 1e3),
     reconnectGraceSeconds: bounded(row.reconnectGraceSeconds, 45, 10, 300),
     towers,
     attacks,
+    arenaRules: { captureSeconds: bounded(row.arenaRules?.captureSeconds, 20, 5, 60), overtimeSeconds: bounded(row.arenaRules?.overtimeSeconds, 30, 5, 120), doubleIncomeSeconds: bounded(row.arenaRules?.doubleIncomeSeconds, 30, 0, 120) },
+    bossCosts: Object.fromEntries(Object.entries(ARENA_BOSSES).map(([id, boss]) => [id, bounded(row.bossCosts?.[id], boss.cost, 1, 1e4)])),
     mainTower: { damage: bounded(row.mainTower?.damage, 18, 0, 1e4), range: bounded(row.mainTower?.range, 2, 0, 24), cooldownMs: bounded(row.mainTower?.cooldownMs, 1e3, 100, 6e4) },
     rating: { ...DEFAULT_PVP_CONFIG.rating, ...row.rating || {}, start: bounded(row.rating?.start, 1e3, 0, 1e6), win: bounded(row.rating?.win, 50, 0, 1e3), tie: bounded(row.rating?.tie, 20, 0, 1e3), loss: -bounded(Math.abs(row.rating?.loss ?? -50), 50, 1, 1e3), bonusCap: bounded(row.rating?.bonusCap, 20, 0, 1e3), seasonResetPercent: bounded(row.rating?.seasonResetPercent, 25, 0, 100), combo: DEFAULT_PVP_CONFIG.rating.combo, tiers: DEFAULT_PVP_CONFIG.rating.tiers.map((base, i) => ({ name: base.name, min: bounded(tiers[i]?.min, base.min, 0, 1e6) })) },
     seasonRewards: DEFAULT_PVP_CONFIG.seasonRewards.map((base, i) => ({ ...base, ...row.seasonRewards?.[i] || {}, tier: base.tier }))
@@ -5622,16 +6134,20 @@ function choosePvpBotCommand(match, botUserId, config, now = match.createdAt) {
   if (match.status !== "active" || !match.map) return null;
   const bot = match.players.find((player) => player.userId === botUserId);
   if (!bot || match.players.length !== 2) return null;
+  if (match.rulesVersion === 2 && match.phase === "capture") {
+    const item = arenaCatchables(match, now, botUserId)[0];
+    return item ? { type: "catch", catchableId: item.id, from: { x: item.x, y: item.y }, to: { x: 9, y: 22 } } : null;
+  }
   const map2 = match.map;
   const opponent = match.players.find((player) => player.userId !== botUserId);
   if (bot.attackers.length >= 3 && now >= (bot.rallyReadyAt ?? match.createdAt + 15e3)) return { type: "rally" };
-  const captured = bot.captured?.find((item) => opponent.attackers.length < 128 && bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost, config.attacks[item.type].packSize));
+  const captured = bot.captured?.find((item) => opponent.attackers.length < 128 && (match.rulesVersion === 2 || bot.fruts >= pvpReleaseCost(config.attacks[item.type].cost, config.attacks[item.type].packSize)));
   if (captured) return { type: "release", capturedId: captured.id };
   if (bot.towers.length && pvpTowerLevel(bot.mainLevel) < 3 && bot.wallHealth / (bot.wallMaxHealth ?? config.wallHealth) < 0.75 && bot.fruts >= pvpMainUpgradeCost(bot.mainLevel)) return { type: "upgrade-main" };
   const availableTowers = Object.entries(config.towers).filter(([id, stats]) => turretAllowed(id, bot.turretLoadout) && bot.fruts >= stats.cost);
   if (bot.towers.length < 5 && availableTowers.length && (bot.towers.length === 0 || bot.attackers.length > bot.towers.length)) {
     const [type] = availableTowers[Math.min(bot.towers.length, availableTowers.length - 1)];
-    const cells = map2.buildCells.filter((cell) => pvpBuildCellAllowed(map2, cell) && !bot.towers.some((tower2) => tower2.cell === cell));
+    const cells = map2.buildCells.filter((cell) => pvpBuildCellAllowed(map2, cell) && !bot.towers.some((tower2) => tower2.cell === cell) && (match.rulesVersion !== 2 || arenaBuildAllowed(match, bot.side, cell)));
     const middle = map2.pathCells.slice(Math.floor(map2.pathCells.length * 0.25), Math.ceil(map2.pathCells.length * 0.8));
     cells.sort((a, b) => {
       const distance2 = (cell) => Math.min(...middle.map((pathCell) => Math.abs(cell % map2.width - pathCell % map2.width) + Math.abs(Math.floor(cell / map2.width) - Math.floor(pathCell / map2.width))));
@@ -5677,7 +6193,7 @@ var ablyPublisher = null;
 var ablySubscriber = null;
 async function currentPvpConfig() {
   const doc = await (await getCollection("admin_config")).findOne({ configKey: "game_config" });
-  return withCreatorTurrets(doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig }).pvpConfig : DEFAULT_PVP_CONFIG, doc?.creatorMedia);
+  return rebuiltPvpConfig(withCreatorTurrets(doc?.pvpConfig ? mergeAdminConfig({ pvpConfig: doc.pvpConfig }).pvpConfig : DEFAULT_PVP_CONFIG, doc?.creatorMedia));
 }
 async function ratingFor(userId, config) {
   const col = await getCollection("pvp_ratings");
@@ -5736,7 +6252,7 @@ async function publishMatch(match) {
   if (!key) return;
   try {
     ablyPublisher ??= new Rest2({ key });
-    await ablyPublisher.channels.get(`fruittd-pvp-${match.id}`).publish("match.snapshot", { id: match.id, revision: match.revision, status: match.status, endsAt: match.endsAt, map: match.map, mapPool: match.mapPool, vetoTurn: match.vetoTurn, players: match.players, winnerId: match.winnerId, resultReason: match.resultReason });
+    await ablyPublisher.channels.get(`fruittd-pvp-${match.id}`).publish("match.snapshot", { id: match.id, revision: match.revision, status: match.status, endsAt: match.endsAt, phase: match.phase, phaseEndsAt: match.phaseEndsAt, catchables: match.catchables, map: match.map, mapPool: match.mapPool, vetoTurn: match.vetoTurn, players: match.players, winnerId: match.winnerId, resultReason: match.resultReason });
   } catch (error2) {
     console.error("Ably match event publish failed:", error2);
   }
@@ -5750,12 +6266,16 @@ function publicMatch(match, userId) {
     testMatch: Boolean(match.testMatch),
     remainingMs: Math.max(0, match.endsAt - Date.now()),
     revision: match.revision,
+    rulesVersion: match.rulesVersion,
+    phase: match.phase,
+    phaseEndsAt: match.phaseEndsAt,
+    catchables: match.rulesVersion === 2 && match.phase === "capture" ? arenaCatchables(match, Date.now(), userId) : [],
     map: match.map,
-    mapPool: match.mapPool.map(({ id, name, width, height, pathCells }) => ({ id, name, width, height, pathCells })),
+    mapPool: match.mapPool.map(({ id, name, width, height, pathCells, solidCells, hazards }) => ({ id, name, width, height, pathCells, solidCells, hazards })),
     vetoTurnId: match.vetoTurn,
     yourVetoTurn: match.vetoTurn === userId,
     vetoesRemaining: Math.max(0, match.mapPool.length - 2),
-    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
+    players: match.players.map(({ userId: id, name, avatar, side, fruts, wallHealth, score, towers, attackers, connected, ratingDelta, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, abilityLoadout, abilityRanks, abilityReadyAt }) => ({ userId: id, name, avatar, side, fruts: Math.floor(fruts), wallHealth, score, towers, attackers, connected, lastStroke, hero, turretLoadout, wallSkin, rallyUntil, rallyReadyAt, mainLevel, mainLastFiredAt, wallMaxHealth, captured, powerCasts, ...id === userId ? { abilityLoadout, abilityRanks: match.rulesVersion === 2 && match.queue === "ranked" ? Object.fromEntries((abilityLoadout ?? []).map((power) => [power, 1])) : abilityRanks, abilityReadyAt } : {}, ...match.status === "complete" && match.queue === "ranked" && !match.testMatch ? { ratingDelta } : {} })),
     yourSequence: match.players.find((player) => player.userId === userId)?.sequence ?? 0,
     yourCombo: match.players.find((player) => player.userId === userId)?.currentCombo ?? 0,
     yourSide: match.players.find((player) => player.userId === userId)?.side,
@@ -5775,6 +6295,7 @@ async function equippedAppearance(userId) {
 }
 async function makeMatch(queue, left, right, config) {
   const match = newPvpMatch(randomUUID5(), queue, [createPvpPlayer(left.userId, left.name, "blue", config), createPvpPlayer(right.userId, right.name, "red", config)], Date.now(), config);
+  match.rulesVersion = 2;
   match.updatedAt = /* @__PURE__ */ new Date();
   match.balance = structuredClone(config);
   match.activePlayers = [left.userId, right.userId];
@@ -5933,7 +6454,7 @@ pvpRouter.get("/status", async (req2, res) => {
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection("pvp_challenges")).findOne({ toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
-    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower: (match?.balance ?? config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
+    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower: (match?.balance ?? config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, startingFruts: (match?.balance ?? config).startingFruts, arenaRules: (match?.balance ?? config).arenaRules, bossCosts: (match?.balance ?? config).bossCosts, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
   } catch (error2) {
     console.error(error2);
     routerError(res, 503, "PvP storage is unavailable.");
@@ -5956,9 +6477,11 @@ pvpRouter.post("/admin/bot", async (req2, res) => {
     const id = randomUUID5();
     const botUserId = `bot:${id}`;
     const match = newPvpMatch(id, queue, [createPvpPlayer(user.userId, user.username || user.nickname || "Slicer", "blue", config, now), createPvpPlayer(botUserId, "Orchard Siege Bot", "red", config, now)], now, config);
+    match.rulesVersion = 2;
     match.status = "active";
     match.map = structuredClone(selectedMap);
     match.endsAt = now + config.durationSeconds * 1e3;
+    beginArena(match, now, config);
     match.balance = structuredClone(config);
     match.activePlayers = [user.userId];
     match.nextWaveAt = now + 15e3;
@@ -6495,7 +7018,7 @@ import { Router as Router16 } from "express";
 import { ObjectId as ObjectId2 } from "mongodb";
 var MAX_IMAGE_BYTES = 1e6;
 var MAX_GIF_BYTES = 25e5;
-var TYPES = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
+var TYPES2 = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
 function decodeSpriteImage(value) {
   if (typeof value !== "string") return null;
   const match = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
@@ -6504,7 +7027,7 @@ function decodeSpriteImage(value) {
   if (!bytes.length || bytes.length > (match[1] === "gif" ? MAX_GIF_BYTES : MAX_IMAGE_BYTES) || bytes.toString("base64") !== match[2]) return null;
   const type = match[1];
   const valid = type === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) : type === "jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes.at(-2) === 255 && bytes.at(-1) === 217 : type === "webp" ? bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP" : ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString());
-  return valid ? { contentType: TYPES[type], bytes } : null;
+  return valid ? { contentType: TYPES2[type], bytes } : null;
 }
 function decodeSound(value) {
   if (typeof value !== "string") return null;
@@ -6541,7 +7064,7 @@ function createMediaRouters(dependencies = {}) {
     try {
       const col = await collection();
       const image = await col.findOne({ _id: new ObjectId2(req2.params.id) });
-      if (!image || ![...Object.values(TYPES), "audio/wav", "audio/mpeg", "audio/ogg"].includes(image.contentType)) return res.status(404).end();
+      if (!image || ![...Object.values(TYPES2), "audio/wav", "audio/mpeg", "audio/ogg"].includes(image.contentType)) return res.status(404).end();
       res.set("Content-Type", image.contentType);
       res.set("X-Content-Type-Options", "nosniff");
       res.set("Cache-Control", "public, max-age=31536000, immutable");

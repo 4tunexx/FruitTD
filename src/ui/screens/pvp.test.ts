@@ -342,3 +342,35 @@ test('snapshots preserve a pressed control while the battlefield continues updat
     assert.notEqual(root.querySelector('[data-testid="arena-tab-attack"]'),button,'deferred controls update after release');
   } finally { disposePvpHub(root); globalThis.setInterval=originalInterval; setAuthToken(null); resetDom(); }
 });
+
+test('capture countdown transitions to direct free release controls using authoritative commands', async()=>{
+  resetDom();setAuthToken('test-only');
+  const {rebuiltPvpConfig,beginArena,arenaCatchables}=await import('../../game/pvpRebuild');
+  const balance=rebuiltPvpConfig(config),now=Date.now();
+  const game=newPvpMatch('capture-ui','arena',[createPvpPlayer('a','You','blue',balance,now),createPvpPlayer('b','Rival','red',balance,now)],now,balance) as import('../../game/pvpRebuild').ArenaMatch;
+  game.rulesVersion=2;game.status='active';game.map=balance.map;beginArena(game,now,balance);
+  const item=arenaCatchables(game,now+1,'a')[0]!;
+  applyPvpCommand(game,'a',{type:'catch',catchableId:item.id,from:item,to:{x:9,y:22}},1,now+1,balance);
+  let poll=()=>{};const interval=globalThis.setInterval;
+  globalThis.setInterval=((callback:()=>void)=>{poll=callback;return 0;}) as typeof setInterval;
+  const root=document.createElement('div');document.body.appendChild(root);
+  const commands:PvpCommand[]=[];
+  try {
+    renderPvpHub(root,'arena',{realtime:false,request:async(path,init)=>{
+      if(path.endsWith('/command')){const {command,sequence}=JSON.parse(String(init?.body));commands.push(command);applyPvpCommand(game,'a',command,sequence,now+20001,balance);}
+      return {success:true,config:balance,match:{...structuredClone(game),yourSide:'blue',remainingMs:game.endsAt-now,yourSequence:game.players[0].sequence,yourCombo:0}};
+    },createBattlefield:()=>({element:document.createElement('div'),interacting:false,update:()=>{},selectCell:()=>{},dispose:()=>{}})});
+    await flush();assert.match(document.body.querySelector('.ftd-duel-clock')!.textContent!,/CAPTURE/);
+    assert.ok(document.body.querySelector('.ftd-arena-capture-status'));assert.equal(document.body.querySelector('[data-testid="arena-release"]'),null);
+    advancePvpMatch(game,1,now+20000,balance);poll();await flush();
+    assert.equal(document.body.querySelector('.ftd-arena-capture-status'),null);
+    const releaseTab=document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-capture"]')!;
+    assert.ok(releaseTab.closest('.ftd-duel-rail'),'release does not require opening the controls menu');
+    releaseTab.click();
+    const button=document.body.querySelector<HTMLButtonElement>('[data-testid="arena-release"]')!;
+    assert.match(button.textContent!,/FREE/);const funds=game.players[0].fruts;
+    button.click();await flush();
+    assert.equal(game.players[0].captured!.length,0);assert.equal(game.players[1].attackers.length,1);assert.equal(game.players[0].fruts,funds);
+    assert.equal(commands[0]!.type,'release');
+  }finally{disposePvpHub(root);globalThis.setInterval=interval;setAuthToken(null);resetDom();}
+});
