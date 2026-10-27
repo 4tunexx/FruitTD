@@ -1049,16 +1049,16 @@ function arenaMap(map2) {
 }
 function rebuiltPvpConfig(config) {
   const defaults3 = {
-    normal: { cost: 20, health: 100, speed: 2, wallDamage: 6, rewardFruts: 4 },
-    swift: { cost: 32, health: 70, speed: 3, wallDamage: 4, rewardFruts: 6 },
-    chainburst: { cost: 42, health: 85, speed: 2.15, wallDamage: 5, rewardFruts: 8 },
-    spitter: { cost: 50, health: 110, speed: 1.6, wallDamage: 5, rewardFruts: 10 },
-    explosive: { cost: 55, health: 150, speed: 1.3, wallDamage: 18, rewardFruts: 11 },
-    healer: { cost: 70, health: 145, speed: 1.2, wallDamage: 5, rewardFruts: 14 },
-    armored: { cost: 85, health: 260, speed: 0.85, wallDamage: 16, rewardFruts: 17 },
-    splitter: { cost: 95, health: 170, speed: 1.4, wallDamage: 10, rewardFruts: 19 }
+    normal: { cost: 20, health: 100, speed: 1.2, wallDamage: 6, rewardFruts: 4 },
+    swift: { cost: 32, health: 70, speed: 1.8, wallDamage: 4, rewardFruts: 6 },
+    chainburst: { cost: 42, health: 85, speed: 1.3, wallDamage: 5, rewardFruts: 8 },
+    spitter: { cost: 50, health: 110, speed: 1.05, wallDamage: 5, rewardFruts: 10 },
+    explosive: { cost: 55, health: 150, speed: 0.85, wallDamage: 18, rewardFruts: 11 },
+    healer: { cost: 70, health: 145, speed: 0.8, wallDamage: 5, rewardFruts: 14 },
+    armored: { cost: 85, health: 260, speed: 0.55, wallDamage: 16, rewardFruts: 17 },
+    splitter: { cost: 95, health: 170, speed: 0.95, wallDamage: 10, rewardFruts: 19 }
   };
-  const attacks = config.version === 2 ? { ...defaults3, ...config.attacks } : defaults3;
+  const attacks = Object.fromEntries(Object.entries(config.version === 2 ? { ...defaults3, ...config.attacks } : defaults3).map(([type, stats]) => [type, { ...stats, speed: Math.min(stats.speed, defaults3[type]?.speed ?? stats.speed) }]));
   const towers = { ...config.towers };
   delete towers.catcher;
   const maps = config.maps.map(arenaMap);
@@ -1118,7 +1118,7 @@ function beginArena(match, now, config) {
   match.captureSeed = Array.from(match.id).reduce((sum, c) => sum * 31 + c.charCodeAt(0) >>> 0, 7);
   match.catchables = Array.from({ length: 11 }, (_, index) => {
     const type = TYPES[[0, 1, 0, 2, 3, 0, 4, 5, 1, 6, 7][index]];
-    return { id: `catch:${index}`, type, fruitKind: FRUIT_KINDS[TYPES.indexOf(type)], x: 1.2 + (match.captureSeed + index * 37) % 65 / 10, y: 14 + index % 4 * 1.4, bornAt: now + index * 1600, expiresAt: now + Math.min(captureMs, index * 1600 + 5100), claimedBy: [] };
+    return { id: `catch:${index}`, type, fruitKind: FRUIT_KINDS[TYPES.indexOf(type)], x: 1.1 + (match.captureSeed + index * 37) % 68 / 10, y: 7.5 + (match.captureSeed * 3 + index * 53) % 105 / 10, bornAt: now + index * 1600, expiresAt: now + Math.min(captureMs, index * 1600 + 5100), claimedBy: [] };
   });
   for (const player of match.players) {
     player.fruts = 0;
@@ -1129,7 +1129,7 @@ function beginArena(match, now, config) {
 }
 function catchPosition(item, now) {
   const t = Math.max(0, (now - item.bornAt) / 1e3);
-  return { x: item.x + Math.sin(t * 2.3 + item.y) * 0.55, y: item.y + Math.sin(t * 1.7 + item.x) * 0.4 };
+  return { x: Math.max(0.7, Math.min(9.3, item.x + Math.sin(t * 0.9 + item.y) * 1.1 + Math.sin(t * 0.43 + item.x) * 0.35)), y: Math.max(6.8, Math.min(19.5, item.y + Math.cos(t * 0.72 + item.x) * 0.85 + Math.sin(t * 0.37 + item.y) * 0.4)) };
 }
 function arenaCatchables(match, now, userId) {
   return match.catchables.filter((item) => item.bornAt <= now && item.expiresAt > now && !item.claimedBy.includes(userId)).map((item) => ({ ...item, ...catchPosition(item, now) }));

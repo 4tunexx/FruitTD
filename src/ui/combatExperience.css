@@ -1051,3 +1051,14 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card.is-selected { border-color:var(--ftd-color-primary)!important; }
 .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card small { color:var(--ftd-color-text-muted); }
 .ftd-pvp.is-battle .ftd-arena-capture-status,.ftd-pvp.is-battle .ftd-arena-catch-box { background:var(--ftd-color-panel); border-color:var(--ftd-color-accent); color:var(--ftd-color-text); }
+
+/* Casual combat geometry: square information panels, round ability tokens. */
+.ftd-pvp.is-battle :is(.ftd-duel-hud,.ftd-duel-resource,.ftd-duel-panel,.ftd-duel-tools:not([hidden]),.ftd-duel-card,.ftd-duel-focus,.ftd-arena-minimap,.ftd-arena-capture-status) { border-radius:0!important; clip-path:none!important; }
+.ftd-pvp.is-battle .ftd-duel-powers {
+  position:absolute; left:clamp(12px,23vw,220px); top:53%; bottom:auto; right:auto;
+  transform:translateY(-50%); flex-direction:column; gap:10px; width:max-content;
+  padding:0; border:0; background:transparent; box-shadow:none; pointer-events:auto;
+}
+@media(max-width:600px) {
+  .ftd-pvp.is-battle .ftd-duel-powers { left:clamp(88px,23vw,140px); top:55%; bottom:auto; }
+}

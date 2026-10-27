@@ -106,6 +106,7 @@ export class PvpBattlefield {
   private readonly towers = new Map<string, { rig: TurretRig; type: string; own: boolean; cell: number; level?: number;lastFiredAt?:number }>();
   private readonly fruits = new Map<string, { mesh: Mesh; player: PlayerView; progress: number; x?: number; y?: number; boss?: boolean; attackingTower?:boolean;lastTowerHitAt?:number;fighting?:boolean;fightTargetId?:string;lastClashAt?:number;slowUntil?:number; slowMultiplier?:number; type: string; own: boolean }>();
   private readonly catchMeshes=new Map<string,Mesh>();
+  private readonly catchMotion=new Map<string,NetworkMotion2D>();
   private captureDrag: { pointerId:number; itemId:string; from:{x:number;y:number} } | null=null;
   private readonly catchBox=el('div',{class:'ftd-arena-catch-box',text:'DRAG FRUIT HERE'});
   private readonly minimap=el('canvas',{class:'ftd-arena-minimap','aria-label':'Battlefield minimap. Tap to move the camera.'}) as HTMLCanvasElement;
@@ -362,9 +363,11 @@ export class PvpBattlefield {
         mesh=new Mesh(new CircleGeometry(.57,32),new MeshLambertMaterial({color:0xffffff,map:texture,transparent:true,side:DoubleSide,depthWrite:false}));
         mesh.userData.combatPortrait=true;mesh.add(combatTokenFrame(.57));this.pieces.add(mesh);this.catchMeshes.set(item.id,mesh);
       }
-      if(this.captureDrag?.itemId!==item.id){mesh.position.copy(pvpWorldPoint(map,item.x,item.y,true));mesh.position.y=.8;}
+      let motion=this.catchMotion.get(item.id);if(!motion){motion=new NetworkMotion2D();this.catchMotion.set(item.id,motion);}
+      motion.update(item.x,item.y,1.8,JSON.stringify([item.x,item.y]),performance.now());
+      if(this.captureDrag?.itemId!==item.id){const at=motion.sample(performance.now());mesh.position.copy(pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.8;}
     }
-    for(const [id,mesh] of this.catchMeshes)if(!live.has(id)){this.release(mesh);this.catchMeshes.delete(id);}
+    for(const [id,mesh] of this.catchMeshes)if(!live.has(id)){this.release(mesh);this.catchMeshes.delete(id);this.catchMotion.delete(id);}
   }
   private drawMinimap():void {
     if(this.snapshot.shared||!this.snapshot.map||!this.minimap)return;
@@ -663,7 +666,7 @@ export class PvpBattlefield {
       if (sheet && hero.material.map !== sheet) { hero.material.map = sheet; hero.material.color.setHex(0xffffff); hero.material.needsUpdate = true; }
     }
     const map = this.snapshot.map;
-    if(map&&this.snapshot.phase==='capture')for(const [id,mesh] of this.catchMeshes){if(this.captureDrag?.itemId===id)continue;const item=this.snapshot.catchables?.find(value=>value.id===id);if(!item)continue;mesh.position.y=.78+Math.sin(now/170+item.x)*.09;}
+    if(map&&this.snapshot.phase==='capture')for(const [id,mesh] of this.catchMeshes){if(this.captureDrag?.itemId===id)continue;const at=this.catchMotion.get(id)?.sample(now);if(!at)continue;mesh.position.copy(pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.78+Math.sin(now/170+at.x)*.09;}
     if (map) for (const entry of this.fruits.values()) {
       if (this.snapshot.shared && entry.x !== undefined && entry.y !== undefined) {
         const y = Math.min(13.5, this.movement.get(entry.mesh.userData.networkId)?.sample(now) ?? entry.y);

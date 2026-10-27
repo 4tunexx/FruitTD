@@ -77,7 +77,7 @@ test('open ground preserves arbitrary lateral position instead of following hex 
   const unit=match.players[1].attackers[0]!;
   advancePvpMatch(match,.5,21500,config);
   assert.ok(Math.abs(unit.x!-2.137)<1e-8);
-  assert.ok(Math.abs(unit.y!-7.23)<1e-8);
+  assert.ok(Math.abs(unit.y!-7.63)<1e-8);
 });
 
 test('off-axis opposing zombies seek one another, clash simultaneously and survivors resume',()=>{
