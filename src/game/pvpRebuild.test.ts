@@ -15,6 +15,17 @@ function arena(mapId='orchard-crossing') {
   match.rulesVersion=2;match.status='active';match.map=structuredClone(config.maps.find(map=>map.id===mapId)!);beginArena(match,started,config);
   return match;
 }
+test('siege Fruts come from enemy kills and real rival tower damage, never time alone',()=>{
+  const match=arena();advancePvpMatch(match,1,21000,config);
+  assert.equal(match.phase,'siege');assert.equal(match.players[0].fruts,100);
+  for(let step=1;step<=10;step++)advancePvpMatch(match,1,21000+step*1000,config);
+  assert.equal(match.players[0].fruts,100);
+  const defender=match.players[1],attacker=match.players[0];
+  defender.attackers.push({id:'reward-test',ownerId:attacker.userId,type:'normal',hp:100,maxHp:100,progress:45,x:5,y:-23.5});
+  const before=defender.wallHealth;advancePvpMatch(match,.1,32000,config);
+  assert.ok(defender.wallHealth<before);
+  assert.equal(attacker.fruts,100+Math.ceil((before-defender.wallHealth)/2));
+});
 
 test('seven veto maps have genuinely different solid routes and symmetric legal terrain',()=>{
   assert.equal(config.maps.length,7);

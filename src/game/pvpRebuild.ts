@@ -190,7 +190,6 @@ export function advanceArena(match: ArenaMatch, elapsed: number, now: number, co
   let routes = navigationCache.get(match);
   if (!routes || routes.key !== layoutKey) { routes = {key:layoutKey,blue:navigation(match,-1),red:navigation(match,1)}; navigationCache.set(match,routes); }
   const blueNavigation = routes.blue, redNavigation = routes.red;
-  for (const player of match.players) player.fruts += config.incomePerSecond * (match.phase === 'overtime' || match.endsAt - now <= (config.arenaRules?.doubleIncomeSeconds ?? 30) * 1000 ? 2 : 1) * dt;
   const all = match.players.flatMap(p => p.attackers as ArenaUnit[]);
   for (const unit of all) {
     unit.hp -= tickBurn(unit, now);
@@ -259,7 +258,13 @@ export function advanceArena(match: ArenaMatch, elapsed: number, now: number, co
         if (unit.type === 'splitter' && !unit.boss) { const sender = match.players.find(p => p.userId === unit.ownerId)!; const defender = match.players.find(p => p !== sender)!; if (defender.attackers.length < 127) defender.attackers.push({...newUnit(match,sender,'normal',`${unit.id}:child`,config),x:unit.x,y:unit.y,hp:35,maxHp:35}); }
       } else if (Math.abs(unit.y) >= 23.4 && (player.side === 'blue' ? unit.y > 0 : unit.y < 0)) {
         unit.attackingTower = true;
-        if (now - (unit.lastTowerHitAt ?? 0) >= 1000) { player.wallHealth = Math.max(0,player.wallHealth-config.attacks[unit.type]!.wallDamage*(unit.boss?2:1)); unit.lastTowerHitAt = now; }
+        if (now - (unit.lastTowerHitAt ?? 0) >= 1000) {
+          const before = player.wallHealth;
+          player.wallHealth = Math.max(0,before-config.attacks[unit.type]!.wallDamage*(unit.boss?2:1));
+          const attacker=match.players.find(other=>other.userId===unit.ownerId);
+          if(attacker)attacker.fruts+=Math.ceil((before-player.wallHealth)/2);
+          unit.lastTowerHitAt = now;
+        }
       }
     }
   }

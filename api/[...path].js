@@ -1273,7 +1273,6 @@ function advanceArena(match, elapsed, now, config) {
     navigationCache.set(match, routes);
   }
   const blueNavigation = routes.blue, redNavigation = routes.red;
-  for (const player of match.players) player.fruts += config.incomePerSecond * (match.phase === "overtime" || match.endsAt - now <= (config.arenaRules?.doubleIncomeSeconds ?? 30) * 1e3 ? 2 : 1) * dt;
   const all = match.players.flatMap((p) => p.attackers);
   for (const unit2 of all) {
     unit2.hp -= tickBurn(unit2, now);
@@ -1387,7 +1386,10 @@ function advanceArena(match, elapsed, now, config) {
       } else if (Math.abs(unit2.y) >= 23.4 && (player.side === "blue" ? unit2.y > 0 : unit2.y < 0)) {
         unit2.attackingTower = true;
         if (now - (unit2.lastTowerHitAt ?? 0) >= 1e3) {
-          player.wallHealth = Math.max(0, player.wallHealth - config.attacks[unit2.type].wallDamage * (unit2.boss ? 2 : 1));
+          const before = player.wallHealth;
+          player.wallHealth = Math.max(0, before - config.attacks[unit2.type].wallDamage * (unit2.boss ? 2 : 1));
+          const attacker = match.players.find((other) => other.userId === unit2.ownerId);
+          if (attacker) attacker.fruts += Math.ceil((before - player.wallHealth) / 2);
           unit2.lastTowerHitAt = now;
         }
       }
