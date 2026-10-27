@@ -1,0 +1,34 @@
+/* Casual's floating combat controls, with the extra opponent identity. */
+.ftd-pvp.is-battle .ftd-duel-hud { top:8px!important;left:12px!important;right:12px!important;transform:none!important;width:auto!important;min-height:102px!important;display:grid;grid-template-columns:1fr 58px 1fr!important;padding:0!important;gap:8px!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;backdrop-filter:none!important; }
+.ftd-pvp.is-battle .ftd-duel-player { height:40px;padding:0; }
+.ftd-pvp.is-battle .ftd-duel-player strong { font-size:11px;color:var(--ftd-color-text); }
+.ftd-pvp.is-battle .ftd-duel-player .ftd-duel-hp,.ftd-pvp.is-battle .ftd-duel-player > div > span,.ftd-pvp.is-battle .ftd-duel-clock > strong { display:none!important; }
+.ftd-pvp.is-battle .ftd-duel-player__crest { width:34px;height:38px;border:1px solid #b59950!important; }
+.ftd-pvp.is-battle .ftd-duel-clock { display:flex!important;gap:4px; }
+.ftd-pvp.is-battle .ftd-duel-clock button { border-radius:0!important; }
+.ftd-pvp.is-battle .ftd-duel-status { grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px; }
+body[data-ftd-screen='PLAY'] #battle-status > span,.ftd-pvp.is-battle .ftd-duel-status > span { display:flex;align-items:center;justify-content:space-between;gap:5px;padding:9px 11px;border:1px solid #947443;border-radius:0!important;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));background:linear-gradient(150deg,var(--ftd-color-panel-secondary),var(--ftd-color-panel) 75%); }
+.ftd-pvp.is-battle .ftd-duel-status small { color:var(--ftd-color-text-muted);font-size:10px;font-weight:700;letter-spacing:.08em; }
+.ftd-pvp.is-battle .ftd-duel-status strong { color:var(--ftd-color-text);font-size:22px;font-weight:900; }
+.ftd-pvp.is-battle .ftd-pvp-scene .ftd-duel-powers { position:absolute!important;z-index:25;top:52%!important;right:8px!important;left:auto!important;bottom:auto!important;transform:translateY(-50%)!important;display:flex!important;flex-direction:column!important;gap:5px!important;width:62px!important;margin:0!important;padding:0!important; }
+.ftd-pvp.is-battle .ftd-duel-dock { inset:auto 8px 8px!important;background:none!important;border:0!important;box-shadow:none!important;width:auto!important;padding:0!important;min-height:0!important; }
+.ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-resource { display:none!important; }
+.ftd-pvp.is-battle .ftd-duel-rail { margin-left:auto;gap:6px; }
+.ftd-pvp.is-battle .ftd-duel-rail .ftd-duel-icon-button { width:44px!important;height:44px!important;min-height:44px!important;border-radius:50%!important;border:1px solid #d9bc78b8!important;background:#263039aa!important;box-shadow:0 3px 10px #0008!important;backdrop-filter:blur(9px); }
+.ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { position:absolute!important;left:50%!important;right:auto!important;bottom:92px!important;transform:translateX(-50%);width:min(326px,calc(100vw - 24px))!important;max-height:35dvh!important;padding:0!important;overflow:visible!important;border:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-guide,.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-panel-close { display:none!important; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-cards { display:flex!important;align-items:start;gap:8px!important;overflow-x:auto!important;padding:8px 3px 12px!important;scrollbar-width:none;max-height:220px; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card { flex:0 0 70px!important;width:70px!important;min-width:70px!important;max-width:70px!important;min-height:100px!important;padding:0!important;gap:4px!important;border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card .ftd-duel-card__art { width:48px!important;height:48px!important;padding:10px!important;border:2px solid #e7c36f!important;border-radius:50%!important;background:radial-gradient(circle at 30% 20%,#424b4ff2,#171d24f5 72%)!important;box-shadow:0 3px 0 #080d12,0 0 0 2px #0c1118!important; }
+.ftd-pvp.is-battle .ftd-duel-card strong { font-size:8px!important;text-shadow:0 2px 3px #000; }
+.ftd-pvp.is-battle .ftd-duel-card small { font-size:8px!important;color:#ffdc7f!important; }
+.ftd-pvp.is-battle .ftd-duel-panel.is-build-selection .ftd-duel-card:nth-child(4n+1),.ftd-pvp.is-battle .ftd-duel-panel.is-build-selection .ftd-duel-card:nth-child(4n) { margin-top:22px; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-arsenal { display:block;width:30px;height:30px;margin:0 auto 4px;padding:0;overflow:hidden;font-size:0;border:1px solid #d9bc78b8;border-radius:50%;background:#263039aa;color:#ffdc7f; }
+.ftd-pvp.is-battle .ftd-duel-arsenal::after { content:'»';font-size:26px; }
+.ftd-pvp.is-battle .ftd-duel-upgrade { justify-content:center;background:transparent!important;border:0!important;box-shadow:none!important; }
+.ftd-pvp.is-battle .ftd-duel-upgrade > div { flex-basis:100%;text-align:center; }
+.ftd-pvp.is-battle .ftd-duel-upgrade button { min-height:48px;border-radius:50%!important;font-size:9px; }
+.ftd-pvp.is-battle .ftd-arena-minimap { top:126px!important;width:34px!important;height:68px!important;opacity:.5; }
+.ftd-pvp.is-battle .ftd-duel-focus { top:126px!important;right:8px;font-size:9px;min-height:30px; }
+.ftd-pvp.is-battle .ftd-duel-camera { top:162px!important; }
+@media(min-width:861px) { .ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { width:440px!important; } }

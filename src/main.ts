@@ -101,7 +101,7 @@ import './ui/admin/creatorWorkspace.css';
 import './ui/pcPolish.css';
 import './ui/combatRefinement.css';
 import './ui/combatExperience.css';
-import './ui/pvpCasual.css';
+import './ui/pvpCombatLayout.css';
 import { installPowerHotkeys } from './ui/powerButton';
 
 // Theme + layout must be applied before any UI renders.

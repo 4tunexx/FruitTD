@@ -372,6 +372,11 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         el('button', { type:'button', class:'ftd-duel-leave', title:'Leave match', 'aria-label':'Leave match', 'data-testid':'arena-leave' }, [lucideIcon('LogOut','',16)]),
         el('button',{type:'button',class:'ftd-duel-hud-toggle','data-testid':'arena-hud-toggle','aria-label':hudExpanded?'Collapse player details':'Expand player details','aria-expanded':hudExpanded},[lucideIcon(hudExpanded?'ChevronUp':'ChevronDown','',14)]),
       ]), playerCard(opponent, true),
+      el('div',{class:'ftd-duel-status','aria-label':'Match status'},[
+        el('span',{},[el('small',{text:match.phase==='capture'?'CATCH':'TIME'}),el('strong',{text:`${Math.floor(timer/60)}:${String(timer%60).padStart(2,'0')}`})]),
+        el('span',{},[el('small',{text:'FRUTS'}),el('strong',{text:String(Math.floor(own.fruts))})]),
+        el('span',{},[el('small',{text:'WALL'}),el('strong',{text:String(Math.ceil(own.wallHealth))})]),
+      ]),
     ]));
     body.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')?.addEventListener('click', () => { surrenderConfirm=true;render(); });
     body.querySelector('[data-testid="arena-hud-toggle"]')?.addEventListener('click',()=>{hudExpanded=!hudExpanded;render();});
@@ -498,7 +503,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
     tray.append(resource,actionRail,tools);
     battlefield.element.appendChild(powerRail);
-    const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
+    const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}${dockTab==='build'&&!selected&&selectedCell!==-1?' is-build-selection':''}`,hidden:!dockExpanded});
     const closePanel=el('button',{class:'ftd-duel-panel-close',type:'button','aria-label':'Close action panel'},[lucideIcon('X','',18)]);
     closePanel.addEventListener('click',()=>{dockExpanded=false;selectedCell=null;pendingBuildCell=null;render();});panel.append(closePanel);
     if(selectedCell===-1)panel.append(el('div',{class:'ftd-duel-upgrade','data-testid':'arena-main-upgrade'},[
@@ -507,9 +512,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     ]));
     panel.append(el('p', { class: 'ftd-duel-guide', text: selected ? 'Upgrade this turret or sell it to reclaim part of its cost.' : selectedCell === -1 ? 'Your main tower fires automatically. Upgrades last for this match.' : dockTab === 'build' ? `Select a clear hex near your wall, then choose its turret.` : dockTab === 'attack' ? `Buy one fruit per tap. Your swarm fights rival fruit and pushes toward the wall.` : `Each fruit caught in the opening releases once for free.` }));
     const cards = el('div', { class: 'ftd-duel-cards', 'aria-label': dockTab === 'build' ? 'Tower choices' : 'Fruit attack choices' });
-    const coreTowers = ['guillotine', 'sprinkler', 'laser'];
     const allTowers = Object.entries(status.config?.towers || {}).filter(([id])=>turretAllowed(id,own.turretLoadout));
-    const visibleTowers = expandedArsenal ? allTowers : allTowers.filter(([id]) => coreTowers.includes(id));
+    const coreTowers = allTowers.slice(0,4).map(([id])=>id);
+    const visibleTowers = expandedArsenal ? allTowers.slice(4) : allTowers.slice(0,4);
     if (dockTab === 'build' && !selected && selectedCell !== -1) for (const [id, info] of visibleTowers.length ? visibleTowers : allTowers) {
       const button = el('button', { type: 'button', class: `ftd-duel-card ${id === selectedTower ? 'is-selected' : ''}`, 'aria-pressed': id === selectedTower, 'data-testid': `arena-build-${id}` }, [
         lucideIcon(towerIcons[id] || 'TowerControl', 'ftd-duel-card__art', 30), el('strong', { text: towerName(id) }), el('small', { text: own.fruts < info.cost ? `Need ${Math.ceil(info.cost-own.fruts)} F` : `${info.cost} F` }),

@@ -9,6 +9,7 @@ import '/src/ui/battleLayout.css';
 import '/src/ui/pcPolish.css';
 import '/src/ui/combatRefinement.css';
 import '/src/ui/combatExperience.css';
+import '/src/ui/pvpCombatLayout.css';
 import {renderPvpHub} from '/src/ui/screens/pvp.ts';
 import {DEFAULT_PVP_CONFIG,createPvpPlayer,newPvpMatch,applyPvpCommand,advancePvpMatch} from '/src/game/pvp.ts';
 import {rebuiltPvpConfig,beginArena,arenaCatchables} from '/src/game/pvpRebuild.ts';
@@ -22,7 +23,7 @@ for(const player of players){player.hero='jiju';player.turretLoadout=Object.keys
 const game=newPvpMatch('rebuild-review','arena',players,now,config);game.rulesVersion=2;game.status='active';game.map=config.maps[Number(new URLSearchParams(location.search).get('map')||0)]||config.maps[0];beginArena(game,now,config);
 if(new URLSearchParams(location.search).has('siege')){game.phase='siege';game.phaseEndsAt=now;game.endsAt=now+160000;players.forEach(p=>p.fruts=600);}
 const snapshot=()=>({...game,catchables:game.phase==='capture'?arenaCatchables(game,Date.now(),'review'):[],players:structuredClone(players),yourSide:'blue',yourSequence:players[0].sequence,yourCombo:0,remainingMs:Math.max(0,game.endsAt-Date.now()),testMatch:true,mapPool:[],yourVetoTurn:false,vetoesRemaining:0});
-const request=async(path,payload)=>{if(path.endsWith('/command'))applyPvpCommand(game,'review',payload.command,payload.sequence,Date.now(),config);return {success:true,match:snapshot(),config};};
+const request=async(path,init)=>{const payload=init?.body?JSON.parse(init.body):{};if(path.endsWith('/command'))applyPvpCommand(game,'review',payload.command,payload.sequence,Date.now(),config);return {success:true,match:snapshot(),config};};
 renderPvpHub(document.querySelector('#review'),'arena',{request,isAuthenticated:()=>true,realtime:false});
 let previous=performance.now();setInterval(()=>{const time=performance.now();players.forEach(p=>p.lastSeenAt=Date.now());advancePvpMatch(game,(time-previous)/1000,Date.now(),config);previous=time;},100);
 </script></body></html>
