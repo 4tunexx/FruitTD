@@ -11,7 +11,7 @@ import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { getAuthToken } from '../../services/auth';
 import { heroAbility } from '../../game/heroAbilities';
-import { PVP_MAX_TOWER_LEVEL, pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, pvpTowerStats, pvpMainUpgradeCost, pvpReleaseCost, PVP_CAPTURE_CAPACITY, type PvpConfig, type PvpQueue } from '../../game/pvp';
+import { PVP_MAX_TOWER_LEVEL, pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, pvpTowerStats, pvpMainUpgradeCost, pvpReleaseCost, type PvpConfig, type PvpQueue } from '../../game/pvp';
 import type { Realtime as AblyRealtime } from 'ably';
 import { socialApi } from '../../services/social';
 import type { PvpBattlefield } from './pvpBattlefield';
@@ -94,7 +94,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let clashShownMatchId = '';
   const inHub = Boolean(root.closest('.ftd-hub-panel-content'));
   const heading = el('header', { class: `ftd-pvp__heading${inHub ? ' ftd-pvp__heading--briefing' : ''}` }, [
-    el('div', {}, [label('TOWER SIEGE · NORMAL OR RANKED', 'ftd-pvp__eyebrow'), el(inHub ? 'h2' : 'h1', { text: inHub ? 'SIEGE BRIEFING' : 'ARENA' }), label('Three minutes. Build, upgrade, capture and counterattack. No slicing. Destroy the rival wall; at timeout, the higher wall percentage wins.', 'ftd-pvp__intro')]),
+    el('div', {}, [label('TOWER SIEGE · NORMAL OR RANKED', 'ftd-pvp__eyebrow'), el(inHub ? 'h2' : 'h1', { text: inHub ? 'SIEGE BRIEFING' : 'ARENA' }), label('Catch zombies for 20 seconds, then release your swarm for free. Earn Fruts, build and counterattack. Destroy the rival wall; at timeout, the higher wall percentage wins.', 'ftd-pvp__intro')]),
     el('div', { class: 'ftd-pvp__rating', 'data-pvp-rating': '' }, [label('RATING', 'ftd-pvp__eyebrow'), el('strong', { text: 'Loading…' })]),
   ]);
   main.appendChild(heading);
@@ -355,7 +355,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       ]),
     ]);
     body.append(el('header', { class: `ftd-duel-hud${hudExpanded?' is-expanded':''}` }, [playerCard(own, false),
-      el('div', { class: 'ftd-duel-clock' }, [el('small', { text: match.testMatch ? 'PRACTICE' : match.queue === 'ranked' ? 'RANKED' : 'ARENA' }), el('strong', { text: `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, '0')}` }),
+      el('div', { class: 'ftd-duel-clock' }, [el('small', { text: match.phase === 'capture' ? 'CAPTURE' : match.testMatch ? 'PRACTICE' : match.queue === 'ranked' ? 'RANKED' : 'ARENA' }), el('strong', { text: match.phase === 'capture' ? `${Math.max(0,Math.ceil(((match.phaseEndsAt??Date.now())-Date.now())/1000))}s` : `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, '0')}` }),
         el('button', { type:'button', class:'ftd-duel-leave', title:'Leave match', 'aria-label':'Leave match', 'data-testid':'arena-leave' }, [lucideIcon('LogOut','',16)]),
         el('button',{type:'button',class:'ftd-duel-hud-toggle','data-testid':'arena-hud-toggle','aria-label':hudExpanded?'Collapse player details':'Expand player details','aria-expanded':hudExpanded},[lucideIcon(hudExpanded?'ChevronUp':'ChevronDown','',14)]),
       ]), playerCard(opponent, true),
@@ -363,7 +363,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     body.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')?.addEventListener('click', () => { surrenderConfirm=true;render(); });
     body.querySelector('[data-testid="arena-hud-toggle"]')?.addEventListener('click',()=>{hudExpanded=!hudExpanded;render();});
     const objective = el('div', { class: 'ftd-duel-objective' });
-    objective.innerHTML = `<b>DEFEND YOUR TOWER</b> · Stop incoming fruit &nbsp; | &nbsp; <em>SEND FRUIT SQUADS</em> · Squads clash, survivors push`;
+    objective.innerHTML = `<b>DEFEND YOUR TOWER</b> · Stop incoming fruit &nbsp; | &nbsp; <em>SEND FRUIT SQUADS</em> · Zombies roam and fight wherever they meet`;
     objective.hidden=true;
     if (actionFeedback && Date.now() < feedbackUntil) body.append(el('div', { class: 'ftd-duel-feedback', role: 'status', text: actionFeedback }));
     const sceneConfig = { wallHealth: maxHealth, mainTower:status.config?.mainTower, towers: status.config?.towers || {}, attacks: status.config?.attacks || {} };
@@ -430,7 +430,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     body.append(battlefield.element);
     if(match.phase==='capture'){
       const left=Math.max(0,Math.ceil(((match.phaseEndsAt??Date.now())-Date.now())/1000));
-      body.append(el('div',{class:'ftd-arena-capture-status',role:'status'},[el('strong',{text:`CATCH FRUIT · ${left}s`}),el('span',{text:`${own.captured?.length??0} caught · Drag each zombie into the box on the field`})]));
+      body.append(el('div',{class:'ftd-arena-capture-status',role:'status'},[el('strong',{text:`CATCH FRUIT · ${left}s`}),el('span',{text:`${own.captured?.length??0} caught · Drag zombies into the box · Free releases when battle starts`})]));
       return;
     }
     if (match.status === 'active' && clashShownMatchId !== match.id) {
@@ -448,24 +448,24 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const tray = el('footer', { class: `ftd-duel-dock${toolsExpanded?' are-tools-open':''}` });
     const mainLevel = pvpTowerLevel(own.mainLevel); const mainCost = pvpMainUpgradeCost(mainLevel);
     tray.classList.toggle('is-expanded', dockExpanded);
-    const resource = el('div', { class: 'ftd-duel-resource' }, [
+    const resource = el('div', { class: 'ftd-duel-resource', role:'status', 'aria-label':'Match Fruts' }, [
       el('span', { class:'ftd-duel-wallet' }, [lucideIcon('Leaf', '', 18), el('strong', { text: `${Math.floor(own.fruts)} F` })]),
-      el('small', { class:'ftd-duel-statusline', text: !opponent.connected ? 'Opponent reconnecting…' : !own.towers.length ? `Tap a gold + to build · +${status.config?.incomePerSecond ?? 6} F/s` : `${own.attackers.length} incoming · ${opponent.attackers.length} attacking · +${status.config?.incomePerSecond ?? 6} F/s` }),
+      el('small', { class:'ftd-duel-statusline', text: !opponent.connected ? 'Opponent reconnecting…' : !own.towers.length ? `Tap a faint hex to build · +${status.config?.incomePerSecond ?? 6} F/s` : `${own.attackers.length} incoming · ${opponent.attackers.length} attacking · +${status.config?.incomePerSecond ?? 6} F/s` }),
     ]);
     const actionRail = el('div', { class:'ftd-duel-rail', 'aria-label':'Battle actions' });
     const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;toolsExpanded=false;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(dockExpanded&&tab==='attack');render(); };
     const railButton = (iconName:string, labelText:string, action:()=>void, disabled=false, testId?:string, selected=false) => {
-      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':'CAPTURE','arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??'MORE'})]);
+      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':`RELEASE ${own.captured?.length ?? 0}`,'arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??'MORE'})]);
       button.addEventListener('click',action);return button;
     };
     actionRail.append(
+      railButton('Fence',`Release captured zombies · ${own.captured?.length ?? 0}`,()=>openDock('capture'),false,'arena-tab-capture',dockExpanded&&dockTab==='capture'),
       railButton('Cherry','Send fruit attack',()=>openDock('attack'),false,'arena-tab-attack',dockExpanded&&dockTab==='attack'),
     );
     const more=railButton(toolsExpanded?'ChevronDown':'SlidersHorizontal','Battle controls',()=>{toolsExpanded=!toolsExpanded;dockExpanded=false;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(false);render();},false,'arena-controls-toggle');
     more.setAttribute('aria-expanded',String(toolsExpanded));actionRail.append(more);
     const tools=el('div',{class:'ftd-duel-tools',hidden:!toolsExpanded});
     tools.append(
-      railButton('Fence',`Captured fruit · ${own.captured?.length ?? 0}${match.rulesVersion===2?'':`/${PVP_CAPTURE_CAPACITY}`}`,()=>openDock('capture'),false,'arena-tab-capture',dockExpanded&&dockTab==='capture'),
       railButton('Zap',rallyActive?'Rally active':rallyWait?`Rally ready in ${rallyWait}s`:'Rally · +25% damage',()=>issue({type:'rally'}),busy||rallyWait>0,'arena-rally'),
       railButton('Castle',mainLevel===PVP_MAX_TOWER_LEVEL?'Main tower · max level':`Upgrade main tower · ${mainCost} Fruts`,()=>issue({type:'upgrade-main'}),busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,'arena-upgrade-main'),
     );

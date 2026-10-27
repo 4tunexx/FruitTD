@@ -973,3 +973,48 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 .ftd-coop-vote strong,.ftd-coop-vote span { grid-column:1/-1; }
 .ftd-coop-vote span { font-size:11px; }
 .ftd-coop-spend-note { position:fixed;z-index:90;top:76px;left:50%;transform:translateX(-50%);max-width:75vw;padding:5px 10px;color:#ffeec4;border:1px solid #bca667;border-radius:12px;background:#17251edc;font-size:11px;pointer-events:none; }
+
+/* PvP keeps Casual's full field, glass HUD and floating round commands. */
+.ftd-pvp.is-battle .ftd-pvp__body { width:100%; max-width:none; box-shadow:none; }
+.ftd-pvp.is-battle .ftd-pvp-scene { position:absolute; inset:0; width:100%; height:100%; }
+.ftd-pvp.is-battle .ftd-duel-hud { position:absolute; z-index:22; top:8px; left:50%; transform:translateX(-50%); width:min(720px,calc(100% - 20px)); min-height:64px; padding:8px 12px; border:1px solid #c9ab6966; background:linear-gradient(145deg,#26372cdb,#101c18d9); backdrop-filter:blur(16px); box-shadow:0 8px 28px #0006; }
+.ftd-pvp.is-battle .ftd-duel-dock { position:absolute; z-index:23; inset:auto 12px 12px; width:auto; min-height:0; padding:0; border:0; background:transparent; backdrop-filter:none; box-shadow:none; display:flex; flex-wrap:nowrap; justify-content:space-between; align-items:end; pointer-events:none; }
+.ftd-pvp.is-battle .ftd-duel-dock > * { pointer-events:auto; }
+.ftd-pvp.is-battle .ftd-duel-resource { min-width:0; padding:7px 12px; border:1px solid #c9ab6966; border-radius:20px; background:#1c2b25dc; backdrop-filter:blur(14px); }
+.ftd-pvp.is-battle .ftd-duel-wallet { font-size:18px; }
+.ftd-pvp.is-battle .ftd-duel-statusline { display:none; }
+.ftd-pvp.is-battle .ftd-duel-rail { gap:8px; }
+.ftd-pvp.is-battle .ftd-duel-icon-button { width:58px; height:58px; min-height:44px; border-radius:50%!important; background:#26372ce8; border:1px solid #cfb474aa; box-shadow:0 4px 14px #0008,inset 0 1px #fff3; }
+.ftd-pvp.is-battle .ftd-duel-icon-button.is-active { background:#e8c677; color:#162018; }
+.ftd-pvp.is-battle .ftd-duel-action-label { font-size:8px; letter-spacing:0; }
+.ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { position:absolute; left:auto; right:0; bottom:calc(100% + 12px); width:min(440px,calc(100vw - 24px)); max-width:none; max-height:min(50dvh,420px); overflow-y:auto; box-sizing:border-box; padding:12px; }
+.ftd-pvp.is-battle .ftd-duel-panel-close { display:grid; place-items:center; margin-left:auto; width:32px; min-height:32px; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; overflow:visible; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card { display:flex; flex-direction:column; width:100%; max-width:none; min-width:0; min-height:108px; padding:8px 4px; box-sizing:border-box; }
+.ftd-pvp.is-battle .ftd-duel-card strong { font-size:11px; }
+.ftd-pvp.is-battle .ftd-duel-card small { font-size:10px; white-space:normal; text-align:center; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card__art { width:32px; height:32px; padding:0; border:0; background:none; box-shadow:none; }
+.ftd-pvp.is-battle .ftd-duel-powers { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); margin:0; z-index:20; }
+.ftd-pvp.is-battle .ftd-duel-focus { left:auto; right:10px; top:86px; }
+.ftd-pvp.is-battle .ftd-duel-camera { left:auto; right:10px; top:132px; }
+.ftd-pvp.is-battle .ftd-arena-minimap { top:88px; opacity:.72; }
+.ftd-pvp.is-battle .ftd-duel-team { display:none; }
+.ftd-pvp.is-battle .ftd-arena-capture-status { top:90px; }
+@media(max-width:600px) {
+  .ftd-pvp.is-battle .ftd-duel-hud { top:5px; width:calc(100% - 12px); min-height:58px; padding:6px; }
+  .ftd-pvp.is-battle .ftd-duel-dock { inset:auto 8px 8px; gap:4px; }
+  .ftd-pvp.is-battle .ftd-duel-icon-button { width:48px; height:48px; }
+  .ftd-pvp.is-battle .ftd-duel-resource { flex:0 0 auto; padding:5px 8px; }
+  .ftd-pvp.is-battle .ftd-duel-wallet { font-size:14px; }
+  .ftd-pvp.is-battle .ftd-duel-powers { bottom:72px; }
+  .ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { width:calc(100vw - 16px); max-height:45dvh; }
+  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card { min-height:100px; }
+  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-arsenal { display:block; }
+  .ftd-pvp.is-battle .ftd-arena-capture-status { top:78px; max-width:calc(100vw - 180px); min-width:0; padding:7px 9px; }
+  .ftd-pvp.is-battle .ftd-duel-focus { min-width:80px; font-size:10px; }
+}
+@media(max-height:520px) {
+  .ftd-pvp.is-battle .ftd-duel-hud { min-height:46px; top:4px; padding:4px 10px; }
+  .ftd-pvp.is-battle .ftd-duel-dock { min-height:0; }
+  .ftd-pvp.is-battle .ftd-duel-powers { bottom:8px; }
+}

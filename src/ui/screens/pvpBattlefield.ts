@@ -395,7 +395,8 @@ export class PvpBattlefield {
     if(this.snapshot.rulesVersion===2&&!this.snapshot.shared){
       const lines:Vector3[]=[];
       for(const player of this.snapshot.players){const own=player.side===this.snapshot.yourSide;
-        for(let row=0;row<map.height;row++)for(let col=0;col<map.width;col++){
+        for(const cell of map.buildCells){
+          const row=Math.floor(cell/map.width),col=cell%map.width;
           const point=this.cellPoint(row*map.width+col,own);
           for(let edge=0;edge<6;edge++){const a=edge*Math.PI/3+Math.PI/6,b=(edge+1)*Math.PI/3+Math.PI/6;lines.push(new Vector3(point.x+Math.cos(a)*.66*TILE,.035,point.z+Math.sin(a)*.66*TILE),new Vector3(point.x+Math.cos(b)*.66*TILE,.035,point.z+Math.sin(b)*.66*TILE));}
         }
@@ -410,7 +411,7 @@ export class PvpBattlefield {
           this.terrain.add(cue);
         }
       }
-      const grid=new LineSegments(new BufferGeometry().setFromPoints(lines),new LineBasicMaterial({color:0xe5d99b,transparent:true,opacity:.13,depthWrite:false}));this.terrain.add(grid);
+      const grid=new LineSegments(new BufferGeometry().setFromPoints(lines),new LineBasicMaterial({color:0xe5d99b,transparent:true,opacity:.035,depthWrite:false}));this.terrain.add(grid);
     }
     if(this.snapshot.shared)this.terrain.add(battleScenery(fullWidth,fullLength,floor.position.z));
 
@@ -419,7 +420,7 @@ export class PvpBattlefield {
       const teamColor = this.snapshot.shared?0xffe394:COLORS[player.side as keyof typeof COLORS]??COLORS.blue;
       // Both players get ten readable plots; only your own plots are pickable.
       for (const cell of map.buildCells.filter(cell=>this.snapshot.shared||this.snapshot.rulesVersion===2||pvpBuildCellAllowed(map,cell))) {
-        const pad=this.snapshot.rulesVersion===2&&!this.snapshot.shared?new Mesh(new RingGeometry(.52,.59,6),new MeshBasicMaterial({color:0xffdf89,transparent:true,opacity:own?.22:.1,side:DoubleSide,depthWrite:false})):createBuildPad();
+        const pad=this.snapshot.rulesVersion===2&&!this.snapshot.shared?new Mesh(new RingGeometry(.52,.59,6),new MeshBasicMaterial({color:0xffdf89,transparent:true,opacity:own?.07:.025,side:DoubleSide,depthWrite:false})):createBuildPad();
         if(this.snapshot.rulesVersion===2&&!this.snapshot.shared)pad.rotation.x=-Math.PI/2;
         pad.position.copy(this.cellPoint(cell, own));pad.position.y=.16;
         pad.userData.cell=cell;pad.userData.ownerId=player.userId;

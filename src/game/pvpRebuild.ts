@@ -3,6 +3,7 @@ import { pvpTowerLevel, pvpTowerStats, pvpUpgradeCost, pvpSellRefund, pvpMainUpg
 import { turretAllowed } from './turretLoadout';
 import { equippedPower, powerTargets, appendPowerCast, mapPowerEnvelope } from './powerCombat';
 import { applyPowerStatus, applyWeaponStatus, tickBurn } from './combatStatus';
+import { arenaNavigation } from './arenaMotion';
 import { turretVictims } from './turretTargets';
 
 export type ArenaHazard = { cell: number; kind: 'slow' | 'damage' };
@@ -57,11 +58,6 @@ export function rebuiltPvpConfig(config: PvpConfig): PvpConfig {
 const gridY = (y: number) => Math.max(0, Math.min(47, Math.floor(y + 24)));
 const gridColumn = (x:number,row:number,width:number) => Math.max(0,Math.min(width-1,Math.floor(x-(row%2?.5:0))));
 const localCell = (x: number, y: number, map: PvpMap) => {const row=gridY(y);return Math.floor(Math.abs(y))*map.width+gridColumn(x,row,map.width);};
-const center = (cell: number, width: number) => ({ x: cell % width + .5 + (Math.floor(cell / width) % 2 ? .5 : 0), y: Math.floor(cell / width) + .5 - 24 });
-const neighbors = (cell: number, width: number, height = 48): number[] => {
-  const x = cell % width, row = Math.floor(cell / width), odd = row % 2;
-  return [[x-1,row],[x+1,row],[x,row-1],[x,row+1],[x+(odd?1:-1),row-1],[x+(odd?1:-1),row+1]].filter(([c,r]) => c! >= 0 && c! < width && r! >= 0 && r! < height).map(([c,r]) => r! * width + c!);
-};
 const blockedCells = (match: ArenaMatch, extra?: { side: string; cell: number }): Set<number> => {
   const map = match.map!; const blocked = new Set<number>();
   for (const cell of map.solidCells ?? []) { blocked.add((24 + Math.floor(cell / map.width)) * map.width + cell % map.width); blocked.add((23 - Math.floor(cell / map.width)) * map.width + cell % map.width); }
@@ -69,23 +65,27 @@ const blockedCells = (match: ArenaMatch, extra?: { side: string; cell: number })
   if (extra) blocked.add((extra.side === 'blue' ? 24 + Math.floor(extra.cell / map.width) : 23 - Math.floor(extra.cell / map.width)) * map.width + extra.cell % map.width);
   return blocked;
 };
-const distances = (width: number, blocked: Set<number>, goalRow: number): Float64Array => {
-  const result = new Float64Array(width * 48).fill(Infinity); const queue: number[] = [];
-  for (let x = 0; x < width; x++) { const cell = goalRow * width + x; if (!blocked.has(cell)) { result[cell] = 0; queue.push(cell); } }
-  for (let index = 0; index < queue.length; index++) { const cell = queue[index]!; for (const next of neighbors(cell, width)) if (!blocked.has(next) && result[next] === Infinity) { result[next] = result[cell]! + 1; queue.push(next); } }
-  return result;
-};
+const navigationCache = new WeakMap<ArenaMatch, { key: string; blue: ReturnType<typeof arenaNavigation>; red: ReturnType<typeof arenaNavigation> }>();
+function navigation(match: ArenaMatch, direction: -1 | 1, extra?: { side: string; cell: number }) {
+  const map = match.map!;
+  const obstacles = [...blockedCells(match, extra)].map(cell => {
+    const row = Math.floor(cell / map.width);
+    return { x: cell % map.width + .5 + (row % 2 ? .5 : 0), y: row + .5 - 24 };
+  });
+  return arenaNavigation(map.width, obstacles, direction);
+}
 export function arenaLayoutValid(map: PvpMap): boolean {
   if (map.width !== 10 || map.height !== 24) return false;
   const fake = { map, players: [{ side: 'blue', towers: [] }, { side: 'red', towers: [] }] } as unknown as ArenaMatch;
-  const blocked = blockedCells(fake);
-  return Number.isFinite(distances(map.width, blocked, 0)[46 * map.width + 4]) && Number.isFinite(distances(map.width, blocked, 47)[map.width + 4]);
+  return navigation(fake, -1).reachable({ x: 5, y: 22.5 }) && navigation(fake, 1).reachable({ x: 5, y: -22.5 });
 }
 export function arenaBuildAllowed(match: ArenaMatch, side: string, cell: number): boolean {
   const map = match.map!;
   if (!Number.isInteger(cell) || !(map.buildCells ?? []).includes(cell) || match.players.some(p => p.side === side && p.towers.some(t => t.cell === cell))) return false;
-  const blocked = blockedCells(match, { side, cell });
-  return Number.isFinite(distances(map.width, blocked, side === 'blue' ? 0 : 47)[(side === 'blue' ? 46 : 1) * map.width + Math.floor(map.width / 2)]);
+  const row = side === 'blue' ? 24+Math.floor(cell/map.width) : 23-Math.floor(cell/map.width);
+  const point = {x:cell%map.width+.5+(row%2?.5:0),y:row+.5-24};
+  if (match.players.some(p=>p.attackers.some(u=>u.hp>0&&u.x!==undefined&&u.y!==undefined&&Math.hypot(u.x-point.x,u.y-point.y)<.9))) return false;
+  return navigation(match, -1, { side, cell }).reachable({x: 5, y: 22.5}) && navigation(match, 1, { side, cell }).reachable({x: 5, y: -22.5});
 }
 
 function newUnit(match: ArenaMatch, sender: PvpPlayer, type: string, id: string, config: PvpConfig, boss = false, fruitKind?: string): ArenaUnit {
@@ -119,6 +119,7 @@ export function applyArenaCommand(match: ArenaMatch, userId: string, command: Pv
   if (sequence !== player.sequence + 1) throw new Error('Invalid or replayed command sequence');
   if (command.type === 'surrender') { match.status = 'complete'; match.resultReason = 'surrender'; match.winnerId = match.players.find(p => p !== player)!.userId; }
   else if (match.phase === 'capture') {
+    if (now >= match.phaseEndsAt) throw new Error('Capture phase has ended');
     if (command.type !== 'catch') throw new Error('Catch fruit until siege begins');
     const item = match.catchables.find(c => c.id === command.catchableId);
     if (!item || item.bornAt > now || item.expiresAt < now || item.claimedBy.includes(userId)) throw new Error('That fruit has escaped');
@@ -172,46 +173,60 @@ export function advanceArena(match: ArenaMatch, elapsed: number, now: number, co
   const disconnected=match.players.find(player=>!player.connected&&player.disconnectedAt!==null&&now-player.disconnectedAt>=config.reconnectGraceSeconds*1000);
   if(disconnected){match.status='complete';match.resultReason='disconnect';match.winnerId=match.players.find(player=>player!==disconnected)?.userId??null;match.revision++;return match;}
   if (match.phase === 'capture') {
-    if (now >= match.phaseEndsAt) { match.phase = 'siege'; for (const player of match.players) player.fruts = config.startingFruts; }
+    if (now >= match.phaseEndsAt) { match.phase = 'siege'; match.endsAt = match.phaseEndsAt + config.durationSeconds * 1000; for (const player of match.players) player.fruts = config.startingFruts; }
     match.revision++; return match;
   }
-  const dt = Math.max(0, Math.min(1, elapsed)); const map = match.map!; const blocked = blockedCells(match);
+  const dt = Math.max(0, Math.min(1, elapsed)); const map = match.map!;
   if(match.phase==='overtime'&&now>=(match.overtimeWaveAt??Infinity)){
     for(const player of match.players){const rival=match.players.find(p=>p!==player)!;rival.attackers.push(newUnit(match,player,'normal',`overtime:${player.userId}:${now}`,config));}
     match.overtimeWaveAt=now+5000;
   }
-  const blueFlow = distances(map.width, blocked, 0), redFlow = distances(map.width, blocked, 47);
+  const layoutKey = JSON.stringify([map.width,map.solidCells,match.players.map(p=>[p.side,p.towers.map(t=>t.cell)])]);
+  let routes = navigationCache.get(match);
+  if (!routes || routes.key !== layoutKey) { routes = {key:layoutKey,blue:navigation(match,-1),red:navigation(match,1)}; navigationCache.set(match,routes); }
+  const blueNavigation = routes.blue, redNavigation = routes.red;
   for (const player of match.players) player.fruts += config.incomePerSecond * (match.phase === 'overtime' || match.endsAt - now <= (config.arenaRules?.doubleIncomeSeconds ?? 30) * 1000 ? 2 : 1) * dt;
   const all = match.players.flatMap(p => p.attackers as ArenaUnit[]);
   for (const unit of all) {
-    unit.hp -= tickBurn(unit, now); if (unit.hp <= 0) continue;
-    if(unit.boss&&!unit.enraged&&unit.hp<=(unit.maxHp??unit.hp)*.5){unit.enraged=true;if(unit.type==='splitter'){const sender=match.players.find(p=>p.userId===unit.ownerId);const defender=match.players.find(p=>p!==sender);if(sender&&defender)for(let i=0;i<2;i++)defender.attackers.push({...newUnit(match,sender,'swift',`${unit.id}:brood:${i}`,config),x:unit.x+(i?-.3:.3),y:unit.y,hp:45,maxHp:45});}}
-    unit.fighting = false; delete unit.fightTargetId;
-    const sender = match.players.find(p => p.userId === unit.ownerId) ?? match.players.find(p => p.attackers !== match.players.find(q => q.attackers.includes(unit))?.attackers)!;
-    const opponent = all.filter(other => other !== unit && other.hp > 0 && other.ownerId !== unit.ownerId && Math.hypot(other.x - unit.x, other.y - unit.y) < (unit.boss || other.boss ? 1.45 : .9)).sort((a,b) => Math.hypot(a.x-unit.x,a.y-unit.y)-Math.hypot(b.x-unit.x,b.y-unit.y))[0];
-    if (opponent) { unit.fighting = true; unit.fightTargetId = opponent.id; unit.lastClashAt = Math.floor(now / 300) * 300; continue; }
-    const row = gridY(unit.y), col = gridColumn(unit.x,row,map.width); const cell = row * map.width + col;
-    const flow = sender.side === 'blue' ? blueFlow : redFlow;
-    const candidates = neighbors(cell, map.width).filter(next => !blocked.has(next) && flow[next]! < flow[cell]!);
-    const next = candidates.sort((a,b) => flow[a]! - flow[b]! || a-b)[0];
-    const goal = next === undefined ? { x: unit.x, y: sender.side === 'blue' ? -23.5 : 23.5 } : center(next, map.width);
-    const dx = goal.x - unit.x, dy = goal.y - unit.y, length = Math.hypot(dx, dy) || 1;
-    const spread = all.filter(other => other !== unit && other.ownerId === unit.ownerId && Math.hypot(other.x - unit.x, other.y - unit.y) < .8).reduce((v, other) => v + Math.sign(unit.x - other.x) * .12, 0);
-    const stats = config.attacks[unit.type]!; const slow = now < (unit.slowUntil ?? 0) ? unit.slowMultiplier ?? .55 : 1;
-    const hazard = (map.hazards ?? []).find(h => h.cell === localCell(unit.x, unit.y, map));
-    const speed = stats.speed * (unit.boss ? unit.enraged? .8:.58 : 1) * slow * (hazard?.kind === 'slow' ? .7 : 1);
-    const step=Math.min(length,speed*dt);
-    unit.x = Math.max(.35, Math.min(map.width - .35, unit.x + dx / length * step + spread*dt)); unit.y = Math.max(-23.5, Math.min(23.5, unit.y + dy / length * step));
-    if (hazard?.kind === 'damage' && now - (unit.hazardAt ?? 0) >= 1000) { unit.hp -= 2; unit.hazardAt = now; }
-    unit.progress = sender.side === 'blue' ? 22.5 - unit.y : unit.y + 22.5;
+    unit.hp -= tickBurn(unit, now);
+    if(unit.hp <= 0) continue;
+    if(unit.boss&&!unit.enraged&&unit.hp<=(unit.maxHp??unit.hp)*.5){unit.enraged=true;if(unit.type==='splitter'){const sender=match.players.find(p=>p.userId===unit.ownerId);const defender=match.players.find(p=>p!==sender);if(sender&&defender)for(let i=0;i<2;i++)defender.attackers.push({...newUnit(match,sender,'swift',`${unit.id}:brood:${i}`,config),x:unit.x,y:unit.y,hp:45,maxHp:45});}}
   }
-  const damage = new Map<string, number>();
-  for (const unit of all.filter(u => u.fighting && u.hp > 0)) {
-    const victim = all.find(u => u.id === unit.fightTargetId); if (!victim) continue;
-    const hit = config.attacks[unit.type]!.wallDamage * 1.8 * dt;
-    damage.set(victim.id, (damage.get(victim.id) ?? 0) + hit);
+  // Small simultaneous steps prevent fast swarms crossing between server updates.
+  const steps = Math.max(1, Math.ceil(dt / .05)), stepDt = dt / steps;
+  for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
+    const live = all.filter(u => u.hp > 0);
+    const positions = new Map(live.map(u => [u.id, {x:u.x, y:u.y}]));
+    const damage = new Map<string, number>();
+    for (const unit of live) {
+      unit.fighting = false; unit.attackingTower = false; delete unit.fightTargetId;
+      const sender = match.players.find(p => p.userId === unit.ownerId);
+      if (!sender) continue;
+      const nav = sender.side === 'blue' ? blueNavigation : redNavigation;
+      const from = positions.get(unit.id)!;
+      const opponents = live.filter(other => other.ownerId !== unit.ownerId && Math.hypot(positions.get(other.id)!.x-from.x,positions.get(other.id)!.y-from.y) < 3.5 && nav.clear(from, positions.get(other.id)!));
+      const opponent = opponents.sort((a,b) => Math.hypot(positions.get(a.id)!.x-from.x,positions.get(a.id)!.y-from.y)-Math.hypot(positions.get(b.id)!.x-from.x,positions.get(b.id)!.y-from.y) || a.id.localeCompare(b.id))[0];
+      const target = opponent && positions.get(opponent.id)!;
+      const reach = unit.boss || opponent?.boss ? 1.45 : .9;
+      if (target && Math.hypot(target.x-from.x,target.y-from.y) <= reach + 1e-6) {
+        unit.fighting = true; unit.fightTargetId = opponent!.id; unit.lastClashAt = Math.floor(now / 300) * 300;
+        damage.set(opponent!.id, (damage.get(opponent!.id) ?? 0) + config.attacks[unit.type]!.wallDamage * 1.8 * stepDt);
+        continue;
+      }
+      // Seek nearby rivals anywhere on the field; otherwise advance freely.
+      const goal = target && Math.hypot(target.x-from.x,target.y-from.y) < 3.5 ? target : nav.goal(from);
+      const dx = goal.x-from.x, dy = goal.y-from.y, length = Math.hypot(dx,dy) || 1;
+      const stats = config.attacks[unit.type]!;
+      const hazard = (map.hazards ?? []).find(h => h.cell === localCell(from.x, from.y, map));
+      const speed = stats.speed * (unit.boss ? unit.enraged ? .8 : .58 : 1) * (now < (unit.slowUntil ?? 0) ? unit.slowMultiplier ?? .55 : 1) * (hazard?.kind === 'slow' ? .7 : 1);
+      const step = Math.min(length, speed * stepDt, target && goal === target ? Math.max(0,length-reach) : Infinity);
+      const next = {x:Math.max(.35,Math.min(map.width-.35,from.x+dx/length*step)),y:Math.max(-23.5,Math.min(23.5,from.y+dy/length*step))};
+      if (nav.clear(from, next)) { unit.x = next.x; unit.y = next.y; }
+      if (hazard?.kind === 'damage' && now-(unit.hazardAt ?? 0) >= 1000) { damage.set(unit.id,(damage.get(unit.id) ?? 0)+2); unit.hazardAt=now; }
+      unit.progress = sender.side === 'blue' ? 22.5-unit.y : unit.y+22.5;
+    }
+    for (const unit of live) unit.hp -= damage.get(unit.id) ?? 0;
   }
-  for (const unit of all) unit.hp -= damage.get(unit.id) ?? 0;
   for(const unit of all.filter(u=>u.hp>0&&u.type==='healer'&&now-(u.specialAt??0)>=1200)){
     unit.specialAt=now;for(const ally of all.filter(other=>other.ownerId===unit.ownerId&&other.hp>0&&Math.hypot(other.x-unit.x,other.y-unit.y)<3).slice(0,5))ally.hp=Math.min(ally.maxHp??ally.hp,ally.hp+12);
   }
