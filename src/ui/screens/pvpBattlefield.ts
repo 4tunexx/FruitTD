@@ -18,7 +18,7 @@ import { battleScenery } from '../../game/battleArt';
 import { PowerVfx } from '../../game/powerVfx';
 import { heroAbility } from '../../game/heroAbilities';
 import type { PowerCast } from '../../game/powerCombat';
-import { AmbientLight, BackSide, BoxGeometry, CircleGeometry, BufferGeometry, CylinderGeometry, DirectionalLight, DoubleSide, Group, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, PlaneGeometry, Raycaster, RingGeometry, Scene, SphereGeometry, Sprite, TextureLoader, SRGBColorSpace, Vector2, Vector3, WebGLRenderer } from 'three';
+import { AmbientLight, BoxGeometry, CircleGeometry, BufferGeometry, CylinderGeometry, DirectionalLight, DoubleSide, Group, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, OrthographicCamera, Plane, PlaneGeometry, Raycaster, RingGeometry, Scene, SphereGeometry, Sprite, TextureLoader, SRGBColorSpace, Vector2, Vector3, WebGLRenderer } from 'three';
 import { TurretRig, refreshCreatorTurrets, TURRETS, type TurretKind } from '../../game/turrets';
 import { BladeTrail } from '../../game/trail';
 import { FRUIT_DEFS } from '../../game/fruits';

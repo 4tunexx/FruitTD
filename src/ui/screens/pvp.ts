@@ -456,7 +456,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       body.append(el('div',{class:'ftd-arena-capture-status',role:'status'},[el('strong',{text:`CATCH FRUIT · ${left}s`}),el('span',{text:`${own.captured?.length??0} caught · Drag into the box`})]));
       return;
     }
-    if (match.rulesVersion === 2 && match.phase !== 'capture' && own.captured?.length && releaseTrayShownFor !== match.id) {
+    if (match.rulesVersion === 2 && own.captured?.length && releaseTrayShownFor !== match.id) {
       releaseTrayShownFor = match.id; dockTab = 'capture'; dockExpanded = true;
       selectedCell = null; pendingBuildCell = null;
     }
