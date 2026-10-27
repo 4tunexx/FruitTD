@@ -65,7 +65,7 @@ export function applyCoopCommand(match:CoopMatch,userId:string,sequence:number,c
     else {match.players=match.players.filter(member=>member.userId!==userId);match.proposal=undefined;}
   }
   else {
-    if(match.status!=='playing'&&match.status!=='boss-intro'&&!(match.status==='countdown'&&['build','upgrade','sell'].includes(command.type))) throw new Error('Wait for the match to start.');
+    if(match.status!=='playing'&&match.status!=='boss-intro'&&!(match.status==='countdown'&&['build','upgrade','sell','vote'].includes(command.type))) throw new Error('Wait for the match to start.');
     if(command.type==='build'||command.type==='upgrade'||command.type==='sell') {
       if(command.type==='build'){
         if(!balance.towers[command.tower])throw new Error('Choose a tower.');

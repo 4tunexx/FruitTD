@@ -43,13 +43,23 @@ for(const teamSize of [2,4])test(`online Co-op survives repeated wave/boss cycle
   if(['playing','countdown','boss-intro'].includes(game.status)&&tick%20===0){
    const types=Object.keys(config.towers).filter(type=>type!=='catcher'),cell=Array.from({length:8},(_,i)=>121+i).find(cell=>!game.towers.some(tower=>tower.cell===cell));
    const type=types[game.towers.length%types.length]!;
-   if(cell!==undefined&&game.fruts>=config.towers[type]!.cost){applyCoopCommand(game,first.userId,first.sequence+1,{type:'build',tower:type,cell},now,config);commands++;}
+   if(cell!==undefined&&game.fruts>=config.towers[type]!.cost){
+    applyCoopCommand(game,first.userId,first.sequence+1,{type:'build',tower:type,cell},now,config);commands++;
+    if(game.proposal){
+     const proposalId=game.proposal.id;
+     for(const voter of game.players.slice(1,Math.floor(game.players.length/2)+1)){
+      applyCoopCommand(game,voter.userId,voter.sequence+1,{type:'vote',proposalId,approve:true},now,config);commands++;
+     }
+    }
+   }
   }
   assert.ok(Number.isFinite(game.fruts)&&game.fruts>=0);assert.ok(game.fruits.every(f=>Number.isFinite(f.hp)&&Number.isFinite(f.x)&&Number.isFinite(f.y)));
   assert.ok(game.fruits.length<=100);assert.equal(new Set(game.towers.map(tower=>tower.cell)).size,game.towers.length);
  }
  assert.ok(game.completedWaves>=6,`completed ${game.completedWaves} waves`);assert.ok(sawBoss,'boss phase must occur during the simulated session');
- if(game.status!=='complete')applyCoopCommand(game,first.userId,first.sequence+1,{type:'leave'},602000,config);
+ if(game.status!=='complete')for(const member of [...game.players]){
+  applyCoopCommand(game,member.userId,member.sequence+1,{type:'leave'},602000,config);
+ }
  assert.equal(game.status,'complete');const final=structuredClone(game);advanceCoopMatch(game,.25,603000,config,DEFAULT_COOP_CONFIG);assert.deepEqual(game,final);
  const reward=coopRewards(game,DEFAULT_COOP_CONFIG);assert.ok(reward.coins>=0&&reward.coins<=DEFAULT_COOP_CONFIG.rewardCoinCap);
  t.diagnostic(`${ticks} ticks; ${commands} validated commands; ${game.completedWaves} completed waves; boss seen; ${Math.round(performance.now()-started)} ms CPU wall time.`);

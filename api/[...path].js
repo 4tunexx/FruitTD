@@ -1932,7 +1932,7 @@ function applyCoopCommand(match, userId, sequence, command, now, balance, config
       match.proposal = void 0;
     }
   } else {
-    if (match.status !== "playing" && match.status !== "boss-intro" && !(match.status === "countdown" && ["build", "upgrade", "sell"].includes(command.type))) throw new Error("Wait for the match to start.");
+    if (match.status !== "playing" && match.status !== "boss-intro" && !(match.status === "countdown" && ["build", "upgrade", "sell", "vote"].includes(command.type))) throw new Error("Wait for the match to start.");
     if (command.type === "build" || command.type === "upgrade" || command.type === "sell") {
       if (command.type === "build") {
         if (!balance.towers[command.tower]) throw new Error("Choose a tower.");
