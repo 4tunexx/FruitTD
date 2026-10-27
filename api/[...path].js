@@ -1232,6 +1232,10 @@ function applyArenaCommand(match, userId, command, sequence, now, config) {
 }
 function advanceArena(match, elapsed, now, config) {
   if (match.status !== "active") return match;
+  for (const player of match.players) if (player.connected && now - player.lastSeenAt >= config.reconnectGraceSeconds * 1e3) {
+    player.connected = false;
+    player.disconnectedAt = player.lastSeenAt;
+  }
   const disconnected = match.players.find((player) => !player.connected && player.disconnectedAt !== null && now - player.disconnectedAt >= config.reconnectGraceSeconds * 1e3);
   if (disconnected) {
     match.status = "complete";
@@ -6184,8 +6188,30 @@ function pvpAccountIdentity(account, fallbackName = "Player") {
   return { name: String(name).trim().slice(0, 32) || "Player", avatar: String(avatar).slice(0, 9e5) };
 }
 
+// src/game/rankedPenalty.ts
+function rankedPenaltyMinutes(leaves) {
+  return leaves < 3 ? 20 : Math.min(24 * 60, 60 * 2 ** Math.min(5, leaves - 3));
+}
+
 // server/routes/pvp.ts
 var pvpRouter = Router14();
+async function penaltyFor(userId) {
+  return (await getCollection("pvp_ranked_penalties")).findOne({ userId });
+}
+async function recordRankedAbandon(match) {
+  if (match.queue !== "ranked" || match.testMatch || !["surrender", "disconnect"].includes(match.resultReason ?? "")) return;
+  const offenders = match.resultReason === "surrender" ? match.players.filter((player) => player.userId !== match.winnerId) : match.players.filter((player) => !player.connected);
+  const penalties = await getCollection("pvp_ranked_penalties");
+  for (const player of offenders) {
+    await penalties.updateOne({ userId: player.userId }, { $setOnInsert: { userId: player.userId, leaves: 0, matchIds: [] } }, { upsert: true });
+    const row = await penalties.findOneAndUpdate(
+      { userId: player.userId, matchIds: { $ne: match.id } },
+      { $inc: { leaves: 1 }, $addToSet: { matchIds: match.id } },
+      { returnDocument: "after" }
+    );
+    if (row) await penalties.updateOne({ userId: player.userId }, { $max: { bannedUntil: new Date(Date.now() + rankedPenaltyMinutes(row.leaves) * 6e4) } });
+  }
+}
 var seasonKey = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
 var routerError = (res, status, message) => res.status(status).json({ success: false, error: message });
 var settlingMatches = /* @__PURE__ */ new Set();
@@ -6325,6 +6351,7 @@ async function settleMatch(match, config) {
       await matches.updateOne({ id: match.id, testMatch: true }, { $set: { settled: true } });
       return;
     }
+    await recordRankedAbandon(match);
     const achievements = await getCollection("achievements");
     const badges = await getCollection("badges");
     for (const player of match.players) {
@@ -6434,6 +6461,10 @@ pvpRouter.get("/status", async (req2, res) => {
       await settleMatch(match, config);
       match = await matches.findOne({ id: match.id });
     }
+    if (match?.status === "active") {
+      await tickMatch(match, config, Date.now());
+      match = await matches.findOne({ id: match.id });
+    }
     if (match && match.status !== "complete") {
       const player = match.players.find((item) => item.userId === user.userId);
       player.connected = true;
@@ -6442,10 +6473,6 @@ pvpRouter.get("/status", async (req2, res) => {
       match.revision++;
       await matches.replaceOne({ id: match.id, revision: match.revision - 1, status: match.status }, match);
       match = await matches.findOne({ id: match.id });
-      if (match?.status === "active") {
-        await tickMatch(match, config, Date.now());
-        match = await matches.findOne({ id: match.id });
-      }
     }
     if (!match) {
       const waiting = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
@@ -6454,7 +6481,8 @@ pvpRouter.get("/status", async (req2, res) => {
     const rating = await ratingFor(user.userId, config);
     const challenge = await (await getCollection("pvp_challenges")).findOne({ toId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() }, acceptedAt: { $exists: false } });
     const queued = await (await getCollection("pvp_queue")).findOne({ userId: user.userId, expiresAt: { $gt: /* @__PURE__ */ new Date() } });
-    res.json({ success: true, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower: (match?.balance ?? config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, startingFruts: (match?.balance ?? config).startingFruts, arenaRules: (match?.balance ?? config).arenaRules, bossCosts: (match?.balance ?? config).bossCosts, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
+    const penalty = await penaltyFor(user.userId);
+    res.json({ success: true, rankedPenalty: { leaves: penalty?.leaves ?? 0, bannedUntil: penalty?.bannedUntil ?? null }, canStartBotMatch: Boolean(process.env.ADMIN_STEAM_ID && user.steamId === process.env.ADMIN_STEAM_ID), rating: { ...publicRating(rating, config), arena: await arenaRecordFor(user.userId) }, match: match ? publicMatch(match, user.userId) : null, queued: queued ? queued.queue : null, challenge: challenge ? { challengeId: challenge.challengeId, fromId: challenge.fromId, fromName: challenge.fromName } : null, config: { mainTower: (match?.balance ?? config).mainTower, incomePerSecond: (match?.balance ?? config).incomePerSecond, startingFruts: (match?.balance ?? config).startingFruts, arenaRules: (match?.balance ?? config).arenaRules, bossCosts: (match?.balance ?? config).bossCosts, wallHealth: (match?.balance ?? config).wallHealth, durationSeconds: (match?.balance ?? config).durationSeconds, reconnectGraceSeconds: (match?.balance ?? config).reconnectGraceSeconds, towers: (match?.balance ?? config).towers, attacks: (match?.balance ?? config).attacks, maps: (match?.balance ?? config).maps } });
   } catch (error2) {
     console.error(error2);
     routerError(res, 503, "PvP storage is unavailable.");
@@ -6538,6 +6566,10 @@ pvpRouter.post("/queue", async (req2, res) => {
     const matches = await getCollection("pvp_matches");
     const active2 = await matches.findOne({ status: { $in: ["draft", "active"] }, "players.userId": user.userId });
     if (active2) return res.json({ success: true, match: publicMatch(active2, user.userId) });
+    if (queue === "ranked") {
+      const penalty = await penaltyFor(user.userId);
+      if (penalty?.bannedUntil && penalty.bannedUntil.getTime() > Date.now()) return routerError(res, 403, `Ranked queue locked until ${penalty.bannedUntil.toISOString()}. Abandons: ${penalty.leaves}.`);
+    }
     const queues = await getCollection("pvp_queue");
     const config = await currentPvpConfig();
     const now = /* @__PURE__ */ new Date();

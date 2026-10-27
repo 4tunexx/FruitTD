@@ -230,7 +230,8 @@ test('one Arena screen switches queue type and submits only the selected queue',
     renderPvpHub(root, 'arena', { realtime: false, polling: false }); await flush();
     root.querySelector<HTMLButtonElement>('[data-testid="arena-queue-ranked"]')!.click();
     const button = (text: string) => [...root.querySelectorAll<HTMLButtonElement>('button')].find(node => node.textContent?.startsWith(text))!;
-    button('Find ranked match').click(); await flush(); assert.equal(queued, 'ranked');
+    button('Find ranked match').click(); assert.ok(root.querySelector('[aria-label="Ranked queue warning"]'));
+    button('Join Ranked').click(); await flush(); assert.equal(queued, 'ranked');
     assert.equal(root.querySelector<HTMLButtonElement>('[data-testid="arena-queue-arena"]')!.hasAttribute('disabled'), true);
     button('Cancel search').click(); await flush(); assert.equal(queued, null);
     root.querySelector<HTMLButtonElement>('[data-testid="arena-queue-arena"]')!.click(); button('Quick match').click(); await flush(); assert.equal(queued, 'arena');

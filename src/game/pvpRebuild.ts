@@ -170,6 +170,7 @@ export function applyArenaCommand(match: ArenaMatch, userId: string, command: Pv
 
 export function advanceArena(match: ArenaMatch, elapsed: number, now: number, config: PvpConfig): ArenaMatch {
   if (match.status !== 'active') return match;
+  for(const player of match.players) if(player.connected&&now-player.lastSeenAt>=config.reconnectGraceSeconds*1000){player.connected=false;player.disconnectedAt=player.lastSeenAt;}
   const disconnected=match.players.find(player=>!player.connected&&player.disconnectedAt!==null&&now-player.disconnectedAt>=config.reconnectGraceSeconds*1000);
   if(disconnected){match.status='complete';match.resultReason='disconnect';match.winnerId=match.players.find(player=>player!==disconnected)?.userId??null;match.revision++;return match;}
   if (match.phase === 'capture') {

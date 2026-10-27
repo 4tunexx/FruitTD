@@ -22,7 +22,7 @@ import { sharedSfx } from '../../audio/sfx';
 
 type MapView = { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[]; solidCells?:number[]; hazards?:Array<{cell:number;kind:'slow'|'damage'}> };
 type MatchView = { id: string; queue: PvpQueue; status: string; rulesVersion?:number; phase?:'capture'|'siege'|'overtime'; phaseEndsAt?:number; catchables?:Array<{id:string;type:string;fruitKind:string;x:number;y:number}>; testMatch: boolean; remainingMs: number; revision: number; map: MapView | null; mapPool: MapView[]; yourVetoTurn: boolean; vetoesRemaining: number; players: Array<{ turretLoadout?:string[]; userId: string; name: string; avatar?: string; side: string; fruts: number; wallHealth: number; mainLevel?: number; mainLastFiredAt?:number; wallMaxHealth?: number; captured?: Array<{ id: string; type: string; fruitKind?:string }>; hero?: string; wallSkin?: string; powerCasts?:PowerCast[]; abilityLoadout?: string[]; abilityRanks?: Record<string,number>; abilityReadyAt?: Record<string,number>; rallyUntil?: number; rallyReadyAt?: number; score: number; towers: Array<{ id: string; type: string; cell: number; level?: number;lastFiredAt?:number }>; attackers: Array<{ id: string; type: string; progress: number; x?:number;y?:number;boss?:boolean;fruitKind?:string }>; connected: boolean; ratingDelta?: number }>; yourSide: string; winnerId: string | null; resultReason: string | null; yourSequence: number; yourCombo: number };
-type PvpStatus = { success: boolean; error?: string; canStartBotMatch?: boolean; rating?: ArenaRating; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'mainTower' | 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps' | 'incomePerSecond' | 'startingFruts' | 'arenaRules' | 'bossCosts'> };
+type PvpStatus = { success: boolean; error?: string; rankedPenalty?: { leaves:number; bannedUntil:string|null }; canStartBotMatch?: boolean; rating?: ArenaRating; match?: MatchView | null; queued?: PvpQueue | null; challenge?: { challengeId: string; fromId: string; fromName: string } | null; config?: Pick<PvpConfig, 'mainTower' | 'wallHealth' | 'durationSeconds' | 'reconnectGraceSeconds' | 'towers' | 'attacks' | 'maps' | 'incomePerSecond' | 'startingFruts' | 'arenaRules' | 'bossCosts'> };
 const timers = new WeakMap<HTMLElement, number>();
 const realtimeClients = new WeakMap<HTMLElement, AblyRealtime>();
 const cleanups = new WeakMap<HTMLElement, () => void>();
@@ -72,6 +72,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let toolsExpanded=false;
   let hudExpanded=false;
   let surrenderConfirm = false;
+  let rankedConfirm = false;
   let actionError = '';
   let actionFeedback = '';
   let feedbackUntil = 0;
@@ -284,8 +285,9 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
           el('div', {}, [label(queue === 'ranked' ? 'SEASONAL RANKED SIEGE' : 'NORMAL SIEGE', 'ftd-pvp__eyebrow'), el('h2', { text: status.queued === queue ? 'FINDING YOUR RIVAL' : 'CATCH. BUILD. RELEASE.' }), label('1 vs 1 · 20-second catch · 160-second siege · seven tactical maps', 'ftd-pvp__intro')]),
           status.queued === queue
             ? GameButton({ label: 'Cancel search', variant: 'outline', onClick: () => void send('/queue', undefined, 'DELETE') })
-            : GameButton({ label: queue === 'ranked' ? 'Find ranked match' : 'Quick match', tone: 'primary', size: 'lg', onClick: () => void send('/queue', { queue }) }),
+            : GameButton({ label: queue === 'ranked' ? 'Find ranked match' : 'Quick match', tone: 'primary', size: 'lg', disabled: queue === 'ranked' && Boolean(status.rankedPenalty?.bannedUntil && Date.parse(status.rankedPenalty.bannedUntil) > Date.now()), onClick: () => { if (queue === 'ranked') { rankedConfirm = true; render(); } else void send('/queue', { queue }); } }),
         ]),
+        ...(queue === 'ranked' && status.rankedPenalty?.bannedUntil && Date.parse(status.rankedPenalty.bannedUntil) > Date.now() ? [label(`Ranked locked until ${new Date(status.rankedPenalty.bannedUntil).toLocaleTimeString()} · ${status.rankedPenalty.leaves} abandons. Normal Arena is available.`, 'ftd-pvp__notice')] : []),
         label('YOUR BATTLE PLAN', 'ftd-pvp__section-title'),
         el('div', { class: 'ftd-pvp__howto' }, [
           el('div', {}, [el('b', { text: '01 / CATCH' }), el('p', { text: 'Drag moving fruit into your collection box. Each one becomes a free release during siege.' })]),
@@ -297,6 +299,11 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
         ...(queue === 'arena' ? [el('div', { class: 'ftd-pvp__challenge' }, [el('h3', { text: 'PRIVATE DUEL' }), el('label', { htmlFor: 'pvp-friend-select', text: 'Challenge a friend' }), el('select', { id: 'pvp-friend-select', class: 'ftd-pvp__friend-select' }, [el('option', { value: '', text: friendsError ? 'Could not load friends' : friendOptions ? friendOptions.length ? 'Choose a friend' : 'Add a friend first' : 'Loading friends…' }), ...(friendOptions || []).map((friend) => el('option', { value: friend.userId, text: friend.name, selected: friend.userId === selectedFriend }))]), GameButton({ label: 'Send challenge', variant: 'outline', disabled: !selectedFriend || busy, onClick: () => { if (selectedFriend) void send('/challenge', { friendId: selectedFriend }); } })])] : []),
         ...(status.challenge ? [el('div', { class: 'ftd-pvp__incoming' }, [label(`${status.challenge.fromName} challenged you.`), GameButton({ label: 'Accept challenge', tone: 'primary', onClick: () => void send(`/challenge/${status.challenge!.challengeId}/accept`) })])] : []),
         ...(status.canStartBotMatch ? [el('div', { class: 'ftd-pvp__bot-start' }, [label('ADMIN PLAYTEST', 'ftd-pvp__section-title'), label('Play the full siege against a server-controlled opponent. Results do not grant FR, rewards, or badges.', 'ftd-pvp__intro'), el('label', { htmlFor: 'pvp-test-map', text: 'Battlefield' }), el('select', { id: 'pvp-test-map', class: 'ftd-pvp__friend-select' }, (status.config?.maps || []).map((map) => el('option', { value: map.id, text: map.name, selected: map.id === selectedTestMap }))), GameButton({ label: `Test ${queue === 'ranked' ? 'Ranked' : 'Arena'} vs bot`, tone: 'primary', onClick: () => void send('/admin/bot', { queue, mapId: main.querySelector<HTMLSelectElement>('#pvp-test-map')?.value || selectedTestMap }) })])] : []),
+      ]));
+      if (rankedConfirm && queue === 'ranked') body.append(el('div', { class: 'ftd-duel-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Ranked queue warning' }, [
+        el('section', {}, [el('h2', { text: 'Ranked commitment' }), label('Leaving or disconnecting past the reconnect window ends your match as a loss. Ranked queue locks for 20 minutes; from your third abandon, 1 hour, then longer for each further abandon.'),
+          GameButton({ label: 'Stay here', onClick: () => { rankedConfirm = false; render(); } }),
+          GameButton({ label: 'Join Ranked', tone: 'primary', onClick: () => { rankedConfirm = false; void send('/queue', { queue: 'ranked' }); } })]),
       ]));
       main.querySelector<HTMLSelectElement>('#pvp-test-map')?.addEventListener('change', (event) => { selectedTestMap = (event.currentTarget as HTMLSelectElement).value; });
       main.querySelector<HTMLSelectElement>('#pvp-friend-select')?.addEventListener('change', (event) => { selectedFriend = (event.currentTarget as HTMLSelectElement).value; render(); });
@@ -372,7 +379,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       if (current?.status === 'active') void send(`/match/${current.id}/command`, { sequence: current.yourSequence + 1, command });
     };
     if (surrenderConfirm) body.append(el('div', { class: 'ftd-duel-confirm', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Leave match' }, [
-      el('section', {}, [el('h2', { text: 'Leave this match?' }), label(match.testMatch ? 'End this practice match.' : match.queue === 'ranked' ? 'Leaving counts as a Ranked loss.' : 'Your opponent wins if you leave.'),
+      el('section', {}, [el('h2', { text: 'Leave this match?' }), label(match.testMatch ? 'End this practice match.' : match.queue === 'ranked' ? 'Surrender ends this match as a loss and locks Ranked queue for 20 minutes. Your third abandon locks it for 1 hour, then longer.' : 'Your opponent wins if you leave.'),
         GameButton({ label: 'Keep playing', tone: 'primary', onClick: () => { surrenderConfirm = false; render(); } }),
         GameButton({ label: 'Leave match', tone: 'danger', onClick: () => { surrenderConfirm = false; if (match.testMatch) void send(`/match/${match.id}/end-test`); else issue({ type: 'surrender' }); } }),
       ]),

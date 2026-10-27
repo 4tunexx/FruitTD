@@ -52,7 +52,10 @@ test('a routed siege reaches the rival wall on every map with a legal tower plac
     const cell=map.buildCells.find(candidate=>arenaBuildAllowed(match,'blue',candidate));assert.ok(cell!==undefined,`${map.name} needs a build hex`);
     applyPvpCommand(match,'blue',{type:'build',tower:'guillotine',cell},1,21001,balance);
     applyPvpCommand(match,'blue',{type:'send',enemy:'normal'},2,21002,balance);
-    for(let second=1;second<=155&&match.status==='active';second++)advancePvpMatch(match,1,21002+second*1000,balance);
+    for(let second=1;second<=155&&match.status==='active';second++){
+      for(const player of match.players)player.lastSeenAt=21002+second*1000;
+      advancePvpMatch(match,1,21002+second*1000,balance);
+    }
     assert.ok(match.players[1].wallHealth<balance.wallHealth,`${map.name} must let the attacker reach the wall`);
   }
 });
