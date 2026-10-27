@@ -367,7 +367,7 @@ test('capture countdown transitions to direct free release controls using author
     assert.equal(document.body.querySelector('.ftd-arena-capture-status'),null);
     const releaseTab=document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-capture"]')!;
     assert.ok(releaseTab.closest('.ftd-duel-rail'),'release does not require opening the controls menu');
-    releaseTab.click();
+    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'),false,'caught zombies are visible as soon as siege starts');
     const button=document.body.querySelector<HTMLButtonElement>('[data-testid="arena-release"]')!;
     assert.match(button.textContent!,/FREE/);const funds=game.players[0].fruts;
     button.click();await flush();

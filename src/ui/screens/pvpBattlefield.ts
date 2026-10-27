@@ -259,14 +259,12 @@ export class PvpBattlefield {
             while (rig.group.children.length) this.release(rig.group.children[0] as Mesh);
             const marker = new Mesh(new CircleGeometry(.6, 40), new MeshBasicMaterial({ color: 0x99b89a, side: DoubleSide })); marker.position.y = .7; marker.add(combatTokenFrame(.6, 'tower')); rig.group.add(marker);
           }
-          const bodies: Mesh[] = []; rig.group.traverse((object) => { if (object instanceof Mesh) bodies.push(object); });
-          for (const object of bodies) { if (object.userData.combatFrame) continue; const outline = new Mesh(object.geometry, new MeshBasicMaterial({ color: 0x07110b, side: BackSide })); outline.scale.setScalar(1.06); object.add(outline); }
-          rig.group.position.copy(this.cellPoint(tower.cell, own)); rig.group.scale.setScalar(1.15);
+          rig.group.position.copy(this.cellPoint(tower.cell, own));
           const pad = new Mesh(new PlaneGeometry(1.4,.2), new MeshLambertMaterial({ color: this.sideColors[player.side] ?? 0xa3e635, side: DoubleSide }));
           rig.group.add(pad); this.pieces.add(rig.group); this.towers.set(tower.id, { rig, type: tower.type, own, cell: tower.cell, level: pvpTowerLevel(tower.level) });
         }
         const entry = this.towers.get(tower.id);
-        if (entry) { entry.rig.group.position.copy(this.cellPoint(tower.cell,own));entry.level = pvpTowerLevel(tower.level);entry.lastFiredAt=tower.lastFiredAt; entry.rig.group.scale.setScalar(1.15 + (entry.level - 1) * .14); }
+        if (entry) { entry.rig.group.position.copy(this.cellPoint(tower.cell,own));entry.level = pvpTowerLevel(tower.level);entry.lastFiredAt=tower.lastFiredAt; entry.rig.group.scale.setScalar(1); }
       }
       for (const fruit of player.attackers) {
         fruitIds.add(fruit.id);
@@ -315,7 +313,7 @@ export class PvpBattlefield {
         motion.update(snapshot.shared ? fruit.y ?? fruit.progress : fruit.progress, speed, stamp, receivedAt);
         if (snapshot.rulesVersion === 2 && fruit.x !== undefined && fruit.y !== undefined) {
           let arenaMotion = this.arenaMovement.get(fruit.id);
-          if (!arenaMotion) { arenaMotion = new NetworkMotion2D(); this.arenaMovement.set(fruit.id, arenaMotion); }
+          if (!arenaMotion) { arenaMotion = new NetworkMotion2D(true); this.arenaMovement.set(fruit.id, arenaMotion); }
           const maxSpeed = config.attacks[fruit.type]?.speed ?? 2;
           arenaMotion.update(fruit.x, fruit.y, maxSpeed, stamp, receivedAt, Boolean(fruit.fighting || fruit.attackingTower));
         }
