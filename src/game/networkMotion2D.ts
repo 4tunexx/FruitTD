@@ -11,7 +11,7 @@ export class NetworkMotion2D {
     const elapsed = Math.max(.05, (now - this.at) / 1000);
     const dx = x - this.x, dy = y - this.y;
     const distance = Math.hypot(dx, dy);
-    const speed = halted || elapsed > 1.5 ? 0 : Math.min(maxSpeed, distance / elapsed);
+    const speed = this.stamp === undefined || halted || elapsed > 1.5 ? 0 : Math.min(maxSpeed, distance / elapsed);
     this.vx = distance ? dx / distance * speed : 0;
     this.vy = distance ? dy / distance * speed : 0;
     this.x = x; this.y = y; this.at = now;

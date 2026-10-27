@@ -27,6 +27,13 @@ export function battlefieldTexture():Texture|null {
   return terrain;
 }
 
+let pvpTerrain:Texture|null=null;
+export function pvpBattlefieldTexture():Texture|null {
+  if(typeof document==='undefined' || typeof document.createElementNS!=='function')return null;
+  if(!pvpTerrain){pvpTerrain=new TextureLoader().load('/assets/battle/pvp-long-road-v1.webp');pvpTerrain.colorSpace=SRGBColorSpace;}
+  return pvpTerrain;
+}
+
 /** One shared atlas upload; UV views are cached rather than allocating per enemy. */
 export function characterPortrait(key:string):Texture|null {
   const cell=PORTRAIT_CELLS[key];

@@ -158,10 +158,10 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     return new Response(JSON.stringify({ success: true, rating, config, match: acknowledged ? null : view() }));
   };
   let select: ((cell: number) => void) | null = null;
-  let disposed = 0; let scenes = 0;
+  let disposed = 0; let scenes = 0; let cameraChanges = 0;
   const options: PvpHubOptions = { realtime: false, polling: false, createBattlefield: (_match, _config, _command, onSelect) => {
     select = onSelect; scenes++;
-    return { element: document.createElement('div'), interacting: false, update: () => undefined, selectCell: () => undefined, dispose: () => { disposed++; } };
+    return { element: document.createElement('div'), interacting: false, setAttackView: () => { cameraChanges++; }, update: () => undefined, selectCell: () => undefined, dispose: () => { disposed++; } };
   } };
   const priorWidth = window.innerWidth; window.innerWidth = 390;
   const hub = document.createElement('div'); hub.classList.add('ftd-hub'); document.body.appendChild(hub);
@@ -193,21 +193,19 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.ok(document.body.querySelector('[data-testid="arena-quick-buy"]'), 'purchased fruit appears in the quick release panel');
     assert.ok(document.body.querySelector('[data-testid="arena-buy-again"]'), 'last purchase has a one-tap repeat action');
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-controls-toggle"]')!.click();
-    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), true, 'opening battle controls closes the loadout sheet');
-    assert.equal(document.body.querySelector('.ftd-duel-tools')!.hasAttribute('hidden'), false, 'secondary actions appear in one popup');
-    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-upgrade-main"]')!.click(); await flush(); assert.equal(game.players[0].mainLevel, 2); assert.equal(game.players[0].wallMaxHealth, 125);
-    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-rally"]')!.click(); await flush(); assert.ok(game.players[0].rallyUntil! > Date.now());
+    assert.ok(document.body.querySelector('[data-testid="arena-main-upgrade"]'), 'tower button opens the main tower upgrades');
+    button('Level up').click(); await flush(); assert.equal(game.players[0].mainLevel, 2); assert.equal(game.players[0].wallMaxHealth, 125);
     select!(cell);await flush();
-    assert.equal(document.body.querySelector('.ftd-duel-tools')!.hasAttribute('hidden'), true, 'selecting a build pad closes battle controls');
-    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), false, 'core loadout is easy to scan');
-    assert.equal(document.body.querySelector('[data-testid="arena-build-catcher"]'), null);
-    button('+ More towers').click();
+    assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), false);
+    assert.ok(document.body.querySelector('[data-testid="arena-build-catcher"]'), 'all towers are mounted in the swipeable picker');
     game.players[0].attackers.push({ id: 'weakened', type: 'normal', hp: 25, progress: Math.ceil(config.map.height/2) });
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-build-catcher"]')!.click(); await flush(); assert.equal(game.players[0].captured!.length, 1);
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-capture"]')!.click(); document.body.querySelector<HTMLButtonElement>('[data-testid="arena-release"]')!.click(); await flush();
     assert.equal(game.players[0].captured!.length, 0); assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize! + 1);
     assert.equal(game.players[1].attackers.at(-1)!.released, true);
     assert.equal(scenes, 1, 'snapshots must reuse the renderer');
+    assert.equal(cameraChanges, 0, 'shop, release and upgrades never change the camera');
+    assert.equal(document.body.querySelector('.ftd-duel-status'), null, 'no giant status panels cover the field');
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-leave"]')!.click(); assert.ok(document.body.querySelector('[role="dialog"]'));
     button('Leave match').click(); await flush();
     assert.equal(game.status, 'complete'); assert.match(document.body.textContent!, /DEFEAT/); assert.equal(document.body.querySelectorAll('.ftd-result-faceoff').length, 1); assert.equal(disposed, 0, 'battlefield remains visible behind the result');
@@ -217,7 +215,7 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     assert.equal(disposed, 1, 'acknowledging the result releases the renderer');
     assert.equal(hub.classList.contains('is-pvp-battle'), false);
     assert.ok(root.querySelector('.ftd-pvp__launch'), 'returning from a match restores the matchmaking launch panel');
-    assert.deepEqual(commands.map(command => command.type), ['build', 'upgrade', 'sell', 'send', 'upgrade-main', 'rally', 'build', 'release', 'surrender']);
+    assert.deepEqual(commands.map(command => command.type), ['build', 'upgrade', 'sell', 'send', 'upgrade-main', 'build', 'release', 'surrender']);
   } finally { window.innerWidth = priorWidth; disposePvpHub(root); globalThis.fetch = priorFetch; setAuthToken(null); resetDom(); }
 });
 

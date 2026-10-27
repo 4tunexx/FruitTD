@@ -111,7 +111,9 @@ export function beginArena(match: ArenaMatch, now: number, config: PvpConfig): v
 
 function catchPosition(item: ArenaMatch['catchables'][number], now: number) {
   const t = Math.max(0, (now - item.bornAt) / 1000);
-  return { x: Math.max(.7, Math.min(9.3, item.x + Math.sin(t * .9 + item.y) * 1.1 + Math.sin(t * .43 + item.x) * .35)), y: Math.max(6.8, Math.min(19.5, item.y + Math.cos(t * .72 + item.x) * .85 + Math.sin(t * .37 + item.y) * .4)) };
+  const fromLeft = Number(item.id.split(':').at(-1)) % 2 === 0;
+  return { x: fromLeft ? -1.5 + t * 2.6 : 11.5 - t * 2.6,
+    y: item.y + Math.sin(t * 1.25 + item.y) * .35 };
 }
 export function arenaCatchables(match: ArenaMatch, now: number, userId: string) {
   return match.catchables.filter(item => item.bornAt <= now && item.expiresAt > now && !item.claimedBy.includes(userId)).map(item => ({ ...item, ...catchPosition(item, now) }));

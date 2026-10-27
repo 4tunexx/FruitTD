@@ -15,3 +15,8 @@ test('Arena predicts both axes between snapshots without jumping on correction',
   const stop=motion.sample(3500);
   assert.ok(Math.abs(stop.x-3.6)<.02 && Math.abs(stop.y-8.4)<.02);
 });
+
+ test('a newly released zombie does not extrapolate away from its spawn',()=>{
+  const motion=new NetworkMotion2D();motion.update(5,22,2,1,1000);
+  assert.deepEqual(motion.sample(1500),{x:5,y:22});
+ });

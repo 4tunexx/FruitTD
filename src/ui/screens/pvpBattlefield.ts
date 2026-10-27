@@ -10,7 +10,7 @@ import {TeamBladeTrails,type TeamStroke} from '../../game/teamBladeTrails';
 import { createBuildPad } from '../../game/buildPads';
 import { TurretEffects } from '../../game/turretEffects';
 import { DefenderMotion } from '../../game/defenderMotion';
-import { characterPortrait, enemyPortrait, battlefieldTexture } from '../../game/characterPortraits';
+import { characterPortrait, enemyPortrait, battlefieldTexture, pvpBattlefieldTexture } from '../../game/characterPortraits';
 import { blendBattlefieldEdges } from '../../game/battlefieldBlend';
 import { faceCombatPortraits } from '../../game/portraitFacing';
 import { combatTokenFrame } from '../../game/combatTokens';
@@ -364,8 +364,8 @@ export class PvpBattlefield {
         mesh=new Mesh(new CircleGeometry(.57,32),new MeshLambertMaterial({color:0xffffff,map:texture,transparent:true,side:DoubleSide,depthWrite:false}));
         mesh.userData.combatPortrait=true;mesh.add(combatTokenFrame(.57));this.pieces.add(mesh);this.catchMeshes.set(item.id,mesh);
       }
-      let motion=this.catchMotion.get(item.id);if(!motion){motion=new NetworkMotion2D();this.catchMotion.set(item.id,motion);}
-      motion.update(item.x,item.y,1.8,JSON.stringify([item.x,item.y]),performance.now());
+      let motion=this.catchMotion.get(item.id);if(!motion){motion=new NetworkMotion2D();motion.update(Number(item.id.split(':').at(-1))%2===0?-1.5:11.5,item.y,2.7,'spawn',performance.now()-50);this.catchMotion.set(item.id,motion);}
+      motion.update(item.x,item.y,2.7,JSON.stringify([item.x,item.y]),performance.now());
       if(this.captureDrag?.itemId!==item.id){const at=motion.sample(performance.now());mesh.position.copy(pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.8;}
     }
     for(const [id,mesh] of this.catchMeshes)if(!live.has(id)){this.release(mesh);this.catchMeshes.delete(id);this.catchMotion.delete(id);}
@@ -392,17 +392,9 @@ export class PvpBattlefield {
     const fullLength = (map.height + 4) * TILE * (this.snapshot.shared ? 1 : 2);
     const fullWidth = map.width * TILE_X + 5;
     const edgeMode = this.snapshot.shared ? 'all-edges' : 'outer-edges';
-    const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), blendBattlefieldEdges(new MeshBasicMaterial({ color:0xffffff, map:battlefieldTexture(), side:DoubleSide }), edgeMode));
+    const floor = new Mesh(new PlaneGeometry(fullWidth, fullLength), blendBattlefieldEdges(new MeshBasicMaterial({ color:0xffffff, map:this.snapshot.shared?battlefieldTexture():pvpBattlefieldTexture(), side:DoubleSide }), edgeMode));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -.05; floor.renderOrder=-100;
     if (this.snapshot.shared) floor.position.z = (map.height + 2) * TILE / 2;
-    if (!this.snapshot.shared) {
-      // Repeat the Casual scene once per half instead of stretching one image.
-      floor.geometry.dispose(); floor.geometry = new PlaneGeometry(fullWidth, fullLength / 2);
-      floor.position.z = fullLength / 4;
-      const rivalFloor = new Mesh(floor.geometry.clone(), blendBattlefieldEdges((floor.material as MeshBasicMaterial).clone(), edgeMode));
-      rivalFloor.rotation.set(-Math.PI / 2, 0, Math.PI); rivalFloor.position.set(0, -.05, -fullLength / 4); rivalFloor.renderOrder=-100;
-      this.terrain.add(rivalFloor);
-    }
     this.terrain.add(floor);
     if(this.snapshot.rulesVersion===2&&!this.snapshot.shared){
       const lines:Vector3[]=[];
@@ -481,9 +473,6 @@ export class PvpBattlefield {
       rail.userData.rail=healthRail;
       this.health.set(player.userId,rail);
       base.add(wall,keep,healthRail.group);this.terrain.add(base);
-    }
-    if(!this.snapshot.shared){
-      const seam=new Mesh(new PlaneGeometry(map.width*TILE_X,.09),new MeshBasicMaterial({color:0xffe394,transparent:true,opacity:.5}));seam.rotation.x=-Math.PI/2;seam.position.y=.025;this.terrain.add(seam);
     }
     this.resize();
   }

@@ -1133,7 +1133,11 @@ function beginArena(match, now, config) {
 }
 function catchPosition(item, now) {
   const t = Math.max(0, (now - item.bornAt) / 1e3);
-  return { x: Math.max(0.7, Math.min(9.3, item.x + Math.sin(t * 0.9 + item.y) * 1.1 + Math.sin(t * 0.43 + item.x) * 0.35)), y: Math.max(6.8, Math.min(19.5, item.y + Math.cos(t * 0.72 + item.x) * 0.85 + Math.sin(t * 0.37 + item.y) * 0.4)) };
+  const fromLeft = Number(item.id.split(":").at(-1)) % 2 === 0;
+  return {
+    x: fromLeft ? -1.5 + t * 2.6 : 11.5 - t * 2.6,
+    y: item.y + Math.sin(t * 1.25 + item.y) * 0.35
+  };
 }
 function arenaCatchables(match, now, userId) {
   return match.catchables.filter((item) => item.bornAt <= now && item.expiresAt > now && !item.claimedBy.includes(userId)).map((item) => ({ ...item, ...catchPosition(item, now) }));

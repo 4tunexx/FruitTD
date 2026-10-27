@@ -135,3 +135,15 @@ test('new build cannot materialize inside a live zombie',()=>{
   match.players[0].attackers=[{id:'on-pad',type:'normal',ownerId:'red',hp:100,x:cell%10+.5+(row%2?.5:0),y:row+.5-24,progress:0}];
   assert.equal(arenaBuildAllowed(match,'blue',cell),false);
 });
+
+test('catch fruit enter from alternating sides and cross smoothly without hex snapping',()=>{
+  const match=arena();
+  for(const item of match.catchables){
+    const start=arenaCatchables(match,item.bornAt,'blue').find(fruit=>fruit.id===item.id)!;
+    const next=arenaCatchables(match,item.bornAt+100,'blue').find(fruit=>fruit.id===item.id)!;
+    const left=Number(item.id.split(':')[1])%2===0;
+    assert.equal(start.x,left?-1.5:11.5);
+    assert.ok(Math.abs(next.x-start.x-(left?.26:-.26))<1e-8);
+    assert.ok(Math.abs(next.y-start.y)<.05);
+  }
+});
