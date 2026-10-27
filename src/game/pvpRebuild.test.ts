@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULT_PVP_CONFIG, applyPvpCommand, createPvpPlayer, newPvpMatch, advancePvpMatch } from './pvp';
-import { arenaBuildAllowed, arenaCatchables, arenaLayoutValid, arenaMap, beginArena, rebuiltPvpConfig, type ArenaMatch } from './pvpRebuild';
+import { arenaBuildAllowed, arenaCatchables, arenaLayoutValid, arenaMap, arenaTurretStats, beginArena, rebuiltPvpConfig, type ArenaMatch } from './pvpRebuild';
 import { applyCoopCommand, joinCoopMatch, newCoopMatch, type CoopPlayer } from './onlineCoop';
 
 const config=rebuiltPvpConfig(DEFAULT_PVP_CONFIG);
+test('Arena turret reach stays local even for a max-level railgun',()=>{
+  assert.ok(arenaTurretStats(config.towers.railgun!,3).range<=4.5);
+  assert.ok(arenaTurretStats(config.towers.guillotine!,1).range<config.towers.guillotine!.range);
+});
 function arena(mapId='orchard-crossing') {
   const started=1000;
   const match=newPvpMatch('rebuilt-test','arena',[createPvpPlayer('blue','Blue','blue',config,started),createPvpPlayer('red','Red','red',config,started)],started,config) as ArenaMatch;

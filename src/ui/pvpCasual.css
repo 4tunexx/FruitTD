@@ -1,0 +1,21 @@
+/* PvP combat uses the same angular brass controls and left power stack as Casual. */
+.ftd-pvp.is-battle .ftd-pvp-scene .ftd-duel-powers {
+  position:absolute; z-index:8; top:80px; left:8px; right:auto; bottom:auto;
+  display:grid; grid-template-columns:58px; gap:8px; width:58px;
+  pointer-events:none;
+}
+.ftd-pvp.is-battle .ftd-duel-powers .hero-ability-slot { pointer-events:auto; border-radius:0; }
+.ftd-pvp.is-battle :is(.ftd-duel-icon-button,.ftd-duel-card,.ftd-duel-panel,.ftd-duel-panel-close,.ftd-duel-resource,.ftd-duel-upgrade,.ftd-duel-wallet,.ftd-duel-tools button) {
+  border-radius:0!important; clip-path:none;
+}
+.ftd-pvp.is-battle .ftd-duel-dock { background:#151c1bea; border-top:2px solid #bd934d; }
+.ftd-pvp.is-battle .ftd-duel-icon-button { background:#202825; color:#f4e3b6; border:1px solid #aa884b; box-shadow:0 2px 0 #080c0a; }
+.ftd-pvp.is-battle .ftd-duel-icon-button.is-active { background:#9a7132; color:#fff2cf; border-color:#f0c669; }
+.ftd-pvp.is-battle .ftd-duel-panel { background:#151e1bf5; border:1px solid #ab884a; box-shadow:0 8px 24px #0009; overflow:auto; }
+.ftd-pvp.is-battle .ftd-duel-card { background:#202a25; border:1px solid #8c754b; box-shadow:none; }
+.ftd-pvp.is-battle .ftd-duel-card__art { border-radius:0; background:#303b32; border:1px solid #ab8d50; box-shadow:none; }
+@media(max-width:600px) {
+  .ftd-pvp.is-battle .ftd-duel-panel { bottom:54px; max-height:min(46dvh,370px); padding:8px; overflow:auto; background:#151e1bf5; border:1px solid #ab884a; }
+  .ftd-pvp.is-battle .ftd-duel-card { flex:0 0 82px; min-width:82px; max-width:82px; padding:5px; }
+  .ftd-pvp.is-battle .ftd-duel-resource { background:#202825; border:1px solid #aa884b; backdrop-filter:none; }
+}

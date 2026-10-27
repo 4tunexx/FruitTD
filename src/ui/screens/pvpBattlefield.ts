@@ -29,6 +29,7 @@ import { loadSave, WALL_SKINS } from '../../game/save';
 import { heroDef, type HeroId } from '../../game/heroes';
 import { enemyKindToStudioKey, heroIdToStudioKey, sampleStudioTexture, turretLevelTuning, fireStudioEvent, playStudioSound, getStudioEntityData, createStudioAnimForKey, updateStudioAnim, type StudioAnimState } from '../../game/studioRuntime';
 import { pvpTowerLevel, pvpTowerStats, pvpBuildCellAllowed, type PvpCommand, type PvpConfig, type PvpMap } from '../../game/pvp';
+import { arenaTurretStats } from '../../game/pvpRebuild';
 import { el } from '../components/dom';
 import { sharedSfx } from '../../audio/sfx';
 
@@ -291,7 +292,7 @@ export class PvpBattlefield {
           }
             const bar = new Group(); bar.position.y = .85;
             const back = new Mesh(new PlaneGeometry(.85, .08), new MeshBasicMaterial({ color: 0x07120b, side: DoubleSide }));
-            const fill = new Mesh(new PlaneGeometry(.75, .045), new MeshBasicMaterial({ color: teamColor, side: DoubleSide }));
+            const fill = new Mesh(new PlaneGeometry(.75, .045), new MeshBasicMaterial({ color: 0x9bd65b, side: DoubleSide }));
             bar.add(back, fill); mesh.add(bar); mesh.userData.hpBar = bar; mesh.userData.hpFill = fill;
           this.pieces.add(mesh); entry = { mesh, player, progress: fruit.progress, type: fruit.type, own }; this.fruits.set(fruit.id, entry);
         }
@@ -605,7 +606,7 @@ export class PvpBattlefield {
     const base = tower ? this.config.towers[tower.type] : undefined;
     if (cell !== null && tower && base) {
       this.rangeMarker.position.copy(this.cellPoint(cell,true));this.rangeMarker.position.y=.18;
-      this.rangeMarker.scale.setScalar(pvpTowerStats(base,tower.level).range*TILE);this.rangeMarker.visible=true;
+      this.rangeMarker.scale.setScalar((this.snapshot.rulesVersion===2?arenaTurretStats(base,tower.level):pvpTowerStats(base,tower.level)).range*TILE);this.rangeMarker.visible=true;
     }
     if (cell !== null && cell>=0) { this.marker.position.copy(this.cellPoint(cell, true)); this.marker.position.y = .23; }
   }
@@ -705,7 +706,7 @@ export class PvpBattlefield {
     }
     for (const entry of this.towers.values()) {
       entry.rig.refreshAppearance(entry.level);
-      const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.visible && (this.snapshot.shared || this.snapshot.rulesVersion===2 || fruit.progress >= 0) && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.type] ? pvpTowerStats(this.config.towers[entry.type]!, entry.level).range : 0)) * TILE);
+      const target = [...this.fruits.values()].find((fruit) => fruit.own === entry.own && fruit.mesh.visible && (this.snapshot.shared || this.snapshot.rulesVersion===2 || fruit.progress >= 0) && fruit.mesh.position.distanceTo(entry.rig.group.position) < ((this.config.towers[entry.type] ? (this.snapshot.rulesVersion===2?arenaTurretStats(this.config.towers[entry.type]!, entry.level):pvpTowerStats(this.config.towers[entry.type]!, entry.level)).range : 0)) * TILE);
       if(target){const d=target.mesh.position.clone().sub(entry.rig.group.position);entry.rig.aimAt(d.x,d.z);}
       entry.rig.animate(dt,Boolean(target));
       entry.rig.group.rotation.y = 0;

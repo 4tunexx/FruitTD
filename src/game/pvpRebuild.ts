@@ -9,6 +9,10 @@ import { turretVictims } from './turretTargets';
 export type ArenaHazard = { cell: number; kind: 'slow' | 'damage' };
 export type ArenaUnit = PvpPlayer['attackers'][number] & { x: number; y: number; boss?: boolean; fruitKind?: string; ownerId?: string; hazardAt?: number; specialAt?: number };
 export type ArenaMatch = PvpMatch & { rulesVersion: 2; phase: 'capture' | 'siege' | 'overtime'; phaseEndsAt: number; captureStartAt: number; captureSeed: number; overtimeWaveAt?:number; catchables: Array<{ id: string; type: string; fruitKind: string; x: number; y: number; bornAt: number; expiresAt: number; claimedBy: string[] }> };
+export function arenaTurretStats(base: PvpConfig['towers'][string], level = 1) {
+  const stats = pvpTowerStats(base, level);
+  return { ...stats, range: Math.min(4.5, stats.range * .7) };
+}
 
 const TYPES = ['normal', 'swift', 'chainburst', 'spitter', 'explosive', 'healer', 'armored', 'splitter'] as const;
 const FRUIT_KINDS = ['orange', 'strawberry', 'kiwi', 'lemon', 'bomb', 'pineapple', 'watermelon', 'apple'] as const;
@@ -211,7 +215,8 @@ export function advanceArena(match: ArenaMatch, elapsed: number, now: number, co
       const reach = unit.boss || opponent?.boss ? 1.45 : .9;
       if (target && Math.hypot(target.x-from.x,target.y-from.y) <= reach + 1e-6) {
         unit.fighting = true; unit.fightTargetId = opponent!.id; unit.lastClashAt = Math.floor(now / 300) * 300;
-        damage.set(opponent!.id, (damage.get(opponent!.id) ?? 0) + config.attacks[unit.type]!.wallDamage * 1.8 * stepDt);
+        const attack = config.attacks[unit.type]!;
+        damage.set(opponent!.id, (damage.get(opponent!.id) ?? 0) + Math.max(26, attack.wallDamage * 3, attack.health * .24) * stepDt);
         continue;
       }
       // Seek nearby rivals anywhere on the field; otherwise advance freely.
@@ -245,7 +250,7 @@ export function advanceArena(match: ArenaMatch, elapsed: number, now: number, co
       for (const victim of victims) { applyWeaponStatus(victim,type,now,stats.damage); victim.hp -= Math.round(stats.damage * (victim.type === 'armored' && type !== 'laser' && type !== 'railgun' ? .55 : 1) * (now < (player.rallyUntil ?? 0) ? PVP_RALLY.damageMultiplier : 1)); if (type === 'sprinkler') { victim.slowUntil = now + 1200; victim.slowMultiplier = .55; } }
       return true;
     };
-    for (const tower of player.towers) { const base = config.towers[tower.type]; if (!base||now<(tower.jammedUntil??0)) continue; const localRow=Math.floor(tower.cell/map.width),globalRow=player.side==='blue'?24+localRow:23-localRow; const y = (player.side === 'blue' ? 1 : -1) * (localRow + .5); const stats = pvpTowerStats(base, tower.level); if (fire(tower.cell % map.width + .5+(globalRow%2?.5:0), y, stats, tower.lastFiredAt ?? tower.placedAt, base.chassis ?? tower.type, pvpTowerLevel(tower.level))) tower.lastFiredAt = now; }
+    for (const tower of player.towers) { const base = config.towers[tower.type]; if (!base||now<(tower.jammedUntil??0)) continue; const localRow=Math.floor(tower.cell/map.width),globalRow=player.side==='blue'?24+localRow:23-localRow; const y = (player.side === 'blue' ? 1 : -1) * (localRow + .5); const stats = arenaTurretStats(base, tower.level); if (fire(tower.cell % map.width + .5+(globalRow%2?.5:0), y, stats, tower.lastFiredAt ?? tower.placedAt, base.chassis ?? tower.type, pvpTowerLevel(tower.level))) tower.lastFiredAt = now; }
     if (fire(map.width/2, player.side === 'blue' ? 23 : -23, pvpTowerStats({...config.mainTower,cost:0},player.mainLevel), player.mainLastFiredAt ?? 0, 'main', pvpTowerLevel(player.mainLevel))) player.mainLastFiredAt = now;
     for (const unit of [...enemy]) {
       if (unit.hp <= 0) {

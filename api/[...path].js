@@ -1022,6 +1022,10 @@ function arenaNavigation(width, obstacles, direction) {
 }
 
 // src/game/pvpRebuild.ts
+function arenaTurretStats(base, level = 1) {
+  const stats = pvpTowerStats(base, level);
+  return { ...stats, range: Math.min(4.5, stats.range * 0.7) };
+}
 var TYPES = ["normal", "swift", "chainburst", "spitter", "explosive", "healer", "armored", "splitter"];
 var FRUIT_KINDS = ["orange", "strawberry", "kiwi", "lemon", "bomb", "pineapple", "watermelon", "apple"];
 var ARENA_BOSSES = {
@@ -1304,7 +1308,8 @@ function advanceArena(match, elapsed, now, config) {
         unit2.fighting = true;
         unit2.fightTargetId = opponent.id;
         unit2.lastClashAt = Math.floor(now / 300) * 300;
-        damage.set(opponent.id, (damage.get(opponent.id) ?? 0) + config.attacks[unit2.type].wallDamage * 1.8 * stepDt);
+        const attack = config.attacks[unit2.type];
+        damage.set(opponent.id, (damage.get(opponent.id) ?? 0) + Math.max(26, attack.wallDamage * 3, attack.health * 0.24) * stepDt);
         continue;
       }
       const goal = target2 && Math.hypot(target2.x - from.x, target2.y - from.y) < 3.5 ? target2 : nav.goal(from);
@@ -1364,7 +1369,7 @@ function advanceArena(match, elapsed, now, config) {
       if (!base || now < (tower2.jammedUntil ?? 0)) continue;
       const localRow = Math.floor(tower2.cell / map2.width), globalRow = player.side === "blue" ? 24 + localRow : 23 - localRow;
       const y = (player.side === "blue" ? 1 : -1) * (localRow + 0.5);
-      const stats = pvpTowerStats(base, tower2.level);
+      const stats = arenaTurretStats(base, tower2.level);
       if (fire(tower2.cell % map2.width + 0.5 + (globalRow % 2 ? 0.5 : 0), y, stats, tower2.lastFiredAt ?? tower2.placedAt, base.chassis ?? tower2.type, pvpTowerLevel(tower2.level))) tower2.lastFiredAt = now;
     }
     if (fire(map2.width / 2, player.side === "blue" ? 23 : -23, pvpTowerStats({ ...config.mainTower, cost: 0 }, player.mainLevel), player.mainLastFiredAt ?? 0, "main", pvpTowerLevel(player.mainLevel))) player.mainLastFiredAt = now;

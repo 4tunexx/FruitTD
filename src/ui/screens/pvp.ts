@@ -11,13 +11,13 @@ import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import { getAuthToken } from '../../services/auth';
 import { heroAbility } from '../../game/heroAbilities';
-import { PVP_MAX_TOWER_LEVEL, pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, pvpTowerStats, pvpMainUpgradeCost, pvpReleaseCost, type PvpConfig, type PvpQueue } from '../../game/pvp';
+import { PVP_MAX_TOWER_LEVEL, pvpTowerLevel, pvpUpgradeCost, pvpSellRefund, pvpMainUpgradeCost, pvpReleaseCost, type PvpConfig, type PvpQueue } from '../../game/pvp';
 import type { Realtime as AblyRealtime } from 'ably';
 import { socialApi } from '../../services/social';
 import type { PvpBattlefield } from './pvpBattlefield';
 import { turretDef, type TurretKind } from '../../game/turrets';
 import { LoadingIndicator } from '../components/loading';
-import { ARENA_BOSSES } from '../../game/pvpRebuild';
+import { ARENA_BOSSES, arenaTurretStats } from '../../game/pvpRebuild';
 import { sharedSfx } from '../../audio/sfx';
 
 type MapView = { id: string; name: string; width: number; height: number; pathCells: number[]; buildCells: number[]; solidCells?:number[]; hazards?:Array<{cell:number;kind:'slow'|'damage'}> };
@@ -72,6 +72,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   let toolsExpanded=false;
   let hudExpanded=false;
   let surrenderConfirm = false;
+  const powerRail=el('div',{class:'ftd-duel-powers','aria-label':'Equipped hero powers'});
   let rankedConfirm = false;
   let actionError = '';
   let actionFeedback = '';
@@ -462,7 +463,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     const actionRail = el('div', { class:'ftd-duel-rail', 'aria-label':'Battle actions' });
     const openDock = (tab:'build'|'attack'|'capture') => { const wasOpen=dockExpanded&&dockTab===tab;dockTab=tab;dockExpanded=!wasOpen;toolsExpanded=false;selectedCell=null;pendingBuildCell=null;battlefield?.setAttackView?.(dockExpanded&&tab==='attack');render(); };
     const railButton = (iconName:string, labelText:string, action:()=>void, disabled=false, testId?:string, selected=false) => {
-      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':`RELEASE ${own.captured?.length ?? 0}`,'arena-rally':'RALLY','arena-upgrade-main':'KEEP'} as Record<string,string>)[testId??'']??'MORE'})]);
+      const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SEND','arena-tab-capture':`RELEASE ${own.captured?.length ?? 0}`,'arena-rally':'BOOST','arena-upgrade-main':'TOWER'} as Record<string,string>)[testId??'']??'MORE'})]);
       button.addEventListener('click',action);return button;
     };
     actionRail.append(
@@ -473,19 +474,20 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     more.setAttribute('aria-expanded',String(toolsExpanded));actionRail.append(more);
     const tools=el('div',{class:'ftd-duel-tools',hidden:!toolsExpanded});
     tools.append(
-      railButton('Zap',rallyActive?'Rally active':rallyWait?`Rally ready in ${rallyWait}s`:'Rally · +25% damage',()=>issue({type:'rally'}),busy||rallyWait>0,'arena-rally'),
-      railButton('Castle',mainLevel===PVP_MAX_TOWER_LEVEL?'Main tower · max level':`Upgrade main tower · ${mainCost} Fruts`,()=>issue({type:'upgrade-main'}),busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,'arena-upgrade-main'),
+      railButton('Zap',rallyActive?'Damage boost active for your defence':rallyWait?`Damage boost ready in ${rallyWait}s`:'Boost your towers by 25% for 8 seconds · free',()=>issue({type:'rally'}),busy||rallyWait>0,'arena-rally'),
+      railButton('Castle',mainLevel===PVP_MAX_TOWER_LEVEL?'Main tower · max level':`Upgrade your main tower and wall · ${mainCost} Fruts`,()=>issue({type:'upgrade-main'}),busy||mainLevel>=PVP_MAX_TOWER_LEVEL||own.fruts<mainCost,'arena-upgrade-main'),
     );
-    const powerRail=el('div',{class:'ftd-duel-powers','aria-label':'Equipped hero powers'});
-    for (const id of (own.abilityLoadout ?? []).slice(0,3)) {
+    const powerIds=(own.abilityLoadout ?? []).slice(0,3).filter(id=>Boolean(heroAbility(id)));
+    if ([...powerRail.querySelectorAll<HTMLButtonElement>('[data-power]')].map(button=>button.dataset.power).join(',')!==powerIds.join(',')) {
+      powerRail.replaceChildren(...powerIds.map(id=>powerButton(id,()=>issue({type:'ability',abilityId:id}))));
+    }
+    for (const id of powerIds) {
       const ability=heroAbility(id); if(!ability)continue;
-      const power = powerButton(id, () => issue({type:'ability',abilityId:id}));
+      const power = powerRail.querySelector<HTMLButtonElement>(`[data-power="${id}"]`)!;
       power.dataset.testid = `arena-ability-${id}`;
       updatePowerButton(power, id, (own.abilityReadyAt ?? {})[id] ?? 0, own.fruts, busy,'fruts',own.abilityRanks?.[id]??1);
-      powerRail.appendChild(power);
     }
     tray.append(resource,actionRail,tools);
-    battlefield.element.querySelector('.ftd-duel-powers')?.remove();
     battlefield.element.appendChild(powerRail);
     const panel = el('div',{class:`ftd-duel-panel${dockExpanded?' is-open':''}`,hidden:!dockExpanded});
     const closePanel=el('button',{class:'ftd-duel-panel-close',type:'button','aria-label':'Close action panel'},[lucideIcon('X','',18)]);
@@ -543,7 +545,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const level = pvpTowerLevel(selected.level);const cost=pvpUpgradeCost(selectedBase.cost,level);
       panel.append(el('div',{class:'ftd-duel-upgrade','data-testid':'arena-tower-upgrade'},[
         lucideIcon(towerIcons[selected.type]||'TowerControl','',24),
-        el('div',{},[el('strong',{text:`${towerName(selected.type)} · LV ${level}`} ),el('small',{text:`${pvpTowerStats(selectedBase,level).damage} damage · ${pvpTowerStats(selectedBase,level).range} range`})]),
+        el('div',{},[el('strong',{text:`${towerName(selected.type)} · LV ${level}`} ),el('small',{text:`${arenaTurretStats(selectedBase,level).damage} damage · ${arenaTurretStats(selectedBase,level).range.toFixed(1)} range`})]),
         GameButton({label:level>=PVP_MAX_TOWER_LEVEL?'MAX':`Upgrade ${cost}`,size:'sm',tone:'primary',disabled:busy||level>=PVP_MAX_TOWER_LEVEL||own.fruts<cost,onClick:()=>issue({type:'upgrade',towerId:selected.id})}),
         GameButton({label:`Sell +${pvpSellRefund(selectedBase.cost,level)}`,size:'sm',variant:'outline',disabled:busy,onClick:()=>{selectedCell=null;issue({type:'sell',towerId:selected.id});}}),
       ]));
