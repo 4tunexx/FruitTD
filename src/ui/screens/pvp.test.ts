@@ -190,6 +190,8 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-attack"]')!.click();
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-send-normal"]')!.click(); await flush();
     assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize);
+    assert.ok(document.body.querySelector('[data-testid="arena-quick-buy"]'), 'purchased fruit appears in the quick release panel');
+    assert.ok(document.body.querySelector('[data-testid="arena-buy-again"]'), 'last purchase has a one-tap repeat action');
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-controls-toggle"]')!.click();
     assert.equal(document.body.querySelector('.ftd-duel-panel')!.hasAttribute('hidden'), true, 'opening battle controls closes the loadout sheet');
     assert.equal(document.body.querySelector('.ftd-duel-tools')!.hasAttribute('hidden'), false, 'secondary actions appear in one popup');
