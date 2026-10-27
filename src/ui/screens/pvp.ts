@@ -123,6 +123,19 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     clearTimeout(releaseTimer);
     releaseTimer=setTimeout(()=>{if(renderPending&&!disposed&&main.isConnected)requestRender();},200);
   };
+  const dismissOutside = (event: PointerEvent) => {
+    const target=event.target as HTMLElement|null;
+    if(!target?.closest || target.closest('.ftd-pvp')!==main)return;
+    if(surrenderConfirm && target.classList.contains('ftd-duel-confirm')){
+      surrenderConfirm=false;target.remove();return;
+    }
+    if(!dockExpanded || target.closest('.ftd-duel-panel,.ftd-duel-rail,.ftd-duel-powers,[role="dialog"]'))return;
+    dockExpanded=false;toolsExpanded=false;selectedCell=null;pendingBuildCell=null;
+    battlefield?.selectCell(null);
+    const panel=body.querySelector<HTMLElement>('.ftd-duel-panel');if(panel)panel.hidden=true;
+    renderPending=true;
+  };
+  document.addEventListener('pointerdown',dismissOutside,true);
   main.addEventListener('scroll',scrollControls,true);
   main.addEventListener('pointerdown', pointerDown);
   document.addEventListener('pointerup', pointerUp);
@@ -140,6 +153,7 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
   };
   const releaseInput = () => {
     clearTimeout(releaseTimer);
+    document.removeEventListener('pointerdown',dismissOutside,true);
     document.removeEventListener('pointerup', pointerUp);
     document.removeEventListener('pointercancel', pointerUp);
     main.removeEventListener('scroll',scrollControls,true);

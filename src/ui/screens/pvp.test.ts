@@ -188,6 +188,12 @@ for (const queue of ['arena', 'ranked'] as const) test(`${queue} UI builds, upgr
     button('Upgrade').click(); await flush(); assert.equal(game.players[0].towers[0]!.level, 2);
     button('Sell +').click(); await flush(); assert.equal(game.players[0].towers.length, 0);
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-attack"]')!.click();
+    const openPanel=document.body.querySelector<HTMLElement>('.ftd-duel-panel')!;
+    document.dispatchEvent({type:'pointerdown',target:openPanel} as unknown as Event);
+    assert.equal(openPanel.hasAttribute('hidden'),false,'taps inside keep the panel open');
+    document.dispatchEvent({type:'pointerdown',target:document.body.querySelector('.ftd-duel-hud')} as unknown as Event);
+    assert.equal(openPanel.hidden,true,'taps outside dismiss the panel');
+    document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-attack"]')!.click();
     document.body.querySelector<HTMLButtonElement>('[data-testid="arena-send-normal"]')!.click(); await flush();
     assert.equal(game.players[1].attackers.length, config.attacks.normal!.packSize);
     assert.ok(document.body.querySelector('[data-testid="arena-quick-buy"]'), 'purchased fruit appears in the quick release panel');

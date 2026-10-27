@@ -93,7 +93,7 @@ export class JuiceSystem {
   private cursor = 0;
   private dirty = true;
 
-  constructor() {
+  constructor(private readonly boundsWidth = ARENA_W, private readonly boundsDepth = ARENA_D) {
     const geo = new SphereGeometry(0.13,5,4);
     const mat = new MeshBasicMaterial({
       color: 0xffffff,
@@ -212,8 +212,8 @@ export class JuiceSystem {
   }
 
   update(dt: number): void {
-    const hw = ARENA_W / 2 - 0.08;
-    const hd = ARENA_D / 2 - 0.08;
+    const hw = this.boundsWidth / 2 - 0.08;
+    const hd = this.boundsDepth / 2 - 0.08;
     const g = 22;
     let any = false;
     for (let i = 0; i < PARTICLE_CAP; i++) {
