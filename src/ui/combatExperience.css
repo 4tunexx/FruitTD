@@ -1018,3 +1018,36 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
   .ftd-pvp.is-battle .ftd-duel-dock { min-height:0; }
   .ftd-pvp.is-battle .ftd-duel-powers { bottom:8px; }
 }
+
+/* Share Casual's actual theme surfaces and turret artwork treatment in Arena. */
+.ftd-pvp.is-battle { background:var(--ftd-color-background)!important; }
+.ftd-pvp.is-battle .ftd-duel-hud,
+.ftd-pvp.is-battle .ftd-duel-resource,
+.ftd-pvp.is-battle .ftd-duel-panel,
+.ftd-pvp.is-battle .ftd-duel-tools:not([hidden]) {
+  color:var(--ftd-color-text); border:1px solid var(--ftd-color-border)!important;
+  background:linear-gradient(150deg,var(--ftd-color-panel-secondary),var(--ftd-color-panel) 75%)!important;
+  box-shadow:inset 0 1px #f8e2b31a,0 8px 25px #0009!important;
+  backdrop-filter:none;
+}
+.ftd-pvp.is-battle .ftd-duel-hud,
+.ftd-pvp.is-battle .ftd-duel-panel { border-radius:var(--ftd-radius-panel)!important; }
+.ftd-pvp.is-battle .ftd-duel-icon-button {
+  background:radial-gradient(circle at 35% 25%,var(--ftd-color-panel-secondary),var(--ftd-color-panel) 75%)!important;
+  border:2px solid var(--ftd-color-accent)!important; color:var(--ftd-color-text)!important;
+  box-shadow:0 3px 10px #000a!important;
+}
+.ftd-pvp.is-battle .ftd-duel-icon-button.is-active { background:var(--ftd-color-primary)!important; color:var(--ftd-color-background)!important; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card {
+  background:linear-gradient(150deg,var(--ftd-color-panel-secondary),var(--ftd-color-panel))!important;
+  border:1px solid var(--ftd-color-border)!important; color:var(--ftd-color-text)!important;
+}
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card__art {
+  width:48px; height:48px; padding:10px; box-sizing:border-box;
+  border:2px solid var(--ftd-color-accent); border-radius:50%;
+  color:var(--ftd-color-primary); background:radial-gradient(circle at 35% 25%,#485055e9,#171d22ef 75%);
+  box-shadow:0 3px 10px #000a;
+}
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card.is-selected { border-color:var(--ftd-color-primary)!important; }
+.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card small { color:var(--ftd-color-text-muted); }
+.ftd-pvp.is-battle .ftd-arena-capture-status,.ftd-pvp.is-battle .ftd-arena-catch-box { background:var(--ftd-color-panel); border-color:var(--ftd-color-accent); color:var(--ftd-color-text); }

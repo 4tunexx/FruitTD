@@ -4,6 +4,7 @@ import { laneFrame } from '../../engine/laneCamera';
 import {TURRET_WEAPONS} from '../../game/turretWeapons';
 import {towerHealthRail} from '../../game/towerHealthRail';
 import { NetworkMotion } from '../../game/networkMotion';
+import { NetworkMotion2D } from '../../game/networkMotion2D';
 import {GraphicsRecovery} from '../../engine/graphicsRecovery';
 import {TeamBladeTrails,type TeamStroke} from '../../game/teamBladeTrails';
 import { createBuildPad } from '../../game/buildPads';
@@ -119,6 +120,7 @@ export class PvpBattlefield {
   private snapshot: BattlefieldSnapshot;
   private config: Pick<PvpConfig, 'attacks' | 'towers'> & { wallHealth?: number; mainTower?:PvpConfig['mainTower'] };
   private readonly movement = new Map<string, NetworkMotion>();
+  private readonly arenaMovement = new Map<string, NetworkMotion2D>();
   private previousAt = performance.now();
   private frame = 0;
   private disposed = false;
@@ -309,6 +311,12 @@ export class PvpBattlefield {
           * (snapshot.shared ? fruit.boss ? .35 : .65 : Math.max(1, (map.pathCells.length - 1) / 13))) * slow;
         const stamp = snapshot.revision ?? JSON.stringify([fruit.progress, fruit.x, fruit.y, fruit.fighting, fruit.attackingTower, fruit.slowUntil]);
         motion.update(snapshot.shared ? fruit.y ?? fruit.progress : fruit.progress, speed, stamp, receivedAt);
+        if (snapshot.rulesVersion === 2 && fruit.x !== undefined && fruit.y !== undefined) {
+          let arenaMotion = this.arenaMovement.get(fruit.id);
+          if (!arenaMotion) { arenaMotion = new NetworkMotion2D(); this.arenaMovement.set(fruit.id, arenaMotion); }
+          const maxSpeed = config.attacks[fruit.type]?.speed ?? 2;
+          arenaMotion.update(fruit.x, fruit.y, maxSpeed, stamp, receivedAt, Boolean(fruit.fighting || fruit.attackingTower));
+        }
       }
       if (snapshot.shared && !own && player.lastStroke && player.lastStroke.at > this.remoteAt) {
         this.remoteAt = player.lastStroke.at;
@@ -319,7 +327,7 @@ export class PvpBattlefield {
     }
     for (const [id, entry] of this.towers) if (!towerIds.has(id)) { this.release(entry.rig.group); this.towers.delete(id); }
     for (const [id, entry] of this.fruits) if (!fruitIds.has(id)) {
-      this.movement.delete(id);
+      this.movement.delete(id); this.arenaMovement.delete(id);
       const captured = snapshot.players.some(player => player.captured?.some(item => item.id === `captured:${id}`));
       if (captured) {
         const cage = [...this.towers.values()].filter(tower => tower.own === entry.own && tower.type === 'catcher').sort((a, b) => a.rig.group.position.distanceTo(entry.mesh.position) - b.rig.group.position.distanceTo(entry.mesh.position))[0];
@@ -665,14 +673,15 @@ export class PvpBattlefield {
       const modern=this.snapshot.rulesVersion===2&&entry.x!==undefined&&entry.y!==undefined;
       const progress=Math.min(map.pathCells.length-1,this.movement.get(entry.mesh.userData.networkId)?.sample(now) ?? entry.progress);
       entry.mesh.visible=modern||entry.progress>=-map.pathCells.length;
-      const position = modern?arenaWorldPoint(map,entry.x!,entry.y!,this.snapshot.yourSide):pvpArmyPoint(map,progress,entry.own);
+      const predicted = modern ? this.arenaMovement.get(entry.mesh.userData.networkId)?.sample(now) : undefined;
+      const position = modern?arenaWorldPoint(map,predicted?.x ?? entry.x!,predicted?.y ?? entry.y!,this.snapshot.yourSide):pvpArmyPoint(map,progress,entry.own);
       const facing = entry.fightTargetId ? this.fruits.get(entry.fightTargetId)?.mesh.position : undefined;
       const ahead = facing ?? (modern?position.clone().add(new Vector3(0,0,entry.own?-1:1)):pvpArmyPoint(map,Math.min(map.pathCells.length-.99,progress+.12),entry.own));
       const direction = ahead.clone().sub(position);
       entry.mesh.rotation.y = 0;
       // A short forward strike reads as melee, not a fruit spinning in place.
       if (entry.fighting || entry.attackingTower) position.addScaledVector(direction.normalize(),Math.max(0,Math.sin(now/75))*.16);
-      if(modern&&entry.mesh.userData.positionInitialised)entry.mesh.position.lerp(position,Math.min(1,dt*10));else entry.mesh.position.copy(position);
+      entry.mesh.position.copy(position);
       entry.mesh.userData.positionInitialised=true;entry.mesh.position.y=(entry.boss?1.1:.65)+Math.sin(now/(entry.fighting?65:140))*(entry.fighting?.12:.08);
       const material = entry.mesh.material as MeshLambertMaterial;
       const sheet = sampleStudioTexture(enemyKindToStudioKey(entry.type as Parameters<typeof enemyKindToStudioKey>[0]));
@@ -729,7 +738,7 @@ export class PvpBattlefield {
   }
   dispose(): void {
     if (this.disposed) return; this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect();
-    this.release(this.terrain); this.release(this.pieces); this.movement.clear();
+    this.release(this.terrain); this.release(this.pieces); this.movement.clear(); this.arenaMovement.clear();
     for (const trail of [this.trail, this.remoteTrail]) { this.release(trail.line); this.release(trail.glowLine); trail.sparks.geometry.dispose(); (trail.sparks.material as MeshBasicMaterial).dispose(); }
     this.statusVfx.clear();this.graphicsRecovery.dispose();this.teammateTrails.dispose();this.turretEffects.clear();this.powerVfx.clear();this.release(this.marker);this.release(this.rangeMarker); this.renderer.dispose(); this.renderer.forceContextLoss();
     this.effects.forEach((effect) => this.release(effect.object));
