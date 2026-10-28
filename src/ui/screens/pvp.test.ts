@@ -8,6 +8,7 @@ import { setAuthToken } from '../../services/auth';
 import { acceptArenaRating, arenaRankPresentation, bindArenaRating, type ArenaRating } from '../../services/pvpRating';
 import { defaultSave } from '../../game/save';
 import { DEFAULT_PVP_CONFIG as config, applyPvpCommand, advancePvpMatch, createPvpPlayer, newPvpMatch, type PvpCommand } from '../../game/pvp';
+import { arenaCatchables, beginArena, rebuiltPvpConfig, type ArenaMatch } from '../../game/pvpRebuild';
 import { renderPvpHub, disposePvpHub, type PvpHubOptions } from './pvp';
 import { profileHubTab } from './hubTabs';
 import { renderHub, registerHubTab, resetHub } from './hub';
@@ -350,11 +351,10 @@ test('snapshots preserve a pressed control while the battlefield continues updat
   } finally { disposePvpHub(root); globalThis.setInterval=originalInterval; setAuthToken(null); resetDom(); }
 });
 
-test('capture countdown transitions to direct free release controls using authoritative commands', async()=>{
+test('Arena catches remain visible and can be released from the match dock',async()=>{
   resetDom();setAuthToken('test-only');
-  const {rebuiltPvpConfig,beginArena,arenaCatchables}=await import('../../game/pvpRebuild');
   const balance=rebuiltPvpConfig(config),now=Date.now();
-  const game=newPvpMatch('capture-ui','arena',[createPvpPlayer('a','You','blue',balance,now),createPvpPlayer('b','Rival','red',balance,now)],now,balance) as import('../../game/pvpRebuild').ArenaMatch;
+  const game=newPvpMatch('capture-ui','arena',[createPvpPlayer('a','You','blue',balance,now),createPvpPlayer('b','Rival','red',balance,now)],now,balance) as ArenaMatch;
   game.rulesVersion=2;game.status='active';game.map=balance.map;beginArena(game,now,balance);
   const item=arenaCatchables(game,now+1,'a')[0]!;
   applyPvpCommand(game,'a',{type:'catch',catchableId:item.id,from:item,to:{x:9,y:22}},1,now+1,balance);
@@ -368,7 +368,8 @@ test('capture countdown transitions to direct free release controls using author
       return {success:true,config:balance,match:{...structuredClone(game),yourSide:'blue',remainingMs:game.endsAt-now,yourSequence:game.players[0].sequence,yourCombo:0}};
     },createBattlefield:()=>({element:document.createElement('div'),interacting:false,update:()=>{},selectCell:()=>{},dispose:()=>{}})});
     await flush();assert.match(document.body.querySelector('.ftd-duel-clock')!.textContent!,/CAPTURE/);
-    assert.ok(document.body.querySelector('.ftd-arena-capture-status'));assert.equal(document.body.querySelector('[data-testid="arena-release"]'),null);
+    assert.ok(document.body.querySelector('.ftd-arena-capture-status'));assert.match(document.body.querySelector('[data-testid="arena-capture-preview"]')?.textContent??'',/orange/i);
+    assert.equal(document.body.querySelector('[data-testid="arena-release"]'),null);
     advancePvpMatch(game,1,now+20000,balance);poll();await flush();
     assert.equal(document.body.querySelector('.ftd-arena-capture-status'),null);
     const releaseTab=document.body.querySelector<HTMLButtonElement>('[data-testid="arena-tab-capture"]')!;

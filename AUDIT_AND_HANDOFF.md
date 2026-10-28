@@ -6,6 +6,8 @@
 **Actual game checkout:** `/app/FruitTD`  
 **Status:** Work in progress. **NOT cleared for merge into main.**
 
+> **Historical snapshot (2026-09-23):** Counts, blockers, and outstanding-work statements below describe the checkout at that date and are not current status. Later review notes are in [the release review](docs/release-review-2026-10-22.md), [the economy review](docs/economy-review-2026-10-23.md), and [the multiplayer deployment guide](docs/MULTIPLAYER_DEPLOYMENT.md).
+
 > This is a project-wide handoff, not a claim that every line, screen, device or permission has been exhaustively tested. It distinguishes reproduced defects, inspected implementations, user-reported problems, implemented changes and unverified work. There are many outstanding tasks; the number of tasks below is not a claim that that many independent bugs were reproduced.
 
 ## 1. Read this first
@@ -14,7 +16,7 @@
 2. The original **241 tests passed**, and the original complete build passed in this environment.
 3. A combat-polish pass has been implemented. The updated suite has **246 passing tests**, including five new focused combat tests. This does **not** mean the combat journey is verified.
 4. **Release blocker:** automated desktop and true-touch gestures did not establish successful hits in the live preview. The page enters PLAY and targets spawn, but the attempted gestures did not produce the expected score/combo/trail results. Whether this is an application/input blocker, overlay/coordinate issue or automation problem must be resolved before signing off the pass. The root cause is not yet established.
-5. **Server authority is not implemented.** Save balances, XP, ownership and scores remain client-trusted within partial caps. Do not advertise the current build as cheat-proof.
+5. **At this audit's snapshot, server authority was not implemented.** Save balances, XP, ownership and scores remained client-trusted within partial caps. This was not a claim about later builds.
 6. **Admin publishing → another player's Shop → purchase → Inventory → equip has not been verified end-to-end.** Parts exist; that is not proof the journey is complete.
 7. **Nothing was pushed to GitHub from this work. No review branch or PR was created here.** GitHub connection/settings were not verified. The remote main branch was not changed by this agent.
 8. The full **28-rule masterplan was not supplied**. Only the requirements in the conversation and current source were assessed. No invented 28-rule compliance claim is made.
@@ -138,11 +140,11 @@ Next investigation, in this order:
 
 **Acceptance:** testing agent reports actual nonzero hit/score/XP changes from genuine gestures on desktop and touch, with screenshots showing the intended slash and compact feedback. No state mutation or fake kill hook may substitute for gameplay.
 
-### P0 A-01 — new email registration is unreachable from title
+### P0 A-01 — title registration entry point (resolved; end-to-end email flow unverified)
 
-Both title actions invoke login mode in `src/ui/hud.ts`; registration logic exists but has no reachable mode switch. API registration is not sufficient.
+At the audit snapshot, the title had no reachable registration action. The current title Create Account button is bound in `src/ui/authModal.ts`, with coverage in `src/ui/authModal.test.ts`; `src/ui/hud.ts` wires registration, email confirmation and profile setup. Real email delivery and a genuinely new account completing the full journey remain unverified.
 
-**Needed:** an explicit login/register switch, correct error/loading/back behavior, email verification and profile completion through UI. Test a genuinely new account, not only an existing fixture.
+**Remaining:** test a genuinely new account through delivered email, verification, profile completion, logout and reload, not only an existing fixture or preview-code fallback.
 
 ### P0 A-02 — email confirmation can fall back to exposing codes
 
@@ -371,7 +373,7 @@ These are deliberately later, not a distraction from broken core loops.
 
 ### Stage 2 — navigation and new-user access
 
-1. Reachable registration/verification/profile journey.
+1. Verify registration/verification/profile completion end to end with real email delivery.
 2. Active-screen ownership and overlay/back/home matrix.
 3. Reproduce and repair actual duplicate/dead-end cases before removing old screen code.
 4. Re-run the core combat journey from a new account.
@@ -488,6 +490,6 @@ Additional workspace memory/evidence is outside the repository under `/app/memor
 
 ## Final handoff verdict
 
-**Work exists and is preserved. Original engine retained. 246 tests currently pass. Combat module improvements are implemented, but real hit/effect/reward verification remains unresolved. Server authority, complete navigation and the admin-to-player catalogue/equipment journey are still outstanding. Do not merge solely on the green unit count.**
+**Audit-time verdict (2026-09-23):** Work existed and was preserved; the original engine was retained; 246 tests passed in that audit. Combat module improvements were implemented, but real hit/effect/reward verification remained unresolved. Server authority, complete navigation and the admin-to-player catalogue/equipment journey were then outstanding. Do not treat this historical verdict as current status or merge solely on its test count.
 
 Use the ordered exit gates above to continue without restarting or replacing the game.

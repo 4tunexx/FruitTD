@@ -50,6 +50,10 @@ export function pvpWorldPoint(map: Pick<PvpMap, 'width'>, x: number, y: number, 
 function arenaWorldPoint(map:PvpMap,x:number,y:number,viewerSide:string):Vector3 {
   return new Vector3((x-map.width/2)*TILE_X*(viewerSide==='blue'?1:-1),0,y*TILE*(viewerSide==='blue'?1:-1));
 }
+export function arenaCapturePoint(map:Pick<PvpMap,'width'>,x:number,y:number,viewerSide='blue'):Vector3 {
+  const direction=viewerSide==='blue'?1:-1;
+  return new Vector3((x-map.width/2)*TILE_X*direction,0,y*TILE*direction);
+}
 function arenaObstacle(mapId:string,seed:number):Group {
   const group=new Group();
   const add=(geometry:BoxGeometry|CylinderGeometry|SphereGeometry,color:number,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{const mesh=new Mesh(geometry,new MeshLambertMaterial({color}));mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);group.add(mesh);return mesh;};
@@ -384,7 +388,7 @@ export class PvpBattlefield {
       }
       let motion=this.catchMotion.get(item.id);if(!motion){motion=new NetworkMotion2D();motion.update(Number(item.id.split(':').at(-1))%2===0?-1.5:11.5,item.y,2.7,'spawn',performance.now()-50);this.catchMotion.set(item.id,motion);}
       motion.update(item.x,item.y,2.7,JSON.stringify([item.x,item.y]),performance.now());
-      if(this.captureDrag?.itemId!==item.id){const at=motion.sample(performance.now());mesh.position.copy(pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.8;}
+      if(this.captureDrag?.itemId!==item.id){const at=motion.sample(performance.now());mesh.position.copy(this.snapshot.rulesVersion===2?arenaCapturePoint(map,at.x,at.y,this.snapshot.yourSide):pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.8;}
     }
     for(const [id,mesh] of this.catchMeshes)if(!live.has(id)){this.release(mesh);this.catchMeshes.delete(id);this.catchMotion.delete(id);}
   }
@@ -501,11 +505,16 @@ export class PvpBattlefield {
     this.element.querySelectorAll('.ftd-tower-damage').forEach((node,index)=>{if(index>=5)node.remove();});
     this.element.append(label);label.addEventListener('animationend',()=>label.remove(),{once:true});
   }
+  private worldPoint(event: PointerEvent): Vector3 | null {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    this.ray.setFromCamera(new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera);
+    return this.ray.ray.intersectPlane(this.ground, new Vector3());
+  }
+
   private point(event: PointerEvent): { x: number; y: number } | null {
     const map = this.snapshot.map; if (!map) return null;
-    const rect = this.canvas.getBoundingClientRect();
-    this.ray.setFromCamera(new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera);
-    const hit = this.ray.ray.intersectPlane(this.ground, new Vector3()); if (!hit) return null;
+    const hit = this.worldPoint(event); if (!hit) return null;
     const y = hit.z / TILE - 1; const x = hit.x / TILE_X + Math.floor(map.width / 2) - .5;
     return x >= -1e-6 && x <= map.width+1e-6 && y >= -1e-6 && y <= map.height+1e-6 ? { x:Math.max(0,Math.min(map.width,x)), y:Math.max(0,Math.min(map.height,y)) } : null;
   }
@@ -558,7 +567,7 @@ export class PvpBattlefield {
     this.stroke = { id: event.pointerId, from: point, points: [] }; this.trail.reset();
   }
   private pointerMove(event: PointerEvent): void {
-    if(this.captureDrag?.pointerId===event.pointerId){const point=this.point(event);const mesh=this.catchMeshes.get(this.captureDrag.itemId);if(point&&mesh){mesh.position.copy(pvpWorldPoint(this.snapshot.map!,point.x,point.y,true));mesh.position.y=1.3;}return;}
+    if(this.captureDrag?.pointerId===event.pointerId){const point=this.worldPoint(event);const mesh=this.catchMeshes.get(this.captureDrag.itemId);if(point&&mesh){mesh.position.copy(point);mesh.position.y=1.3;}return;}
     if (!this.snapshot.shared && this.pointers.has(event.pointerId)) {
       const p=this.pointers.get(event.pointerId)!;p.x=event.clientX;p.y=event.clientY;const active=[...this.pointers.values()];
       if(active.length===1){const a=active[0]!;if(Math.hypot(a.x-a.startX,a.y-a.startY)>7)a.moved=true;if(a.moved)this.panBy(a.x-(this.gesture?.x??a.x),a.y-(this.gesture?.y??a.y));this.gesture={x:a.x,y:a.y,distance:0};}
@@ -674,7 +683,7 @@ export class PvpBattlefield {
       if (sheet && hero.material.map !== sheet) { hero.material.map = sheet; hero.material.color.setHex(0xffffff); hero.material.needsUpdate = true; }
     }
     const map = this.snapshot.map;
-    if(map&&this.snapshot.phase==='capture')for(const [id,mesh] of this.catchMeshes){if(this.captureDrag?.itemId===id)continue;const at=this.catchMotion.get(id)?.sample(now);if(!at)continue;mesh.position.copy(pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.78+Math.sin(now/170+at.x)*.09;}
+    if(map&&this.snapshot.phase==='capture')for(const [id,mesh] of this.catchMeshes){if(this.captureDrag?.itemId===id)continue;const at=this.catchMotion.get(id)?.sample(now);if(!at)continue;mesh.position.copy(this.snapshot.rulesVersion===2?arenaCapturePoint(map,at.x,at.y,this.snapshot.yourSide):pvpWorldPoint(map,at.x,at.y,true));mesh.position.y=.78+Math.sin(now/170+at.x)*.09;}
     if (map) for (const entry of this.fruits.values()) {
       if (this.snapshot.shared && entry.x !== undefined && entry.y !== undefined) {
         const y = Math.min(13.5, this.movement.get(entry.mesh.userData.networkId)?.sample(now) ?? entry.y);

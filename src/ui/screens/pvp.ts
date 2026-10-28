@@ -305,13 +305,13 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     if (!match) {
       const oldClient = realtimeClients.get(root); if (oldClient) { oldClient.close(); realtimeClients.delete(root); realtimeMatchId = ''; }
       if (!status.config?.maps.some((map) => map.id === selectedTestMap)) selectedTestMap = status.config?.maps[0]?.id || '';
-      body.append(el('div', { class: 'ftd-duel-tabs', 'aria-label': 'Arena queue' }, (['arena', 'ranked'] as const).map(choice => {
-        const button = el('button', { type: 'button', class: choice === queue ? 'is-active' : '', 'data-testid': `arena-queue-${choice}`, disabled: busy || Boolean(status.queued), text: choice === 'arena' ? 'NORMAL' : 'RANKED' });
+      body.append(el('div', { class: 'ftd-duel-tabs', 'aria-label': 'PvP match type' }, (['arena', 'ranked'] as const).map(choice => {
+        const button = el('button', { type: 'button', class: choice === queue ? 'is-active' : '', 'data-testid': `arena-queue-${choice}`, disabled: busy || Boolean(status.queued), text: choice === 'arena' ? 'CASUAL' : 'RANKED' });
         button.addEventListener('click', () => { queue = choice; render(); }); return button;
       })));
       body.append(el('div', { class: 'ftd-pvp__queue' }, [
         el('section', { class: 'ftd-pvp__launch' }, [
-          el('div', {}, [label(queue === 'ranked' ? 'SEASONAL RANKED SIEGE' : 'NORMAL SIEGE', 'ftd-pvp__eyebrow'), el('h2', { text: status.queued === queue ? 'FINDING YOUR RIVAL' : 'CATCH. BUILD. RELEASE.' }), label('1 vs 1 · 20-second catch · 160-second siege · seven tactical maps', 'ftd-pvp__intro')]),
+          el('div', {}, [label(queue === 'ranked' ? 'SEASONAL RANKED SIEGE' : 'CASUAL SIEGE', 'ftd-pvp__eyebrow'), el('h2', { text: status.queued === queue ? 'FINDING YOUR RIVAL' : 'CATCH. BUILD. RELEASE.' }), label('1 vs 1 · 20-second catch · 160-second siege · seven tactical maps', 'ftd-pvp__intro')]),
           status.queued === queue
             ? GameButton({ label: 'Cancel search', variant: 'outline', onClick: () => void send('/queue', undefined, 'DELETE') })
             : GameButton({ label: queue === 'ranked' ? 'Find ranked match' : 'Quick match', tone: 'primary', size: 'lg', disabled: queue === 'ranked' && Boolean(status.rankedPenalty?.bannedUntil && Date.parse(status.rankedPenalty.bannedUntil) > Date.now()), onClick: () => { if (queue === 'ranked') { rankedConfirm = true; render(); } else void send('/queue', { queue }); } }),
@@ -467,7 +467,15 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     body.append(battlefield.element);
     if(match.phase==='capture'){
       const left=Math.max(0,Math.ceil(((match.phaseEndsAt??Date.now())-Date.now())/1000));
-      body.append(el('div',{class:'ftd-arena-capture-status',role:'status'},[el('strong',{text:`CATCH FRUIT · ${left}s`}),el('span',{text:`${own.captured?.length??0} caught · Drag into the box`})]));
+      const captured=own.captured??[];
+      const preview=el('div',{class:'ftd-arena-capture-preview','data-testid':'arena-capture-preview'},captured.length
+        ? captured.map(item=>el('span',{class:'ftd-arena-capture-preview__item',text:item.fruitKind||item.type}))
+        : [el('span',{class:'ftd-arena-capture-preview__empty',text:'Your catches will appear here.'})]);
+      body.append(el('div',{class:'ftd-arena-capture-status',role:'status'},[
+        el('strong',{text:`CATCH FRUIT · ${left}s`}),
+        el('span',{text:captured.length?`${captured.length} caught · Ready to release when siege starts`:'Drag each zombie into the box. Catches stay here.'}),
+        preview,
+      ]));
       return;
     }
     if (match.rulesVersion === 2 && own.captured?.length && releaseTrayShownFor !== match.id) {
@@ -497,10 +505,10 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
       const button=el('button',{type:'button',class:`ftd-duel-icon-button${selected?' is-active':''}`,title:labelText,'aria-label':labelText,disabled,...(testId?{'data-testid':testId}:{})},[lucideIcon(iconName,'',19),el('span',{class:'ftd-duel-action-label',text:({'arena-tab-build':'BUILD','arena-tab-attack':'SHOP','arena-tab-capture':`RELEASE ${own.captured?.length ?? 0}`,'arena-buy-again':'AGAIN','arena-upgrade-main':'TOWER'} as Record<string,string>)[testId??'']??'TOWER'})]);
       button.addEventListener('click',action);return button;
     };
-    actionRail.append(
-      railButton('Fence',`Release captured zombies · ${own.captured?.length ?? 0}`,()=>openDock('capture'),false,'arena-tab-capture',dockExpanded&&dockTab==='capture'),
-      railButton('Cherry','Zombie shop',()=>openDock('attack'),false,'arena-tab-attack',dockExpanded&&dockTab==='attack'),
-    );
+    const capturedCount=own.captured?.length??0;
+    const captureButton=railButton('Fence',`Release captured zombies · ${capturedCount}`,()=>openDock('capture'),false,'arena-tab-capture',dockExpanded&&dockTab==='capture');
+    if(capturedCount)captureButton.append(el('span',{class:'ftd-duel-capture-count','aria-hidden':'true',text:String(capturedCount)}));
+    actionRail.append(captureButton,railButton('Cherry','Zombie shop',()=>openDock('attack'),false,'arena-tab-attack',dockExpanded&&dockTab==='attack'));
     if(lastBoughtFruit && status.config?.attacks[lastBoughtFruit]) {
       const info=status.config.attacks[lastBoughtFruit]!;
       actionRail.append(railButton('RotateCcw',`Buy ${lastBoughtFruit} again · ${info.cost} Fruts`,()=>issue({type:'send',enemy:lastBoughtFruit!}),busy||own.fruts<info.cost,'arena-buy-again'));

@@ -4,7 +4,7 @@ import { Group, OrthographicCamera, Plane, Raycaster, Scene, Vector3 } from 'thr
 import { installDomStub } from '../domStub.test-helper';
 installDomStub();
 (globalThis as any).localStorage = { getItem: () => null };
-import { PvpBattlefield, pvpWorldPoint, pvpArmyPoint } from './pvpBattlefield';
+import { PvpBattlefield, arenaCapturePoint, pvpWorldPoint, pvpArmyPoint } from './pvpBattlefield';
 import { DEFAULT_PVP_CONFIG as config, createPvpPlayer } from '../../game/pvp';
 
 test('Co-op screen strokes invert the rendered own-lane coordinates without row jumps',()=>{
@@ -14,6 +14,27 @@ test('Co-op screen strokes invert the rendered own-lane coordinates without row 
   const field:any=Object.create(PvpBattlefield.prototype);Object.assign(field,{canvas,snapshot:{map,shared:true},camera,ray:new Raycaster(),ground:new Plane(new Vector3(0,1,0),0)});
   for(const y of [0,1,1.99,2,2.01,5,12]){const world=pvpWorldPoint(map,4.2,y,true);const screen=world.clone().project(camera);const point=field.point({clientX:(screen.x+1)*width/2,clientY:(1-screen.y)*height/2});assert.ok(point);assert.ok(Math.abs(point.x-4.2)<.0001);assert.ok(Math.abs(point.y-y)<.0001);}
   assert.ok(pvpWorldPoint(map,4.2,1.999,true).distanceTo(pvpWorldPoint(map,4.2,2.001,true))<.01);
+});
+
+test('Arena catch fruit uses the same centered coordinates as its shared capture data',()=>{
+  const point=arenaCapturePoint({width:10},5,17);
+  assert.equal(point.x,0);
+  assert.equal(point.z,17*1.7);
+});
+
+test('Arena capture drags follow the pointer on both viewer sides',()=>{
+  const width=390,height=844,map=config.map;
+  const camera=new OrthographicCamera(-20,20,30,-30,.1,200);camera.position.set(0,75,-48);camera.lookAt(0,0,0);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+  for(const side of ['blue','red'] as const){
+    const canvas=document.createElement('div');(canvas as any).getBoundingClientRect=()=>({width,height,left:0,top:0});
+    const mesh={position:new Vector3()} as any;
+    const field:any=Object.create(PvpBattlefield.prototype);
+    Object.assign(field,{canvas,camera,ray:new Raycaster(),ground:new Plane(new Vector3(0,1,0),0),snapshot:{map,yourSide:side},captureDrag:{pointerId:1,itemId:'catch:1',from:{x:4,y:17}},catchMeshes:new Map([['catch:1',mesh]])});
+    const target=arenaCapturePoint(map,4,17,side),screen=target.clone().project(camera);
+    field.pointerMove({pointerId:1,clientX:(screen.x+1)*width/2,clientY:(1-screen.y)*height/2});
+    target.y=1.3;
+    assert.ok(mesh.position.distanceTo(target)<1e-4,`${side} capture drag should stay under the pointer`);
+  }
 });
 
 test('portrait and landscape picking reach every legal hex and exclude path and rival tiles', () => {

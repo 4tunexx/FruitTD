@@ -61,7 +61,7 @@ Important coupling: `src/main.ts` still coordinates rendering, rewards, persiste
 
 | Supplied requirement | What exists | Gap / evidence |
 |---|---|---|
-| Email-confirmed login | Register/login/verify/profile/logout endpoints; scrypt password hashes and hashed Mongo sessions | API fallback flow works, but registration is unreachable through title UI; real email delivery not verified |
+| Email-confirmed login | Register/login/verify/profile/logout endpoints; scrypt password hashes and hashed Mongo sessions | Title Create Account opens the registration form and the auth flow includes email confirmation; UI binding is covered by `src/ui/authModal.test.ts`. Real email delivery and a new-account end-to-end journey remain unverified. |
 | Steam secondary/link | OpenID/Steam routes and session-derived identity | No real Steam login, profile linking, or privileged admin session exercised |
 | Hero L1–100 / tower L1–10 | Data, milestone math, XP application, unlock and purchase-only hero rules | Existing tests pass; live hero combat level refresh and mastery ownership need attention |
 | Gameplay XP/coins | `award()`→`calculateReward()`→`applyRewards()`→`persist()`; kills, bosses, bomb parry, reslice, combo, waves and game-over paths | Not absent; splitter lifecycle corrupts kill metadata; all rewards remain client-computed |
@@ -72,17 +72,17 @@ Important coupling: `src/main.ts` still coordinates rendering, rewards, persiste
 | Server-authoritative economy | Session-bound user selection and some caps | Client balance, ownership, XP and score accepted; no trusted match simulation/event admission or economy ledger |
 | Shop/Inventory | Separate screens/catalogue, owned filtering, local purchase/equip/sell guards and previews | No backend purchase/equip/sell authority; full purchase→reload browser flow unverified; newer inventory lacks unequip callback wiring |
 | Missions/achievements/daily | Endpoints, configured requirements and client event reporting | Client-generated deltas; claim endpoints don't atomically credit server wallet; concurrent reward-once guarantee absent |
-| Game menu/theme | New `renderMainMenu`, screen registry and current futuristic theme already in main | Do not redo menu blindly; title registration dead end and legacy/new host ambiguity need targeted fixes |
+| Game menu/theme | New `renderMainMenu`, screen registry and current futuristic theme already in main | Do not redo menu blindly; registration is now reachable, while legacy/new host ambiguity still needs targeted verification |
 | Back/Home/mobile | Screen routing/guards, back/home infrastructure, touch action handling, mobile layout/DPR caps | Only partial mobile screenshots; true touch slicing, safe-area/device matrix and complete route reachability not signed off |
 | Admin | Session Steam-ID allowlist checks; config, daily reset, leaderboard moderation | Anonymous mutation rejection verified; real privileged session, user economy/progression tools, bans/audit trail/permission matrix unverified or absent from inspected routes |
 | Performance/assets | 64-fruit pool, pooled floating scores, conditional bloom, DPR limits | Reward-time save/network/UI churn; full memory/listener soak and asset licensing audit not completed |
-| Co-op/ranked | UI and leaderboard foundations | Real-time shared tower/matchmaking remain deliberately deferred; no claim of working multiplayer |
+| Co-op/ranked | UI and leaderboard foundations | At this audit's 2026-09-23 snapshot, real-time shared tower/matchmaking were deferred. Co-op is implemented now; see [the multiplayer deployment guide](docs/MULTIPLAYER_DEPLOYMENT.md). |
 
 ## Confirmed and source-traced defects
 
-### P0 — AUTH-01: new email users cannot reach registration
+### P0 — AUTH-01: title registration entry point (resolved; end-to-end email flow unverified)
 
-`src/ui/hud.ts:410–412`: both Start Game and Load Save open `openAuthModal('login')`. Registration handling exists at `1888–1891`, but no reachable mode-switch action calls it. The browser observed a login-only modal. **Impact:** a new email user cannot begin the requested journey, despite the register API passing.
+At the audit snapshot, registration was unreachable from the title. The current title has a Create Account action bound by `src/ui/authModal.ts`, and `src/ui/authModal.test.ts` verifies that it opens the registration form. `src/ui/hud.ts` submits registration, handles email verification, and gates profile setup. **Remaining verification:** a real new-account journey through delivered email, verification, profile completion and reload has not been exercised.
 
 Related trust issue (`server/auth.ts:107–143`): verification codes are logged unconditionally; missing/failed mail delivery returns `previewCode` to the caller without a production-only guard. The API test used this existing development fallback, **not proof of mailbox ownership or real delivery**. Protected progression routes resolve a session without consistently requiring verified email/profile completion. Preserve the working auth foundation, then close these gates deliberately.
 
@@ -144,7 +144,8 @@ The original 1024×1024 image is partitioned into 128×256 cells and stretched t
 | Step | Status |
 |---|---|
 | Title render → login modal | Observed |
-| New user → register through UI | **Blocked: no reachable registration action** |
+| Title Create Account → registration form | **Verified by UI test** |
+| New user → delivered email → verification → profile → reload | **Not verified end to end; email delivery remains environment-dependent** |
 | Register → preview-code verify → profile → login/logout via API | Passed; existing preview-code fallback only; test avatar was a synthetic string, not valid artwork |
 | Existing disposable account → main menu | Observed desktop/mobile |
 | Actual game launch | Reached once in browser run; not a completed combat journey |
@@ -159,7 +160,7 @@ The original 1024×1024 image is partitioned into 128×256 cells and stretched t
 `iteration_1.json` is raw diagnostic output, not the final verdict. Its percentages are not a measured acceptance metric. The first browser workflow timed out after writing partial evidence.
 
 - `#btn-start` and `#menu-leftnav` belong to the hidden legacy lobby. `src/ui/screens/mainMenu.ts` renders the active `.ftd-playcard__cta` and `.ftd-navtile` controls under `#screen-main-menu`; `main.ts:1455–1465` deliberately makes legacy and current menus mutually exclusive. Zero rectangles for old IDs do **not** prove visible controls are broken. Re-test active controls before any navigation rewrite.
-- Registration is a genuine source-confirmed gap, not merely a selector failure.
+- Registration was a genuine source-confirmed gap at the audit snapshot; the title entry point is now wired, but real email delivery and the complete new-account journey remain unverified.
 - A blank test avatar is not evidence that real user avatars fail; the API fixture supplied invalid image bytes.
 - Unequip exists in legacy logic; active-screen wiring is the narrower question.
 - API characterization tests intentionally assert current insecure behavior. Their green status records reproducibility, **not anti-cheat acceptance**. Replace/invert those assertions into intended-behavior regressions during Phase 2.
@@ -168,7 +169,7 @@ The original 1024×1024 image is partitioned into 128×256 cells and stretched t
 ## Sequenced next work — no changes applied yet
 
 1. **Complete baseline references:** obtain the actual 28 rules; reproduce locked Node 22 CI; retain this commit and evidence as the reference.
-2. **Unblock journey / Phase 1:** restore reachable registration; fix splitter kill-context ownership and original-wave accounting; repair live hero level propagation; verify atlas crops and reward labels. Extend existing tests around the actual call chain rather than adding parallel calculators.
+2. **Unblock journey / Phase 1:** verify registration, email confirmation and profile completion with a genuinely new account; fix splitter kill-context ownership and original-wave accounting; repair live hero level propagation; verify atlas crops and reward labels. Extend existing tests around the actual call chain rather than adding parallel calculators.
 3. **Close Phase 1 with real journeys:** active-screen selectors, desktop pointer and real touch input, kill/combo/wave/reward/return/reload; then buy/equip/return. Explicitly distinguish local behavior from server validation.
 4. **Phase 2 trust boundary:** server-owned runs and deterministic outcome validation; idempotent reward ledger and atomic wallet/ownership changes; cloud versions/conflicts/migration; verified-user gates; atomic daily/mission/achievement credit; trusted score submissions. Do not certify a pure “client sends kills” API as authoritative.
 5. **Phase 3–4:** active inventory unequip/sell/mastery, end-run reward breakdown, Back/Home/safe-area/device QA using the existing theme and screen system.

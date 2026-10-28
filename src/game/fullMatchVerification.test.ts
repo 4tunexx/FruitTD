@@ -53,6 +53,14 @@ for(const teamSize of [2,4])test(`online Co-op survives repeated wave/boss cycle
     }
    }
   }
+  if(game.proposal){
+  const proposalId=game.proposal.id;
+  for(const teammate of game.players){
+   if(game.proposal?.id!==proposalId)break;
+   if(teammate.userId===game.proposal.proposerId)continue;
+   applyCoopCommand(game,teammate.userId,teammate.sequence+1,{type:'vote',proposalId,approve:true},now,config);commands++;
+  }
+  }
   assert.ok(Number.isFinite(game.fruts)&&game.fruts>=0);assert.ok(game.fruits.every(f=>Number.isFinite(f.hp)&&Number.isFinite(f.x)&&Number.isFinite(f.y)));
   assert.ok(game.fruits.length<=100);assert.equal(new Set(game.towers.map(tower=>tower.cell)).size,game.towers.length);
  }

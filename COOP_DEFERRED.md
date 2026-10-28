@@ -1,6 +1,8 @@
-# Co-op Multiplayer - Deferred Feature
+# Co-op Multiplayer - Historical Deferred Plan
 
-## Status: Out of Scope for Current Run
+> **Status update (2026-10-28):** This page predates the Co-op implementation. Online Co-op is now present in [the game rules](src/game/onlineCoop.ts) and [server routes](server/routes/coop.ts), with coverage in [game tests](src/game/onlineCoop.test.ts) and [route tests](server/coop.routes.test.ts). Treat the deferral, estimates, and architecture notes below as historical context, not current project status. See [the multiplayer deployment guide](docs/MULTIPLAYER_DEPLOYMENT.md) for deployment notes.
+
+## Historical status: Out of Scope at the Time
 
 Real-time cooperative multiplayer is a substantial feature requiring significant architecture and is deferred for future development.
 
@@ -145,4 +147,4 @@ If co-op is prioritized:
 
 ---
 
-**Decision**: Co-op deferred. Focus on single-player polish, security, and admin tools delivers more value per hour of development.
+**Decision at the time**: Co-op was deferred. Focus on single-player polish, security, and admin tools was considered higher value at that point.

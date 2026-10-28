@@ -253,3 +253,50 @@ html[data-ftd-motion] #screen-hub.ftd-hub button:hover::before,html[data-ftd-mot
  #screen-hub.ftd-hub .ftd-pvp__queue > .ftd-pvp__intro { font-size:14px; line-height:1.65; }
 }
 .ftd-match-preparing { position:fixed; z-index:1000; top:24px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); box-sizing:border-box; padding:14px 20px; border:1px solid #ffe394; background:#202125; color:#ffe394; box-shadow:0 8px 24px #0008; pointer-events:none; }
+
+#screen-hub.ftd-hub .ftd-pvp:not(.is-battle) :is(.ftd-pvp__heading--briefing,.ftd-pvp__launch,.ftd-pvp__howto > div,.ftd-pvp__queue > .ftd-pvp__intro,.ftd-pvp__rules,.ftd-pvp__challenge,.ftd-pvp__bot-start) {
+  border-color:var(--ftd-color-border)!important;
+  border-radius:var(--ftd-radius-card);
+  background:var(--ftd-color-panel)!important;
+  box-shadow:var(--ftd-shadow-soft)!important;
+  clip-path:none;
+}
+#screen-hub.ftd-hub .ftd-pvp__heading--briefing h2,
+#screen-hub.ftd-hub .ftd-pvp__launch h2,
+#screen-hub.ftd-hub .ftd-pvp__howto b,
+#screen-hub.ftd-hub .ftd-pvp__challenge h3,
+#screen-hub.ftd-hub .ftd-pvp__rules summary {
+  color:var(--ftd-color-primary);
+}
+#screen-hub.ftd-hub .ftd-pvp:not(.is-battle) .ftd-duel-tabs button {
+  min-height:48px;
+  padding:10px 20px;
+  border:1px solid var(--ftd-color-border);
+  border-radius:var(--ftd-radius-button);
+  background:var(--ftd-color-panel);
+  color:var(--ftd-color-text-muted);
+  font:var(--ftd-weight-button) var(--ftd-text-sm)/1.2 var(--ftd-font-button);
+  transition:background var(--ftd-speed-transition),color var(--ftd-speed-transition),border-color var(--ftd-speed-transition);
+}
+#screen-hub.ftd-hub .ftd-pvp:not(.is-battle) .ftd-duel-tabs button.is-active {
+  border-color:var(--ftd-color-primary);
+  background:var(--ftd-color-primary);
+  color:var(--ftd-color-background);
+}
+#screen-hub.ftd-hub .ftd-pvp:not(.is-battle) .ftd-duel-tabs button:focus-visible,
+#screen-hub.ftd-hub .ftd-pvp:not(.is-battle) .ftd-pvp__rules summary:focus-visible {
+  outline:2px solid var(--ftd-color-primary);
+  outline-offset:3px;
+}
+#screen-hub.ftd-hub .ftd-pvp__launch .ftd-btn { border-radius:var(--ftd-radius-button); }
+.ftd-arena-capture-preview { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
+.ftd-arena-capture-preview__item,.ftd-arena-capture-preview__empty { padding:3px 8px; border:1px solid #f4d66e88; border-radius:999px; background:#10251ee8; color:#f8eab9; font-size:10px; font-weight:800; }
+.ftd-duel-icon-button[data-testid="arena-tab-capture"] { position:relative; }
+.ftd-duel-capture-count { position:absolute; top:-6px; right:-6px; min-width:17px; height:17px; display:grid; place-items:center; padding:0 4px; border:1px solid #111b13; border-radius:999px; background:var(--ftd-color-primary); color:var(--ftd-color-background); font-size:9px; font-weight:900; line-height:1; }
+@media(max-width:760px) {
+  #screen-hub.ftd-hub .ftd-pvp:not(.is-battle) .ftd-pvp__queue { grid-template-columns:minmax(0,1fr); gap:12px; }
+  #screen-hub.ftd-hub .ftd-pvp__queue > * { grid-column:1; }
+  #screen-hub.ftd-hub .ftd-pvp__howto { grid-template-columns:1fr; }
+  #screen-hub.ftd-hub .ftd-pvp__launch { padding:16px; }
+  #screen-hub.ftd-hub .ftd-pvp__launch .ftd-btn { width:100%; min-width:0; }
+}
