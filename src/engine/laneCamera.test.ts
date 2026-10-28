@@ -10,3 +10,8 @@ test('arena lens fits width on phones and desktops and bounds vertical travel at
   assert.ok(south.high<=48&&north.low>=-48);
  }
 });
+test('desktop PvP framing fits one complete territory so its wall and build plots stay on screen',()=>{
+ const frame=laneFrame(1440,900,22,-48,48,10000,false,true);
+ assert.ok(frame.viewHeight/frame.tilt>=47.5);
+ assert.equal(frame.centerZ,frame.high);
+});

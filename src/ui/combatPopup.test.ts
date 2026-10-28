@@ -34,6 +34,11 @@ test('combat status and quick action surfaces use the glass command treatment', 
   assert.match(css, /#hud-shop \.turret-btn__name \{[\s\S]*?grid-column:1/);
   assert.match(css, /#hud-shop \.turret-btn__status \{[\s\S]*?grid-row:4/);
   assert.match(css, /#command-popup\.is-build-selection #hud-shop \{[\s\S]*?position:relative; height:115px/);
+  assert.match(css, /@media \(min-width:1100px\) and \(min-height:600px\) \{[\s\S]*?#command-popup\.is-build-selection #hud-shop \{[\s\S]*?grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(css, /#command-popup\.is-build-selection #hud-shop \.turret-btn \{[\s\S]*?border-radius:0!important;[\s\S]*?clip-path:polygon/);
+  assert.match(css, /#command-popup\.is-build-selection #hud-shop \.turret-btn\[hidden\] \{\s*display:none!important;\s*\}/);
+  assert.match(css, /\.turret-btn__glyph \{[\s\S]*?border-radius:50%!important; clip-path:circle\(50%\)!important/);
+  assert.match(css, /\.ftd-pvp\.is-battle :is\([\s\S]*?\.ftd-duel-card[\s\S]*?border-radius:0!important/);
   assert.match(css, /#hud-shop \.turret-btn\[hidden\] \{ display:none!important; \}/);
   assert.match(css, /\.turret-btn\[data-orbit-slot="3"\]/);
   assert.match(css, /#action-btns \{\s*display:grid; grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);

@@ -71,6 +71,28 @@ test('portrait and landscape picking reach every legal hex and exclude path and 
   }
 });
 
+test('desktop PvP framing keeps your wall at the screen end and every build plot visible',()=>{
+ const width=1400,height=700,map=config.map;
+ const players=[createPvpPlayer('a','A','blue',config),createPvpPlayer('b','B','red',config)];
+ const canvas=document.createElement('div');(canvas as any).getBoundingClientRect=()=>({width,height,left:0,top:0});
+ const terrain=new Group(),field:any=Object.create(PvpBattlefield.prototype);
+ Object.assign(field,{element:canvas,canvas,snapshot:{id:'desktop-frame',phase:'siege',map,yourSide:'blue',players},config,terrain,health:new Map(),buildPads:[],mainTowerMaterials:[],wallMaterials:[],heroArt:[],keepMotion:new Map(),renderer:{setSize:()=>undefined},camera:new OrthographicCamera(-20,20,30,-30,.1,220),cameraZ:0,framingInitialised:false,drawMinimap:()=>undefined});
+ field.buildTerrain(map);
+ const projectBase=(own:boolean)=>{
+  const cell=map.pathCells.at(-1)!;
+  const point=pvpWorldPoint(map,cell%map.width+.5,Math.floor(cell/map.width)+.5,own);
+  point.z+=own?1.7*1.5:-1.7*1.5;point.y=2;
+  return point.project(field.camera);
+ };
+ let ownBase=projectBase(true);
+ assert.ok(Math.abs(ownBase.y)>.7&&Math.abs(ownBase.y)<1,'your keep sits at the end of the visible territory');
+ for(const pad of field.buildPads){const point=pad.position.clone().setY(.16).project(field.camera);assert.ok(Math.abs(point.x)<1&&Math.abs(point.y)<1,'every own plot stays visible on PC');}
+ field.cameraZ=field.laneMin;field.resize();
+ const rivalBase=projectBase(false);
+ assert.ok(Math.abs(rivalBase.y)>.7&&Math.abs(rivalBase.y)<1,'the rival keep sits at the end when focused');
+ terrain.traverse((object:any)=>{object.geometry?.dispose();if(object.material)for(const material of Array.isArray(object.material)?object.material:[object.material])material.dispose();});
+});
+
 test('PvP touch moves only along the lane, pinch preserves scale, and taps select build pads',()=>{
  const canvas=document.createElement('div');(canvas as any).setPointerCapture=()=>undefined;(canvas as any).getBoundingClientRect=()=>({width:375,height:470,left:0,top:0});const field:any=Object.create(PvpBattlefield.prototype),selected:number[]=[];
  Object.assign(field,{canvas,element:canvas,snapshot:{id:'gesture',map:config.maps[0],yourSide:'red',players:[],shared:false},pointers:new Map(),gesture:null,stroke:null,zoom:1,focusOwn:true,framingInitialised:true,cameraX:0,cameraZ:0,renderer:{setSize:()=>undefined},camera:new OrthographicCamera(-20,20,30,-30,.1,200),ray:new Raycaster(),ground:new Plane(new Vector3(0,1,0),0),buildCell:()=>4,select:(cell:number)=>selected.push(cell),trail:{reset:()=>undefined}});

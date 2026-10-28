@@ -18,10 +18,10 @@ import { frameCombatCamera } from './combatCamera';
 
 export function combatViewport(width:number,height:number) {
  const desktop=width>=1100&&height>=600;
- const top=desktop?78:112,bottom=desktop?100:0;
- const available=desktop?width-320:width;
- const h=Math.max(160,height-top-bottom),w=Math.min(available,h*1.05);
- return {left:Math.round((desktop?304:0)+(available-w)/2),top,width:Math.round(w),height:h};
+ if(desktop)return {left:0,top:0,width,height};
+ const top=112;
+ const h=Math.max(160,height-top),w=Math.min(width,h*1.05);
+ return {left:Math.round((width-w)/2),top,width:Math.round(w),height:h};
 }
 
 export class GameRenderer {

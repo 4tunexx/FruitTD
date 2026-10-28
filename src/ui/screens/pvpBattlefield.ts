@@ -644,11 +644,12 @@ export class PvpBattlefield {
     const map=this.snapshot.map;if(!map)return;
     const extent=(map.height+4)*TILE;
     if(!this.framingInitialised){this.framingInitialised=true;this.cameraZ=this.snapshot.phase==='capture'?17*TILE:extent;this.focusOwn=true;}
-    const frame=laneFrame(rect.width,rect.height,map.width*TILE_X+5,this.snapshot.shared?0:-extent,extent,this.cameraZ,this.snapshot.shared);
+    const desktop=rect.width>=1100&&rect.height>=600;
+    const frame=laneFrame(rect.width,rect.height,map.width*TILE_X+5,this.snapshot.shared?0:-extent,extent,this.cameraZ,this.snapshot.shared,desktop&&!this.snapshot.shared);
     this.cameraZ=frame.centerZ;this.laneMin=frame.low;this.laneMax=frame.high;
     this.focusOwn=this.cameraZ>=0;
     this.element.classList.toggle('is-focused',this.focusOwn);
-    this.element.classList.remove('is-landscape');
+    this.element.classList.toggle('is-desktop-territory',desktop&&!this.snapshot.shared);
     const focus=this.element.querySelector<HTMLElement>('.ftd-duel-focus');
     if(focus){focus.textContent=this.focusOwn?'Rival base ↑':'Your base ↓';focus.setAttribute('aria-label',this.focusOwn?'Look up to the rival base':'Return to your base');}
     this.renderer.setSize(rect.width,rect.height,false);

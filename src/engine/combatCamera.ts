@@ -7,9 +7,10 @@ export function arenaFrustum(width:number,height:number,zoomHeight=20){
  return {left:-viewWidth/2,right:viewWidth/2,top:viewHeight/2,bottom:-viewHeight/2};
 }
 /** Shared by live combat and Creator. The lens keeps the wall at the safe bottom edge. */
-export function frameCombatCamera(camera:OrthographicCamera,w:number,h:number,_viewH=28,_desktop=true,_panX=0,panZ=0){
- const initial=laneFrame(w,h,ARENA_W+.8,-12,23,-12,true);
- const frame=laneFrame(w,h,ARENA_W+.8,-12,23,initial.low+panZ,true);
+export function frameCombatCamera(camera:OrthographicCamera,w:number,h:number,_viewH=28,desktop=true,_panX=0,panZ=0){
+ const fitFullDepth=desktop&&w>=1100&&h>=600;
+ const initial=laneFrame(w,h,ARENA_W+.8,-12,23,-12,true,fitFullDepth);
+ const frame=laneFrame(w,h,ARENA_W+.8,-12,23,initial.low+panZ,true,fitFullDepth);
  const baseY=60,baseZ=-35.6,lookZ=frame.centerZ-panZ;
  const portrait=w<860&&w/Math.max(1,h)<1.15;
  let zoom=portrait?1.11:1;

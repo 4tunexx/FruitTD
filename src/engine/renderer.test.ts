@@ -29,16 +29,19 @@ test('solo camera stays angled and anchors wall HP near the lower safe edge on e
  }
 });
 
-test('PC combat stage leaves real side-panel space and keeps the approach visible',()=>{
+test('PC combat uses the full viewport and keeps the full arena visible',()=>{
  for(const [width,height] of [[1280,720],[1920,1080],[2560,1440]]){
   const viewport=combatViewport(width,height);
-  assert.ok(viewport.left>=220);assert.ok(width-viewport.left-viewport.width>=0);
-  assert.equal(viewport.top,78);assert.equal(viewport.height,height-178);
+  assert.deepEqual(viewport,{left:0,top:0,width,height});
   (globalThis as any).window={innerWidth:width,innerHeight:height};
   const field:any=Object.create(GameRenderer.prototype);
   Object.assign(field,{renderer:{setSize(){}},camera:new OrthographicCamera(-10,10,10,-10,.1,220),cameraBase:new Vector3(0,26,-32),panX:0,panZ:0,viewH:28});
   field.resize();
   const spawn=new Vector3(0,.7,SOLO_ARENA_D/2-SOLO_ARENA_D*.025).project(field.camera);
+  const wall=new Vector3(0,.15,-10.6).project(field.camera);
+  assert.ok(Math.abs(spawn.x)<1&&Math.abs(spawn.y)<1,'spawn remains visible on the full-screen canvas');
+  assert.ok(Math.abs(wall.x)<1&&Math.abs(wall.y)<1,'defending wall remains visible on the full-screen canvas');
+  assert.ok(Math.abs(spawn.y-wall.y)>.8,'the full approach uses the PC screen height');
   field.pan(999,12);field.resize();
   const north=new Vector3(0,.7,SOLO_ARENA_D/2-SOLO_ARENA_D*.025).project(field.camera);
   assert.ok(north.y<1,'north spawn is reachable with bounded vertical movement');assert.equal(field.panX,0);assert.ok(Number.isFinite(spawn.y));
