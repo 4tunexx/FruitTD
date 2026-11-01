@@ -476,3 +476,19 @@ export async function performCatalogueAction(
 export async function performWalletAction(action: 'buy-vip' | 'buy-skill', id: string): Promise<{ saveData: Record<string, any>; revision: number } | null> {
   return performCatalogueAction(action, id);
 }
+
+// ----------------- ACCOUNT HISTORY -----------------
+export interface PvpHistoryRow { id: string; queue: string; date: number; map: string; rival: string; result: 'win' | 'loss' | 'tie'; reason: string; ownWall: number; rivalWall: number; ratingDelta?: number }
+/** Uploads this device's recent runs; the server ignores ones it already has. */
+export async function syncRuns(): Promise<void> {
+  if (!getAuthToken()) return;
+  const { runHistory } = await import('../game/runStats');
+  const runs = runHistory().slice(-50);
+  if (runs.length) await apiRequest('/api/profile/runs', { method: 'POST', body: JSON.stringify({ runs }) });
+}
+/** PvP matches and solo runs for the signed-in account, newest first. */
+export async function fetchProfileHistory(): Promise<{ pvp: PvpHistoryRow[]; runs: import('../game/runStats').RunRecord[] } | null> {
+  if (!getAuthToken()) return null;
+  const res = await apiRequest<{ success: boolean; pvp: PvpHistoryRow[]; runs: import('../game/runStats').RunRecord[] }>('/api/profile/history');
+  return res && res.success ? { pvp: res.pvp, runs: res.runs } : null;
+}

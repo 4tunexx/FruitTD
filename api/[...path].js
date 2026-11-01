@@ -204,6 +204,9 @@ var DATABASE_INDEXES = [
   { collection: "pvp_matches", keys: { id: 1 }, options: { unique: true } },
   { collection: "pvp_matches", keys: { activePlayers: 1 }, options: { unique: true, sparse: true } },
   { collection: "pvp_matches", keys: { status: 1, updatedAt: 1 } },
+  { collection: "pvp_matches", keys: { "players.userId": 1, status: 1, updatedAt: -1 } },
+  { collection: "run_history", keys: { userId: 1, id: 1 }, options: { unique: true } },
+  { collection: "run_history", keys: { userId: 1, date: -1 } },
   { collection: "pvp_queue", keys: { userId: 1 }, options: { unique: true } },
   { collection: "pvp_queue", keys: { queue: 1, expiresAt: 1 } },
   { collection: "pvp_challenges", keys: { challengeId: 1 }, options: { unique: true } },
@@ -5250,6 +5253,15 @@ function etag(revision) {
 function serverRevision(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
+var RUN_MODES = ["casual", "horde", "campaign", "coop"];
+function sanitizeRun(raw) {
+  if (!raw || typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > 80 || !RUN_MODES.includes(raw.mode)) return null;
+  const bounded = (value, max) => Number.isFinite(value) && value >= 0 && value <= max ? Math.floor(value) : null;
+  const score = bounded(raw.score, 1e10), wave2 = bounded(raw.wave, 1e5), combo = bounded(raw.combo, 1e5), kills = bounded(raw.kills, 1e7), strokes = bounded(raw.strokes, 1e7), hits = bounded(raw.hits, 1e7);
+  const date = bounded(raw.date, Date.now() + 864e5);
+  if ([score, wave2, combo, kills, strokes, hits, date].some((value) => value === null) || hits > strokes) return null;
+  return { id: raw.id, mode: raw.mode, score, wave: wave2, combo, kills, strokes, hits, completed: Boolean(raw.completed), date };
+}
 function createProfileRouter(deps = defaultDeps5) {
   const router = Router9();
   router.get("/", async (req2, res) => {
@@ -5347,6 +5359,61 @@ function createProfileRouter(deps = defaultDeps5) {
       if (err?.code === 11e3) return res.status(409).json({ success: false, error: "Save conflict: reload the current server revision" });
       console.error("Error syncing cloud save:", err);
       res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  router.get("/history", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to view your history" });
+      const [matches, runs] = await Promise.all([deps.collection("pvp_matches"), deps.collection("run_history")]);
+      const [matchDocs, runDocs] = await Promise.all([
+        matches.find({ "players.userId": user.userId, status: "complete", testMatch: { $ne: true } }).sort({ updatedAt: -1 }).limit(20).toArray(),
+        runs.find({ userId: user.userId }).sort({ date: -1 }).limit(100).toArray()
+      ]);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json({
+        success: true,
+        pvp: matchDocs.map((match) => {
+          const own = match.players.find((player) => player.userId === user.userId);
+          const rival = match.players.find((player) => player.userId !== user.userId);
+          const pct = (player) => Math.max(0, Math.round((player?.wallHealth ?? 0) / Math.max(1, player?.wallMaxHealth ?? 100) * 100));
+          return {
+            id: match.id,
+            queue: match.queue,
+            date: new Date(match.updatedAt).getTime(),
+            map: match.map?.name ?? match.map?.id ?? "",
+            rival: rival?.name ?? "Rival",
+            result: match.winnerId === null ? "tie" : match.winnerId === user.userId ? "win" : "loss",
+            reason: match.resultReason ?? "",
+            ownWall: pct(own),
+            rivalWall: pct(rival),
+            ...match.queue === "ranked" && typeof own?.ratingDelta === "number" ? { ratingDelta: own.ratingDelta } : {}
+          };
+        }),
+        runs: runDocs.map(({ id, mode, score, wave: wave2, combo, kills, strokes, hits, completed, date }) => ({ id, mode, score, wave: wave2, combo, kills, strokes, hits, completed, date }))
+      });
+    } catch (err) {
+      console.error("Error fetching profile history:", err);
+      res.status(500).json({ success: false, error: "Could not load history" });
+    }
+  });
+  router.post("/runs", async (req2, res) => {
+    try {
+      const user = await deps.resolveUser(req2);
+      if (!user) return res.status(401).json({ success: false, error: "Sign in to sync runs" });
+      const input = Array.isArray(req2.body?.runs) ? req2.body.runs.slice(0, 50) : [];
+      const runs = await deps.collection("run_history");
+      let stored = 0;
+      for (const raw of input) {
+        const run = sanitizeRun(raw);
+        if (!run) continue;
+        const result = await runs.updateOne({ userId: user.userId, id: run.id }, { $setOnInsert: { userId: user.userId, ...run } }, { upsert: true });
+        if (result.upsertedCount) stored++;
+      }
+      res.json({ success: true, stored });
+    } catch (err) {
+      console.error("Error storing runs:", err);
+      res.status(500).json({ success: false, error: "Could not store runs" });
     }
   });
   return router;

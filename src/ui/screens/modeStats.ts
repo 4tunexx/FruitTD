@@ -1,5 +1,7 @@
 import { MODE_ICONS } from '../modeIcons';
-import { runHistory } from '../../game/runStats';
+import { runHistory, mergeRuns } from '../../game/runStats';
+import { getAuthToken } from '../../services/auth';
+import type { PvpHistoryRow } from '../../services/api';
 import { el } from '../components/dom';
 import { GameButton } from '../components/primitives';
 import type { GameMode } from '../../game/save';
@@ -14,16 +16,18 @@ export function relativeDay(ms: number, now = Date.now()): string {
 }
 export function renderModeStats(root: HTMLElement): void {
   const section = el('section', { class: 'ftd-mode-stats', 'aria-label': 'Statistics by game mode' });
-  section.appendChild(el('h2', { text: 'YOUR RUNS' })); section.appendChild(el('p', { text: 'Recent runs on this device · accuracy counts swipes that hit a target.' }));
+  section.appendChild(el('h2', { text: 'YOUR RUNS' })); section.appendChild(el('p', { text: 'Recent runs on your account · accuracy counts swipes that hit a target.' }));
   const tabs = el('div', { class: 'ftd-duel-tabs', role: 'group', 'aria-label': 'Game mode statistics' }); const body = el('div', { class: 'ftd-mode-stats__body' }); section.appendChild(tabs); section.appendChild(body); root.appendChild(section);
   const modes: GameMode[] = ['casual', 'horde', 'campaign', 'coop'];
   const label = (mode: GameMode) => mode === 'coop' ? 'Co-op' : mode[0]!.toUpperCase() + mode.slice(1);
-  const overview = el('div', { class: 'ftd-mode-overview', role: 'list', 'aria-label': 'Modes played' }, modes.map(mode => {
+  const overview = el('div', { class: 'ftd-mode-overview', role: 'list', 'aria-label': 'Modes played' });
+  const fillOverview = () => overview.replaceChildren(...modes.map(mode => {
     const played = runHistory().filter(row => row.mode === mode);
     const last = played[played.length - 1];
     const text = last ? `${label(mode)}: ${played.length} run${played.length === 1 ? '' : 's'} · last ${formatRunDate(last.date)}` : `${label(mode)}: not played yet`;
     return el('span', { class: 'ftd-mode-overview__item', role: 'listitem', tabindex: '0', title: text, 'aria-label': text }, [el('strong', { text: label(mode) }), el('small', { text: last ? `${played.length} · ${relativeDay(last.date)}` : 'Not played' })]);
   }));
+  fillOverview();
   section.insertBefore(overview, tabs);
   const show = (mode: GameMode) => {
     tabs.querySelectorAll('button').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active)); });
@@ -65,6 +69,38 @@ export function renderModeStats(root: HTMLElement): void {
     const values = [['Runs', rows.length], ['Last played', relativeDay(rows[rows.length - 1]!.date)], ['Best wave', Math.max(...rows.map(row => row.wave))], ['Best combo', Math.max(...rows.map(row => row.combo))], ['Fruit destroyed', rows.reduce((sum, row) => sum + row.kills, 0)]];
     body.appendChild(el('div', { class: 'ftd-stat-grid ftd-run-kpis' }, values.map(([label, value]) => el('div', { class: 'ftd-stat' }, [el('p', { class: 'ftd-stat__label', text: String(label) }), el('strong', { class: 'ftd-stat__value', text: typeof value === 'number' ? value.toLocaleString() : value })]))));
   };
-  modes.forEach(mode => { const button = GameButton({ icon: MODE_ICONS[mode], label: label(mode), onClick: () => show(mode) }); button.dataset.mode = mode; tabs.appendChild(button); }); show('casual');
+  let current: GameMode = 'casual';
+  modes.forEach(mode => { const button = GameButton({ icon: MODE_ICONS[mode], label: label(mode), onClick: () => { current = mode; show(mode); } }); button.dataset.mode = mode; tabs.appendChild(button); }); show('casual');
+
+  // Account data (any device) is merged in once the server answers; the device copy shows instantly.
+  if (!getAuthToken()) return;
+  const arena = el('section', { class: 'ftd-arena-history', 'aria-label': 'Arena match history', hidden: true });
+  root.appendChild(arena);
+  void import('../../services/api').then(({ fetchProfileHistory }) => fetchProfileHistory()).then((history) => {
+    if (!history || !section.isConnected) return;
+    mergeRuns(history.runs);
+    fillOverview(); show(current);
+    renderArenaHistory(arena, history.pvp);
+  }).catch(() => { /* Offline: the device copy stays visible. */ });
+}
+
+const RESULT_TEXT = { win: 'WIN', loss: 'LOSS', tie: 'DRAW' } as const;
+function renderArenaHistory(host: HTMLElement, rows: PvpHistoryRow[]): void {
+  host.replaceChildren();
+  host.hidden = !rows.length;
+  if (!rows.length) return;
+  const wins = rows.filter(row => row.result === 'win').length, losses = rows.filter(row => row.result === 'loss').length;
+  host.append(
+    el('h2', { text: 'ARENA MATCHES' }),
+    el('p', { text: `Last ${rows.length} online match${rows.length === 1 ? '' : 'es'} · ${wins} won · ${losses} lost · ${rows.length - wins - losses} drawn` }),
+    el('div', { class: 'ftd-arena-history__list', role: 'list' }, rows.map(row => {
+      const text = `${RESULT_TEXT[row.result]} vs ${row.rival} · ${row.queue === 'ranked' ? 'Ranked' : 'Casual'} · ${row.map || 'Arena'} · ${formatRunDate(row.date)} · your wall ${row.ownWall}% · rival wall ${row.rivalWall}%${row.ratingDelta ? ` · ${row.ratingDelta > 0 ? '+' : ''}${row.ratingDelta} FR` : ''}`;
+      return el('div', { class: `ftd-arena-history__row is-${row.result}`, role: 'listitem', tabindex: '0', title: text, 'aria-label': text }, [
+        el('strong', { text: RESULT_TEXT[row.result] }),
+        el('span', { text: `vs ${row.rival}` }),
+        el('small', { text: `${row.queue === 'ranked' ? 'Ranked' : 'Casual'} · ${relativeDay(row.date)}${row.ratingDelta ? ` · ${row.ratingDelta > 0 ? '+' : ''}${row.ratingDelta} FR` : ''}` }),
+      ]);
+    })),
+  );
 }
 

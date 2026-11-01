@@ -1045,3 +1045,14 @@ html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: 
 .ftd-mode-overview__item strong { color:#ffe394; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
 .ftd-mode-overview__item small { color:#b9b2a5; font-size:11px; }
 .ftd-mode-overview__item:focus-visible { outline:2px solid #ffe394; }
+
+.ftd-arena-history { margin-top:16px; padding:14px; border:1px solid #756044; background:linear-gradient(145deg,#34363bdc,#24262ae8); }
+.ftd-arena-history[hidden] { display:none; }
+.ftd-arena-history h2 { margin:0 0 4px; color:#ffe394; font-size:15px; letter-spacing:.08em; }
+.ftd-arena-history > p { margin:0 0 10px; color:#b9b2a5; font-size:12px; }
+.ftd-arena-history__list { display:grid; gap:6px; max-height:260px; overflow-y:auto; }
+.ftd-arena-history__row { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:center; gap:10px; padding:8px 10px; border:1px solid #675b47; border-left-width:4px; background:#1c1e22cc; color:#eee6d5; font-size:13px; cursor:help; }
+.ftd-arena-history__row.is-win { border-left-color:#6fcf7f; } .ftd-arena-history__row.is-loss { border-left-color:#e0644f; } .ftd-arena-history__row.is-tie { border-left-color:#d8b858; }
+.ftd-arena-history__row strong { letter-spacing:.08em; font-size:12px; }
+.ftd-arena-history__row small { color:#b9b2a5; font-size:11px; text-align:right; }
+.ftd-arena-history__row:focus-visible { outline:2px solid #ffe394; }

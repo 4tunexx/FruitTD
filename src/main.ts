@@ -12,7 +12,7 @@ import { installCombatHudLayout } from './ui/combatHudLayout';
 import { PowerVfx } from './game/powerVfx';
 import { powerStats, powerTargets, powerDamageMultiplier, superKillCharge, superSliceCharge } from './game/powerCombat';
 import { finishCampaignAttempt } from './game/campaignAttempt';
-import { recordRun } from './game/runStats';
+import { recordRun, onRunRecorded } from './game/runStats';
 import { Vector3 } from 'three';
 import { JuiceStains } from './game/juiceStains';
 import './style.css';
@@ -64,7 +64,7 @@ import { floatingScore } from './ui/floatingScore';
 import { Hud } from './ui/hud';
 import { CombatImpact } from './ui/combatImpact';
 import { EnemyHealthOverlay } from './ui/enemyHealth';
-import { submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, adoptAuthoritativeSave, type CatalogueAction } from './services/api';
+import { syncRuns, submitScore, syncCloudSave, fetchCloudSave, startLeaderboardRun, performCatalogueAction, adoptAuthoritativeSave, type CatalogueAction } from './services/api';
 import { getAuthToken } from './services/auth';
 import { initAchievementsCache } from './services/achievements';
 import { confirmModal } from './ui/components/surface';
@@ -103,6 +103,7 @@ import './ui/combatRefinement.css';
 import './ui/combatExperience.css';
 import './ui/pvpCombatLayout.css';
 import { installPowerHotkeys } from './ui/powerButton';
+onRunRecorded(() => { void syncRuns(); });
 
 // Theme + layout must be applied before any UI renders.
 initThemeSystem();
