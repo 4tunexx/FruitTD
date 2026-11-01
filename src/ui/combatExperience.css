@@ -65,15 +65,6 @@ body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { bottom:24px; left:10px; min-w
 .ftd-coop-battle .hero-ability-bar--coop { top:auto; bottom:8px; right:8px; display:flex; flex-direction:row; gap:4px; padding:7px; border:1px solid var(--ftd-color-border); border-radius:var(--ftd-radius-button); background:var(--ftd-color-panel); }
 .ftd-coop-battle .ftd-pvp__siege-layout { bottom:108px; }
 .ftd-coop-battle .ftd-coop-hud { background:var(--ftd-color-panel); border-color:var(--ftd-color-border); }
-@media(min-width:1100px) and (min-height:600px) {
-  body[data-ftd-screen='PLAY'] #sidebar { left:16px; top:78px; bottom:16px; width:272px; max-width:272px; padding:16px; }
-  body[data-ftd-screen='PLAY'] #player-chip { left:16px; max-width:270px; }
-  body[data-ftd-screen='PLAY'] #battle-status { top:16px!important; left:calc(var(--combat-left) + 8px); right:auto; width:calc(var(--combat-width) - 16px); }
-  body[data-ftd-screen='PLAY'] #super-wrap { top:65px!important; left:calc(var(--combat-left) + 8px); width:calc(var(--combat-width) - 16px); }
-  body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { left:calc(var(--combat-left) + var(--combat-width)/2)!important; bottom:8px; }
-  body[data-ftd-screen='PLAY'] #boss-health { top:88px!important; left:calc(var(--combat-left) + var(--combat-width)/2); width:min(420px,calc(var(--combat-width) - 32px)); }
-  body[data-ftd-screen='PLAY'] #hud-toast { top:152px!important; left:calc(var(--combat-left) + var(--combat-width)/2)!important; }
-}
 @media(max-width:600px) {
   .ftd-pvp.is-battle .ftd-duel-dock { gap:6px; padding:6px 8px max(6px,env(safe-area-inset-bottom)); }
   .ftd-pvp.is-battle .ftd-duel-resource { order:0; flex:1; min-width:0; }
@@ -174,15 +165,6 @@ body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip--green { box-shadow:inset 
   .ftd-pvp.is-battle .ftd-duel-tools:not([hidden]) { right:8px; width:min(330px,calc(100vw - 16px)); }
 }
 
-/* Keep combat information in one place: the top strip owns wave and currency. */
-@media(min-width:1100px) and (min-height:600px) {
-  body[data-ftd-screen="PLAY"] #sidebar { bottom:auto; max-height:calc(100dvh - 94px); overflow-y:auto; }
-  body[data-ftd-screen="PLAY"] #stats-grid { display:block; }
-  body[data-ftd-screen="PLAY"] #stats-grid .stat-card:not(:first-child) { display:none; }
-  body[data-ftd-screen="PLAY"] #stats-grid .stat-card:first-child { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; }
-  body[data-ftd-screen="PLAY"] #stats-grid .stat-card p { margin:0; }
-  body[data-ftd-screen="PLAY"] #sidebar .sidebar-footer { margin-top:12px; }
-}
 @media(max-width:600px) {
   .ftd-pvp.is-battle .ftd-duel-panel { padding:10px; max-height:38dvh; overflow-y:auto; overscroll-behavior:contain; }
   .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
@@ -206,7 +188,7 @@ body[data-ftd-screen="PLAY"] #sidebar .hud-juice-chip--green { box-shadow:inset 
 .ftd-coop-boss__track i { display:block; height:100%; background:var(--ftd-color-danger); }
 .ftd-coop-battle:has(.ftd-coop-boss) .ftd-coop-roster { top:142px; }
 
-@media(max-width:860px) {
+@media all {
   .ftd-coop-battle:has(.ftd-coop-tower-manager[open]) .hero-ability-bar--coop { bottom:calc(var(--coop-manager-height,130px) + 8px + env(safe-area-inset-bottom)); }
   .ftd-coop-battle:has(.ftd-coop-tower-manager[open]) .ftd-pvp__siege-layout { bottom:calc(var(--coop-manager-height,130px) + 112px + env(safe-area-inset-bottom)); }
 }
@@ -333,7 +315,7 @@ body[data-ftd-screen="PLAY"] .hero-ability-bar--solo {
   border-color:#d7bb6be0; background:linear-gradient(145deg,#30373bea,#151a1ee8);
   box-shadow:inset 0 1px #fff4c52b,0 14px 36px #000a; backdrop-filter:blur(18px) saturate(145%);
 }
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #sidebar {
     left:8px; right:8px; top:auto; bottom:8px; width:auto; max-width:none;
     max-height:min(68dvh,560px); padding:14px;
@@ -348,7 +330,7 @@ body[data-ftd-screen="PLAY"] .hero-ability-bar--solo {
   body[data-ftd-screen="PLAY"] #hud-shop { max-height:min(37dvh,300px); }
   .ftd-pvp.is-battle .ftd-duel-powers { right:6px; padding:5px; }
 }
-@media(max-width:860px) {
+@media all {
   /* Keep the always-ready powers in their own corner, clear of STATUS and the
      contextual build card that rises from the opposite edge. */
   body[data-ftd-screen="PLAY"] .hero-ability-bar--solo {
@@ -462,7 +444,7 @@ body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__portrai
 body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__icon { width:28px; height:28px; }
 body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__name,
 body[data-ftd-screen="PLAY"] .hero-ability-bar--solo .hero-ability-slot__cooldown { font-size:8px; line-height:11px; }
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup {
     width:min(320px,calc(var(--combat-field-width,100vw) - 96px));
     max-height:min(48dvh,400px,calc(var(--combat-field-height,100dvh) - 20px));
@@ -551,7 +533,7 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 }
 
 /* Combat powers are quick, colour-coded controls; the icon is the surface. */
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] .hero-ability-bar--solo,
   .ftd-pvp.is-battle .ftd-duel-powers,
   .ftd-coop-battle .hero-ability-bar--coop {
@@ -608,7 +590,7 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 
 /* Phone build choices are small icon tokens orbiting the tapped pad. Keep
    names and prices beneath the circle so the action stays understandable. */
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection {
     width:min(326px,calc(var(--combat-field-width,100vw) - 18px));
   }
@@ -659,7 +641,7 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
 }
 
 /* Boss telemetry belongs beside STATUS, clear of the lane and the juice rail. */
-@media(max-width:860px) and (min-height:521px) {
+@media(min-height:521px) {
   body[data-ftd-screen="PLAY"] #boss-health {
     top:calc(var(--combat-field-top,112px) + 8px)!important;
     left:calc(var(--combat-field-left,0px) + 72px)!important;
@@ -681,7 +663,7 @@ body[data-ftd-screen="PLAY"] #command-popup:not(.is-build-selection) #action-btn
   }
 }
 
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #btn-sidebar-toggle {
     width:48px; height:48px; padding:3px; border-radius:50%!important;
     background:#242d32b8!important; backdrop-filter:blur(12px);
@@ -760,7 +742,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 .enemy-health-rail.is-boss { width:82px; height:9px; border-color:#ffabb5; }
 .enemy-health-rail.is-boss i { background:#ef6d83; }
 
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     display:flex; align-items:flex-start; gap:4px; overflow-x:auto!important; overflow-y:hidden!important;
     scroll-snap-type:x proximity; scroll-behavior:smooth; touch-action:pan-x;
@@ -787,7 +769,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
   body[data-ftd-screen="PLAY"] #combat-status-toggle::after { content:'⌃'; font-size:16px; }
   body[data-ftd-screen="PLAY"] #combat-status-toggle[aria-expanded="false"]::after { content:'⌄'; }
 }
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     width:100%!important; max-width:none!important; height:120px;
   }
@@ -808,7 +790,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 
 /* The tapped + is the pivot. A narrow four-token fan leaves the tower and
    its health rail unobscured and keeps touch targets clear of the power bar. */
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection {
     width:min(244px,calc(var(--combat-field-width,100vw) - 16px));
     max-height:none; gap:0;
@@ -852,7 +834,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 }
 
 /* Compact scrollable build choices, with no absolute orbit positions. */
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection { width:min(272px,calc(100vw - 30px))!important; }
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     display:flex!important; flex-flow:row nowrap!important; align-items:flex-start!important;
@@ -876,7 +858,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[data-equipped="false"] .turret-btn__status { display:block!important; grid-row:3; font-size:7px; line-height:11px; }
 }
 
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #sidebar[aria-hidden="false"] {
     display:block!important; visibility:visible!important; opacity:1!important;
     pointer-events:auto!important; transform:none!important; z-index:91!important;
@@ -920,7 +902,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 
 /* The swipe rail is a curved orbit: each token follows its live scroll
    position, instead of a static four-column row or a page switch. */
-@media(max-width:860px) {
+@media all {
   body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
     height:132px!important; max-height:132px!important; align-items:flex-start!important;
     scroll-snap-type:none!important; scroll-behavior:auto!important;
@@ -954,10 +936,6 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card { background:linear-gradient(140deg,#35463bdc,#17241fe8);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease; }
 .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card:hover,.ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card:focus-visible { transform:translateY(-2px);box-shadow:0 7px 20px #0008; }
 .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card.is-boss { border-color:#e7ae51; background:linear-gradient(140deg,#634831d9,#241d1beb); }
-@media (min-width:861px) {
-  .ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { right:116px; width:min(520px,calc(100vw - 160px)); max-width:none; max-height:min(55dvh,440px); overflow-y:auto; }
-  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
-}
 .ftd-arena-minimap { position:absolute;z-index:18;left:10px;top:60px;width:72px;height:144px;border:1px solid #e5d49d;border-radius:12px;box-shadow:0 8px 22px #0009;opacity:.92;cursor:pointer;touch-action:none;background:#0c1a18; }
 .ftd-arena-minimap[hidden],.ftd-arena-catch-box[hidden] { display:none!important; }
 .ftd-arena-catch-box { position:absolute;z-index:19;right:12px;bottom:100px;width:118px;height:92px;display:grid;place-items:center;box-sizing:border-box;padding:8px;text-align:center;font-weight:900;font-size:11px;letter-spacing:.08em;line-height:1.2;color:#fff0b8;border:2px dashed #ffe078;border-radius:22px;background:#213d2dbb;box-shadow:0 0 22px #efc45a77,inset 0 0 18px #f6d67433;pointer-events:none; }
@@ -968,7 +946,7 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 .ftd-pvp__map-thumb i.is-solid { background:#777c66!important; }
 .ftd-pvp__map-thumb i.is-slow { background:#5bb3cf!important; }
 .ftd-pvp__map-thumb i.is-damage { background:#eb8a42!important; }
-@media(max-width:860px){.ftd-arena-minimap{left:7px;top:56px;width:55px;height:110px}.ftd-arena-catch-box{right:8px;bottom:82px;width:92px;height:75px;font-size:9px}.ftd-arena-capture-status{top:72px}}
+@media all{.ftd-arena-minimap{left:7px;top:56px;width:55px;height:110px}.ftd-arena-catch-box{right:8px;bottom:82px;width:92px;height:75px;font-size:9px}.ftd-arena-capture-status{top:72px}}
 .ftd-coop-vote { position:fixed;z-index:92;top:90px;left:50%;transform:translateX(-50%);display:grid;grid-template-columns:1fr 1fr;gap:7px;width:min(340px,calc(100vw - 24px));box-sizing:border-box;padding:12px;color:#fff1cc;border:1px solid #e9c76d;border-radius:18px;background:#152720ed;box-shadow:0 12px 30px #000a; }
 .ftd-coop-vote strong,.ftd-coop-vote span { grid-column:1/-1; }
 .ftd-coop-vote span { font-size:11px; }
@@ -1061,123 +1039,4 @@ body[data-ftd-screen="PLAY"] #game-canvas.is-combo-focused { filter:blur(.4px); 
 }
 @media(max-width:600px) {
   .ftd-pvp.is-battle .ftd-duel-powers { left:clamp(88px,23vw,140px); top:55%; bottom:auto; }
-}
-
-/* Desktop combat keeps the game's chamfered panels and uses circular artwork tokens. */
-@media (min-width:1100px) and (min-height:600px) {
-  body[data-ftd-screen="PLAY"] :is(#sidebar,#hp-row,#battle-status > span,#player-chip,#btn-game-menu-quick,#boss-health,#hud-toast,.hero-ability-bar--solo,#btn-sidebar-toggle,.turret-btn,.hero-ability-slot,.stat-card,#tower-progress-chip,#command-popup,#btn-command-close,#hud-pick,#action-btns .action-btn) {
-    border-radius:0!important;
-    clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))!important;
-  }
-  body[data-ftd-screen="PLAY"] .hero-ability-slot__portrait,
-  body[data-ftd-screen="PLAY"] .turret-btn__glyph {
-    border-radius:50%!important; clip-path:circle(50%)!important;
-  }
-  body[data-ftd-screen="PLAY"] #sidebar { border-radius:0!important; }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection {
-    width:min(720px,calc(var(--combat-field-width,100vw) - 32px))!important;
-    max-height:min(60dvh,calc(var(--combat-field-height,100dvh) - 24px))!important;
-    gap:10px!important; padding:14px!important; overflow:hidden!important;
-    border:1px solid #d3b56dba!important; border-radius:0!important;
-    clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))!important;
-    background:linear-gradient(150deg,#30383cf2,#151a1ef2 78%)!important;
-    box-shadow:0 20px 50px #000b,inset 0 1px #fff3d533!important;
-    backdrop-filter:blur(20px) saturate(135%)!important;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header {
-    min-height:42px; padding:0 0 9px; border-bottom:1px solid #d3b56d55;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-popup__header strong {
-    font-size:15px; letter-spacing:.04em;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection .command-carousel__nav button {
-    width:34px; min-width:34px; height:34px; min-height:34px;
-    border-radius:50%!important; clip-path:circle(50%)!important;
-    background:radial-gradient(circle at 35% 25%,#3d4749,#151a1e)!important;
-    box-shadow:inset 0 1px #fff3,0 3px 8px #0008;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #turret-page-label {
-    min-width:42px; font-size:11px;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-pick {
-    padding:9px 12px!important; border:1px solid #d3b56d66;
-    border-radius:0!important; clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px))!important;
-    background:#11191dc9;
-    font-size:12px; line-height:1.35;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop {
-    display:grid!important; grid-template-columns:repeat(4,minmax(0,1fr))!important;
-    grid-auto-flow:row!important; grid-auto-columns:auto!important;
-    gap:10px!important; width:100%; height:auto!important; min-height:0;
-    max-height:min(34dvh,310px)!important; padding:1px 2px 4px!important;
-    overflow-x:hidden!important; overflow-y:auto!important;
-    touch-action:pan-y; scroll-snap-type:none; scrollbar-width:thin;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn {
-    position:relative!important; inset:auto!important; width:auto!important;
-    min-width:0!important; max-width:none!important; height:auto!important;
-    min-height:148px!important; margin:0!important; padding:12px!important;
-    display:grid!important; grid-template-columns:38px minmax(0,1fr)!important;
-    grid-template-rows:auto auto auto minmax(0,1fr)!important;
-    align-content:start!important; align-items:center!important; justify-items:stretch!important;
-    gap:5px 8px!important; text-align:left!important;
-    border:1px solid #d6bd80a8!important; border-radius:0!important;
-    clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))!important;
-    background:linear-gradient(150deg,#343e42e8,#182024f2 78%)!important;
-    box-shadow:inset 0 1px #fff5d426,0 8px 18px #0007!important;
-    transform:none!important; animation:none!important;
-    transition:transform .16s ease,border-color .16s ease,background .16s ease!important;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn[hidden] {
-    display:none!important;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn:not(:disabled):is(:hover,:focus-visible) {
-    border-color:#ffe189!important; background:linear-gradient(150deg,#55492eeF,#222a2deF 78%)!important;
-    transform:translateY(-3px)!important; outline:2px solid #ffda7188; outline-offset:1px;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__glyph {
-    grid-column:1!important; grid-row:1/3!important; align-self:center;
-    display:grid; place-items:center; width:36px!important; height:36px!important;
-    padding:5px; border:1px solid #d6bd80a8;
-    background:radial-gradient(circle at 35% 25%,#414b4d,#171d21 76%);
-    box-shadow:0 3px 8px #0008;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__name {
-    grid-column:2!important; grid-row:1!important; display:block!important;
-    max-width:none!important; overflow:visible; font-size:12px!important;
-    line-height:1.25!important; text-align:left!important; overflow-wrap:anywhere;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__cost {
-    grid-column:2!important; grid-row:2!important; font-size:12px!important;
-    line-height:1.2!important; text-align:left!important;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__status {
-    grid-column:1/-1!important; grid-row:3!important; display:block!important;
-    max-width:none!important; padding-top:7px; border-top:1px solid #d6bd8040;
-    font-size:9px!important; line-height:1.25!important; letter-spacing:.05em;
-    white-space:normal!important; overflow-wrap:anywhere;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup.is-build-selection #hud-shop .turret-btn__detail {
-    grid-column:1/-1!important; grid-row:4!important; display:-webkit-box!important;
-    min-width:0; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:3;
-    font-size:10px!important; line-height:1.35!important; color:#d5d3c8;
-  }
-  body[data-ftd-screen="PLAY"] #command-popup #action-btns .action-btn {
-    border-radius:0!important;
-    clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))!important;
-  }
-  .ftd-pvp.is-battle :is(.ftd-duel-hud,.ftd-duel-resource,.ftd-duel-panel,.ftd-duel-tools:not([hidden]),.ftd-duel-card,.ftd-duel-focus,.ftd-arena-minimap,.ftd-arena-capture-status,.ftd-arena-catch-box,.ftd-duel-tabs button,.ftd-duel-panel-close,.ftd-duel-camera button) {
-    border-radius:0!important;
-    clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))!important;
-  }
-  .ftd-pvp.is-battle .ftd-duel-icon-button,
-  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card__art {
-    border-radius:50%!important; clip-path:circle(50%)!important;
-  }
-  .ftd-pvp.is-battle .ftd-duel-panel { padding:16px!important; }
-  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card { min-height:120px; }
-  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-card.is-selected { box-shadow:0 0 0 2px var(--ftd-color-primary),0 8px 20px #0007!important; }
-  .ftd-coop-battle :is(.ftd-coop-tower-manager,.ftd-coop-roster,.ftd-pvp__siege-controls,.ftd-coop-boss,.ftd-coop-leave,.hero-ability-bar--coop) {
-    border-radius:16px!important; clip-path:none!important;
-  }
 }

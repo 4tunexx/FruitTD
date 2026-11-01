@@ -39,7 +39,7 @@ body[data-ftd-screen='PLAY'] #sidebar { left:76px; right:auto; top:110px; bottom
 body[data-ftd-screen='PLAY'] #app.sidebar-open #sidebar { visibility:visible; opacity:1; pointer-events:auto; transform:none!important; }
 body[data-ftd-screen='PLAY'] #btn-sidebar-hide { display:grid!important; }
 .sidebar-build-phase { display:none; }
-@media (max-width:860px) {
+@media all {
   body[data-ftd-screen='PLAY'] #app.sidebar-open .sidebar-build-phase {
     display:inline-flex; align-items:center; gap:4px; margin:6px 0 0; padding:4px 7px;
     border-left:3px solid #ffcf4b; background:#ffca281c; color:#ffe294;
@@ -246,7 +246,7 @@ body[data-ftd-screen='PLAY'] .hud-juice-chip--yellow { border-left:3px solid #f6
 body[data-ftd-screen='PLAY'] .hud-juice-chip--pink { border-left:3px solid #ef79b7; }
 body[data-ftd-screen='PLAY'] .hud-juice-chip--orange { border-left:3px solid #f48120; }
 body[data-ftd-screen='PLAY'] .hud-juice-chip--green { border-left:3px solid #69c77a; }
-@media (max-width:860px) {
+@media all {
   body[data-ftd-screen='PLAY'] #app.sidebar-open .hero-ability-bar--solo {
     visibility:hidden; pointer-events:none;
   }

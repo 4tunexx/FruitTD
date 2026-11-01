@@ -33,6 +33,12 @@ test('seven veto maps have genuinely different solid routes and symmetric legal 
   for(const map of config.maps){assert.ok(map.solidCells?.length);assert.ok(map.buildCells.length>10);assert.ok(map.buildCells.every(cell=>!map.solidCells?.includes(cell)&&!map.hazards?.some(h=>h.cell===cell)));assert.deepEqual(arenaMap(map).solidCells,map.solidCells);}
 });
 
+test('a fruit grabbed earlier can still be dropped in the box after it has moved on',()=>{
+  const match=arena();const catchable=arenaCatchables(match,1001,'blue')[0]!;
+  applyPvpCommand(match,'blue',{type:'catch',catchableId:catchable.id,from:{x:catchable.x,y:catchable.y},to:{x:9,y:22}},1,2500,config);
+  assert.equal(match.players[0].captured?.length,1);
+});
+
 test('catch phase mirrors fruit; each drag earns exactly one free release and siege begins with 100 Fruts',()=>{
   const match=arena();const catchable=arenaCatchables(match,1001,'blue')[0]!;
   assert.deepEqual(arenaCatchables(match,1001,'red')[0]?.id,catchable.id);

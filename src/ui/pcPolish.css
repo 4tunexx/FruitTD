@@ -36,20 +36,6 @@ body > .ftd-pvp.is-battle { box-sizing:border-box; width:100vw; max-width:none; 
   #screen-hub.ftd-hub .ftd-mode-card:is(:hover,:active,:focus-visible,.is-active) .ftd-mode-card__icon { transform:translateY(-2px)!important; filter:drop-shadow(0 1px 0 #ffe394)!important; }
   #screen-hub.ftd-hub .ftd-hub-tab:is(:hover,:active,:focus-visible,.is-active) .ftd-hub-tab__icon { transform:none!important; filter:none!important; }
   #screen-hub.ftd-hub .ftd-hub-tab:hover { background:#3d3527; border-color:#ffe394; }
-  .ftd-pvp.is-battle .ftd-pvp__body { display:grid; grid-template-columns:300px minmax(0,1fr); grid-template-rows:82px 32px minmax(0,1fr); }
-  .ftd-pvp.is-battle .ftd-duel-hud { grid-column:1/-1; grid-row:1; padding:12px 24px; }
-  .ftd-pvp.is-battle .ftd-duel-player strong { font-size:17px; }
-  .ftd-pvp.is-battle .ftd-vs-portrait { width:48px; height:48px; }
-  .ftd-pvp.is-battle .ftd-duel-objective { grid-column:1/-1; grid-row:2; font-size:11px; padding:8px; }
-  .ftd-pvp.is-battle .ftd-pvp-scene { grid-column:2; grid-row:3; width:100%; height:100%; margin:0; }
-  .ftd-pvp.is-battle .ftd-duel-dock { position:relative; inset:auto; grid-column:1; grid-row:3; width:100%; height:100%; padding:14px; overflow:auto; border-right:1px solid #ffe394; box-sizing:border-box; }
-  .ftd-pvp.is-battle .ftd-duel-resource { display:flex; margin-bottom:16px; }
-  .ftd-pvp.is-battle .ftd-duel-statusline { display:block; font-size:10px; }
-  .ftd-pvp.is-battle .ftd-duel-rail { flex-direction:row; flex-wrap:wrap; gap:8px; max-height:none; overflow:visible; margin-bottom:14px; }
-  .ftd-pvp.is-battle .ftd-duel-panel { position:static; width:100%; max-height:none; padding:12px 0 0; border:0; border-top:1px solid #8c7850; border-radius:0; box-shadow:none; background:none; }
-  .ftd-pvp.is-battle .ftd-duel-card { min-height:112px; }
-  .ftd-pvp.is-battle .ftd-duel-card__art { width:36px; height:36px; }
-  .ftd-pvp.is-battle .ftd-duel-panel .ftd-duel-guide { font-size:12px; line-height:1.5; margin-bottom:12px; }
 }
 @media(prefers-reduced-motion:reduce) { .ftd-pvp *,#screen-hub .ftd-hub-tab__icon { transition:none!important; } }
 #screen-hub .ftd-item-card__swatch--image { background-size:contain; background-repeat:no-repeat; background-color:#202125; }
@@ -79,40 +65,12 @@ html[data-ftd-motion] #screen-hub.ftd-hub :is(button,.ftd-hero-tile):hover :is(.
  #screen-hub.ftd-hub .ftd-hero-detail__name { font-size:28px; overflow-wrap:normal; word-break:normal; }
  #screen-hub.ftd-hub .ftd-hero-detail__blurb { max-width:65ch; font-size:14px; line-height:1.55; }
 }
-@media(min-width:1100px) and (min-height:600px) {
- body[data-ftd-screen='PLAY'] #app { background:radial-gradient(ellipse at center,#38322b,#181b1e 70%); }
- body[data-ftd-screen='PLAY'] #game-canvas { border:1px solid #8c7850; box-shadow:0 0 40px #0008; box-sizing:border-box; }
- body[data-ftd-screen='PLAY'] #player-chip { left:24px; top:18px; max-width:calc(var(--combat-left) - 48px); flex-wrap:wrap; gap:5px; }
- body[data-ftd-screen='PLAY'] #player-chip:not(.is-collapsed) .player-chip__identity { display:block; }
- body[data-ftd-screen='PLAY'] #battle-status { top:18px!important; left:calc(var(--combat-left) + 12px); right:auto; width:calc(var(--combat-width) - 24px); }
- body[data-ftd-screen='PLAY'] #battle-status > span { font-size:16px; padding:12px; }
- body[data-ftd-screen='PLAY'] #battle-status small { font-size:11px; }
- body[data-ftd-screen='PLAY'] #super-wrap { top:82px!important; left:calc(var(--combat-left) + 12px); width:calc(var(--combat-width) - 24px); }
- body[data-ftd-screen='PLAY'] #sidebar { left:18px; top:104px; bottom:18px; width:calc(var(--combat-left) - 36px); max-width:380px; max-height:none; visibility:visible; opacity:1; pointer-events:auto; transform:none!important; background:linear-gradient(145deg,#2a2c2f,#181b1e); border:1px solid #8c7850; border-radius:0; padding:18px; box-sizing:border-box; }
- body[data-ftd-screen='PLAY'] #btn-sidebar-toggle,body[data-ftd-screen='PLAY'] #btn-sidebar-hide,body[data-ftd-screen='PLAY'] #btn-sidebar-close { display:none!important; }
- body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { top:160px; left:auto; right:24px; width:calc(var(--combat-left) - 48px); max-width:280px; gap:14px; padding:18px; border:1px solid #8c7850; background:#202125ee; box-sizing:border-box; }
- body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot { width:100%; min-height:82px; grid-template-columns:60px minmax(0,1fr); grid-template-rows:auto auto; gap:8px; text-align:left; justify-items:start; padding:10px; }
- body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot__portrait { grid-row:1/3; width:56px; height:56px; }
- body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot__name { font-size:12px; white-space:normal; }
- body[data-ftd-screen='PLAY'] .hero-ability-bar--solo .hero-ability-slot__cooldown { font-size:12px; }
- body[data-ftd-screen='PLAY'] #boss-health { top:114px!important; left:calc(var(--combat-left) + 24px); right:calc(var(--combat-left) + 24px); }
- body[data-ftd-screen='PLAY'] #hud-toast { top:148px!important; left:calc(var(--combat-left) + 24px); right:calc(var(--combat-left) + 24px); }
- body[data-ftd-screen='PLAY'] #hud-mission-tracker { right:24px; left:auto; width:260px; }
- body[data-ftd-screen='PLAY'] .turret-btn { min-height:68px; padding:10px; }
- body[data-ftd-screen='PLAY'] #sidebar-title { font-size:22px; }
-}
 @media(min-width:1000px) {
  #screen-hub.ftd-hub .ftd-hero-detail { grid-template-areas:none; }
  #screen-hub.ftd-hub .ftd-hero-detail > * { grid-area:auto!important; min-width:0; }
  #screen-hub.ftd-hub .ftd-hero-detail__head { flex-wrap:wrap; gap:12px; }
 }
 html[data-ftd-motion] #screen-hub.ftd-hub button:hover::before,html[data-ftd-motion] #screen-hub.ftd-hub button:hover::after { animation:none!important; opacity:0!important; }
-@media(min-width:1100px) and (min-height:600px) {
- body[data-ftd-screen='PLAY'] #battle-status strong { font-size:20px; }
- body[data-ftd-screen='PLAY'] #sidebar { left:max(18px,calc(var(--combat-left) - 398px)); }
- body[data-ftd-screen='PLAY'] #player-chip { left:max(24px,calc(var(--combat-left) - 392px)); }
- body[data-ftd-screen='PLAY'] .hero-ability-bar--solo { right:auto; left:calc(var(--combat-left) + var(--combat-width) + 20px); }
-}
 /* Result text is solid ink: the retired transparent gradient clipped its shadows. */
 #hud-gameover .modal-card.modal-card--over { background:linear-gradient(145deg,#323337,#1c1e22)!important; border:2px solid #ffe394; color:#eee5cf; }
 #hud-gameover #hud-final-score { color:#ffe394!important; -webkit-text-fill-color:#ffe394!important; -webkit-text-stroke:0!important; background:none!important; background-clip:border-box!important; -webkit-background-clip:border-box!important; text-shadow:none!important; filter:none!important; animation:none!important; font-size:clamp(56px,9vw,88px); font-weight:900; line-height:1.15; overflow:visible; }

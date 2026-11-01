@@ -31,7 +31,6 @@ body[data-ftd-screen='PLAY'] #battle-status > span,.ftd-pvp.is-battle .ftd-duel-
 .ftd-pvp.is-battle .ftd-arena-minimap { top:126px!important;width:34px!important;height:68px!important;opacity:.5; }
 .ftd-pvp.is-battle .ftd-duel-focus { top:126px!important;right:8px;font-size:9px;min-height:30px; }
 .ftd-pvp.is-battle .ftd-duel-camera { top:162px!important; }
-@media(min-width:861px) { .ftd-pvp.is-battle .ftd-duel-dock .ftd-duel-panel { width:440px!important; } }
 /* Compact PvP overlay: field stays visible and camera gestures stay on canvas. */
 .ftd-pvp.is-battle .ftd-duel-hud { min-height:40px!important;grid-template-columns:minmax(0,1fr) 84px minmax(0,1fr)!important; }
 .ftd-pvp.is-battle .ftd-duel-player__crest { border:2px solid #37b9ef!important; }

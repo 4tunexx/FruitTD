@@ -129,8 +129,8 @@ export function applyArenaCommand(match: ArenaMatch, userId: string, command: Pv
     if (command.type !== 'catch') throw new Error('Catch fruit until siege begins');
     const item = match.catchables.find(c => c.id === command.catchableId);
     if (!item || item.bornAt > now || item.expiresAt < now || item.claimedBy.includes(userId)) throw new Error('That fruit has escaped');
-    const at = catchPosition(item, now);
-    if (Math.hypot(command.from.x - at.x, command.from.y - at.y) > 1.25 || command.to.x < 8.1 || command.to.y < 20.5) throw new Error('Drag the fruit into the collection box');
+    // Fruit keeps moving while the player drags it, so the grab point is not compared with its live position.
+    if (!Number.isFinite(command.from.x) || !Number.isFinite(command.from.y) || command.to.x < 8.1 || command.to.y < 20.5) throw new Error('Drag the fruit into the collection box');
     item.claimedBy.push(userId); player.captured ??= []; player.captured.push({ id: `${item.id}:${userId}`, type: item.type, fruitKind: item.fruitKind });
   } else {
     if (now >= match.endsAt) throw new Error('Match timer has expired');

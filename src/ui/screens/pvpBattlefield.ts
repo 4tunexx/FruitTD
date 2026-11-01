@@ -558,7 +558,7 @@ export class PvpBattlefield {
     if (event.button !== 0) return;
     if(this.snapshot.phase==='capture'&&!this.snapshot.shared){
       const rect=this.canvas.getBoundingClientRect();let nearest:{id:string;distance:number;from:{x:number;y:number}}|null=null;
-      for(const item of this.snapshot.catchables??[]){const mesh=this.catchMeshes.get(item.id);if(!mesh)continue;const at=mesh.position.clone().project(this.camera);const distance=Math.hypot(event.clientX-(rect.left+(at.x+1)*rect.width/2),event.clientY-(rect.top+(1-at.y)*rect.height/2));if(distance<42&&(!nearest||distance<nearest.distance))nearest={id:item.id,distance,from:{x:item.x,y:item.y}};}
+      for(const item of this.snapshot.catchables??[]){const mesh=this.catchMeshes.get(item.id);if(!mesh)continue;const at=mesh.position.clone().project(this.camera);const distance=Math.hypot(event.clientX-(rect.left+(at.x+1)*rect.width/2),event.clientY-(rect.top+(1-at.y)*rect.height/2));if(distance<64&&(!nearest||distance<nearest.distance))nearest={id:item.id,distance,from:{x:item.x,y:item.y}};}
       if(nearest){this.captureDrag={pointerId:event.pointerId,itemId:nearest.id,from:nearest.from};this.canvas.setPointerCapture(event.pointerId);this.catchBox.classList.add('is-target');return;}
     }
     if (!this.snapshot.shared) { this.canvas.setPointerCapture(event.pointerId); this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false}); this.resetGesture(); this.stroke=null; return; }
@@ -591,7 +591,7 @@ export class PvpBattlefield {
     }
   }
   private pointerUp(event: PointerEvent): void {
-    if(this.captureDrag?.pointerId===event.pointerId){const drag=this.captureDrag;this.captureDrag=null;this.catchBox.classList.remove('is-target');const rect=this.catchBox.getBoundingClientRect();if(event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom)this.command({type:'catch',catchableId:drag.itemId,from:drag.from,to:{x:9,y:22}});else this.syncCatchables(this.snapshot.map!);return;}
+    if(this.captureDrag?.pointerId===event.pointerId){const drag=this.captureDrag;this.captureDrag=null;this.catchBox.classList.remove('is-target');const rect=this.catchBox.getBoundingClientRect(),pad=28;if(event.clientX>=rect.left-pad&&event.clientX<=rect.right+pad&&event.clientY>=rect.top-pad&&event.clientY<=rect.bottom+pad)this.command({type:'catch',catchableId:drag.itemId,from:drag.from,to:{x:9,y:22}});else this.syncCatchables(this.snapshot.map!);return;}
     if(!this.snapshot.shared&&this.pointers.has(event.pointerId)){const p=this.pointers.get(event.pointerId)!;const tap=!p.moved&&Math.hypot(event.clientX-p.startX,event.clientY-p.startY)<=8&&this.pointers.size===1;this.pointers.delete(event.pointerId);this.resetGesture();if(tap){const tower=this.towerCell(event);if(tower!==null){this.select?.(tower);return;}const cell=this.buildCell(event);if(cell!==null){if(this.select)this.select(cell);else this.command({type:'build',tower:this.element.dataset.tower||'guillotine',cell});}else this.selectCell(null);}return;}
     const stroke = this.stroke; this.stroke = null;
     if (!stroke || stroke.id !== event.pointerId) return;

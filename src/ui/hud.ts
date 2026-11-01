@@ -204,29 +204,15 @@ export class Hud {
     const allButtons = [...this.shop.querySelectorAll<HTMLButtonElement>('button[data-turret]')];
     const buttons = allButtons;
     const pageCount = Math.max(1, Math.ceil(buttons.length / 4));
-    if (window.innerWidth <= 860) {
-      buttons.forEach((button, index) => { button.hidden = false; button.dataset.orbitSlot = String(index % 4); });
-      this.turretNav.hidden = buttons.length <= 3;
-      this.turretNext.disabled = false;
-      this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
-      requestAnimationFrame(() => this.layoutTurretArc());
-      return;
-    }
-    this.turretPage = Math.max(0, Math.min(this.turretPage, pageCount - 1));
-    buttons.forEach((button, index) => {
-      const position = index - this.turretPage * 4;
-      button.hidden = position < 0 || position >= 4;
-      if (!button.hidden) button.dataset.orbitSlot = String(position);
-      else delete button.dataset.orbitSlot;
-    });
-    this.turretNav.hidden = pageCount === 1;
-    this.turretPrev.disabled = this.turretPage === 0;
-    this.turretNext.disabled = this.turretPage >= pageCount - 1;
+    buttons.forEach((button, index) => { button.hidden = false; button.dataset.orbitSlot = String(index % 4); });
+    this.turretNav.hidden = buttons.length <= 3;
+    this.turretNext.disabled = false;
     this.turretPageLabel.textContent = `${this.turretPage + 1} / ${pageCount}`;
+    requestAnimationFrame(() => this.layoutTurretArc());
   }
 
   private layoutTurretArc(): void {
-    if (window.innerWidth > 860 || this.shop.classList.contains('hidden')) return;
+    if (this.shop.classList.contains('hidden')) return;
     const frame=this.shop.getBoundingClientRect();
     if (!frame.width) return;
     const mid=frame.width/2;
@@ -291,8 +277,7 @@ export class Hud {
     const width = this.commandPopup.offsetWidth || Math.min(344, field.width - inset * 2);
     const height = this.commandPopup.offsetHeight || 174;
     const left = screenX - width / 2;
-    const compactCommand = window.innerWidth <= 860;
-    const top = screenY - height - (compactCommand ? 8 : 24);
+    const top = screenY - height - 8;
     this.commandPopup.style.left = `${Math.max(field.left + inset, Math.min(left, field.right - width - inset))}px`;
     this.commandPopup.style.top = `${Math.max(field.top + inset, Math.min(top, field.bottom - height - inset))}px`;
     this.commandPopup.style.bottom = 'auto';
@@ -324,10 +309,9 @@ export class Hud {
   private initSidebarMobile(): void {
     document.getElementById('btn-sidebar-close')?.addEventListener('click', () => this.setSidebarOpen(false));
     document.getElementById('btn-sidebar-hide')?.addEventListener('click', () => this.setSidebarOpen(false));
-    this.turretPrev.addEventListener('click', () => { this.turretPage--; this.updateTurretCarousel(); });
+    this.turretPrev.addEventListener('click', () => this.shop.scrollBy({ left: -130, behavior: 'smooth' }));
     this.turretNext.addEventListener('click', () => {
-      if (window.innerWidth <= 860) this.shop.scrollBy({ left: 130, behavior: 'smooth' });
-      else { this.turretPage++; this.updateTurretCarousel(); }
+      this.shop.scrollBy({ left: 130, behavior: 'smooth' });
     });
     this.shop.addEventListener('scroll', () => this.layoutTurretArc(), {passive:true});
     window.addEventListener('resize', () => requestAnimationFrame(() => this.layoutTurretArc()), {passive:true});
