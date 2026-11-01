@@ -1035,3 +1035,13 @@ html[data-ftd-motion='reduced'] #screen-hub #page-quests .bar-fill { animation: 
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* Profile: run bars are real buttons so touch, keyboard and mouse all reveal the same date detail. */
+.ftd-score-chart__run { padding:0; border:0; background:none; color:inherit; font:inherit; cursor:pointer; }
+.ftd-score-chart__run:is(:hover,:focus-visible,.is-selected) .ftd-score-chart__plot i { filter:brightness(1.3); outline:2px solid #ffe394; outline-offset:1px; }
+.ftd-run-trend__detail { margin:10px 0 0; min-height:2.6em; padding:7px 10px; border:1px solid #675b47; background:#1c1e22cc; color:#eee6d5; font-size:12px; line-height:1.4; clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px)); }
+.ftd-mode-overview { display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px; margin:10px 0; }
+.ftd-mode-overview__item { display:grid; gap:2px; padding:8px 10px; border:1px solid #675b47; background:#24262a; color:#eee6d5; cursor:help; clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px)); }
+.ftd-mode-overview__item strong { color:#ffe394; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+.ftd-mode-overview__item small { color:#b9b2a5; font-size:11px; }
+.ftd-mode-overview__item:focus-visible { outline:2px solid #ffe394; }

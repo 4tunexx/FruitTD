@@ -31,5 +31,9 @@ test('several runs show separate score marks and a comparison', () => {
   assert.equal(chart?.children.length, 3);
   assert.match(chart?.getAttribute('style') ?? '', /--points:3/);
   assert.match(root.querySelector('.ftd-run-trend__caption')?.textContent ?? '', /25 points up/);
-  assert.equal(root.querySelector('.ftd-run-kpis')?.querySelectorAll('.ftd-stat').length, 4);
+  assert.equal(root.querySelector('.ftd-run-kpis')?.querySelectorAll('.ftd-stat').length, 5);
+  assert.equal(root.querySelectorAll('.ftd-mode-overview__item').length, 4);
+  const bar = chart!.children[1] as HTMLElement;
+  bar.click();
+  assert.match(root.querySelector('.ftd-run-trend__detail')?.textContent ?? '', /Run 2 .*120 points/);
 });

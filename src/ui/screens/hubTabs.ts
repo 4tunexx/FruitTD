@@ -384,7 +384,7 @@ export function heroesHubTab(cb: HeroScreenCallbacks): HubTab {
 /* ─────────────────────────── PROFILE ─────────────────────────── */
 
 function statCard(label: string, value: string, hint?: string): HTMLElement {
-  return el('div', { class: 'ftd-stat' }, [
+  return el('div', { class: 'ftd-stat', ...(hint ? { tabindex: '0', title: `${label} · ${hint}` } : {}) }, [
     el('p', { class: 'ftd-stat__label', text: label }),
     el('p', { class: 'ftd-stat__value', text: value }),
     ...(hint ? [el('p', { class: 'ftd-stat__hint', text: hint })] : []),
