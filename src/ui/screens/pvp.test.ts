@@ -351,6 +351,20 @@ test('snapshots preserve a pressed control while the battlefield continues updat
   } finally { disposePvpHub(root); globalThis.setInterval=originalInterval; setAuthToken(null); resetDom(); }
 });
 
+test('Arena siege tells a new player the next step when nothing is built',async()=>{
+  resetDom();setAuthToken('test-only');
+  const balance=rebuiltPvpConfig(config),now=Date.now();
+  const game=newPvpMatch('hint-ui','arena',[createPvpPlayer('a','You','blue',balance,now),createPvpPlayer('b','Rival','red',balance,now)],now,balance) as ArenaMatch;
+  game.rulesVersion=2;game.status='active';game.map=balance.map;beginArena(game,now,balance);advancePvpMatch(game,1,now+20000,balance);
+  const interval=globalThis.setInterval;globalThis.setInterval=((_callback:()=>void)=>0) as typeof setInterval;
+  const root=document.createElement('div');document.body.appendChild(root);
+  try {
+    renderPvpHub(root,'arena',{realtime:false,request:async()=>({success:true,config:balance,match:{...structuredClone(game),yourSide:'blue',remainingMs:game.endsAt-now,yourSequence:0,yourCombo:0}}),createBattlefield:()=>({element:document.createElement('div'),interacting:false,update:()=>{},selectCell:()=>{},dispose:()=>{}})});
+    await flush();
+    assert.match(document.body.querySelector('[data-testid="arena-hint"]')?.textContent??'',/BUILD A TOWER/);
+  }finally{disposePvpHub(root);globalThis.setInterval=interval;setAuthToken(null);resetDom();}
+});
+
 test('Arena catches remain visible and can be released from the match dock',async()=>{
   resetDom();setAuthToken('test-only');
   const balance=rebuiltPvpConfig(config),now=Date.now();

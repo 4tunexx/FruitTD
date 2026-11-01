@@ -468,13 +468,10 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     if(match.phase==='capture'){
       const left=Math.max(0,Math.ceil(((match.phaseEndsAt??Date.now())-Date.now())/1000));
       const captured=own.captured??[];
-      const preview=el('div',{class:'ftd-arena-capture-preview','data-testid':'arena-capture-preview'},captured.length
-        ? captured.map(item=>el('span',{class:'ftd-arena-capture-preview__item',text:item.fruitKind||item.type}))
-        : [el('span',{class:'ftd-arena-capture-preview__empty',text:'Your catches will appear here.'})]);
       body.append(el('div',{class:'ftd-arena-capture-status',role:'status'},[
-        el('strong',{text:`CATCH FRUIT · ${left}s`}),
-        el('span',{text:captured.length?`${captured.length} caught · Ready to release when siege starts`:'Drag each zombie into the box. Catches stay here.'}),
-        preview,
+        el('strong',{text:`CATCH FRUIT · ${left}s${captured.length?` · ${captured.length} CAUGHT`:''}`}),
+        el('span',{text:captured.length?'Free release when the siege starts':'Drag each zombie into the box'}),
+        ...(captured.length?[el('div',{class:'ftd-arena-capture-preview','data-testid':'arena-capture-preview'},captured.map(item=>el('span',{class:'ftd-arena-capture-preview__item',text:item.fruitKind||item.type})))]:[]),
       ]));
       return;
     }
@@ -593,7 +590,13 @@ export function renderPvpHub(root: HTMLElement, initialQueue: PvpQueue, options:
     }
     tray.append(panel);
     body.append(tray);
-
+    if (!dockExpanded && selectedCell === null && match.status === 'active') {
+      const cheapest = Math.min(...Object.values(status.config?.towers || {}).map(tower => tower.cost), Infinity);
+      const hint = own.captured?.length ? `RELEASE ${own.captured.length} CAUGHT ZOMBIE${own.captured.length > 1 ? 'S' : ''} FREE · TAP RELEASE`
+        : !own.towers.length && own.fruts >= cheapest ? 'TAP A HEX NEAR YOUR WALL TO BUILD A TOWER'
+        : own.fruts < cheapest && !own.towers.length ? 'EARN FRUTS · SEND ZOMBIES, KILLS AND TOWER HITS PAY OUT' : '';
+      if (hint) body.append(el('div', { class: 'ftd-arena-hint', role: 'status', 'data-testid': 'arena-hint', text: hint }));
+    }
 
   };
   body.appendChild(LoadingIndicator('Connecting to the match service…'));
