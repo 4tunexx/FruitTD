@@ -102,6 +102,7 @@ import './ui/pcPolish.css';
 import './ui/combatRefinement.css';
 import './ui/combatExperience.css';
 import './ui/pvpCombatLayout.css';
+import './ui/squareDesign.css';
 import { installPowerHotkeys } from './ui/powerButton';
 onRunRecorded(() => { void syncRuns(); });
 

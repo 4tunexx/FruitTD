@@ -1,0 +1,27 @@
+/* One shape language everywhere: squared, chamfered panels with circular icon tokens.
+   Loaded last so older soft-corner rules in individual screens cannot reintroduce rounded rectangles. */
+:root { --ftd-chamfer: polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px)); }
+
+/* Arena (PvP) */
+.ftd-pvp.is-battle :is(.ftd-duel-panel,.ftd-duel-card,.ftd-duel-focus,.ftd-duel-team,.ftd-duel-panel-close,.ftd-duel-hud-toggle,.ftd-duel-camera summary,.ftd-duel-hud,.ftd-duel-dock .ftd-duel-resource,.ftd-arena-minimap,.ftd-arena-catch-box,.ftd-arena-capture-status,.ftd-arena-hint,.ftd-pvp__result,.ftd-duel-confirm section,.ftd-duel-upgrade),
+.ftd-pvp.is-battle button:not(.ftd-duel-icon-button):not(.hero-ability-slot) {
+  border-radius:0!important; clip-path:var(--ftd-chamfer)!important;
+}
+.ftd-pvp.is-battle .ftd-duel-icon-button { border-radius:50%!important; clip-path:none!important; }
+
+/* Co-op */
+.ftd-coop-vote,.ftd-coop-spend-note,
+.ftd-coop-battle :is(.ftd-coop-tower-manager,.ftd-coop-roster,.ftd-pvp__siege-controls,.ftd-coop-boss,.ftd-coop-leave,.hero-ability-bar--coop,.ftd-coop-hud) {
+  border-radius:0!important; clip-path:var(--ftd-chamfer)!important;
+}
+
+/* Casual / Horde / Campaign HUD */
+body[data-ftd-screen='PLAY'] :is(#sidebar,#game-canvas,#command-popup #hud-pick) { border-radius:0!important; }
+body[data-ftd-screen='PLAY'] :is(#sidebar,#command-popup #hud-pick) { clip-path:var(--ftd-chamfer); }
+
+/* Hub, profile, heroes, social and the admin console */
+:is(.menu-player-card,.ftd-hub-social-popover,.ftd-social__layout,.ftd-hub__sub,.ftd-hero-state,.ftd-hero-power-tree,.ftd-item-card__stats li,.inv-empty-state,.ftd-catbar__tab,.ftd-pvp__siege-controls,.ftd-profile-vip),
+#modal-admin :is(.admin-live-stats,.admin-section,.admin-card,.modal-card--admin) {
+  border-radius:0!important;
+}
+#modal-admin :is(.admin-section,.admin-card,.admin-live-stats) { clip-path:var(--ftd-chamfer); }
