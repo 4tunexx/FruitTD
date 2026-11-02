@@ -63,3 +63,11 @@ body:has(#hud-pause:not(.hidden)) #sidebar { visibility:hidden!important; pointe
     width:min(640px,calc(100% - 24px)); margin:10px auto 0; box-sizing:border-box; border:1px solid var(--ftd-color-border,#675b47);
   }
 }
+
+/* Inside the hub the shared page heading already shows the title and Back. Embedded pages (Settings, News, Missions…)
+   must not repeat them, and Campaign keeps only its progress counter. A later desktop rule re-showed them, hence !important. */
+#screen-hub .ftd-hub-panel-content .ftd-screen__header:not(.ftd-hub-page-heading) { display:none!important; }
+#screen-hub .ftd-campaign__header { justify-content:flex-end!important; }
+#screen-hub.ftd-hub .ftd-hub-panel-content .ftd-campaign__header .ftd-campaign__back,
+#screen-hub.ftd-hub .ftd-hub-panel-content .ftd-campaign__header > button,
+#screen-hub.ftd-hub .ftd-hub-panel-content .ftd-campaign__header > div:not(.ftd-campaign__progress) { display:none!important; }
