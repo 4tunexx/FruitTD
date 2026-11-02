@@ -25,3 +25,27 @@ body[data-ftd-screen='PLAY'] :is(#sidebar,#command-popup #hud-pick) { clip-path:
   border-radius:0!important;
 }
 #modal-admin :is(.admin-section,.admin-card,.admin-live-stats) { clip-path:var(--ftd-chamfer); }
+
+/* Pause / results: straight, centred buttons (the legacy 6deg skew pushed icons onto their own line). */
+:is(#hud-pause,#hud-gameover) .modal-btn {
+  display:flex; align-items:center; justify-content:center; gap:10px; min-height:52px; width:100%; box-sizing:border-box;
+  transform:none!important; box-shadow:none!important; border-width:1px; letter-spacing:.08em; line-height:1;
+}
+:is(#hud-pause,#hud-gameover) .modal-btn:hover:not(:disabled) { transform:none!important; filter:brightness(1.12); border-color:#ffe394; }
+:is(#hud-pause,#hud-gameover) .modal-btn :is(svg,[data-lucide]) { flex:0 0 20px; width:20px; height:20px; margin:0; position:static; transform:none; }
+#hud-pause .modal-card { width:min(380px,92vw); }
+#hud-pause .modal-icon { display:grid; place-items:center; width:52px; height:52px; margin:0 auto 10px; border-radius:50%; border:2px solid #ffd260; color:#ffd260; background:#17191f; }
+#hud-pause .modal-btns { gap:10px; }
+/* The status drawer is not part of the pause screen. */
+body:has(#hud-pause:not(.hidden)) #sidebar { visibility:hidden!important; pointer-events:none; }
+
+/* PC combat HUD: one compact centred strip instead of a bar across the whole screen. */
+@media (min-width:1100px) and (min-height:600px) {
+  body[data-ftd-screen='PLAY'] #battle-status { top:10px!important; left:50%!important; right:auto!important; width:min(520px,42vw)!important; transform:translateX(-50%); }
+  body[data-ftd-screen='PLAY'] #super-wrap,
+  body[data-ftd-screen='PLAY'] #player-chip.is-collapsed + #super-wrap { top:62px!important; left:50%!important; right:auto!important; width:min(520px,42vw)!important; transform:translateX(-50%); }
+  body[data-ftd-screen='PLAY'] #boss-health { top:84px!important; }
+  body[data-ftd-screen='PLAY'] #hud-toast { top:104px!important; }
+  /* The build-drawer button sits in the bottom corner, clear of the player chip. */
+  body[data-ftd-screen='PLAY'] #btn-sidebar-toggle { top:auto!important; bottom:16px!important; left:16px!important; }
+}
